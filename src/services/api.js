@@ -40,6 +40,18 @@ export async function cadastrarCliente(cliente) {
   return tratarResposta(response)
 }
 
+export async function cadastrarServico(servico) {
+  const response = await fetch(`${API_URL}/servicos`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(servico),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function cadastrarAgendamento(agendamento) {
   const response = await fetch(`${API_URL}/agendamentos`, {
     method: 'POST',

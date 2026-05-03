@@ -16,6 +16,7 @@ import { RouterLink, RouterView } from 'vue-router'
       <nav class="menu-principal" aria-label="Navegacao principal">
         <RouterLink to="/">Agenda</RouterLink>
         <RouterLink to="/clientes">Clientes</RouterLink>
+        <RouterLink to="/servicos">Servicos</RouterLink>
       </nav>
     </aside>
 
