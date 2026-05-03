@@ -136,6 +136,18 @@ export async function cadastrarAgendamento(agendamento) {
   return tratarResposta(response)
 }
 
+export async function atualizarAgendamento(id, agendamento) {
+  const response = await fetch(`${API_URL}/agendamentos/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(agendamento),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function atualizarStatusAgendamento(id, status) {
   const response = await fetch(`${API_URL}/agendamentos/${id}/status`, {
     method: 'PUT',

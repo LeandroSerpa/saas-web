@@ -8,6 +8,7 @@ import {
   buscarFuncionarios,
   buscarServicos,
   atualizarStatusAgendamento,
+  atualizarAgendamento,
   cadastrarAgendamento,
 } from '@/services/api'
 
@@ -20,14 +21,20 @@ const carregando = ref(true)
 const erro = ref('')
 const atualizandoId = ref(null)
 const mensagemSucessoAgendamento = ref('')
+const agendamentoEditandoId = ref(null)
+const agendamentoEditandoStatus = ref('agendado')
 
-const novoAgendamento = ref({
-  clienteId: '',
-  servicoId: '',
-  funcionarioId: '',
-  dataHoraInicio: '',
-  observacao: '',
-})
+const novoAgendamento = ref(criarAgendamentoInicial())
+
+function criarAgendamentoInicial() {
+  return {
+    clienteId: '',
+    servicoId: '',
+    funcionarioId: '',
+    dataHoraInicio: '',
+    observacao: '',
+  }
+}
 
 const servicosAtivos = computed(() => servicos.value.filter((servico) => servico.ativo === true))
 const funcionariosAtivos = computed(() =>
@@ -131,27 +138,75 @@ async function salvarAgendamento() {
       servicoId: Number(novoAgendamento.value.servicoId),
       dataHoraInicio: formatarDataParaApi(inicio),
       dataHoraFim: formatarDataParaApi(fim),
-      status: 'agendado',
+      status: agendamentoEditandoId.value ? agendamentoEditandoStatus.value : 'agendado',
       observacao: novoAgendamento.value.observacao,
     }
 
-    await cadastrarAgendamento(agendamento)
-
-    mensagemSucessoAgendamento.value = 'Agendamento cadastrado com sucesso.'
-
-    novoAgendamento.value = {
-      clienteId: '',
-      servicoId: '',
-      funcionarioId: '',
-      dataHoraInicio: '',
-      observacao: '',
+    if (agendamentoEditandoId.value) {
+      await atualizarAgendamento(agendamentoEditandoId.value, agendamento)
+      mensagemSucessoAgendamento.value = 'Agendamento atualizado com sucesso.'
+    } else {
+      await cadastrarAgendamento(agendamento)
+      mensagemSucessoAgendamento.value = 'Agendamento cadastrado com sucesso.'
     }
+
+    cancelarEdicaoAgendamento(false)
 
     await carregarAgendamentos()
   } catch (error) {
-    erro.value = 'Nao foi possivel cadastrar o agendamento.'
+    erro.value = agendamentoEditandoId.value
+      ? 'Nao foi possivel atualizar o agendamento.'
+      : 'Nao foi possivel cadastrar o agendamento.'
     console.error(error)
   }
+}
+
+function editarAgendamento(agendamento) {
+  erro.value = ''
+  mensagemSucessoAgendamento.value = ''
+
+  const cliente = buscarPorNome(clientes.value, agendamento.cliente)
+  const servico = buscarPorNome(servicos.value, agendamento.servico)
+  const funcionario = buscarPorNome(funcionarios.value, agendamento.funcionario)
+
+  agendamentoEditandoId.value = agendamento.id
+  agendamentoEditandoStatus.value = agendamento.status || 'agendado'
+  novoAgendamento.value = {
+    clienteId: cliente?.id || '',
+    servicoId: servico?.id || '',
+    funcionarioId: funcionario?.id || '',
+    dataHoraInicio: formatarDataParaInput(agendamento.dataHoraInicio),
+    observacao: agendamento.observacao || '',
+  }
+}
+
+function cancelarEdicaoAgendamento(limparMensagens = true) {
+  agendamentoEditandoId.value = null
+  agendamentoEditandoStatus.value = 'agendado'
+  novoAgendamento.value = criarAgendamentoInicial()
+
+  if (limparMensagens) {
+    mensagemSucessoAgendamento.value = ''
+  }
+}
+
+function buscarPorNome(lista, nome) {
+  const nomeNormalizado = normalizarTexto(nome)
+  return lista.find((item) => normalizarTexto(item.nome) === nomeNormalizado)
+}
+
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+}
+
+function formatarDataParaInput(dataHora) {
+  if (!dataHora) {
+    return ''
+  }
+
+  return String(dataHora).slice(0, 16)
 }
 
 function formatarDataParaApi(data) {
@@ -193,7 +248,9 @@ onMounted(() => {
         :servicos="servicosAtivos"
         :funcionarios="funcionariosAtivos"
         :mensagem-sucesso="mensagemSucessoAgendamento"
+        :modo-edicao="Boolean(agendamentoEditandoId)"
         @salvar="salvarAgendamento"
+        @cancelar="cancelarEdicaoAgendamento"
       />
     </section>
 
@@ -222,6 +279,7 @@ onMounted(() => {
           :agendamento="agendamento"
           :atualizando="atualizandoId === agendamento.id"
           @alterar-status="alterarStatus"
+          @editar="editarAgendamento"
         />
       </section>
     </section>
@@ -486,6 +544,14 @@ onMounted(() => {
 }
 
 .secundario:hover {
+  background: #1e293b;
+}
+
+:deep(.secundario) {
+  background: #0f172a;
+}
+
+:deep(.secundario:hover) {
   background: #1e293b;
 }
 

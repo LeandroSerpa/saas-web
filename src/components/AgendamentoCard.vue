@@ -10,7 +10,7 @@ defineProps({
   },
 })
 
-defineEmits(['alterar-status'])
+defineEmits(['alterar-status', 'editar'])
 
 function formatarDataHora(dataHora) {
   if (!dataHora) {
@@ -74,6 +74,8 @@ function statusClasse(status) {
     </div>
 
     <div class="acoes">
+      <button class="botao secundario" @click="$emit('editar', agendamento)">Editar</button>
+
       <button
         class="botao sucesso"
         :disabled="atualizando || agendamento.status === 'concluido'"

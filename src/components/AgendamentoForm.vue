@@ -21,9 +21,13 @@ defineProps({
     type: String,
     default: '',
   },
+  modoEdicao: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-defineEmits(['salvar'])
+defineEmits(['salvar', 'cancelar'])
 
 function formatarPreco(preco) {
   if (preco === null || preco === undefined) {
@@ -40,8 +44,14 @@ function formatarPreco(preco) {
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>Novo agendamento</h2>
-      <p>Escolha cliente, servico, funcionario e horario.</p>
+      <h2>{{ modoEdicao ? 'Editar agendamento' : 'Novo agendamento' }}</h2>
+      <p>
+        {{
+          modoEdicao
+            ? 'Atualize cliente, serviço, funcionário e horário.'
+            : 'Escolha cliente, serviço, funcionário e horário.'
+        }}
+      </p>
     </div>
 
     <div class="campos">
@@ -91,7 +101,13 @@ function formatarPreco(preco) {
     </div>
 
     <div class="rodape-formulario">
-      <button class="botao principal" @click="$emit('salvar')">Cadastrar agendamento</button>
+      <button class="botao principal" @click="$emit('salvar')">
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar agendamento' }}
+      </button>
+
+      <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">
+        Cancelar
+      </button>
 
       <p v-if="mensagemSucesso" class="sucesso-texto">
         {{ mensagemSucesso }}
