@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import UsuarioForm from '@/components/UsuarioForm.vue'
 import {
   buscarUsuarios,
@@ -15,8 +15,17 @@ const mensagemSucessoUsuario = ref('')
 const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
 const usuarioEditandoId = ref(null)
+const editandoUsuarioAtual = ref(false)
+const perfilOriginalEdicao = ref('')
 
 const usuario = ref(criarUsuarioInicial())
+const usuarioLogado = computed(() => obterUsuarioLogado())
+const perfilLogado = computed(() => usuarioLogado.value?.perfil || '')
+const superAdminLogado = computed(() => perfilLogado.value === 'SUPER_ADMIN')
+const adminLogado = computed(() => perfilLogado.value === 'ADMIN')
+const perfisPermitidos = computed(() =>
+  superAdminLogado.value ? ['SUPER_ADMIN', 'ADMIN', 'USUARIO'] : ['USUARIO'],
+)
 
 function criarUsuarioInicial() {
   return {
@@ -29,17 +38,21 @@ function criarUsuarioInicial() {
 }
 
 function obterEmpresaId() {
+  return obterUsuarioLogado()?.empresaId || 1
+}
+
+function obterUsuarioLogado() {
   const usuarioSalvo = localStorage.getItem('usuario')
 
   if (!usuarioSalvo) {
-    return 1
+    return null
   }
 
   try {
-    return JSON.parse(usuarioSalvo).empresaId || 1
+    return JSON.parse(usuarioSalvo)
   } catch (error) {
     console.error(error)
-    return 1
+    return null
   }
 }
 
@@ -78,12 +91,29 @@ async function salvarUsuario() {
       return
     }
 
+    if (usuarioEditandoId.value && !podeEditarUsuario({ id: usuarioEditandoId.value, perfil: perfilOriginalEdicao.value })) {
+      erro.value = 'Voce nao tem permissao para editar este usuario.'
+      return
+    }
+
+    if (!usuarioEditandoId.value && adminLogado.value && usuario.value.perfil !== 'USUARIO') {
+      erro.value = 'Administradores podem cadastrar apenas usuarios com perfil USUARIO.'
+      return
+    }
+
     const dadosUsuario = {
       empresaId: obterEmpresaId(),
       nome: usuario.value.nome,
       email: usuario.value.email,
       perfil: usuario.value.perfil,
       ativo: Boolean(usuario.value.ativo),
+    }
+
+    if (editandoUsuarioAtual.value) {
+      dadosUsuario.perfil = perfilOriginalEdicao.value || perfilLogado.value
+      dadosUsuario.ativo = true
+    } else if (adminLogado.value) {
+      dadosUsuario.perfil = 'USUARIO'
     }
 
     if (usuario.value.senha) {
@@ -114,6 +144,8 @@ function editarUsuario(usuarioItem) {
   mensagemSucessoUsuario.value = ''
   mensagemSucessoStatus.value = ''
   usuarioEditandoId.value = usuarioItem.id
+  editandoUsuarioAtual.value = usuarioAtual(usuarioItem)
+  perfilOriginalEdicao.value = usuarioItem.perfil || 'USUARIO'
   usuario.value = {
     nome: usuarioItem.nome || '',
     email: usuarioItem.email || '',
@@ -125,6 +157,8 @@ function editarUsuario(usuarioItem) {
 
 function cancelarEdicaoUsuario(limparMensagens = true) {
   usuarioEditandoId.value = null
+  editandoUsuarioAtual.value = false
+  perfilOriginalEdicao.value = ''
   usuario.value = criarUsuarioInicial()
 
   if (limparMensagens) {
@@ -134,6 +168,16 @@ function cancelarEdicaoUsuario(limparMensagens = true) {
 
 async function alternarAtivoUsuario(usuarioItem) {
   try {
+    if (usuarioAtual(usuarioItem)) {
+      erro.value = 'O usuario atual nao pode ser desativado.'
+      return
+    }
+
+    if (!podeAlterarAtivoUsuario(usuarioItem)) {
+      erro.value = 'Voce nao tem permissao para alterar o status deste usuario.'
+      return
+    }
+
     atualizandoId.value = usuarioItem.id
     erro.value = ''
     mensagemSucessoUsuario.value = ''
@@ -155,6 +199,48 @@ async function alternarAtivoUsuario(usuarioItem) {
 
 function estaAtivo(usuarioItem) {
   return usuarioItem.ativo !== false
+}
+
+function podeEditarUsuario(usuarioItem) {
+  if (superAdminLogado.value) {
+    return true
+  }
+
+  if (adminLogado.value) {
+    return usuarioAtual(usuarioItem) || usuarioItem.perfil === 'USUARIO'
+  }
+
+  return false
+}
+
+function podeAlterarAtivoUsuario(usuarioItem) {
+  if (usuarioAtual(usuarioItem)) {
+    return false
+  }
+
+  if (superAdminLogado.value) {
+    return true
+  }
+
+  if (adminLogado.value) {
+    return usuarioItem.perfil === 'USUARIO'
+  }
+
+  return false
+}
+
+function usuarioAtual(usuarioItem) {
+  const usuarioLogado = obterUsuarioLogado()
+
+  if (!usuarioLogado) {
+    return false
+  }
+
+  if (usuarioLogado.id && usuarioItem.id) {
+    return Number(usuarioLogado.id) === Number(usuarioItem.id)
+  }
+
+  return usuarioLogado.email && usuarioLogado.email === usuarioItem.email
 }
 
 function exibirValor(valor) {
@@ -190,6 +276,9 @@ onMounted(() => {
       v-model="usuario"
       :mensagem-sucesso="mensagemSucessoUsuario"
       :modo-edicao="Boolean(usuarioEditandoId)"
+      :bloquear-perfil="editandoUsuarioAtual"
+      :bloquear-ativo="editandoUsuarioAtual"
+      :perfis="perfisPermitidos"
       @salvar="salvarUsuario"
       @cancelar="cancelarEdicaoUsuario"
     />
@@ -228,12 +317,20 @@ onMounted(() => {
           <div class="detalhes">
             <p><strong>E-mail:</strong> {{ exibirValor(usuarioItem.email) }}</p>
             <p><strong>Perfil:</strong> {{ exibirValor(usuarioItem.perfil) }}</p>
+            <p v-if="usuarioAtual(usuarioItem)" class="usuario-atual">Usuario atual</p>
           </div>
 
           <div class="acoes">
-            <button class="botao secundario" @click="editarUsuario(usuarioItem)">Editar</button>
+            <button
+              v-if="podeEditarUsuario(usuarioItem)"
+              class="botao secundario"
+              @click="editarUsuario(usuarioItem)"
+            >
+              Editar
+            </button>
 
             <button
+              v-if="podeAlterarAtivoUsuario(usuarioItem)"
               :class="['botao', estaAtivo(usuarioItem) ? 'perigo' : 'sucesso']"
               :disabled="atualizandoId === usuarioItem.id"
               @click="alternarAtivoUsuario(usuarioItem)"
@@ -353,6 +450,12 @@ onMounted(() => {
 }
 
 .detalhes strong {
+  font-weight: 800;
+}
+
+.usuario-atual {
+  color: #2563eb;
+  font-size: 14px;
   font-weight: 800;
 }
 

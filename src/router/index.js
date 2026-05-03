@@ -107,7 +107,7 @@ router.beforeEach((to) => {
   if (to.meta.requiresAdmin) {
     const usuario = carregarUsuario()
 
-    if (usuario?.perfil !== 'ADMIN') {
+    if (usuario?.perfil !== 'ADMIN' && usuario?.perfil !== 'SUPER_ADMIN') {
       return '/dashboard'
     }
   }

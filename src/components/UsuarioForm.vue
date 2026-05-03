@@ -13,6 +13,18 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  bloquearPerfil: {
+    type: Boolean,
+    default: false,
+  },
+  bloquearAtivo: {
+    type: Boolean,
+    default: false,
+  },
+  perfis: {
+    type: Array,
+    default: () => ['ADMIN', 'USUARIO'],
+  },
 })
 
 defineEmits(['salvar', 'cancelar'])
@@ -54,14 +66,14 @@ defineEmits(['salvar', 'cancelar'])
 
       <label>
         Perfil *
-        <select v-model="usuario.perfil">
-          <option value="ADMIN">ADMIN</option>
-          <option value="USUARIO">USUARIO</option>
+        <input v-if="bloquearPerfil" v-model="usuario.perfil" type="text" disabled />
+        <select v-else v-model="usuario.perfil">
+          <option v-for="perfil in perfis" :key="perfil" :value="perfil">{{ perfil }}</option>
         </select>
       </label>
 
       <label class="campo-checkbox">
-        <input v-model="usuario.ativo" type="checkbox" />
+        <input v-model="usuario.ativo" type="checkbox" :disabled="bloquearAtivo" />
         Ativo
       </label>
     </div>
