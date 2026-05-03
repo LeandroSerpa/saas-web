@@ -52,6 +52,18 @@ export async function cadastrarServico(servico) {
   return tratarResposta(response)
 }
 
+export async function atualizarServico(id, servico) {
+  const response = await fetch(`${API_URL}/servicos/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(servico),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function atualizarAtivoServico(id, ativo) {
   const response = await fetch(`${API_URL}/servicos/${id}/ativo`, {
     method: 'PUT',

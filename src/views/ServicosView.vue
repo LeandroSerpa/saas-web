@@ -1,7 +1,12 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import ServicoForm from '@/components/ServicoForm.vue'
-import { buscarServicos, cadastrarServico, atualizarAtivoServico } from '@/services/api'
+import {
+  buscarServicos,
+  cadastrarServico,
+  atualizarServico,
+  atualizarAtivoServico,
+} from '@/services/api'
 
 const servicos = ref([])
 const carregando = ref(true)
@@ -9,6 +14,7 @@ const erro = ref('')
 const mensagemSucessoServico = ref('')
 const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
+const servicoEmEdicaoId = ref(null)
 
 const servico = ref(criarServicoInicial())
 
@@ -58,21 +64,22 @@ async function salvarServico() {
       return
     }
 
-    await cadastrarServico({
-      empresaId: 1,
-      nome: servico.value.nome,
-      descricao: servico.value.descricao,
-      preco: Number(servico.value.preco),
-      duracaoMinutos: Number(servico.value.duracaoMinutos),
-      ativo: Boolean(servico.value.ativo),
-    })
+    const dadosServico = montarPayloadServico()
 
-    mensagemSucessoServico.value = 'Servico cadastrado com sucesso.'
-    servico.value = criarServicoInicial()
+    if (servicoEmEdicaoId.value) {
+      await atualizarServico(servicoEmEdicaoId.value, dadosServico)
+      mensagemSucessoServico.value = 'Servico atualizado com sucesso.'
+    } else {
+      await cadastrarServico(dadosServico)
+      mensagemSucessoServico.value = 'Servico cadastrado com sucesso.'
+    }
 
+    limparFormulario()
     await carregarServicos()
   } catch (error) {
-    erro.value = 'Nao foi possivel cadastrar o servico.'
+    erro.value = servicoEmEdicaoId.value
+      ? 'Nao foi possivel atualizar o servico.'
+      : 'Nao foi possivel cadastrar o servico.'
     console.error(error)
   }
 }
@@ -95,6 +102,41 @@ async function alternarAtivoServico(servicoItem) {
     console.error(error)
   } finally {
     atualizandoId.value = null
+  }
+}
+
+function editarServico(servicoItem) {
+  erro.value = ''
+  mensagemSucessoServico.value = ''
+  mensagemSucessoStatus.value = ''
+  servicoEmEdicaoId.value = servicoItem.id
+  servico.value = {
+    empresaId: servicoItem.empresaId || 1,
+    nome: servicoItem.nome || '',
+    descricao: servicoItem.descricao || '',
+    preco: servicoItem.preco ?? '',
+    duracaoMinutos: servicoItem.duracaoMinutos ?? '',
+    ativo: estaAtivo(servicoItem),
+  }
+}
+
+function cancelarEdicao() {
+  limparFormulario()
+}
+
+function limparFormulario() {
+  servicoEmEdicaoId.value = null
+  servico.value = criarServicoInicial()
+}
+
+function montarPayloadServico() {
+  return {
+    empresaId: 1,
+    nome: servico.value.nome,
+    descricao: servico.value.descricao,
+    preco: Number(servico.value.preco),
+    duracaoMinutos: Number(servico.value.duracaoMinutos),
+    ativo: Boolean(servico.value.ativo),
   }
 }
 
@@ -145,7 +187,9 @@ onMounted(() => {
     <ServicoForm
       v-model="servico"
       :mensagem-sucesso="mensagemSucessoServico"
+      :modo-edicao="Boolean(servicoEmEdicaoId)"
       @salvar="salvarServico"
+      @cancelar="cancelarEdicao"
     />
 
     <section class="secao-servicos">
@@ -186,6 +230,14 @@ onMounted(() => {
           </div>
 
           <div class="acoes">
+            <button
+              class="botao neutro"
+              :disabled="atualizandoId === servicoItem.id"
+              @click="editarServico(servicoItem)"
+            >
+              Editar
+            </button>
+
             <button
               :class="['botao', estaAtivo(servicoItem) ? 'perigo' : 'sucesso']"
               :disabled="atualizandoId === servicoItem.id"
@@ -366,6 +418,16 @@ onMounted(() => {
 
 .secundario:hover {
   background: #1e293b;
+}
+
+.neutro,
+:deep(.neutro) {
+  background: #475569;
+}
+
+.neutro:hover,
+:deep(.neutro:hover) {
+  background: #334155;
 }
 
 :deep(.principal) {
