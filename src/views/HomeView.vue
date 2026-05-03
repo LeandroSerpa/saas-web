@@ -30,6 +30,9 @@ const novoAgendamento = ref({
 })
 
 const servicosAtivos = computed(() => servicos.value.filter((servico) => servico.ativo === true))
+const funcionariosAtivos = computed(() =>
+  funcionarios.value.filter((funcionario) => funcionario.ativo === true),
+)
 
 async function carregarDados() {
   try {
@@ -188,7 +191,7 @@ onMounted(() => {
         v-model="novoAgendamento"
         :clientes="clientes"
         :servicos="servicosAtivos"
-        :funcionarios="funcionarios"
+        :funcionarios="funcionariosAtivos"
         :mensagem-sucesso="mensagemSucessoAgendamento"
         @salvar="salvarAgendamento"
       />

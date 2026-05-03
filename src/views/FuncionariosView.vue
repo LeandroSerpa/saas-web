@@ -1,12 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import FuncionarioForm from '@/components/FuncionarioForm.vue'
-import { buscarFuncionarios, cadastrarFuncionario } from '@/services/api'
+import { buscarFuncionarios, cadastrarFuncionario, atualizarAtivoFuncionario } from '@/services/api'
 
 const funcionarios = ref([])
 const carregando = ref(true)
 const erro = ref('')
 const mensagemSucessoFuncionario = ref('')
+const mensagemSucessoStatus = ref('')
+const atualizandoId = ref(null)
 
 const funcionario = ref(criarFuncionarioInicial())
 
@@ -39,6 +41,7 @@ async function salvarFuncionario() {
   try {
     erro.value = ''
     mensagemSucessoFuncionario.value = ''
+    mensagemSucessoStatus.value = ''
 
     if (!funcionario.value.nome.trim()) {
       erro.value = 'Informe o nome do funcionario.'
@@ -61,6 +64,27 @@ async function salvarFuncionario() {
   } catch (error) {
     erro.value = 'Nao foi possivel cadastrar o funcionario.'
     console.error(error)
+  }
+}
+
+async function alternarAtivoFuncionario(funcionarioItem) {
+  try {
+    atualizandoId.value = funcionarioItem.id
+    erro.value = ''
+    mensagemSucessoFuncionario.value = ''
+    mensagemSucessoStatus.value = ''
+
+    await atualizarAtivoFuncionario(funcionarioItem.id, !funcionarioItem.ativo)
+    await carregarFuncionarios()
+
+    mensagemSucessoStatus.value = estaAtivo(funcionarioItem)
+      ? 'Funcionario desativado com sucesso.'
+      : 'Funcionario ativado com sucesso.'
+  } catch (error) {
+    erro.value = 'Nao foi possivel atualizar o status do funcionario.'
+    console.error(error)
+  } finally {
+    atualizandoId.value = null
   }
 }
 
@@ -91,6 +115,10 @@ onMounted(() => {
 
     <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
+    </section>
+
+    <section v-if="mensagemSucessoStatus" class="card sucesso-card">
+      <p>{{ mensagemSucessoStatus }}</p>
     </section>
 
     <FuncionarioForm
@@ -139,6 +167,20 @@ onMounted(() => {
             <p><strong>E-mail:</strong> {{ exibirValor(funcionarioItem.email) }}</p>
             <p><strong>Cargo:</strong> {{ exibirValor(funcionarioItem.cargo) }}</p>
           </div>
+
+          <div class="acoes">
+            <button
+              :class="['botao', estaAtivo(funcionarioItem) ? 'perigo' : 'sucesso']"
+              :disabled="atualizandoId === funcionarioItem.id"
+              @click="alternarAtivoFuncionario(funcionarioItem)"
+            >
+              {{ estaAtivo(funcionarioItem) ? 'Desativar' : 'Ativar' }}
+            </button>
+          </div>
+
+          <p v-if="atualizandoId === funcionarioItem.id" class="atualizando">
+            Atualizando funcionario...
+          </p>
         </article>
       </section>
     </section>
@@ -250,6 +292,12 @@ onMounted(() => {
   font-weight: 800;
 }
 
+.acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .status {
   padding: 7px 11px;
   border-radius: 999px;
@@ -288,6 +336,13 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
+.botao:disabled,
+:deep(.botao:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .secundario {
   background: #0f172a;
   min-width: 140px;
@@ -303,6 +358,22 @@ onMounted(() => {
 
 :deep(.principal:hover) {
   background: #1d4ed8;
+}
+
+.sucesso {
+  background: #16a34a;
+}
+
+.sucesso:hover {
+  background: #15803d;
+}
+
+.perigo {
+  background: #dc2626;
+}
+
+.perigo:hover {
+  background: #b91c1c;
 }
 
 :deep(.formulario) {
@@ -377,6 +448,18 @@ onMounted(() => {
   border-color: #fecaca;
   background: #fef2f2;
   color: #991b1b;
+}
+
+.sucesso-card {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.atualizando {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
 }
 
 :deep(.sucesso-texto) {
