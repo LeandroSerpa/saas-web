@@ -1,0 +1,59 @@
+<script setup>
+const funcionario = defineModel({
+  type: Object,
+  required: true,
+})
+
+defineProps({
+  mensagemSucesso: {
+    type: String,
+    default: '',
+  },
+})
+
+defineEmits(['salvar'])
+</script>
+
+<template>
+  <section class="card formulario">
+    <div class="titulo-card">
+      <h2>Novo funcionario</h2>
+      <p>Cadastre um funcionario para atender os agendamentos.</p>
+    </div>
+
+    <div class="campos">
+      <label>
+        Nome *
+        <input v-model="funcionario.nome" type="text" placeholder="Ex: Ana Costa" />
+      </label>
+
+      <label>
+        Telefone
+        <input v-model="funcionario.telefone" type="text" placeholder="Ex: (21) 99999-9999" />
+      </label>
+
+      <label>
+        E-mail
+        <input v-model="funcionario.email" type="email" placeholder="Ex: funcionario@email.com" />
+      </label>
+
+      <label>
+        Cargo
+        <input v-model="funcionario.cargo" type="text" placeholder="Ex: Consultor" />
+      </label>
+
+      <label class="campo-checkbox">
+        <input v-model="funcionario.ativo" type="checkbox" />
+        Ativo
+      </label>
+    </div>
+
+    <div class="rodape-formulario">
+      <button class="botao principal" @click="$emit('salvar')">Cadastrar funcionario</button>
+
+      <p v-if="mensagemSucesso" class="sucesso-texto">
+        {{ mensagemSucesso }}
+      </p>
+    </div>
+  </section>
+</template>
