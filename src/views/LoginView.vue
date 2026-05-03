@@ -9,6 +9,7 @@ const email = ref('')
 const senha = ref('')
 const erro = ref('')
 const carregando = ref(false)
+const mostrarSenha = ref(false)
 
 async function entrar() {
   try {
@@ -76,12 +77,35 @@ async function entrar() {
 
         <label>
           Senha
-          <input
-            v-model="senha"
-            type="password"
-            autocomplete="current-password"
-            placeholder="Digite sua senha"
-          />
+          <span class="campo-senha">
+            <input
+              v-model="senha"
+              :type="mostrarSenha ? 'text' : 'password'"
+              autocomplete="current-password"
+              placeholder="Digite sua senha"
+            />
+            <button
+              class="botao-olho"
+              type="button"
+              :aria-label="mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'"
+              @click="mostrarSenha = !mostrarSenha"
+            >
+              <svg v-if="!mostrarSenha" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
+                />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+
+              <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M2.5 12s3.5-6 9.5-6c2.1 0 3.9.7 5.3 1.6M21.5 12s-3.5 6-9.5 6c-2.1 0-3.9-.7-5.3-1.6"
+                />
+                <path d="M4 4l16 16" />
+                <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+              </svg>
+            </button>
+          </span>
         </label>
 
         <button class="botao-login" type="submit" :disabled="carregando">
@@ -198,6 +222,57 @@ input:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.campo-senha {
+  position: relative;
+  display: block;
+}
+
+.campo-senha input {
+  padding-right: 46px;
+}
+
+.botao-olho {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: none;
+  color: #64748b;
+  background: transparent;
+  padding: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+  transform: translateY(-50%);
+}
+
+.botao-olho:hover {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.botao-olho:focus {
+  outline: none;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.botao-olho svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .botao-login {

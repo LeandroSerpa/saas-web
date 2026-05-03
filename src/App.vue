@@ -52,6 +52,7 @@ function sair() {
         <RouterLink to="/clientes">Clientes</RouterLink>
         <RouterLink to="/servicos">Servicos</RouterLink>
         <RouterLink to="/funcionarios">Funcionarios</RouterLink>
+        <RouterLink to="/alterar-senha">Alterar senha</RouterLink>
       </nav>
     </aside>
 

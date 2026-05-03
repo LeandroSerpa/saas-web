@@ -5,6 +5,7 @@ import ClientesView from '../views/ClientesView.vue'
 import ServicosView from '../views/ServicosView.vue'
 import FuncionariosView from '../views/FuncionariosView.vue'
 import LoginView from '../views/LoginView.vue'
+import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 
 const rotasProtegidas = {
   requiresAuth: true,
@@ -45,6 +46,12 @@ const router = createRouter({
       path: '/funcionarios',
       name: 'funcionarios',
       component: FuncionariosView,
+      meta: rotasProtegidas,
+    },
+    {
+      path: '/alterar-senha',
+      name: 'alterar-senha',
+      component: AlterarSenhaView,
       meta: rotasProtegidas,
     },
     {

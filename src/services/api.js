@@ -34,7 +34,13 @@ async function tratarResposta(response) {
     throw new Error('Erro ao comunicar com a API')
   }
 
-  return response.json()
+  const contentType = response.headers.get('content-type') || ''
+
+  if (contentType.includes('application/json')) {
+    return response.json()
+  }
+
+  return response.text()
 }
 
 export async function buscarClientes() {
@@ -76,6 +82,16 @@ export async function login(email, senha) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ email, senha }),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function alterarSenha(senhaAtual, novaSenha) {
+  const response = await fetch(`${API_URL}/auth/alterar-senha`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify({ senhaAtual, novaSenha }),
   })
 
   return tratarResposta(response)
