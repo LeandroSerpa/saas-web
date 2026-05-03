@@ -1,9 +1,42 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
+
+const rotaLogin = computed(() => route.path === '/login')
+const usuario = computed(() => {
+  route.fullPath
+  return carregarUsuario()
+})
+
+function carregarUsuario() {
+  const usuarioSalvo = localStorage.getItem('usuario')
+
+  if (!usuarioSalvo) {
+    return null
+  }
+
+  try {
+    return JSON.parse(usuarioSalvo)
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+function sair() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('usuario')
+  router.push('/login')
+}
 </script>
 
 <template>
-  <div class="app-shell">
+  <RouterView v-if="rotaLogin" />
+
+  <div v-else class="app-shell">
     <aside class="barra-lateral">
       <div class="marca">
         <span class="marca-simbolo">LE</span>
@@ -27,6 +60,15 @@ import { RouterLink, RouterView } from 'vue-router'
         <div>
           <span class="ambiente">API publicada</span>
           <p>https://automacao-le-saas-api.1mweab.easypanel.host</p>
+        </div>
+
+        <div class="usuario-logado">
+          <div>
+            <strong>{{ usuario?.nome || 'Usuario' }}</strong>
+            <small>{{ usuario?.email || 'Sessao ativa' }}</small>
+          </div>
+
+          <button class="botao-sair" @click="sair">Sair</button>
         </div>
       </header>
 
@@ -116,6 +158,10 @@ import { RouterLink, RouterView } from 'vue-router'
   border-radius: 8px;
   padding: 16px 20px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 
 .topo-app p {
@@ -131,6 +177,47 @@ import { RouterLink, RouterView } from 'vue-router'
   text-transform: uppercase;
 }
 
+.usuario-logado {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: right;
+}
+
+.usuario-logado strong,
+.usuario-logado small {
+  display: block;
+}
+
+.usuario-logado strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.usuario-logado small {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.botao-sair {
+  border: none;
+  color: white;
+  background: #0f172a;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 800;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.botao-sair:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -142,6 +229,13 @@ import { RouterLink, RouterView } from 'vue-router'
 
   .area-principal {
     padding: 18px;
+  }
+
+  .topo-app,
+  .usuario-logado {
+    align-items: flex-start;
+    flex-direction: column;
+    text-align: left;
   }
 }
 </style>
