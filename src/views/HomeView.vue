@@ -243,215 +243,356 @@ onMounted(() => {
 
 <template>
   <main class="pagina">
-    <section class="cabecalho">
+    <header class="topo-sistema">
       <div>
-        <h1>Agenda do SaaS</h1>
-        <p>Agendamentos cadastrados na API publicada no EasyPanel.</p>
+        <p class="subtitulo">Plataforma de Gestão Empresarial</p>
+        <h1>Gestão SaaS</h1>
+        <p class="descricao">Gerencie clientes e agendamentos da empresa em um só lugar.</p>
       </div>
 
-      <button class="botao principal" @click="carregarAgendamentos">Atualizar</button>
-    </section>
+      <button class="botao botao-claro" @click="carregarDados">Atualizar dados</button>
+    </header>
 
-    <section class="card formulario">
-      <h2>Novo cliente</h2>
-
-      <div class="campos">
-        <label>
-          Nome *
-          <input v-model="cliente.nome" type="text" placeholder="Ex: Maria Silva" />
-        </label>
-
-        <label>
-          Telefone
-          <input v-model="cliente.telefone" type="text" placeholder="Ex: (21) 99999-9999" />
-        </label>
-
-        <label>
-          E-mail
-          <input v-model="cliente.email" type="email" placeholder="Ex: cliente@email.com" />
-        </label>
-
-        <label class="campo-grande">
-          Observação
-          <input
-            v-model="cliente.observacao"
-            type="text"
-            placeholder="Ex: Cliente prefere atendimento pela manhã"
-          />
-        </label>
-      </div>
-
-      <button class="botao principal" @click="salvarCliente">Cadastrar cliente</button>
-
-      <p v-if="mensagemSucessoCliente" class="sucesso-texto">
-        {{ mensagemSucessoCliente }}
-      </p>
-    </section>
-
-    <section class="card formulario">
-      <h2>Novo agendamento</h2>
-
-      <div class="campos">
-        <label>
-          Cliente *
-          <select v-model="novoAgendamento.clienteId">
-            <option value="">Selecione um cliente</option>
-            <option v-for="clienteItem in clientes" :key="clienteItem.id" :value="clienteItem.id">
-              {{ clienteItem.nome }}
-            </option>
-          </select>
-        </label>
-
-        <label>
-          Serviço *
-          <select v-model="novoAgendamento.servicoId">
-            <option value="">Selecione um serviço</option>
-            <option v-for="servico in servicos" :key="servico.id" :value="servico.id">
-              {{ servico.nome }} - {{ formatarPreco(servico.preco) }}
-            </option>
-          </select>
-        </label>
-
-        <label>
-          Funcionário *
-          <select v-model="novoAgendamento.funcionarioId">
-            <option value="">Selecione um funcionário</option>
-            <option
-              v-for="funcionario in funcionarios"
-              :key="funcionario.id"
-              :value="funcionario.id"
-            >
-              {{ funcionario.nome }}
-            </option>
-          </select>
-        </label>
-
-        <label>
-          Data e hora *
-          <input v-model="novoAgendamento.dataHoraInicio" type="datetime-local" />
-        </label>
-
-        <label class="campo-grande">
-          Observação
-          <input
-            v-model="novoAgendamento.observacao"
-            type="text"
-            placeholder="Ex: Cliente pediu preferência por horário pontual"
-          />
-        </label>
-      </div>
-
-      <button class="botao principal" @click="salvarAgendamento">Cadastrar agendamento</button>
-
-      <p v-if="mensagemSucessoAgendamento" class="sucesso-texto">
-        {{ mensagemSucessoAgendamento }}
-      </p>
-    </section>
-
-    <section v-if="carregando" class="card">
-      <p>Carregando agendamentos...</p>
-    </section>
-
-    <section v-else-if="erro" class="card erro">
+    <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
     </section>
 
-    <section v-else-if="agendamentos.length === 0" class="card">
-      <p>Nenhum agendamento encontrado.</p>
-    </section>
-
-    <section v-else class="lista">
-      <article v-for="agendamento in agendamentos" :key="agendamento.id" class="card agendamento">
-        <div class="topo-card">
-          <div>
-            <h2>{{ agendamento.cliente }}</h2>
-            <p class="servico">{{ agendamento.servico }}</p>
-          </div>
-
-          <span :class="statusClasse(agendamento.status)">
-            {{ agendamento.status }}
-          </span>
+    <section class="grade-formularios">
+      <section class="card formulario">
+        <div class="titulo-card">
+          <h2>Novo cliente</h2>
+          <p>Cadastre um cliente para usar nos agendamentos.</p>
         </div>
 
-        <div class="detalhes">
-          <p><strong>Funcionário:</strong> {{ agendamento.funcionario }}</p>
-          <p><strong>Data/Hora:</strong> {{ formatarDataHora(agendamento.dataHoraInicio) }}</p>
-          <p><strong>Preço:</strong> {{ formatarPreco(agendamento.preco) }}</p>
-          <p v-if="agendamento.observacao">
-            <strong>Observação:</strong> {{ agendamento.observacao }}
+        <div class="campos">
+          <label>
+            Nome *
+            <input v-model="cliente.nome" type="text" placeholder="Ex: Maria Silva" />
+          </label>
+
+          <label>
+            Telefone
+            <input v-model="cliente.telefone" type="text" placeholder="Ex: (21) 99999-9999" />
+          </label>
+
+          <label>
+            E-mail
+            <input v-model="cliente.email" type="email" placeholder="Ex: cliente@email.com" />
+          </label>
+
+          <label class="campo-grande">
+            Observação
+            <input
+              v-model="cliente.observacao"
+              type="text"
+              placeholder="Ex: Cliente prefere atendimento pela manhã"
+            />
+          </label>
+        </div>
+
+        <div class="rodape-formulario">
+          <button class="botao principal" @click="salvarCliente">Cadastrar cliente</button>
+
+          <p v-if="mensagemSucessoCliente" class="sucesso-texto">
+            {{ mensagemSucessoCliente }}
           </p>
         </div>
+      </section>
 
-        <div class="acoes">
-          <button
-            class="botao sucesso"
-            :disabled="atualizandoId === agendamento.id || agendamento.status === 'concluido'"
-            @click="alterarStatus(agendamento.id, 'concluido')"
-          >
-            Concluir
-          </button>
-
-          <button
-            class="botao perigo"
-            :disabled="atualizandoId === agendamento.id || agendamento.status === 'cancelado'"
-            @click="alterarStatus(agendamento.id, 'cancelado')"
-          >
-            Cancelar
-          </button>
-
-          <button
-            class="botao alerta"
-            :disabled="atualizandoId === agendamento.id || agendamento.status === 'faltou'"
-            @click="alterarStatus(agendamento.id, 'faltou')"
-          >
-            Faltou
-          </button>
+      <section class="card formulario">
+        <div class="titulo-card">
+          <h2>Novo agendamento</h2>
+          <p>Escolha cliente, serviço, funcionário e horário.</p>
         </div>
 
-        <p v-if="atualizandoId === agendamento.id" class="atualizando">Atualizando status...</p>
-      </article>
+        <div class="campos">
+          <label>
+            Cliente *
+            <select v-model="novoAgendamento.clienteId">
+              <option value="">Selecione um cliente</option>
+              <option v-for="clienteItem in clientes" :key="clienteItem.id" :value="clienteItem.id">
+                {{ clienteItem.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Serviço *
+            <select v-model="novoAgendamento.servicoId">
+              <option value="">Selecione um serviço</option>
+              <option v-for="servico in servicos" :key="servico.id" :value="servico.id">
+                {{ servico.nome }} - {{ formatarPreco(servico.preco) }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Funcionário *
+            <select v-model="novoAgendamento.funcionarioId">
+              <option value="">Selecione um funcionário</option>
+              <option
+                v-for="funcionario in funcionarios"
+                :key="funcionario.id"
+                :value="funcionario.id"
+              >
+                {{ funcionario.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Data e hora *
+            <input v-model="novoAgendamento.dataHoraInicio" type="datetime-local" />
+          </label>
+
+          <label class="campo-grande">
+            Observação
+            <input
+              v-model="novoAgendamento.observacao"
+              type="text"
+              placeholder="Ex: Cliente pediu preferência por horário pontual"
+            />
+          </label>
+        </div>
+
+        <div class="rodape-formulario">
+          <button class="botao principal" @click="salvarAgendamento">
+            Cadastrar agendamento
+          </button>
+
+          <p v-if="mensagemSucessoAgendamento" class="sucesso-texto">
+            {{ mensagemSucessoAgendamento }}
+          </p>
+        </div>
+      </section>
+    </section>
+
+    <section class="secao-agenda">
+      <div class="cabecalho-lista">
+        <div>
+          <h2>Agendamentos</h2>
+          <p>Lista de horários cadastrados na API publicada no EasyPanel.</p>
+        </div>
+
+        <span class="contador">{{ agendamentos.length }} agendamento(s)</span>
+      </div>
+
+      <section v-if="carregando" class="card">
+        <p>Carregando agendamentos...</p>
+      </section>
+
+      <section v-else-if="agendamentos.length === 0" class="card">
+        <p>Nenhum agendamento encontrado.</p>
+      </section>
+
+      <section v-else class="lista">
+        <article v-for="agendamento in agendamentos" :key="agendamento.id" class="card agendamento">
+          <div class="topo-card">
+            <div>
+              <h3>{{ agendamento.cliente }}</h3>
+              <p class="servico">{{ agendamento.servico }}</p>
+            </div>
+
+            <span :class="statusClasse(agendamento.status)">
+              {{ agendamento.status }}
+            </span>
+          </div>
+
+          <div class="detalhes">
+            <p><strong>Funcionário:</strong> {{ agendamento.funcionario }}</p>
+            <p><strong>Data/Hora:</strong> {{ formatarDataHora(agendamento.dataHoraInicio) }}</p>
+            <p><strong>Preço:</strong> {{ formatarPreco(agendamento.preco) }}</p>
+            <p v-if="agendamento.observacao">
+              <strong>Observação:</strong> {{ agendamento.observacao }}
+            </p>
+          </div>
+
+          <div class="acoes">
+            <button
+              class="botao sucesso"
+              :disabled="atualizandoId === agendamento.id || agendamento.status === 'concluido'"
+              @click="alterarStatus(agendamento.id, 'concluido')"
+            >
+              Concluir
+            </button>
+
+            <button
+              class="botao perigo"
+              :disabled="atualizandoId === agendamento.id || agendamento.status === 'cancelado'"
+              @click="alterarStatus(agendamento.id, 'cancelado')"
+            >
+              Cancelar
+            </button>
+
+            <button
+              class="botao alerta"
+              :disabled="atualizandoId === agendamento.id || agendamento.status === 'faltou'"
+              @click="alterarStatus(agendamento.id, 'faltou')"
+            >
+              Faltou
+            </button>
+          </div>
+
+          <p v-if="atualizandoId === agendamento.id" class="atualizando">Atualizando status...</p>
+        </article>
+      </section>
     </section>
   </main>
 </template>
 
 <style scoped>
 .pagina {
-  max-width: 1100px;
-  margin: 0 auto;
+  min-height: 100vh;
+  background: #f3f4f6;
   padding: 32px;
   font-family: Arial, sans-serif;
+  color: #111827;
 }
 
-.cabecalho {
+.topo-sistema {
+  max-width: 1180px;
+  margin: 0 auto 24px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: white;
+  border-radius: 18px;
+  padding: 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 20px;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
 }
 
-.cabecalho h1 {
+.subtitulo {
+  margin: 0 0 6px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.topo-sistema h1 {
   margin: 0;
-  font-size: 32px;
-  color: #1f2937;
+  font-size: 34px;
 }
 
-.cabecalho p {
+.descricao {
   margin: 8px 0 0;
+  opacity: 0.95;
+}
+
+.grade-formularios {
+  max-width: 1180px;
+  margin: 0 auto 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.secao-agenda {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.cabecalho-lista {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.cabecalho-lista h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.cabecalho-lista p {
+  margin: 6px 0 0;
   color: #6b7280;
 }
 
-.lista {
-  display: grid;
-  gap: 16px;
+.contador {
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .card {
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.formulario {
+  display: grid;
+  gap: 16px;
+}
+
+.titulo-card h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+}
+
+.titulo-card p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: #374151;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+input,
+select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 15px;
+  background: white;
+  box-sizing: border-box;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.campo-grande {
+  grid-column: 1 / -1;
+}
+
+.rodape-formulario {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 18px;
 }
 
 .agendamento {
@@ -466,9 +607,10 @@ onMounted(() => {
   gap: 12px;
 }
 
-.agendamento h2 {
+.agendamento h3 {
   margin: 0;
   color: #111827;
+  font-size: 20px;
 }
 
 .servico {
@@ -483,11 +625,12 @@ onMounted(() => {
 }
 
 .status {
-  padding: 6px 10px;
+  padding: 7px 11px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: bold;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .status.agendado {
@@ -519,15 +662,24 @@ onMounted(() => {
 .botao {
   border: none;
   color: white;
-  padding: 10px 18px;
-  border-radius: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: bold;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.botao:hover {
+  transform: translateY(-1px);
 }
 
 .botao:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .principal {
@@ -536,6 +688,16 @@ onMounted(() => {
 
 .principal:hover {
   background: #1d4ed8;
+}
+
+.botao-claro {
+  background: rgba(255, 255, 255, 0.16);
+  color: white;
+  min-width: 140px;
+}
+
+.botao-claro:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .sucesso {
@@ -563,9 +725,17 @@ onMounted(() => {
 }
 
 .erro {
+  max-width: 1180px;
+  margin: 0 auto 20px;
   border-color: #fecaca;
   background: #fef2f2;
   color: #991b1b;
+}
+
+.sucesso-texto {
+  color: #15803d;
+  font-weight: bold;
+  margin: 0;
 }
 
 .atualizando {
@@ -574,60 +744,28 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.formulario {
-  margin-bottom: 24px;
-}
+@media (max-width: 900px) {
+  .topo-sistema {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-.formulario h2 {
-  margin-top: 0;
-  color: #111827;
-}
+  .grade-formularios,
+  .lista {
+    grid-template-columns: 1fr;
+  }
 
-.campos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
-}
+  .campos {
+    grid-template-columns: 1fr;
+  }
 
-label {
-  display: grid;
-  gap: 6px;
-  color: #374151;
-  font-weight: bold;
-}
+  .cabecalho-lista {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-input {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 15px;
-}
-
-input:focus {
-  outline: none;
-  border-color: #2563eb;
-}
-
-.campo-grande {
-  grid-column: 1 / -1;
-}
-
-.sucesso-texto {
-  color: #15803d;
-  font-weight: bold;
-}
-
-select {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 15px;
-  background: white;
-}
-
-select:focus {
-  outline: none;
-  border-color: #2563eb;
+  .pagina {
+    padding: 18px;
+  }
 }
 </style>
