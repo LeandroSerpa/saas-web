@@ -1,19 +1,24 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import ClienteForm from '@/components/ClienteForm.vue'
-import { buscarClientes, cadastrarCliente } from '@/services/api'
+import { buscarClientes, cadastrarCliente, atualizarCliente } from '@/services/api'
 
 const clientes = ref([])
 const carregando = ref(true)
 const erro = ref('')
 const mensagemSucessoCliente = ref('')
+const clienteEditandoId = ref(null)
 
-const cliente = ref({
-  nome: '',
-  telefone: '',
-  email: '',
-  observacao: '',
-})
+const cliente = ref(criarClienteInicial())
+
+function criarClienteInicial() {
+  return {
+    nome: '',
+    telefone: '',
+    email: '',
+    observacao: '',
+  }
+}
 
 async function carregarClientes() {
   try {
@@ -39,21 +44,51 @@ async function salvarCliente() {
       return
     }
 
-    await cadastrarCliente(cliente.value)
-
-    mensagemSucessoCliente.value = 'Cliente cadastrado com sucesso.'
-
-    cliente.value = {
-      nome: '',
-      telefone: '',
-      email: '',
-      observacao: '',
+    const dadosCliente = {
+      empresaId: 1,
+      nome: cliente.value.nome,
+      telefone: cliente.value.telefone,
+      email: cliente.value.email,
+      observacao: cliente.value.observacao,
     }
+
+    if (clienteEditandoId.value) {
+      await atualizarCliente(clienteEditandoId.value, dadosCliente)
+      mensagemSucessoCliente.value = 'Cliente atualizado com sucesso.'
+    } else {
+      await cadastrarCliente(cliente.value)
+      mensagemSucessoCliente.value = 'Cliente cadastrado com sucesso.'
+    }
+
+    cancelarEdicaoCliente(false)
 
     await carregarClientes()
   } catch (error) {
-    erro.value = 'Nao foi possivel cadastrar o cliente.'
+    erro.value = clienteEditandoId.value
+      ? 'Nao foi possivel atualizar o cliente.'
+      : 'Nao foi possivel cadastrar o cliente.'
     console.error(error)
+  }
+}
+
+function editarCliente(clienteItem) {
+  erro.value = ''
+  mensagemSucessoCliente.value = ''
+  clienteEditandoId.value = clienteItem.id
+  cliente.value = {
+    nome: clienteItem.nome || '',
+    telefone: clienteItem.telefone || '',
+    email: clienteItem.email || '',
+    observacao: clienteItem.observacao || '',
+  }
+}
+
+function cancelarEdicaoCliente(limparMensagens = true) {
+  clienteEditandoId.value = null
+  cliente.value = criarClienteInicial()
+
+  if (limparMensagens) {
+    mensagemSucessoCliente.value = ''
   }
 }
 
@@ -85,7 +120,9 @@ onMounted(() => {
     <ClienteForm
       v-model="cliente"
       :mensagem-sucesso="mensagemSucessoCliente"
+      :modo-edicao="Boolean(clienteEditandoId)"
       @salvar="salvarCliente"
+      @cancelar="cancelarEdicaoCliente"
     />
 
     <section class="secao-clientes">
@@ -117,6 +154,10 @@ onMounted(() => {
             <p><strong>Telefone:</strong> {{ exibirValor(clienteItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(clienteItem.email) }}</p>
             <p><strong>Observacao:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
+          </div>
+
+          <div class="acoes">
+            <button class="botao secundario" @click="editarCliente(clienteItem)">Editar</button>
           </div>
         </article>
       </section>
@@ -224,6 +265,12 @@ onMounted(() => {
   font-weight: 800;
 }
 
+.acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .botao,
 :deep(.botao) {
   border: none;
@@ -243,12 +290,27 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
+.botao:disabled,
+:deep(.botao:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .secundario {
   background: #0f172a;
   min-width: 140px;
 }
 
 .secundario:hover {
+  background: #1e293b;
+}
+
+:deep(.secundario) {
+  background: #0f172a;
+}
+
+:deep(.secundario:hover) {
   background: #1e293b;
 }
 

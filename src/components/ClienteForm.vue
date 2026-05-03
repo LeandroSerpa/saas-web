@@ -9,16 +9,26 @@ defineProps({
     type: String,
     default: '',
   },
+  modoEdicao: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-defineEmits(['salvar'])
+defineEmits(['salvar', 'cancelar'])
 </script>
 
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>Novo cliente</h2>
-      <p>Cadastre um cliente para usar nos agendamentos.</p>
+      <h2>{{ modoEdicao ? 'Editar cliente' : 'Novo cliente' }}</h2>
+      <p>
+        {{
+          modoEdicao
+            ? 'Atualize os dados do cliente selecionado.'
+            : 'Cadastre um cliente para usar nos agendamentos.'
+        }}
+      </p>
     </div>
 
     <div class="campos">
@@ -48,7 +58,13 @@ defineEmits(['salvar'])
     </div>
 
     <div class="rodape-formulario">
-      <button class="botao principal" @click="$emit('salvar')">Cadastrar cliente</button>
+      <button class="botao principal" @click="$emit('salvar')">
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar cliente' }}
+      </button>
+
+      <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">
+        Cancelar
+      </button>
 
       <p v-if="mensagemSucesso" class="sucesso-texto">
         {{ mensagemSucesso }}

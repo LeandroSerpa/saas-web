@@ -40,6 +40,18 @@ export async function cadastrarCliente(cliente) {
   return tratarResposta(response)
 }
 
+export async function atualizarCliente(id, cliente) {
+  const response = await fetch(`${API_URL}/clientes/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(cliente),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function cadastrarServico(servico) {
   const response = await fetch(`${API_URL}/servicos`, {
     method: 'POST',
