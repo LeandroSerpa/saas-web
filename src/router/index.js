@@ -6,9 +6,30 @@ import ServicosView from '../views/ServicosView.vue'
 import FuncionariosView from '../views/FuncionariosView.vue'
 import LoginView from '../views/LoginView.vue'
 import AlterarSenhaView from '../views/AlterarSenhaView.vue'
+import UsuariosView from '../views/UsuariosView.vue'
 
 const rotasProtegidas = {
   requiresAuth: true,
+}
+
+const rotasAdmin = {
+  requiresAuth: true,
+  requiresAdmin: true,
+}
+
+function carregarUsuario() {
+  const usuarioSalvo = localStorage.getItem('usuario')
+
+  if (!usuarioSalvo) {
+    return null
+  }
+
+  try {
+    return JSON.parse(usuarioSalvo)
+  } catch (error) {
+    console.error(error)
+    return null
+  }
 }
 
 const router = createRouter({
@@ -55,6 +76,12 @@ const router = createRouter({
       meta: rotasProtegidas,
     },
     {
+      path: '/usuarios',
+      name: 'usuarios',
+      component: UsuariosView,
+      meta: rotasAdmin,
+    },
+    {
       path: '/login',
       name: 'login',
       component: LoginView,
@@ -75,6 +102,14 @@ router.beforeEach((to) => {
 
   if (to.meta.requiresAuth && !token) {
     return '/login'
+  }
+
+  if (to.meta.requiresAdmin) {
+    const usuario = carregarUsuario()
+
+    if (usuario?.perfil !== 'ADMIN') {
+      return '/dashboard'
+    }
   }
 
   if (to.name === 'login' && token) {

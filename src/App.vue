@@ -10,6 +10,7 @@ const usuario = computed(() => {
   route.fullPath
   return carregarUsuario()
 })
+const usuarioAdmin = computed(() => usuario.value?.perfil === 'ADMIN')
 
 function carregarUsuario() {
   const usuarioSalvo = localStorage.getItem('usuario')
@@ -52,6 +53,7 @@ function sair() {
         <RouterLink to="/clientes">Clientes</RouterLink>
         <RouterLink to="/servicos">Servicos</RouterLink>
         <RouterLink to="/funcionarios">Funcionarios</RouterLink>
+        <RouterLink v-if="usuarioAdmin" to="/usuarios">Usuarios</RouterLink>
         <RouterLink to="/alterar-senha">Alterar senha</RouterLink>
       </nav>
     </aside>
