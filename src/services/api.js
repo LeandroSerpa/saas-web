@@ -1,6 +1,35 @@
 const API_URL = 'https://automacao-le-saas-api.1mweab.easypanel.host'
 
+function montarHeaders(comJson = false) {
+  const headers = {}
+  const token = localStorage.getItem('token')
+
+  if (comJson) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  return headers
+}
+
+function encerrarSessao() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('usuario')
+
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login'
+  }
+}
+
 async function tratarResposta(response) {
+  if (response.status === 401 || response.status === 403) {
+    encerrarSessao()
+    throw new Error('Sessao expirada ou acesso negado')
+  }
+
   if (!response.ok) {
     throw new Error('Erro ao comunicar com a API')
   }
@@ -9,22 +38,34 @@ async function tratarResposta(response) {
 }
 
 export async function buscarClientes() {
-  const response = await fetch(`${API_URL}/clientes`)
+  const response = await fetch(`${API_URL}/clientes`, {
+    headers: montarHeaders(),
+  })
+
   return tratarResposta(response)
 }
 
 export async function buscarServicos() {
-  const response = await fetch(`${API_URL}/servicos`)
+  const response = await fetch(`${API_URL}/servicos`, {
+    headers: montarHeaders(),
+  })
+
   return tratarResposta(response)
 }
 
 export async function buscarFuncionarios() {
-  const response = await fetch(`${API_URL}/funcionarios`)
+  const response = await fetch(`${API_URL}/funcionarios`, {
+    headers: montarHeaders(),
+  })
+
   return tratarResposta(response)
 }
 
 export async function buscarAgendamentos() {
-  const response = await fetch(`${API_URL}/agendamentos`)
+  const response = await fetch(`${API_URL}/agendamentos`, {
+    headers: montarHeaders(),
+  })
+
   return tratarResposta(response)
 }
 
@@ -43,9 +84,7 @@ export async function login(email, senha) {
 export async function cadastrarCliente(cliente) {
   const response = await fetch(`${API_URL}/clientes`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify(cliente),
   })
 
@@ -55,9 +94,7 @@ export async function cadastrarCliente(cliente) {
 export async function atualizarCliente(id, cliente) {
   const response = await fetch(`${API_URL}/clientes/${id}`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify(cliente),
   })
 
@@ -67,9 +104,7 @@ export async function atualizarCliente(id, cliente) {
 export async function cadastrarServico(servico) {
   const response = await fetch(`${API_URL}/servicos`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify(servico),
   })
 
@@ -79,9 +114,7 @@ export async function cadastrarServico(servico) {
 export async function atualizarServico(id, servico) {
   const response = await fetch(`${API_URL}/servicos/${id}`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify(servico),
   })
 
@@ -91,9 +124,7 @@ export async function atualizarServico(id, servico) {
 export async function atualizarAtivoServico(id, ativo) {
   const response = await fetch(`${API_URL}/servicos/${id}/ativo`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify({ ativo }),
   })
 
@@ -103,9 +134,7 @@ export async function atualizarAtivoServico(id, ativo) {
 export async function cadastrarFuncionario(funcionario) {
   const response = await fetch(`${API_URL}/funcionarios`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify(funcionario),
   })
 
@@ -115,9 +144,7 @@ export async function cadastrarFuncionario(funcionario) {
 export async function atualizarFuncionario(id, funcionario) {
   const response = await fetch(`${API_URL}/funcionarios/${id}`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify(funcionario),
   })
 
@@ -127,9 +154,7 @@ export async function atualizarFuncionario(id, funcionario) {
 export async function atualizarAtivoFuncionario(id, ativo) {
   const response = await fetch(`${API_URL}/funcionarios/${id}/ativo`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify({ ativo }),
   })
 
@@ -139,9 +164,7 @@ export async function atualizarAtivoFuncionario(id, ativo) {
 export async function cadastrarAgendamento(agendamento) {
   const response = await fetch(`${API_URL}/agendamentos`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify(agendamento),
   })
 
@@ -151,9 +174,7 @@ export async function cadastrarAgendamento(agendamento) {
 export async function atualizarAgendamento(id, agendamento) {
   const response = await fetch(`${API_URL}/agendamentos/${id}`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify(agendamento),
   })
 
@@ -163,9 +184,7 @@ export async function atualizarAgendamento(id, agendamento) {
 export async function atualizarStatusAgendamento(id, status) {
   const response = await fetch(`${API_URL}/agendamentos/${id}/status`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: montarHeaders(true),
     body: JSON.stringify({ status }),
   })
 
