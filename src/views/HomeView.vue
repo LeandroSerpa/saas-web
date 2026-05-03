@@ -23,6 +23,11 @@ const atualizandoId = ref(null)
 const mensagemSucessoAgendamento = ref('')
 const agendamentoEditandoId = ref(null)
 const agendamentoEditandoStatus = ref('agendado')
+const filtros = ref({
+  status: '',
+  dataInicial: '',
+  dataFinal: '',
+})
 
 const novoAgendamento = ref(criarAgendamentoInicial())
 
@@ -40,6 +45,40 @@ const servicosAtivos = computed(() => servicos.value.filter((servico) => servico
 const funcionariosAtivos = computed(() =>
   funcionarios.value.filter((funcionario) => funcionario.ativo === true),
 )
+const agendamentosFiltrados = computed(() => {
+  return agendamentos.value
+    .filter((agendamento) => {
+      if (filtros.value.status && agendamento.status !== filtros.value.status) {
+        return false
+      }
+
+      const dataInicio = criarData(agendamento.dataHoraInicio)
+
+      if (filtros.value.dataInicial) {
+        const dataInicial = new Date(`${filtros.value.dataInicial}T00:00:00`)
+
+        if (!dataInicio || dataInicio < dataInicial) {
+          return false
+        }
+      }
+
+      if (filtros.value.dataFinal) {
+        const dataFinal = new Date(`${filtros.value.dataFinal}T23:59:59`)
+
+        if (!dataInicio || dataInicio > dataFinal) {
+          return false
+        }
+      }
+
+      return true
+    })
+    .sort((agendamentoA, agendamentoB) => {
+      const dataA = criarData(agendamentoA.dataHoraInicio)?.getTime() || 0
+      const dataB = criarData(agendamentoB.dataHoraInicio)?.getTime() || 0
+
+      return dataA - dataB
+    })
+})
 
 async function carregarDados() {
   try {
@@ -209,6 +248,28 @@ function formatarDataParaInput(dataHora) {
   return String(dataHora).slice(0, 16)
 }
 
+function criarData(dataHora) {
+  if (!dataHora) {
+    return null
+  }
+
+  const data = new Date(dataHora)
+
+  if (Number.isNaN(data.getTime())) {
+    return null
+  }
+
+  return data
+}
+
+function limparFiltros() {
+  filtros.value = {
+    status: '',
+    dataInicial: '',
+    dataFinal: '',
+  }
+}
+
 function formatarDataParaApi(data) {
   const ano = data.getFullYear()
   const mes = String(data.getMonth() + 1).padStart(2, '0')
@@ -255,13 +316,47 @@ onMounted(() => {
     </section>
 
     <section class="secao-agenda">
+      <section class="card filtros-agenda">
+        <div class="titulo-card">
+          <h2>Filtros</h2>
+          <p>Refine a lista de agendamentos exibida abaixo.</p>
+        </div>
+
+        <div class="campos-filtros">
+          <label>
+            Status
+            <select v-model="filtros.status">
+              <option value="">Todos</option>
+              <option value="agendado">Agendado</option>
+              <option value="concluido">Concluido</option>
+              <option value="cancelado">Cancelado</option>
+              <option value="faltou">Faltou</option>
+            </select>
+          </label>
+
+          <label>
+            Data inicial
+            <input v-model="filtros.dataInicial" type="date" />
+          </label>
+
+          <label>
+            Data final
+            <input v-model="filtros.dataFinal" type="date" />
+          </label>
+
+          <div class="acoes-filtros">
+            <button class="botao secundario" @click="limparFiltros">Limpar filtros</button>
+          </div>
+        </div>
+      </section>
+
       <div class="cabecalho-lista">
         <div>
           <h2>Agendamentos</h2>
           <p>Lista de horarios cadastrados na API publicada no EasyPanel.</p>
         </div>
 
-        <span class="contador">{{ agendamentos.length }} agendamento(s)</span>
+        <span class="contador">{{ agendamentosFiltrados.length }} agendamento(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
@@ -272,9 +367,13 @@ onMounted(() => {
         <p>Nenhum agendamento encontrado.</p>
       </section>
 
+      <section v-else-if="agendamentosFiltrados.length === 0" class="card">
+        <p>Nenhum agendamento encontrado para os filtros selecionados.</p>
+      </section>
+
       <section v-else class="lista">
         <AgendamentoCard
-          v-for="agendamento in agendamentos"
+          v-for="agendamento in agendamentosFiltrados"
           :key="agendamento.id"
           :agendamento="agendamento"
           :atualizando="atualizandoId === agendamento.id"
@@ -427,6 +526,63 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.filtros-agenda {
+  display: grid;
+  gap: 16px;
+}
+
+.titulo-card h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+  font-weight: 800;
+}
+
+.titulo-card p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.campos-filtros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.campos-filtros label {
+  display: grid;
+  gap: 6px;
+  color: #374151;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.campos-filtros input,
+.campos-filtros select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 15px;
+  background: white;
+  box-sizing: border-box;
+}
+
+.campos-filtros input:focus,
+.campos-filtros select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.acoes-filtros {
+  display: flex;
+  align-items: end;
 }
 
 .lista {
@@ -606,6 +762,7 @@ onMounted(() => {
 
   .grade-formularios,
   .lista,
+  .campos-filtros,
   :deep(.campos) {
     grid-template-columns: 1fr;
   }
