@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import FuncionarioForm from '@/components/FuncionarioForm.vue'
 import {
   buscarFuncionarios,
@@ -15,8 +15,48 @@ const mensagemSucessoFuncionario = ref('')
 const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
 const funcionarioEditandoId = ref(null)
+const filtros = ref({
+  status: '',
+  busca: '',
+})
 
 const funcionario = ref(criarFuncionarioInicial())
+
+const funcionariosFiltrados = computed(() => {
+  const termoBusca = normalizarTexto(filtros.value.busca)
+
+  return funcionarios.value
+    .filter((funcionarioItem) => {
+      if (filtros.value.status === 'ativos' && !estaAtivo(funcionarioItem)) {
+        return false
+      }
+
+      if (filtros.value.status === 'inativos' && estaAtivo(funcionarioItem)) {
+        return false
+      }
+
+      if (termoBusca) {
+        const nome = normalizarTexto(funcionarioItem.nome)
+        const email = normalizarTexto(funcionarioItem.email)
+        const telefone = normalizarTexto(funcionarioItem.telefone)
+        const cargo = normalizarTexto(funcionarioItem.cargo)
+
+        if (
+          !nome.includes(termoBusca) &&
+          !email.includes(termoBusca) &&
+          !telefone.includes(termoBusca) &&
+          !cargo.includes(termoBusca)
+        ) {
+          return false
+        }
+      }
+
+      return true
+    })
+    .sort((funcionarioA, funcionarioB) =>
+      String(funcionarioA.nome || '').localeCompare(String(funcionarioB.nome || ''), 'pt-BR'),
+    )
+})
 
 function criarFuncionarioInicial() {
   return {
@@ -135,6 +175,19 @@ function estaAtivo(funcionarioItem) {
   return funcionarioItem.ativo !== false
 }
 
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+}
+
+function limparFiltros() {
+  filtros.value = {
+    status: '',
+    busca: '',
+  }
+}
+
 onMounted(() => {
   carregarFuncionarios()
 })
@@ -169,13 +222,44 @@ onMounted(() => {
     />
 
     <section class="secao-funcionarios">
+      <section class="card filtros-funcionarios">
+        <div class="titulo-card">
+          <h2>Filtros</h2>
+          <p>Refine a lista de funcionarios cadastrados.</p>
+        </div>
+
+        <div class="campos-filtros">
+          <label>
+            Status
+            <select v-model="filtros.status">
+              <option value="">Todos</option>
+              <option value="ativos">Ativos</option>
+              <option value="inativos">Inativos</option>
+            </select>
+          </label>
+
+          <label class="campo-busca">
+            Buscar
+            <input
+              v-model="filtros.busca"
+              type="text"
+              placeholder="Busque por nome, e-mail, telefone ou cargo"
+            />
+          </label>
+
+          <div class="acoes-filtros">
+            <button class="botao secundario" @click="limparFiltros">Limpar filtros</button>
+          </div>
+        </div>
+      </section>
+
       <div class="cabecalho-lista">
         <div>
           <h2>Funcionarios cadastrados</h2>
           <p>Lista de funcionarios retornados pela API publicada.</p>
         </div>
 
-        <span class="contador">{{ funcionarios.length }} funcionario(s)</span>
+        <span class="contador">{{ funcionariosFiltrados.length }} funcionario(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
@@ -186,9 +270,13 @@ onMounted(() => {
         <p>Nenhum funcionario encontrado.</p>
       </section>
 
+      <section v-else-if="funcionariosFiltrados.length === 0" class="card">
+        <p>Nenhum funcionario encontrado para os filtros selecionados.</p>
+      </section>
+
       <section v-else class="lista-funcionarios">
         <article
-          v-for="funcionarioItem in funcionarios"
+          v-for="funcionarioItem in funcionariosFiltrados"
           :key="funcionarioItem.id"
           class="card funcionario-card"
         >
@@ -300,6 +388,63 @@ onMounted(() => {
   border-radius: 8px;
   padding: 22px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.filtros-funcionarios {
+  display: grid;
+  gap: 16px;
+}
+
+.titulo-card h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+  font-weight: 800;
+}
+
+.titulo-card p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.campos-filtros {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(260px, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.campos-filtros label {
+  display: grid;
+  gap: 6px;
+  color: #374151;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.campos-filtros input,
+.campos-filtros select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 15px;
+  background: white;
+  box-sizing: border-box;
+}
+
+.campos-filtros input:focus,
+.campos-filtros select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.acoes-filtros {
+  display: flex;
+  align-items: end;
 }
 
 .lista-funcionarios {
@@ -533,6 +678,7 @@ onMounted(() => {
   }
 
   .lista-funcionarios,
+  .campos-filtros,
   :deep(.campos) {
     grid-template-columns: 1fr;
   }
