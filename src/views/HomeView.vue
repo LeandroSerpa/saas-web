@@ -2,14 +2,12 @@
 import { onMounted, ref } from 'vue'
 import AgendamentoCard from '@/components/AgendamentoCard.vue'
 import AgendamentoForm from '@/components/AgendamentoForm.vue'
-import ClienteForm from '@/components/ClienteForm.vue'
 import {
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
   buscarServicos,
   atualizarStatusAgendamento,
-  cadastrarCliente,
   cadastrarAgendamento,
 } from '@/services/api'
 
@@ -21,15 +19,7 @@ const funcionarios = ref([])
 const carregando = ref(true)
 const erro = ref('')
 const atualizandoId = ref(null)
-const mensagemSucessoCliente = ref('')
 const mensagemSucessoAgendamento = ref('')
-
-const cliente = ref({
-  nome: '',
-  telefone: '',
-  email: '',
-  observacao: '',
-})
 
 const novoAgendamento = ref({
   clienteId: '',
@@ -81,7 +71,6 @@ async function alterarStatus(id, status) {
   try {
     atualizandoId.value = id
     erro.value = ''
-    mensagemSucessoCliente.value = ''
     mensagemSucessoAgendamento.value = ''
 
     await atualizarStatusAgendamento(id, status)
@@ -96,39 +85,9 @@ async function alterarStatus(id, status) {
   }
 }
 
-async function salvarCliente() {
-  try {
-    erro.value = ''
-    mensagemSucessoCliente.value = ''
-    mensagemSucessoAgendamento.value = ''
-
-    if (!cliente.value.nome.trim()) {
-      erro.value = 'Informe o nome do cliente.'
-      return
-    }
-
-    await cadastrarCliente(cliente.value)
-
-    mensagemSucessoCliente.value = 'Cliente cadastrado com sucesso.'
-
-    cliente.value = {
-      nome: '',
-      telefone: '',
-      email: '',
-      observacao: '',
-    }
-
-    clientes.value = await buscarClientes()
-  } catch (error) {
-    erro.value = 'Nao foi possivel cadastrar o cliente.'
-    console.error(error)
-  }
-}
-
 async function salvarAgendamento() {
   try {
     erro.value = ''
-    mensagemSucessoCliente.value = ''
     mensagemSucessoAgendamento.value = ''
 
     if (!novoAgendamento.value.clienteId) {
@@ -211,8 +170,8 @@ onMounted(() => {
     <header class="cabecalho-pagina">
       <div>
         <p class="subtitulo">Operacao diaria</p>
-        <h1>Agenda e clientes</h1>
-        <p class="descricao">Acompanhe os atendimentos, cadastre clientes e organize horarios.</p>
+        <h1>Agenda</h1>
+        <p class="descricao">Cadastre e acompanhe os agendamentos da empresa.</p>
       </div>
 
       <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
@@ -223,12 +182,6 @@ onMounted(() => {
     </section>
 
     <section class="grade-formularios">
-      <ClienteForm
-        v-model="cliente"
-        :mensagem-sucesso="mensagemSucessoCliente"
-        @salvar="salvarCliente"
-      />
-
       <AgendamentoForm
         v-model="novoAgendamento"
         :clientes="clientes"
@@ -306,7 +259,7 @@ onMounted(() => {
 
 .grade-formularios {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 20px;
 }
 
