@@ -1,7 +1,12 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import FuncionarioForm from '@/components/FuncionarioForm.vue'
-import { buscarFuncionarios, cadastrarFuncionario, atualizarAtivoFuncionario } from '@/services/api'
+import {
+  buscarFuncionarios,
+  cadastrarFuncionario,
+  atualizarFuncionario,
+  atualizarAtivoFuncionario,
+} from '@/services/api'
 
 const funcionarios = ref([])
 const carregando = ref(true)
@@ -9,6 +14,7 @@ const erro = ref('')
 const mensagemSucessoFuncionario = ref('')
 const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
+const funcionarioEditandoId = ref(null)
 
 const funcionario = ref(criarFuncionarioInicial())
 
@@ -48,22 +54,55 @@ async function salvarFuncionario() {
       return
     }
 
-    await cadastrarFuncionario({
+    const dadosFuncionario = {
       empresaId: 1,
       nome: funcionario.value.nome,
       telefone: funcionario.value.telefone,
       email: funcionario.value.email,
       cargo: funcionario.value.cargo,
       ativo: Boolean(funcionario.value.ativo),
-    })
+    }
 
-    mensagemSucessoFuncionario.value = 'Funcionario cadastrado com sucesso.'
-    funcionario.value = criarFuncionarioInicial()
+    if (funcionarioEditandoId.value) {
+      await atualizarFuncionario(funcionarioEditandoId.value, dadosFuncionario)
+      mensagemSucessoFuncionario.value = 'Funcionário atualizado com sucesso.'
+    } else {
+      await cadastrarFuncionario(dadosFuncionario)
+      mensagemSucessoFuncionario.value = 'Funcionário cadastrado com sucesso.'
+    }
+
+    cancelarEdicaoFuncionario(false)
 
     await carregarFuncionarios()
   } catch (error) {
-    erro.value = 'Nao foi possivel cadastrar o funcionario.'
+    erro.value = funcionarioEditandoId.value
+      ? 'Nao foi possivel atualizar o funcionario.'
+      : 'Nao foi possivel cadastrar o funcionario.'
     console.error(error)
+  }
+}
+
+function editarFuncionario(funcionarioItem) {
+  erro.value = ''
+  mensagemSucessoFuncionario.value = ''
+  mensagemSucessoStatus.value = ''
+  funcionarioEditandoId.value = funcionarioItem.id
+  funcionario.value = {
+    empresaId: funcionarioItem.empresaId || 1,
+    nome: funcionarioItem.nome || '',
+    telefone: funcionarioItem.telefone || '',
+    email: funcionarioItem.email || '',
+    cargo: funcionarioItem.cargo || '',
+    ativo: estaAtivo(funcionarioItem),
+  }
+}
+
+function cancelarEdicaoFuncionario(limparMensagens = true) {
+  funcionarioEditandoId.value = null
+  funcionario.value = criarFuncionarioInicial()
+
+  if (limparMensagens) {
+    mensagemSucessoFuncionario.value = ''
   }
 }
 
@@ -124,7 +163,9 @@ onMounted(() => {
     <FuncionarioForm
       v-model="funcionario"
       :mensagem-sucesso="mensagemSucessoFuncionario"
+      :modo-edicao="Boolean(funcionarioEditandoId)"
       @salvar="salvarFuncionario"
+      @cancelar="cancelarEdicaoFuncionario"
     />
 
     <section class="secao-funcionarios">
@@ -169,6 +210,10 @@ onMounted(() => {
           </div>
 
           <div class="acoes">
+            <button class="botao secundario" @click="editarFuncionario(funcionarioItem)">
+              Editar
+            </button>
+
             <button
               :class="['botao', estaAtivo(funcionarioItem) ? 'perigo' : 'sucesso']"
               :disabled="atualizandoId === funcionarioItem.id"
@@ -349,6 +394,14 @@ onMounted(() => {
 }
 
 .secundario:hover {
+  background: #1e293b;
+}
+
+:deep(.secundario) {
+  background: #0f172a;
+}
+
+:deep(.secundario:hover) {
   background: #1e293b;
 }
 

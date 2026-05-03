@@ -88,6 +88,18 @@ export async function cadastrarFuncionario(funcionario) {
   return tratarResposta(response)
 }
 
+export async function atualizarFuncionario(id, funcionario) {
+  const response = await fetch(`${API_URL}/funcionarios/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(funcionario),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function atualizarAtivoFuncionario(id, ativo) {
   const response = await fetch(`${API_URL}/funcionarios/${id}/ativo`, {
     method: 'PUT',
