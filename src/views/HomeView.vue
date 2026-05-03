@@ -1,5 +1,8 @@
 <script setup>
 import { onMounted, ref } from 'vue'
+import AgendamentoCard from '@/components/AgendamentoCard.vue'
+import AgendamentoForm from '@/components/AgendamentoForm.vue'
+import ClienteForm from '@/components/ClienteForm.vue'
 import {
   buscarAgendamentos,
   buscarClientes,
@@ -53,7 +56,7 @@ async function carregarDados() {
     servicos.value = servicosApi
     funcionarios.value = funcionariosApi
   } catch (error) {
-    erro.value = 'Não foi possível carregar os dados.'
+    erro.value = 'Nao foi possivel carregar os dados.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -67,7 +70,7 @@ async function carregarAgendamentos() {
 
     agendamentos.value = await buscarAgendamentos()
   } catch (error) {
-    erro.value = 'Não foi possível carregar os agendamentos.'
+    erro.value = 'Nao foi possivel carregar os agendamentos.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -86,7 +89,7 @@ async function alterarStatus(id, status) {
 
     mensagemSucessoAgendamento.value = 'Status atualizado com sucesso.'
   } catch (error) {
-    erro.value = 'Não foi possível atualizar o status do agendamento.'
+    erro.value = 'Nao foi possivel atualizar o status do agendamento.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -117,7 +120,7 @@ async function salvarCliente() {
 
     clientes.value = await buscarClientes()
   } catch (error) {
-    erro.value = 'Não foi possível cadastrar o cliente.'
+    erro.value = 'Nao foi possivel cadastrar o cliente.'
     console.error(error)
   }
 }
@@ -134,12 +137,12 @@ async function salvarAgendamento() {
     }
 
     if (!novoAgendamento.value.servicoId) {
-      erro.value = 'Selecione um serviço.'
+      erro.value = 'Selecione um servico.'
       return
     }
 
     if (!novoAgendamento.value.funcionarioId) {
-      erro.value = 'Selecione um funcionário.'
+      erro.value = 'Selecione um funcionario.'
       return
     }
 
@@ -182,7 +185,7 @@ async function salvarAgendamento() {
 
     await carregarAgendamentos()
   } catch (error) {
-    erro.value = 'Não foi possível cadastrar o agendamento.'
+    erro.value = 'Nao foi possivel cadastrar o agendamento.'
     console.error(error)
   }
 }
@@ -198,44 +201,6 @@ function formatarDataParaApi(data) {
   return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`
 }
 
-function formatarDataHora(dataHora) {
-  if (!dataHora) {
-    return '-'
-  }
-
-  return new Date(dataHora).toLocaleString('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  })
-}
-
-function formatarPreco(preco) {
-  if (preco === null || preco === undefined) {
-    return 'R$ 0,00'
-  }
-
-  return Number(preco).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
-}
-
-function statusClasse(status) {
-  if (status === 'concluido') {
-    return 'status concluido'
-  }
-
-  if (status === 'cancelado') {
-    return 'status cancelado'
-  }
-
-  if (status === 'faltou') {
-    return 'status faltou'
-  }
-
-  return 'status agendado'
-}
-
 onMounted(() => {
   carregarDados()
 })
@@ -243,14 +208,14 @@ onMounted(() => {
 
 <template>
   <main class="pagina">
-    <header class="topo-sistema">
+    <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Plataforma de Gestão Empresarial</p>
-        <h1>Gestão SaaS</h1>
-        <p class="descricao">Gerencie clientes e agendamentos da empresa em um só lugar.</p>
+        <p class="subtitulo">Operacao diaria</p>
+        <h1>Agenda e clientes</h1>
+        <p class="descricao">Acompanhe os atendimentos, cadastre clientes e organize horarios.</p>
       </div>
 
-      <button class="botao botao-claro" @click="carregarDados">Atualizar dados</button>
+      <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
     </header>
 
     <section v-if="erro" class="card erro">
@@ -258,120 +223,27 @@ onMounted(() => {
     </section>
 
     <section class="grade-formularios">
-      <section class="card formulario">
-        <div class="titulo-card">
-          <h2>Novo cliente</h2>
-          <p>Cadastre um cliente para usar nos agendamentos.</p>
-        </div>
+      <ClienteForm
+        v-model="cliente"
+        :mensagem-sucesso="mensagemSucessoCliente"
+        @salvar="salvarCliente"
+      />
 
-        <div class="campos">
-          <label>
-            Nome *
-            <input v-model="cliente.nome" type="text" placeholder="Ex: Maria Silva" />
-          </label>
-
-          <label>
-            Telefone
-            <input v-model="cliente.telefone" type="text" placeholder="Ex: (21) 99999-9999" />
-          </label>
-
-          <label>
-            E-mail
-            <input v-model="cliente.email" type="email" placeholder="Ex: cliente@email.com" />
-          </label>
-
-          <label class="campo-grande">
-            Observação
-            <input
-              v-model="cliente.observacao"
-              type="text"
-              placeholder="Ex: Cliente prefere atendimento pela manhã"
-            />
-          </label>
-        </div>
-
-        <div class="rodape-formulario">
-          <button class="botao principal" @click="salvarCliente">Cadastrar cliente</button>
-
-          <p v-if="mensagemSucessoCliente" class="sucesso-texto">
-            {{ mensagemSucessoCliente }}
-          </p>
-        </div>
-      </section>
-
-      <section class="card formulario">
-        <div class="titulo-card">
-          <h2>Novo agendamento</h2>
-          <p>Escolha cliente, serviço, funcionário e horário.</p>
-        </div>
-
-        <div class="campos">
-          <label>
-            Cliente *
-            <select v-model="novoAgendamento.clienteId">
-              <option value="">Selecione um cliente</option>
-              <option v-for="clienteItem in clientes" :key="clienteItem.id" :value="clienteItem.id">
-                {{ clienteItem.nome }}
-              </option>
-            </select>
-          </label>
-
-          <label>
-            Serviço *
-            <select v-model="novoAgendamento.servicoId">
-              <option value="">Selecione um serviço</option>
-              <option v-for="servico in servicos" :key="servico.id" :value="servico.id">
-                {{ servico.nome }} - {{ formatarPreco(servico.preco) }}
-              </option>
-            </select>
-          </label>
-
-          <label>
-            Funcionário *
-            <select v-model="novoAgendamento.funcionarioId">
-              <option value="">Selecione um funcionário</option>
-              <option
-                v-for="funcionario in funcionarios"
-                :key="funcionario.id"
-                :value="funcionario.id"
-              >
-                {{ funcionario.nome }}
-              </option>
-            </select>
-          </label>
-
-          <label>
-            Data e hora *
-            <input v-model="novoAgendamento.dataHoraInicio" type="datetime-local" />
-          </label>
-
-          <label class="campo-grande">
-            Observação
-            <input
-              v-model="novoAgendamento.observacao"
-              type="text"
-              placeholder="Ex: Cliente pediu preferência por horário pontual"
-            />
-          </label>
-        </div>
-
-        <div class="rodape-formulario">
-          <button class="botao principal" @click="salvarAgendamento">
-            Cadastrar agendamento
-          </button>
-
-          <p v-if="mensagemSucessoAgendamento" class="sucesso-texto">
-            {{ mensagemSucessoAgendamento }}
-          </p>
-        </div>
-      </section>
+      <AgendamentoForm
+        v-model="novoAgendamento"
+        :clientes="clientes"
+        :servicos="servicos"
+        :funcionarios="funcionarios"
+        :mensagem-sucesso="mensagemSucessoAgendamento"
+        @salvar="salvarAgendamento"
+      />
     </section>
 
     <section class="secao-agenda">
       <div class="cabecalho-lista">
         <div>
           <h2>Agendamentos</h2>
-          <p>Lista de horários cadastrados na API publicada no EasyPanel.</p>
+          <p>Lista de horarios cadastrados na API publicada no EasyPanel.</p>
         </div>
 
         <span class="contador">{{ agendamentos.length }} agendamento(s)</span>
@@ -386,55 +258,13 @@ onMounted(() => {
       </section>
 
       <section v-else class="lista">
-        <article v-for="agendamento in agendamentos" :key="agendamento.id" class="card agendamento">
-          <div class="topo-card">
-            <div>
-              <h3>{{ agendamento.cliente }}</h3>
-              <p class="servico">{{ agendamento.servico }}</p>
-            </div>
-
-            <span :class="statusClasse(agendamento.status)">
-              {{ agendamento.status }}
-            </span>
-          </div>
-
-          <div class="detalhes">
-            <p><strong>Funcionário:</strong> {{ agendamento.funcionario }}</p>
-            <p><strong>Data/Hora:</strong> {{ formatarDataHora(agendamento.dataHoraInicio) }}</p>
-            <p><strong>Preço:</strong> {{ formatarPreco(agendamento.preco) }}</p>
-            <p v-if="agendamento.observacao">
-              <strong>Observação:</strong> {{ agendamento.observacao }}
-            </p>
-          </div>
-
-          <div class="acoes">
-            <button
-              class="botao sucesso"
-              :disabled="atualizandoId === agendamento.id || agendamento.status === 'concluido'"
-              @click="alterarStatus(agendamento.id, 'concluido')"
-            >
-              Concluir
-            </button>
-
-            <button
-              class="botao perigo"
-              :disabled="atualizandoId === agendamento.id || agendamento.status === 'cancelado'"
-              @click="alterarStatus(agendamento.id, 'cancelado')"
-            >
-              Cancelar
-            </button>
-
-            <button
-              class="botao alerta"
-              :disabled="atualizandoId === agendamento.id || agendamento.status === 'faltou'"
-              @click="alterarStatus(agendamento.id, 'faltou')"
-            >
-              Faltou
-            </button>
-          </div>
-
-          <p v-if="atualizandoId === agendamento.id" class="atualizando">Atualizando status...</p>
-        </article>
+        <AgendamentoCard
+          v-for="agendamento in agendamentos"
+          :key="agendamento.id"
+          :agendamento="agendamento"
+          :atualizando="atualizandoId === agendamento.id"
+          @alterar-status="alterarStatus"
+        />
       </section>
     </section>
   </main>
@@ -442,80 +272,73 @@ onMounted(() => {
 
 <style scoped>
 .pagina {
-  min-height: 100vh;
-  background: #f3f4f6;
-  padding: 32px;
-  font-family: Arial, sans-serif;
+  display: grid;
+  gap: 24px;
   color: #111827;
 }
 
-.topo-sistema {
-  max-width: 1180px;
-  margin: 0 auto 24px;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
-  color: white;
-  border-radius: 18px;
-  padding: 28px;
+.cabecalho-pagina {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
+  gap: 16px;
 }
 
 .subtitulo {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
+  color: #2563eb;
   font-size: 14px;
-  opacity: 0.9;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.topo-sistema h1 {
+.cabecalho-pagina h1 {
   margin: 0;
-  font-size: 34px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .descricao {
-  margin: 8px 0 0;
-  opacity: 0.95;
+  margin: 6px 0 0;
+  color: #64748b;
 }
 
 .grade-formularios {
-  max-width: 1180px;
-  margin: 0 auto 24px;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 
 .secao-agenda {
-  max-width: 1180px;
-  margin: 0 auto;
+  display: grid;
+  gap: 16px;
 }
 
 .cabecalho-lista {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
   gap: 16px;
 }
 
 .cabecalho-lista h2 {
   margin: 0;
   font-size: 26px;
+  font-weight: 800;
 }
 
 .cabecalho-lista p {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: #64748b;
 }
 
 .contador {
-  background: #e0e7ff;
-  color: #3730a3;
+  background: #dbeafe;
+  color: #1d4ed8;
   padding: 8px 12px;
   border-radius: 999px;
-  font-weight: bold;
+  font-weight: 800;
   font-size: 14px;
   white-space: nowrap;
 }
@@ -523,66 +346,67 @@ onMounted(() => {
 .card {
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 22px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
-.formulario {
+:deep(.formulario) {
   display: grid;
   gap: 16px;
 }
 
-.titulo-card h2 {
+:deep(.titulo-card h2) {
   margin: 0;
   font-size: 22px;
   color: #111827;
+  font-weight: 800;
 }
 
-.titulo-card p {
+:deep(.titulo-card p) {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: #64748b;
   font-size: 14px;
 }
 
-.campos {
+:deep(.campos) {
   display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 16px;
 }
 
-label {
+:deep(label) {
   display: grid;
   gap: 6px;
   color: #374151;
-  font-weight: bold;
+  font-weight: 700;
   font-size: 14px;
 }
 
-input,
-select {
+:deep(input),
+:deep(select) {
   width: 100%;
   min-width: 0;
   border: 1px solid #d1d5db;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 11px 12px;
   font-size: 15px;
   background: white;
   box-sizing: border-box;
 }
 
-input:focus,
-select:focus {
+:deep(input:focus),
+:deep(select:focus) {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
-.campo-grande {
+:deep(.campo-grande) {
   grid-column: 1 / -1;
 }
 
-.rodape-formulario {
+:deep(.rodape-formulario) {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -595,177 +419,171 @@ select:focus {
   gap: 18px;
 }
 
-.agendamento {
+:deep(.agendamento) {
   display: grid;
   gap: 14px;
 }
 
-.topo-card {
+:deep(.topo-card) {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
 }
 
-.agendamento h3 {
+:deep(.agendamento h3) {
   margin: 0;
   color: #111827;
   font-size: 20px;
+  font-weight: 800;
 }
 
-.servico {
+:deep(.servico) {
   margin: 6px 0 0;
   color: #2563eb;
-  font-weight: bold;
+  font-weight: 800;
 }
 
-.detalhes p {
+:deep(.detalhes p) {
   margin: 6px 0;
   color: #374151;
 }
 
-.status {
+:deep(.detalhes strong) {
+  font-weight: 800;
+}
+
+:deep(.status) {
   padding: 7px 11px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: bold;
+  font-weight: 800;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-.status.agendado {
+:deep(.status.agendado) {
   background: #dbeafe;
   color: #1d4ed8;
 }
 
-.status.concluido {
+:deep(.status.concluido) {
   background: #dcfce7;
   color: #15803d;
 }
 
-.status.cancelado {
+:deep(.status.cancelado) {
   background: #fee2e2;
   color: #b91c1c;
 }
 
-.status.faltou {
+:deep(.status.faltou) {
   background: #fef3c7;
   color: #92400e;
 }
 
-.acoes {
+:deep(.acoes) {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.botao {
+.botao,
+:deep(.botao) {
   border: none;
   color: white;
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 800;
   transition:
     transform 0.15s ease,
     opacity 0.15s ease,
     background 0.15s ease;
 }
 
-.botao:hover {
+.botao:hover,
+:deep(.botao:hover) {
   transform: translateY(-1px);
 }
 
-.botao:disabled {
+.botao:disabled,
+:deep(.botao:disabled) {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
 }
 
-.principal {
+:deep(.principal) {
   background: #2563eb;
 }
 
-.principal:hover {
+:deep(.principal:hover) {
   background: #1d4ed8;
 }
 
-.botao-claro {
-  background: rgba(255, 255, 255, 0.16);
-  color: white;
+.secundario {
+  background: #0f172a;
   min-width: 140px;
 }
 
-.botao-claro:hover {
-  background: rgba(255, 255, 255, 0.24);
+.secundario:hover {
+  background: #1e293b;
 }
 
-.sucesso {
+:deep(.sucesso) {
   background: #16a34a;
 }
 
-.sucesso:hover {
+:deep(.sucesso:hover) {
   background: #15803d;
 }
 
-.perigo {
+:deep(.perigo) {
   background: #dc2626;
 }
 
-.perigo:hover {
+:deep(.perigo:hover) {
   background: #b91c1c;
 }
 
-.alerta {
+:deep(.alerta) {
   background: #d97706;
 }
 
-.alerta:hover {
+:deep(.alerta:hover) {
   background: #b45309;
 }
 
 .erro {
-  max-width: 1180px;
-  margin: 0 auto 20px;
   border-color: #fecaca;
   background: #fef2f2;
   color: #991b1b;
 }
 
-.sucesso-texto {
+:deep(.sucesso-texto) {
   color: #15803d;
-  font-weight: bold;
+  font-weight: 800;
   margin: 0;
 }
 
-.atualizando {
+:deep(.atualizando) {
   margin: 0;
-  color: #6b7280;
+  color: #64748b;
   font-size: 14px;
 }
 
 @media (max-width: 900px) {
-  .topo-sistema {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .grade-formularios,
-  .lista {
-    grid-template-columns: 1fr;
-  }
-
-  .campos {
-    grid-template-columns: 1fr;
-  }
-
+  .cabecalho-pagina,
   .cabecalho-lista {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .pagina {
-    padding: 18px;
+  .grade-formularios,
+  .lista,
+  :deep(.campos) {
+    grid-template-columns: 1fr;
   }
 }
 </style>
