@@ -7,6 +7,7 @@ import FuncionariosView from '../views/FuncionariosView.vue'
 import LoginView from '../views/LoginView.vue'
 import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
+import EmpresasView from '../views/EmpresasView.vue'
 
 const rotasProtegidas = {
   requiresAuth: true,
@@ -15,6 +16,11 @@ const rotasProtegidas = {
 const rotasAdmin = {
   requiresAuth: true,
   requiresAdmin: true,
+}
+
+const rotasSuperAdmin = {
+  requiresAuth: true,
+  requiresSuperAdmin: true,
 }
 
 function carregarUsuario() {
@@ -82,6 +88,12 @@ const router = createRouter({
       meta: rotasAdmin,
     },
     {
+      path: '/empresas',
+      name: 'empresas',
+      component: EmpresasView,
+      meta: rotasSuperAdmin,
+    },
+    {
       path: '/login',
       name: 'login',
       component: LoginView,
@@ -108,6 +120,14 @@ router.beforeEach((to) => {
     const usuario = carregarUsuario()
 
     if (usuario?.perfil !== 'ADMIN' && usuario?.perfil !== 'SUPER_ADMIN') {
+      return '/dashboard'
+    }
+  }
+
+  if (to.meta.requiresSuperAdmin) {
+    const usuario = carregarUsuario()
+
+    if (usuario?.perfil !== 'SUPER_ADMIN') {
       return '/dashboard'
     }
   }

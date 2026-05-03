@@ -3,12 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import UsuarioForm from '@/components/UsuarioForm.vue'
 import {
   buscarUsuarios,
+  buscarEmpresas,
   cadastrarUsuario,
   atualizarUsuario,
   atualizarAtivoUsuario,
 } from '@/services/api'
 
 const usuarios = ref([])
+const empresas = ref([])
 const carregando = ref(true)
 const erro = ref('')
 const mensagemSucessoUsuario = ref('')
@@ -18,7 +20,6 @@ const usuarioEditandoId = ref(null)
 const editandoUsuarioAtual = ref(false)
 const perfilOriginalEdicao = ref('')
 
-const usuario = ref(criarUsuarioInicial())
 const usuarioLogado = computed(() => obterUsuarioLogado())
 const perfilLogado = computed(() => usuarioLogado.value?.perfil || '')
 const superAdminLogado = computed(() => perfilLogado.value === 'SUPER_ADMIN')
@@ -26,6 +27,7 @@ const adminLogado = computed(() => perfilLogado.value === 'ADMIN')
 const perfisPermitidos = computed(() =>
   superAdminLogado.value ? ['SUPER_ADMIN', 'ADMIN', 'USUARIO'] : ['USUARIO'],
 )
+const usuario = ref(criarUsuarioInicial())
 
 function criarUsuarioInicial() {
   return {
@@ -33,6 +35,7 @@ function criarUsuarioInicial() {
     email: '',
     senha: '',
     perfil: 'USUARIO',
+    empresaId: superAdminLogado.value ? '' : obterEmpresaId(),
     ativo: true,
   }
 }
@@ -56,12 +59,18 @@ function obterUsuarioLogado() {
   }
 }
 
-async function carregarUsuarios() {
+async function carregarDados() {
   try {
     carregando.value = true
     erro.value = ''
 
-    usuarios.value = await buscarUsuarios()
+    if (superAdminLogado.value) {
+      const [usuariosApi, empresasApi] = await Promise.all([buscarUsuarios(), buscarEmpresas()])
+      usuarios.value = usuariosApi
+      empresas.value = empresasApi
+    } else {
+      usuarios.value = await buscarUsuarios()
+    }
   } catch (error) {
     erro.value = 'Nao foi possivel carregar os usuarios.'
     console.error(error)
@@ -101,8 +110,13 @@ async function salvarUsuario() {
       return
     }
 
+    if (superAdminLogado.value && !usuario.value.empresaId) {
+      erro.value = 'Selecione a empresa do usuario.'
+      return
+    }
+
     const dadosUsuario = {
-      empresaId: obterEmpresaId(),
+      empresaId: superAdminLogado.value ? Number(usuario.value.empresaId) : obterEmpresaId(),
       nome: usuario.value.nome,
       email: usuario.value.email,
       perfil: usuario.value.perfil,
@@ -130,7 +144,7 @@ async function salvarUsuario() {
 
     cancelarEdicaoUsuario(false)
 
-    await carregarUsuarios()
+    await carregarDados()
   } catch (error) {
     erro.value = usuarioEditandoId.value
       ? 'Nao foi possivel atualizar o usuario.'
@@ -151,6 +165,7 @@ function editarUsuario(usuarioItem) {
     email: usuarioItem.email || '',
     senha: '',
     perfil: usuarioItem.perfil || 'USUARIO',
+    empresaId: usuarioItem.empresaId || buscarEmpresaIdPorNome(usuarioItem.empresaNome) || '',
     ativo: estaAtivo(usuarioItem),
   }
 }
@@ -184,7 +199,7 @@ async function alternarAtivoUsuario(usuarioItem) {
     mensagemSucessoStatus.value = ''
 
     await atualizarAtivoUsuario(usuarioItem.id, !estaAtivo(usuarioItem))
-    await carregarUsuarios()
+    await carregarDados()
 
     mensagemSucessoStatus.value = estaAtivo(usuarioItem)
       ? 'Usuario desativado com sucesso.'
@@ -247,8 +262,21 @@ function exibirValor(valor) {
   return valor || '-'
 }
 
+function buscarEmpresaIdPorNome(nome) {
+  const nomeNormalizado = normalizarTexto(nome)
+  const empresa = empresas.value.find((empresaItem) => normalizarTexto(empresaItem.nome) === nomeNormalizado)
+
+  return empresa?.id || ''
+}
+
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+}
+
 onMounted(() => {
-  carregarUsuarios()
+  carregarDados()
 })
 </script>
 
@@ -261,7 +289,7 @@ onMounted(() => {
         <p class="descricao">Gerencie usuarios com acesso ao sistema.</p>
       </div>
 
-      <button class="botao secundario" @click="carregarUsuarios">Atualizar dados</button>
+      <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
     </header>
 
     <section v-if="erro" class="card erro">
@@ -279,6 +307,8 @@ onMounted(() => {
       :bloquear-perfil="editandoUsuarioAtual"
       :bloquear-ativo="editandoUsuarioAtual"
       :perfis="perfisPermitidos"
+      :empresas="empresas"
+      :mostrar-empresa="superAdminLogado"
       @salvar="salvarUsuario"
       @cancelar="cancelarEdicaoUsuario"
     />
@@ -317,6 +347,10 @@ onMounted(() => {
           <div class="detalhes">
             <p><strong>E-mail:</strong> {{ exibirValor(usuarioItem.email) }}</p>
             <p><strong>Perfil:</strong> {{ exibirValor(usuarioItem.perfil) }}</p>
+            <p>
+              <strong>Empresa:</strong>
+              {{ exibirValor(usuarioItem.empresaNome || usuarioItem.empresaId) }}
+            </p>
             <p v-if="usuarioAtual(usuarioItem)" class="usuario-atual">Usuario atual</p>
           </div>
 

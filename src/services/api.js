@@ -97,6 +97,44 @@ export async function alterarSenha(senhaAtual, novaSenha) {
   return tratarResposta(response)
 }
 
+export async function buscarEmpresas() {
+  const response = await fetch(`${API_URL}/empresas`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cadastrarEmpresa(empresa) {
+  const response = await fetch(`${API_URL}/empresas`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(empresa),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarEmpresa(id, empresa) {
+  const response = await fetch(`${API_URL}/empresas/${id}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(empresa),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarAtivoEmpresa(id, ativo) {
+  const response = await fetch(`${API_URL}/empresas/${id}/ativo`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify({ ativo }),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarUsuarios() {
   const response = await fetch(`${API_URL}/usuarios`, {
     headers: montarHeaders(),

@@ -25,6 +25,14 @@ defineProps({
     type: Array,
     default: () => ['ADMIN', 'USUARIO'],
   },
+  empresas: {
+    type: Array,
+    default: () => [],
+  },
+  mostrarEmpresa: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 defineEmits(['salvar', 'cancelar'])
@@ -69,6 +77,16 @@ defineEmits(['salvar', 'cancelar'])
         <input v-if="bloquearPerfil" v-model="usuario.perfil" type="text" disabled />
         <select v-else v-model="usuario.perfil">
           <option v-for="perfil in perfis" :key="perfil" :value="perfil">{{ perfil }}</option>
+        </select>
+      </label>
+
+      <label v-if="mostrarEmpresa">
+        Empresa *
+        <select v-model="usuario.empresaId">
+          <option value="">Selecione uma empresa</option>
+          <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
+            {{ empresa.nome }}
+          </option>
         </select>
       </label>
 
