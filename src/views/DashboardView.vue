@@ -17,38 +17,69 @@ const erro = ref('')
 
 const cardsResumo = computed(() => [
   {
-    titulo: 'Total de clientes',
+    titulo: 'Agendamentos de hoje',
+    valor: agendamentosHoje.value.length,
+    destaque: 'hoje',
+  },
+  {
+    titulo: 'Proximos agendamentos',
+    valor: proximosAgendamentos.value.length,
+    destaque: 'agenda',
+  },
+  {
+    titulo: 'Total agendado',
+    valor: contarPorStatus('agendado'),
+    destaque: 'agendado',
+  },
+  {
+    titulo: 'Total concluido',
+    valor: contarPorStatus('concluido'),
+    destaque: 'concluido',
+  },
+  {
+    titulo: 'Total cancelado',
+    valor: contarPorStatus('cancelado'),
+    destaque: 'cancelado',
+  },
+  {
+    titulo: 'Total faltou',
+    valor: contarPorStatus('faltou'),
+    destaque: 'faltou',
+  },
+  {
+    titulo: 'Receita prevista',
+    valor: formatarMoeda(receitaPorStatus('agendado')),
+    destaque: 'receita',
+  },
+  {
+    titulo: 'Receita concluida',
+    valor: formatarMoeda(receitaPorStatus('concluido')),
+    destaque: 'receita',
+  },
+])
+
+const cardsBase = computed(() => [
+  {
+    titulo: 'Clientes',
     valor: clientes.value.length,
   },
   {
-    titulo: 'Total de servicos',
+    titulo: 'Servicos',
     valor: servicos.value.length,
   },
   {
-    titulo: 'Total de funcionarios',
+    titulo: 'Funcionarios',
     valor: funcionarios.value.length,
   },
   {
-    titulo: 'Total de agendamentos',
+    titulo: 'Agendamentos',
     valor: agendamentos.value.length,
   },
-  {
-    titulo: 'Agendados',
-    valor: contarPorStatus('agendado'),
-  },
-  {
-    titulo: 'Concluidos',
-    valor: contarPorStatus('concluido'),
-  },
-  {
-    titulo: 'Cancelados',
-    valor: contarPorStatus('cancelado'),
-  },
-  {
-    titulo: 'Faltas',
-    valor: contarPorStatus('faltou'),
-  },
 ])
+
+const agendamentosHoje = computed(() => {
+  return agendamentos.value.filter((agendamento) => mesmaDataHoje(agendamento.dataHoraInicio))
+})
 
 const proximosAgendamentos = computed(() => {
   const agora = new Date()
@@ -59,7 +90,7 @@ const proximosAgendamentos = computed(() => {
         return false
       }
 
-      return new Date(agendamento.dataHoraInicio) >= agora
+      return agendamento.status === 'agendado' && new Date(agendamento.dataHoraInicio) >= agora
     })
     .sort((a, b) => new Date(a.dataHoraInicio) - new Date(b.dataHoraInicio))
     .slice(0, 5)
@@ -91,6 +122,34 @@ async function carregarDados() {
 
 function contarPorStatus(status) {
   return agendamentos.value.filter((agendamento) => agendamento.status === status).length
+}
+
+function receitaPorStatus(status) {
+  return agendamentos.value
+    .filter((agendamento) => agendamento.status === status)
+    .reduce((total, agendamento) => total + Number(agendamento.preco || 0), 0)
+}
+
+function formatarMoeda(valor) {
+  return Number(valor || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  })
+}
+
+function mesmaDataHoje(dataHora) {
+  if (!dataHora) {
+    return false
+  }
+
+  const data = new Date(dataHora)
+  const hoje = new Date()
+
+  return (
+    data.getFullYear() === hoje.getFullYear() &&
+    data.getMonth() === hoje.getMonth() &&
+    data.getDate() === hoje.getDate()
+  )
 }
 
 function formatarDataHora(dataHora) {
@@ -146,7 +205,18 @@ onMounted(() => {
     </section>
 
     <section class="grade-resumo">
-      <article v-for="card in cardsResumo" :key="card.titulo" class="card resumo-card">
+      <article
+        v-for="card in cardsResumo"
+        :key="card.titulo"
+        :class="['card', 'resumo-card', card.destaque]"
+      >
+        <p>{{ card.titulo }}</p>
+        <strong>{{ card.valor }}</strong>
+      </article>
+    </section>
+
+    <section class="grade-base">
+      <article v-for="card in cardsBase" :key="card.titulo" class="card base-card">
         <p>{{ card.titulo }}</p>
         <strong>{{ card.valor }}</strong>
       </article>
@@ -165,7 +235,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="proximosAgendamentos.length === 0" class="card">
-        <p>Nenhum agendamento futuro encontrado.</p>
+        <p>Nenhum proximo agendamento em aberto. A agenda esta tranquila por enquanto.</p>
       </section>
 
       <section v-else class="lista-proximos">
@@ -188,6 +258,7 @@ onMounted(() => {
           <div class="detalhes">
             <p><strong>Funcionario:</strong> {{ exibirValor(agendamento.funcionario) }}</p>
             <p><strong>Data/Hora:</strong> {{ formatarDataHora(agendamento.dataHoraInicio) }}</p>
+            <p><strong>Preco:</strong> {{ formatarMoeda(agendamento.preco) }}</p>
           </div>
         </article>
       </section>
@@ -242,6 +313,12 @@ onMounted(() => {
   gap: 18px;
 }
 
+.grade-base {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 14px;
+}
+
 .secao-proximos {
   display: grid;
   gap: 16px;
@@ -264,6 +341,7 @@ onMounted(() => {
 .resumo-card {
   display: grid;
   gap: 8px;
+  border-left: 5px solid #2563eb;
 }
 
 .resumo-card p {
@@ -275,6 +353,51 @@ onMounted(() => {
 .resumo-card strong {
   color: #111827;
   font-size: 30px;
+  font-weight: 800;
+}
+
+.resumo-card.hoje {
+  border-left-color: #2563eb;
+}
+
+.resumo-card.agenda {
+  border-left-color: #0f172a;
+}
+
+.resumo-card.agendado {
+  border-left-color: #1d4ed8;
+}
+
+.resumo-card.concluido,
+.resumo-card.receita {
+  border-left-color: #16a34a;
+}
+
+.resumo-card.cancelado {
+  border-left-color: #dc2626;
+}
+
+.resumo-card.faltou {
+  border-left-color: #d97706;
+}
+
+.base-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.base-card p {
+  margin: 0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.base-card strong {
+  color: #111827;
+  font-size: 22px;
   font-weight: 800;
 }
 
@@ -373,7 +496,8 @@ onMounted(() => {
 }
 
 @media (max-width: 1100px) {
-  .grade-resumo {
+  .grade-resumo,
+  .grade-base {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
 }
@@ -386,6 +510,7 @@ onMounted(() => {
   }
 
   .grade-resumo,
+  .grade-base,
   .lista-proximos {
     grid-template-columns: 1fr;
   }
