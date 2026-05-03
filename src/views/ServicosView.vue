@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import ServicoForm from '@/components/ServicoForm.vue'
 import {
   buscarServicos,
@@ -15,8 +15,41 @@ const mensagemSucessoServico = ref('')
 const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
 const servicoEmEdicaoId = ref(null)
+const filtros = ref({
+  status: '',
+  busca: '',
+})
 
 const servico = ref(criarServicoInicial())
+
+const servicosFiltrados = computed(() => {
+  const termoBusca = normalizarTexto(filtros.value.busca)
+
+  return servicos.value
+    .filter((servicoItem) => {
+      if (filtros.value.status === 'ativos' && !estaAtivo(servicoItem)) {
+        return false
+      }
+
+      if (filtros.value.status === 'inativos' && estaAtivo(servicoItem)) {
+        return false
+      }
+
+      if (termoBusca) {
+        const nome = normalizarTexto(servicoItem.nome)
+        const descricao = normalizarTexto(servicoItem.descricao)
+
+        if (!nome.includes(termoBusca) && !descricao.includes(termoBusca)) {
+          return false
+        }
+      }
+
+      return true
+    })
+    .sort((servicoA, servicoB) =>
+      String(servicoA.nome || '').localeCompare(String(servicoB.nome || ''), 'pt-BR'),
+    )
+})
 
 function criarServicoInicial() {
   return {
@@ -159,6 +192,19 @@ function estaAtivo(servicoItem) {
   return servicoItem.ativo !== false
 }
 
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .trim()
+    .toLowerCase()
+}
+
+function limparFiltros() {
+  filtros.value = {
+    status: '',
+    busca: '',
+  }
+}
+
 onMounted(() => {
   carregarServicos()
 })
@@ -193,13 +239,44 @@ onMounted(() => {
     />
 
     <section class="secao-servicos">
+      <section class="card filtros-servicos">
+        <div class="titulo-card">
+          <h2>Filtros</h2>
+          <p>Refine a lista de servicos cadastrados.</p>
+        </div>
+
+        <div class="campos-filtros">
+          <label>
+            Status
+            <select v-model="filtros.status">
+              <option value="">Todos</option>
+              <option value="ativos">Ativos</option>
+              <option value="inativos">Inativos</option>
+            </select>
+          </label>
+
+          <label class="campo-busca">
+            Buscar
+            <input
+              v-model="filtros.busca"
+              type="text"
+              placeholder="Busque por nome ou descricao"
+            />
+          </label>
+
+          <div class="acoes-filtros">
+            <button class="botao secundario" @click="limparFiltros">Limpar filtros</button>
+          </div>
+        </div>
+      </section>
+
       <div class="cabecalho-lista">
         <div>
           <h2>Servicos cadastrados</h2>
           <p>Lista de servicos retornados pela API publicada.</p>
         </div>
 
-        <span class="contador">{{ servicos.length }} servico(s)</span>
+        <span class="contador">{{ servicosFiltrados.length }} servico(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
@@ -210,8 +287,16 @@ onMounted(() => {
         <p>Nenhum servico encontrado.</p>
       </section>
 
+      <section v-else-if="servicosFiltrados.length === 0" class="card">
+        <p>Nenhum servico encontrado para os filtros selecionados.</p>
+      </section>
+
       <section v-else class="lista-servicos">
-        <article v-for="servicoItem in servicos" :key="servicoItem.id" class="card servico-card">
+        <article
+          v-for="servicoItem in servicosFiltrados"
+          :key="servicoItem.id"
+          class="card servico-card"
+        >
           <div class="topo-card">
             <div>
               <h3>{{ servicoItem.nome }}</h3>
@@ -324,6 +409,63 @@ onMounted(() => {
   border-radius: 8px;
   padding: 22px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.filtros-servicos {
+  display: grid;
+  gap: 16px;
+}
+
+.titulo-card h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+  font-weight: 800;
+}
+
+.titulo-card p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.campos-filtros {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(260px, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.campos-filtros label {
+  display: grid;
+  gap: 6px;
+  color: #374151;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.campos-filtros input,
+.campos-filtros select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 15px;
+  background: white;
+  box-sizing: border-box;
+}
+
+.campos-filtros input:focus,
+.campos-filtros select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.acoes-filtros {
+  display: flex;
+  align-items: end;
 }
 
 .lista-servicos {
@@ -562,6 +704,7 @@ onMounted(() => {
   }
 
   .lista-servicos,
+  .campos-filtros,
   :deep(.campos) {
     grid-template-columns: 1fr;
   }
