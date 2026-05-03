@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import AgendamentoCard from '@/components/AgendamentoCard.vue'
 import AgendamentoForm from '@/components/AgendamentoForm.vue'
 import {
@@ -28,6 +28,8 @@ const novoAgendamento = ref({
   dataHoraInicio: '',
   observacao: '',
 })
+
+const servicosAtivos = computed(() => servicos.value.filter((servico) => servico.ativo === true))
 
 async function carregarDados() {
   try {
@@ -185,7 +187,7 @@ onMounted(() => {
       <AgendamentoForm
         v-model="novoAgendamento"
         :clientes="clientes"
-        :servicos="servicos"
+        :servicos="servicosAtivos"
         :funcionarios="funcionarios"
         :mensagem-sucesso="mensagemSucessoAgendamento"
         @salvar="salvarAgendamento"

@@ -1,12 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import ServicoForm from '@/components/ServicoForm.vue'
-import { buscarServicos, cadastrarServico } from '@/services/api'
+import { buscarServicos, cadastrarServico, atualizarAtivoServico } from '@/services/api'
 
 const servicos = ref([])
 const carregando = ref(true)
 const erro = ref('')
 const mensagemSucessoServico = ref('')
+const mensagemSucessoStatus = ref('')
+const atualizandoId = ref(null)
 
 const servico = ref(criarServicoInicial())
 
@@ -39,6 +41,7 @@ async function salvarServico() {
   try {
     erro.value = ''
     mensagemSucessoServico.value = ''
+    mensagemSucessoStatus.value = ''
 
     if (!servico.value.nome.trim()) {
       erro.value = 'Informe o nome do servico.'
@@ -71,6 +74,27 @@ async function salvarServico() {
   } catch (error) {
     erro.value = 'Nao foi possivel cadastrar o servico.'
     console.error(error)
+  }
+}
+
+async function alternarAtivoServico(servicoItem) {
+  try {
+    atualizandoId.value = servicoItem.id
+    erro.value = ''
+    mensagemSucessoServico.value = ''
+    mensagemSucessoStatus.value = ''
+
+    await atualizarAtivoServico(servicoItem.id, !estaAtivo(servicoItem))
+    await carregarServicos()
+
+    mensagemSucessoStatus.value = estaAtivo(servicoItem)
+      ? 'Servico desativado com sucesso.'
+      : 'Servico ativado com sucesso.'
+  } catch (error) {
+    erro.value = 'Nao foi possivel atualizar o status do servico.'
+    console.error(error)
+  } finally {
+    atualizandoId.value = null
   }
 }
 
@@ -112,6 +136,10 @@ onMounted(() => {
 
     <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
+    </section>
+
+    <section v-if="mensagemSucessoStatus" class="card sucesso-card">
+      <p>{{ mensagemSucessoStatus }}</p>
     </section>
 
     <ServicoForm
@@ -156,6 +184,20 @@ onMounted(() => {
             <p><strong>Preco:</strong> {{ formatarPreco(servicoItem.preco) }}</p>
             <p><strong>Duracao:</strong> {{ exibirValor(servicoItem.duracaoMinutos) }} minutos</p>
           </div>
+
+          <div class="acoes">
+            <button
+              :class="['botao', estaAtivo(servicoItem) ? 'perigo' : 'sucesso']"
+              :disabled="atualizandoId === servicoItem.id"
+              @click="alternarAtivoServico(servicoItem)"
+            >
+              {{ estaAtivo(servicoItem) ? 'Desativar' : 'Ativar' }}
+            </button>
+          </div>
+
+          <p v-if="atualizandoId === servicoItem.id" class="atualizando">
+            Atualizando servico...
+          </p>
         </article>
       </section>
     </section>
@@ -266,6 +308,12 @@ onMounted(() => {
   font-weight: 800;
 }
 
+.acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .status {
   padding: 7px 11px;
   border-radius: 999px;
@@ -304,6 +352,13 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
+.botao:disabled,
+:deep(.botao:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .secundario {
   background: #0f172a;
   min-width: 140px;
@@ -319,6 +374,22 @@ onMounted(() => {
 
 :deep(.principal:hover) {
   background: #1d4ed8;
+}
+
+.sucesso {
+  background: #16a34a;
+}
+
+.sucesso:hover {
+  background: #15803d;
+}
+
+.perigo {
+  background: #dc2626;
+}
+
+.perigo:hover {
+  background: #b91c1c;
 }
 
 :deep(.formulario) {
@@ -397,6 +468,18 @@ onMounted(() => {
   border-color: #fecaca;
   background: #fef2f2;
   color: #991b1b;
+}
+
+.sucesso-card {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.atualizando {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
 }
 
 :deep(.sucesso-texto) {
