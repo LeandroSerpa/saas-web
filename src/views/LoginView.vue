@@ -33,6 +33,7 @@ async function entrar() {
       email: resposta.email,
       perfil: resposta.perfil,
       empresaId: resposta.empresaId,
+      empresaNome: resposta.empresaNome,
     }
 
     localStorage.setItem('token', resposta.token)

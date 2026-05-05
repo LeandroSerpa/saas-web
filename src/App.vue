@@ -10,6 +10,17 @@ const usuario = computed(() => {
   route.fullPath
   return carregarUsuario()
 })
+const empresaLogada = computed(() => {
+  if (usuario.value?.empresaNome) {
+    return `Empresa: ${usuario.value.empresaNome}`
+  }
+
+  if (usuario.value?.empresaId) {
+    return `Empresa ID: ${usuario.value.empresaId}`
+  }
+
+  return 'Empresa ID: -'
+})
 const podeGerenciarUsuarios = computed(
   () => usuario.value?.perfil === 'ADMIN' || usuario.value?.perfil === 'SUPER_ADMIN',
 )
@@ -71,7 +82,8 @@ function sair() {
 
         <div class="usuario-logado">
           <div>
-            <strong>{{ usuario?.nome || 'Usuario' }}</strong>
+            <strong>{{ empresaLogada }}</strong>
+            <span>Usuario: {{ usuario?.nome || 'Usuario' }}</span>
             <small>{{ usuario?.email || 'Sessao ativa' }}</small>
           </div>
 
@@ -192,6 +204,7 @@ function sair() {
 }
 
 .usuario-logado strong,
+.usuario-logado span,
 .usuario-logado small {
   display: block;
 }
@@ -199,6 +212,13 @@ function sair() {
 .usuario-logado strong {
   font-size: 14px;
   font-weight: 800;
+}
+
+.usuario-logado span {
+  margin-top: 3px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .usuario-logado small {
