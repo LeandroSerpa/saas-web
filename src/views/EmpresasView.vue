@@ -60,6 +60,15 @@ function criarEmpresaInicial() {
     email: '',
     endereco: '',
     ativo: true,
+    horaAbertura: '',
+    horaFechamento: '',
+    atendeDomingo: false,
+    atendeSegunda: true,
+    atendeTerca: true,
+    atendeQuarta: true,
+    atendeQuinta: true,
+    atendeSexta: true,
+    atendeSabado: true,
   }
 }
 
@@ -95,6 +104,15 @@ async function salvarEmpresa() {
       email: empresa.value.email,
       endereco: empresa.value.endereco,
       ativo: Boolean(empresa.value.ativo),
+      horaAbertura: empresa.value.horaAbertura,
+      horaFechamento: empresa.value.horaFechamento,
+      atendeDomingo: Boolean(empresa.value.atendeDomingo),
+      atendeSegunda: Boolean(empresa.value.atendeSegunda),
+      atendeTerca: Boolean(empresa.value.atendeTerca),
+      atendeQuarta: Boolean(empresa.value.atendeQuarta),
+      atendeQuinta: Boolean(empresa.value.atendeQuinta),
+      atendeSexta: Boolean(empresa.value.atendeSexta),
+      atendeSabado: Boolean(empresa.value.atendeSabado),
     }
 
     if (empresaEditandoId.value) {
@@ -127,6 +145,15 @@ function editarEmpresa(empresaItem) {
     email: empresaItem.email || '',
     endereco: empresaItem.endereco || '',
     ativo: estaAtiva(empresaItem),
+    horaAbertura: empresaItem.horaAbertura || '',
+    horaFechamento: empresaItem.horaFechamento || '',
+    atendeDomingo: Boolean(empresaItem.atendeDomingo),
+    atendeSegunda: empresaItem.atendeSegunda !== false,
+    atendeTerca: empresaItem.atendeTerca !== false,
+    atendeQuarta: empresaItem.atendeQuarta !== false,
+    atendeQuinta: empresaItem.atendeQuinta !== false,
+    atendeSexta: empresaItem.atendeSexta !== false,
+    atendeSabado: empresaItem.atendeSabado !== false,
   }
 }
 
@@ -179,6 +206,30 @@ function limparFiltros() {
 
 function exibirValor(valor) {
   return valor || '-'
+}
+
+function exibirHorario(empresaItem) {
+  if (!empresaItem.horaAbertura && !empresaItem.horaFechamento) {
+    return '-'
+  }
+
+  return `${empresaItem.horaAbertura || '--:--'} as ${empresaItem.horaFechamento || '--:--'}`
+}
+
+function exibirDiasAtendimento(empresaItem) {
+  const dias = [
+    { campo: 'atendeDomingo', rotulo: 'Dom' },
+    { campo: 'atendeSegunda', rotulo: 'Seg' },
+    { campo: 'atendeTerca', rotulo: 'Ter' },
+    { campo: 'atendeQuarta', rotulo: 'Qua' },
+    { campo: 'atendeQuinta', rotulo: 'Qui' },
+    { campo: 'atendeSexta', rotulo: 'Sex' },
+    { campo: 'atendeSabado', rotulo: 'Sab' },
+  ]
+    .filter((dia) => empresaItem[dia.campo])
+    .map((dia) => dia.rotulo)
+
+  return dias.length ? dias.join(', ') : '-'
 }
 
 onMounted(() => {
@@ -281,6 +332,8 @@ onMounted(() => {
             <p><strong>Telefone:</strong> {{ exibirValor(empresaItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(empresaItem.email) }}</p>
             <p><strong>Endereco:</strong> {{ exibirValor(empresaItem.endereco) }}</p>
+            <p><strong>Horario:</strong> {{ exibirHorario(empresaItem) }}</p>
+            <p><strong>Dias:</strong> {{ exibirDiasAtendimento(empresaItem) }}</p>
           </div>
 
           <div class="acoes">
@@ -451,6 +504,17 @@ onMounted(() => {
   grid-column: 1 / -1;
 }
 
+:deep(.secao-horario) {
+  display: grid;
+  gap: 16px;
+}
+
+:deep(.dias-atendimento) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+}
+
 .acoes-filtros,
 .acoes,
 :deep(.rodape-formulario) {
@@ -609,6 +673,10 @@ onMounted(() => {
   .campos-filtros,
   :deep(.campos) {
     grid-template-columns: 1fr;
+  }
+
+  :deep(.dias-atendimento) {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 }
 </style>

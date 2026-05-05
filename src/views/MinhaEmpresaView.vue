@@ -7,6 +7,15 @@ const salvando = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const empresa = ref(criarEmpresaInicial())
+const diasAtendimento = [
+  { campo: 'atendeDomingo', rotulo: 'Domingo' },
+  { campo: 'atendeSegunda', rotulo: 'Segunda' },
+  { campo: 'atendeTerca', rotulo: 'Terca' },
+  { campo: 'atendeQuarta', rotulo: 'Quarta' },
+  { campo: 'atendeQuinta', rotulo: 'Quinta' },
+  { campo: 'atendeSexta', rotulo: 'Sexta' },
+  { campo: 'atendeSabado', rotulo: 'Sabado' },
+]
 
 function criarEmpresaInicial() {
   return {
@@ -15,6 +24,15 @@ function criarEmpresaInicial() {
     telefone: '',
     email: '',
     endereco: '',
+    horaAbertura: '',
+    horaFechamento: '',
+    atendeDomingo: false,
+    atendeSegunda: true,
+    atendeTerca: true,
+    atendeQuarta: true,
+    atendeQuinta: true,
+    atendeSexta: true,
+    atendeSabado: true,
   }
 }
 
@@ -32,6 +50,15 @@ async function carregarMinhaEmpresa() {
       telefone: empresaApi.telefone || '',
       email: empresaApi.email || '',
       endereco: empresaApi.endereco || '',
+      horaAbertura: empresaApi.horaAbertura || '',
+      horaFechamento: empresaApi.horaFechamento || '',
+      atendeDomingo: Boolean(empresaApi.atendeDomingo),
+      atendeSegunda: empresaApi.atendeSegunda !== false,
+      atendeTerca: empresaApi.atendeTerca !== false,
+      atendeQuarta: empresaApi.atendeQuarta !== false,
+      atendeQuinta: empresaApi.atendeQuinta !== false,
+      atendeSexta: empresaApi.atendeSexta !== false,
+      atendeSabado: empresaApi.atendeSabado !== false,
     }
   } catch (error) {
     erro.value = 'Nao foi possivel carregar os dados da empresa.'
@@ -59,6 +86,15 @@ async function salvarEmpresa() {
       telefone: empresa.value.telefone,
       email: empresa.value.email,
       endereco: empresa.value.endereco,
+      horaAbertura: empresa.value.horaAbertura,
+      horaFechamento: empresa.value.horaFechamento,
+      atendeDomingo: Boolean(empresa.value.atendeDomingo),
+      atendeSegunda: Boolean(empresa.value.atendeSegunda),
+      atendeTerca: Boolean(empresa.value.atendeTerca),
+      atendeQuarta: Boolean(empresa.value.atendeQuarta),
+      atendeQuinta: Boolean(empresa.value.atendeQuinta),
+      atendeSexta: Boolean(empresa.value.atendeSexta),
+      atendeSabado: Boolean(empresa.value.atendeSabado),
     }
 
     const resposta = await atualizarMinhaEmpresa(dadosEmpresa)
@@ -153,9 +189,35 @@ onMounted(() => {
         </label>
       </div>
 
+      <div class="secao-horario">
+        <div class="titulo-card">
+          <h2>Horario de funcionamento</h2>
+          <p>Configure os horarios e dias de atendimento da empresa.</p>
+        </div>
+
+        <div class="campos">
+          <label>
+            Hora de abertura
+            <input v-model="empresa.horaAbertura" type="time" />
+          </label>
+
+          <label>
+            Hora de fechamento
+            <input v-model="empresa.horaFechamento" type="time" />
+          </label>
+        </div>
+
+        <div class="dias-atendimento">
+          <label v-for="dia in diasAtendimento" :key="dia.campo" class="campo-checkbox">
+            <input v-model="empresa[dia.campo]" type="checkbox" />
+            {{ dia.rotulo }}
+          </label>
+        </div>
+      </div>
+
       <div class="rodape-formulario">
         <button class="botao principal" :disabled="salvando" @click="salvarEmpresa">
-          {{ salvando ? 'Salvando...' : 'Salvar alteracoes' }}
+          {{ salvando ? 'Salvando...' : 'Salvar' }}
         </button>
       </div>
     </section>
@@ -164,7 +226,8 @@ onMounted(() => {
 
 <style scoped>
 .pagina,
-.formulario {
+.formulario,
+.secao-horario {
   display: grid;
   gap: 16px;
 }
@@ -256,6 +319,24 @@ input:focus {
   grid-column: 1 / -1;
 }
 
+.dias-atendimento {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.campo-checkbox {
+  align-content: center;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+}
+
+input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+}
+
 .rodape-formulario {
   display: flex;
   align-items: center;
@@ -323,6 +404,10 @@ input:focus {
 
   .campos {
     grid-template-columns: 1fr;
+  }
+
+  .dias-atendimento {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 }
 </style>

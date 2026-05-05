@@ -4,6 +4,16 @@ const empresa = defineModel({
   required: true,
 })
 
+const diasAtendimento = [
+  { campo: 'atendeDomingo', rotulo: 'Domingo' },
+  { campo: 'atendeSegunda', rotulo: 'Segunda' },
+  { campo: 'atendeTerca', rotulo: 'Terca' },
+  { campo: 'atendeQuarta', rotulo: 'Quarta' },
+  { campo: 'atendeQuinta', rotulo: 'Quinta' },
+  { campo: 'atendeSexta', rotulo: 'Sexta' },
+  { campo: 'atendeSabado', rotulo: 'Sabado' },
+]
+
 defineProps({
   mensagemSucesso: {
     type: String,
@@ -61,6 +71,32 @@ defineEmits(['salvar', 'cancelar'])
         <input v-model="empresa.ativo" type="checkbox" />
         Ativa
       </label>
+    </div>
+
+    <div class="secao-horario">
+      <div class="titulo-card">
+        <h2>Horario de funcionamento</h2>
+        <p>Configure os horarios e dias de atendimento da empresa.</p>
+      </div>
+
+      <div class="campos">
+        <label>
+          Hora de abertura
+          <input v-model="empresa.horaAbertura" type="time" />
+        </label>
+
+        <label>
+          Hora de fechamento
+          <input v-model="empresa.horaFechamento" type="time" />
+        </label>
+      </div>
+
+      <div class="dias-atendimento">
+        <label v-for="dia in diasAtendimento" :key="dia.campo" class="campo-checkbox">
+          <input v-model="empresa[dia.campo]" type="checkbox" />
+          {{ dia.rotulo }}
+        </label>
+      </div>
     </div>
 
     <div class="rodape-formulario">

@@ -24,14 +24,133 @@ function encerrarSessao() {
   }
 }
 
-async function tratarResposta(response) {
-  if (response.status === 401 || response.status === 403) {
-    encerrarSessao()
-    throw new Error('Sessao expirada ou acesso negado')
+async function extrairMensagemErro(response) {
+  const mensagemPadrao = 'Não foi possível concluir a operação.'
+
+  const dados = await lerJsonErro(response)
+
+  if (dados) {
+    const mensagemJson = extrairMensagemJson(dados)
+
+    if (mensagemJson) {
+      return mensagemJson
+    }
   }
 
+  const texto = await lerTextoErro(response)
+
+  if (texto) {
+    return texto
+  }
+
+  return mensagemPadrao
+}
+
+async function lerJsonErro(response) {
+  try {
+    return await response.clone().json()
+  } catch (error) {
+    return null
+  }
+}
+
+async function lerTextoErro(response) {
+  try {
+    return (await response.clone().text()).trim()
+  } catch (error) {
+    console.error(error)
+    return ''
+  }
+}
+
+function extrairMensagemJson(dados) {
+  if (typeof dados === 'string') {
+    return dados.trim()
+  }
+
+  if (!dados || typeof dados !== 'object') {
+    return ''
+  }
+
+  const mensagens = [
+    dados.message,
+    dados.detail,
+    dados.error,
+    dados.titulo,
+    dados.descricao,
+  ]
+
+  return mensagens.map(normalizarMensagemErro).find(Boolean) || ''
+}
+
+function normalizarMensagemErro(mensagem) {
+  const texto = String(mensagem || '').trim()
+
+  if (!texto || mensagemGenerica(texto)) {
+    return ''
+  }
+
+  return texto
+}
+
+function mensagemGenerica(mensagem) {
+  const texto = mensagem.toLowerCase()
+
+  return [
+    'bad request',
+    'unauthorized',
+    'forbidden',
+    'not found',
+    'conflict',
+    'internal server error',
+    'no message available',
+    'erro ao comunicar com a api',
+  ].includes(texto)
+}
+
+async function extrairMensagemResposta(response) {
+  const mensagemPadrao = 'Não foi possível concluir a operação.'
+
+  try {
+    const data = await response.clone().json()
+
+    if (data?.message) {
+      return data.message
+    }
+
+    if (data?.detail) {
+      return data.detail
+    }
+
+    if (data?.error) {
+      return data.error
+    }
+  } catch (error) {
+    console.error(error)
+  }
+
+  try {
+    const texto = (await response.clone().text()).trim()
+
+    if (texto) {
+      return texto
+    }
+  } catch (error) {
+    console.error(error)
+  }
+
+  return mensagemPadrao
+}
+
+async function tratarResposta(response) {
   if (!response.ok) {
-    throw new Error('Erro ao comunicar com a API')
+    const mensagem = await extrairMensagemResposta(response)
+
+    if (response.status === 401) {
+      encerrarSessao()
+    }
+
+    throw new Error(mensagem)
   }
 
   const contentType = response.headers.get('content-type') || ''

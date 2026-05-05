@@ -193,9 +193,7 @@ async function salvarAgendamento() {
 
     await carregarAgendamentos()
   } catch (error) {
-    erro.value = agendamentoEditandoId.value
-      ? 'Nao foi possivel atualizar o agendamento.'
-      : 'Nao foi possivel cadastrar o agendamento.'
+    erro.value = error.message || 'Não foi possível concluir a operação.'
     console.error(error)
   }
 }
