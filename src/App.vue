@@ -1,15 +1,12 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 
 const rotaLogin = computed(() => route.path === '/login')
-const usuario = computed(() => {
-  route.fullPath
-  return carregarUsuario()
-})
+const usuario = ref(null)
 const empresaLogada = computed(() => {
   if (usuario.value?.empresaNome) {
     return `Empresa: ${usuario.value.empresaNome}`
@@ -46,6 +43,26 @@ function sair() {
   localStorage.removeItem('usuario')
   router.push('/login')
 }
+
+function atualizarUsuarioLogado() {
+  usuario.value = carregarUsuario()
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    atualizarUsuarioLogado()
+  },
+  { immediate: true },
+)
+
+onMounted(() => {
+  window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('usuario-atualizado', atualizarUsuarioLogado)
+})
 </script>
 
 <template>
@@ -67,6 +84,7 @@ function sair() {
         <RouterLink to="/clientes">Clientes</RouterLink>
         <RouterLink to="/servicos">Servicos</RouterLink>
         <RouterLink to="/funcionarios">Funcionarios</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa">Minha empresa</RouterLink>
         <RouterLink v-if="superAdmin" to="/empresas">Empresas</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios">Usuarios</RouterLink>
         <RouterLink to="/alterar-senha">Alterar senha</RouterLink>

@@ -8,6 +8,7 @@ import LoginView from '../views/LoginView.vue'
 import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
 import EmpresasView from '../views/EmpresasView.vue'
+import MinhaEmpresaView from '../views/MinhaEmpresaView.vue'
 
 const rotasProtegidas = {
   requiresAuth: true,
@@ -85,6 +86,12 @@ const router = createRouter({
       path: '/usuarios',
       name: 'usuarios',
       component: UsuariosView,
+      meta: rotasAdmin,
+    },
+    {
+      path: '/minha-empresa',
+      name: 'minha-empresa',
+      component: MinhaEmpresaView,
       meta: rotasAdmin,
     },
     {

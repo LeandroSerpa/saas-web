@@ -105,6 +105,24 @@ export async function buscarEmpresas() {
   return tratarResposta(response)
 }
 
+export async function buscarMinhaEmpresa() {
+  const response = await fetch(`${API_URL}/minha-empresa`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarMinhaEmpresa(empresa) {
+  const response = await fetch(`${API_URL}/minha-empresa`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(empresa),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function cadastrarEmpresa(empresa) {
   const response = await fetch(`${API_URL}/empresas`, {
     method: 'POST',
