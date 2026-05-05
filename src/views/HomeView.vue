@@ -45,6 +45,19 @@ const servicosAtivos = computed(() => servicos.value.filter((servico) => servico
 const funcionariosAtivos = computed(() =>
   funcionarios.value.filter((funcionario) => funcionario.ativo === true),
 )
+const servicoSelecionadoAgendamento = computed(() => buscarServicoSelecionado())
+const duracaoAgendamentoMinutos = computed(() =>
+  obterDuracaoValida(servicoSelecionadoAgendamento.value),
+)
+const terminoPrevistoAgendamento = computed(() => {
+  if (!novoAgendamento.value.dataHoraInicio || !duracaoAgendamentoMinutos.value) {
+    return ''
+  }
+
+  const fim = calcularDataHoraFim(novoAgendamento.value.dataHoraInicio, duracaoAgendamentoMinutos.value)
+
+  return fim ? formatarDataHoraPreview(fim) : ''
+})
 const agendamentosFiltrados = computed(() => {
   return agendamentos.value
     .filter((agendamento) => {
@@ -161,14 +174,20 @@ async function salvarAgendamento() {
       return
     }
 
-    const servicoSelecionado = servicos.value.find(
-      (servico) => Number(servico.id) === Number(novoAgendamento.value.servicoId),
-    )
+    const duracaoMinutos = duracaoAgendamentoMinutos.value
 
-    const duracaoMinutos = servicoSelecionado?.duracaoMinutos || 30
+    if (!duracaoMinutos) {
+      erro.value = 'O serviço selecionado não possui duração válida.'
+      return
+    }
 
     const inicio = new Date(novoAgendamento.value.dataHoraInicio)
-    const fim = new Date(inicio.getTime() + duracaoMinutos * 60000)
+    const fim = calcularDataHoraFim(inicio, duracaoMinutos)
+
+    if (!fim) {
+      erro.value = 'Informe uma data e hora valida para o agendamento.'
+      return
+    }
 
     const agendamento = {
       empresaId: 1,
@@ -193,7 +212,9 @@ async function salvarAgendamento() {
 
     await carregarAgendamentos()
   } catch (error) {
-    erro.value = error.message || 'Não foi possível concluir a operação.'
+    const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
+
+    erro.value = mensagemApi || 'Nao foi possivel concluir a operacao.'
     console.error(error)
   }
 }
@@ -230,6 +251,32 @@ function cancelarEdicaoAgendamento(limparMensagens = true) {
 function buscarPorNome(lista, nome) {
   const nomeNormalizado = normalizarTexto(nome)
   return lista.find((item) => normalizarTexto(item.nome) === nomeNormalizado)
+}
+
+function buscarServicoSelecionado() {
+  return servicos.value.find(
+    (servico) => Number(servico.id) === Number(novoAgendamento.value.servicoId),
+  )
+}
+
+function obterDuracaoValida(servico) {
+  const duracao = Number(servico?.duracaoMinutos)
+
+  if (!Number.isFinite(duracao) || duracao <= 0) {
+    return null
+  }
+
+  return duracao
+}
+
+function calcularDataHoraFim(dataHoraInicio, duracaoMinutos) {
+  const inicio = dataHoraInicio instanceof Date ? dataHoraInicio : new Date(dataHoraInicio)
+
+  if (Number.isNaN(inicio.getTime())) {
+    return null
+  }
+
+  return new Date(inicio.getTime() + duracaoMinutos * 60000)
 }
 
 function normalizarTexto(valor) {
@@ -279,6 +326,16 @@ function formatarDataParaApi(data) {
   return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`
 }
 
+function formatarDataHoraPreview(data) {
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 onMounted(() => {
   carregarDados()
 })
@@ -308,6 +365,8 @@ onMounted(() => {
         :funcionarios="funcionariosAtivos"
         :mensagem-sucesso="mensagemSucessoAgendamento"
         :modo-edicao="Boolean(agendamentoEditandoId)"
+        :duracao-minutos="duracaoAgendamentoMinutos"
+        :termino-previsto="terminoPrevistoAgendamento"
         @salvar="salvarAgendamento"
         @cancelar="cancelarEdicaoAgendamento"
       />
@@ -517,6 +576,24 @@ onMounted(() => {
 
 :deep(.campo-grande) {
   grid-column: 1 / -1;
+}
+
+:deep(.previa-agendamento) {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+:deep(.previa-agendamento p) {
+  margin: 0;
 }
 
 :deep(.rodape-formulario) {

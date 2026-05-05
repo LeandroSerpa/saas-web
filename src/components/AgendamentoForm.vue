@@ -25,6 +25,14 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  duracaoMinutos: {
+    type: Number,
+    default: null,
+  },
+  terminoPrevisto: {
+    type: String,
+    default: '',
+  },
 })
 
 defineEmits(['salvar', 'cancelar'])
@@ -89,6 +97,11 @@ function formatarPreco(preco) {
         Data e hora *
         <input v-model="agendamento.dataHoraInicio" type="datetime-local" />
       </label>
+
+      <div v-if="duracaoMinutos || terminoPrevisto" class="campo-grande previa-agendamento">
+        <p v-if="duracaoMinutos">Duração: {{ duracaoMinutos }} minutos</p>
+        <p v-if="terminoPrevisto">Término previsto: {{ terminoPrevisto }}</p>
+      </div>
 
       <label class="campo-grande">
         Observacao
