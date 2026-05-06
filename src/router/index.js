@@ -10,6 +10,7 @@ import UsuariosView from '../views/UsuariosView.vue'
 import EmpresasView from '../views/EmpresasView.vue'
 import MinhaEmpresaView from '../views/MinhaEmpresaView.vue'
 import RelatoriosView from '../views/RelatoriosView.vue'
+import AgendamentoPublicoView from '../views/AgendamentoPublicoView.vue'
 
 const rotasProtegidas = {
   requiresAuth: true,
@@ -108,6 +109,11 @@ const router = createRouter({
       meta: rotasSuperAdmin,
     },
     {
+      path: '/agendar/:slug',
+      name: 'agendamento-publico',
+      component: AgendamentoPublicoView,
+    },
+    {
       path: '/login',
       name: 'login',
       component: LoginView,
@@ -124,6 +130,10 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
+  if (to.path.startsWith('/agendar')) {
+    return true
+  }
+
   const token = localStorage.getItem('token')
 
   if (to.meta.requiresAuth && !token) {

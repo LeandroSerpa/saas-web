@@ -6,6 +6,8 @@ const route = useRoute()
 const router = useRouter()
 
 const rotaLogin = computed(() => route.path === '/login')
+const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
+const rotaSemLayout = computed(() => rotaLogin.value || rotaAgendamentoPublico.value)
 const usuario = ref(null)
 const empresaLogada = computed(() => {
   if (usuario.value?.empresaNome) {
@@ -45,6 +47,11 @@ function sair() {
 }
 
 function atualizarUsuarioLogado() {
+  if (rotaAgendamentoPublico.value) {
+    usuario.value = null
+    return
+  }
+
   usuario.value = carregarUsuario()
 }
 
@@ -66,7 +73,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <RouterView v-if="rotaLogin" />
+  <RouterView v-if="rotaSemLayout" />
 
   <div v-else class="app-shell">
     <aside class="barra-lateral">

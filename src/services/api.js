@@ -15,6 +15,16 @@ function montarHeaders(comJson = false) {
   return headers
 }
 
+function montarHeadersPublicos(comJson = false) {
+  const headers = {}
+
+  if (comJson) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  return headers
+}
+
 function encerrarSessao() {
   localStorage.removeItem('token')
   localStorage.removeItem('usuario')
@@ -166,6 +176,26 @@ async function tratarResposta(response) {
   return response.text()
 }
 
+async function tratarRespostaPublica(response) {
+  if (!response.ok) {
+    const mensagem = await extrairMensagemResposta(response)
+
+    throw new Error(mensagem)
+  }
+
+  if (response.status === 204) {
+    return { sucesso: true }
+  }
+
+  const contentType = response.headers.get('content-type') || ''
+
+  if (contentType.includes('application/json')) {
+    return response.json()
+  }
+
+  return response.text()
+}
+
 export async function buscarClientes() {
   const response = await fetch(`${API_URL}/clientes`, {
     headers: montarHeaders(),
@@ -196,6 +226,40 @@ export async function buscarAgendamentos() {
   })
 
   return tratarResposta(response)
+}
+
+export async function buscarEmpresaPublica(slug) {
+  const response = await fetch(`${API_URL}/publico/empresas/${slug}`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
+export async function buscarServicosPublicos(slug) {
+  const response = await fetch(`${API_URL}/publico/empresas/${slug}/servicos`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
+export async function buscarFuncionariosPublicos(slug) {
+  const response = await fetch(`${API_URL}/publico/empresas/${slug}/funcionarios`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
+export async function criarAgendamentoPublico(slug, dados) {
+  const response = await fetch(`${API_URL}/publico/empresas/${slug}/agendamentos`, {
+    method: 'POST',
+    headers: montarHeadersPublicos(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarRespostaPublica(response)
 }
 
 export async function login(email, senha) {
