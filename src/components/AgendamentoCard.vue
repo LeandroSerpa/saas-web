@@ -10,7 +10,7 @@ defineProps({
   },
 })
 
-defineEmits(['alterar-status', 'editar'])
+defineEmits(['alterar-status', 'editar', 'excluir'])
 
 function criarData(dataHora) {
   if (!dataHora) {
@@ -105,6 +105,10 @@ function statusTexto(status) {
 
   return statusFormatados[status] || status || 'Agendado'
 }
+
+function podeExcluir(status) {
+  return status !== 'concluido'
+}
 </script>
 
 <template>
@@ -161,6 +165,15 @@ function statusTexto(status) {
         @click="$emit('alterar-status', agendamento.id, 'faltou')"
       >
         Faltou
+      </button>
+
+      <button
+        v-if="podeExcluir(agendamento.status)"
+        class="botao excluir"
+        :disabled="atualizando"
+        @click="$emit('excluir', agendamento.id)"
+      >
+        Excluir
       </button>
     </div>
 

@@ -153,6 +153,10 @@ async function tratarResposta(response) {
     throw new Error(mensagem)
   }
 
+  if (response.status === 204) {
+    return { sucesso: true }
+  }
+
   const contentType = response.headers.get('content-type') || ''
 
   if (contentType.includes('application/json')) {
@@ -415,6 +419,15 @@ export async function atualizarStatusAgendamento(id, status) {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify({ status }),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function excluirAgendamento(id) {
+  const response = await fetch(`${API_URL}/agendamentos/${id}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
   })
 
   return tratarResposta(response)

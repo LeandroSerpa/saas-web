@@ -10,6 +10,7 @@ import {
   atualizarStatusAgendamento,
   atualizarAgendamento,
   cadastrarAgendamento,
+  excluirAgendamento,
 } from '@/services/api'
 
 const agendamentos = ref([])
@@ -176,6 +177,34 @@ async function alterarStatus(id, status) {
     mensagemSucessoAgendamento.value = 'Status atualizado com sucesso.'
   } catch (error) {
     erro.value = 'Nao foi possivel atualizar o status do agendamento.'
+    console.error(error)
+  } finally {
+    atualizandoId.value = null
+  }
+}
+
+async function excluirAgendamentoAgenda(id) {
+  const confirmado = window.confirm(
+    'Tem certeza que deseja excluir este agendamento? Esta ação não poderá ser desfeita.',
+  )
+
+  if (!confirmado) {
+    return
+  }
+
+  try {
+    atualizandoId.value = id
+    erro.value = ''
+    mensagemSucessoAgendamento.value = ''
+
+    await excluirAgendamento(id)
+    await carregarAgendamentos()
+
+    mensagemSucessoAgendamento.value = 'Agendamento excluido com sucesso.'
+  } catch (error) {
+    const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
+
+    erro.value = mensagemApi || 'Nao foi possivel excluir o agendamento.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -507,6 +536,7 @@ onMounted(() => {
           :atualizando="atualizandoId === agendamento.id"
           @alterar-status="alterarStatus"
           @editar="editarAgendamento"
+          @excluir="excluirAgendamentoAgenda"
         />
       </section>
     </section>
@@ -879,6 +909,14 @@ onMounted(() => {
 
 :deep(.alerta:hover) {
   background: #b45309;
+}
+
+:deep(.excluir) {
+  background: #374151;
+}
+
+:deep(.excluir:hover) {
+  background: #111827;
 }
 
 .erro {
