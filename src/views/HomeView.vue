@@ -27,6 +27,7 @@ const filtros = ref({
   status: '',
   dataInicial: '',
   dataFinal: '',
+  busca: '',
 })
 
 const novoAgendamento = ref(criarAgendamentoInicial())
@@ -60,6 +61,7 @@ const terminoPrevistoAgendamento = computed(() => {
 })
 const agendamentosFiltrados = computed(() => {
   return agendamentos.value
+    .map((agendamento) => prepararAgendamentoParaLista(agendamento))
     .filter((agendamento) => {
       if (filtros.value.status && agendamento.status !== filtros.value.status) {
         return false
@@ -83,6 +85,21 @@ const agendamentosFiltrados = computed(() => {
         }
       }
 
+      const busca = normalizarTexto(filtros.value.busca)
+
+      if (busca) {
+        const textoAgendamento = normalizarTexto([
+          agendamento.cliente,
+          agendamento.servico,
+          agendamento.funcionario,
+          agendamento.observacao,
+        ].join(' '))
+
+        if (!textoAgendamento.includes(busca)) {
+          return false
+        }
+      }
+
       return true
     })
     .sort((agendamentoA, agendamentoB) => {
@@ -92,6 +109,22 @@ const agendamentosFiltrados = computed(() => {
       return dataA - dataB
     })
 })
+
+function prepararAgendamentoParaLista(agendamento) {
+  const servico = buscarServicoDoAgendamento(agendamento)
+  const duracaoServico = obterDuracaoValida(servico)
+  const inicio = criarData(agendamento.dataHoraInicio)
+  const fimApi = criarData(agendamento.dataHoraFim)
+  const fimCalculado = inicio && duracaoServico ? calcularDataHoraFim(inicio, duracaoServico) : null
+  const fimVisual = fimApi || fimCalculado
+  const duracaoCalculada = calcularDuracaoMinutos(inicio, fimVisual)
+
+  return {
+    ...agendamento,
+    dataHoraFimVisual: fimVisual ? formatarDataParaApi(fimVisual) : '',
+    duracaoMinutosVisual: duracaoCalculada || duracaoServico,
+  }
+}
 
 async function carregarDados() {
   try {
@@ -259,6 +292,20 @@ function buscarServicoSelecionado() {
   )
 }
 
+function buscarServicoDoAgendamento(agendamento) {
+  if (agendamento.servicoId) {
+    const servicoPorId = servicos.value.find(
+      (servico) => Number(servico.id) === Number(agendamento.servicoId),
+    )
+
+    if (servicoPorId) {
+      return servicoPorId
+    }
+  }
+
+  return buscarPorNome(servicos.value, agendamento.servico)
+}
+
 function obterDuracaoValida(servico) {
   const duracao = Number(servico?.duracaoMinutos)
 
@@ -277,6 +324,20 @@ function calcularDataHoraFim(dataHoraInicio, duracaoMinutos) {
   }
 
   return new Date(inicio.getTime() + duracaoMinutos * 60000)
+}
+
+function calcularDuracaoMinutos(inicio, fim) {
+  if (!inicio || !fim) {
+    return null
+  }
+
+  const duracao = Math.round((fim.getTime() - inicio.getTime()) / 60000)
+
+  if (!Number.isFinite(duracao) || duracao <= 0) {
+    return null
+  }
+
+  return duracao
 }
 
 function normalizarTexto(valor) {
@@ -312,6 +373,7 @@ function limparFiltros() {
     status: '',
     dataInicial: '',
     dataFinal: '',
+    busca: '',
   }
 }
 
@@ -399,6 +461,15 @@ onMounted(() => {
           <label>
             Data final
             <input v-model="filtros.dataFinal" type="date" />
+          </label>
+
+          <label>
+            Busca
+            <input
+              v-model="filtros.busca"
+              type="search"
+              placeholder="Cliente, servico, funcionario ou observacao"
+            />
           </label>
 
           <div class="acoes-filtros">
@@ -623,7 +694,7 @@ onMounted(() => {
 
 .campos-filtros {
   display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   align-items: end;
 }

@@ -12,15 +12,60 @@ defineProps({
 
 defineEmits(['alterar-status', 'editar'])
 
-function formatarDataHora(dataHora) {
+function criarData(dataHora) {
   if (!dataHora) {
+    return null
+  }
+
+  const data = new Date(dataHora)
+
+  if (Number.isNaN(data.getTime())) {
+    return null
+  }
+
+  return data
+}
+
+function formatarData(dataHora) {
+  const data = criarData(dataHora)
+
+  if (!data) {
     return '-'
   }
 
-  return new Date(dataHora).toLocaleString('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   })
+}
+
+function formatarHorario(dataHora) {
+  const data = criarData(dataHora)
+
+  if (!data) {
+    return '-'
+  }
+
+  return data.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatarPeriodo(agendamento) {
+  const inicio = formatarHorario(agendamento.dataHoraInicio)
+  const fim = formatarHorario(agendamento.dataHoraFimVisual || agendamento.dataHoraFim)
+
+  if (inicio === '-' && fim === '-') {
+    return '-'
+  }
+
+  if (fim === '-') {
+    return inicio
+  }
+
+  return `${inicio} as ${fim}`
 }
 
 function formatarPreco(preco) {
@@ -49,6 +94,17 @@ function statusClasse(status) {
 
   return 'status agendado'
 }
+
+function statusTexto(status) {
+  const statusFormatados = {
+    agendado: 'Agendado',
+    concluido: 'Concluido',
+    cancelado: 'Cancelado',
+    faltou: 'Faltou',
+  }
+
+  return statusFormatados[status] || status || 'Agendado'
+}
 </script>
 
 <template>
@@ -60,14 +116,21 @@ function statusClasse(status) {
       </div>
 
       <span :class="statusClasse(agendamento.status)">
-        {{ agendamento.status }}
+        {{ statusTexto(agendamento.status) }}
       </span>
     </div>
 
     <div class="detalhes">
+      <p><strong>Cliente:</strong> {{ agendamento.cliente }}</p>
+      <p><strong>Servico:</strong> {{ agendamento.servico }}</p>
       <p><strong>Funcionario:</strong> {{ agendamento.funcionario }}</p>
-      <p><strong>Data/Hora:</strong> {{ formatarDataHora(agendamento.dataHoraInicio) }}</p>
+      <p><strong>Data:</strong> {{ formatarData(agendamento.dataHoraInicio) }}</p>
+      <p><strong>Horario:</strong> {{ formatarPeriodo(agendamento) }}</p>
+      <p v-if="agendamento.duracaoMinutosVisual">
+        <strong>Duracao:</strong> {{ agendamento.duracaoMinutosVisual }} minutos
+      </p>
       <p><strong>Preco:</strong> {{ formatarPreco(agendamento.preco) }}</p>
+      <p><strong>Status:</strong> {{ statusTexto(agendamento.status) }}</p>
       <p v-if="agendamento.observacao">
         <strong>Observacao:</strong> {{ agendamento.observacao }}
       </p>
