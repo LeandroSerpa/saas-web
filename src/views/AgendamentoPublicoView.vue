@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
+  buscarAgendamentosPublicos,
   buscarEmpresaPublica,
   buscarFuncionariosPublicos,
   buscarServicosPublicos,
@@ -14,6 +15,7 @@ const slug = computed(() => String(route.params.slug || '').trim())
 const empresa = ref(null)
 const servicos = ref([])
 const funcionarios = ref([])
+const agendamentosExistentes = ref([])
 const carregando = ref(true)
 const enviando = ref(false)
 const indisponivel = ref(false)
@@ -21,19 +23,130 @@ const erro = ref('')
 const mensagemSucesso = ref('')
 const agendamento = ref(criarAgendamentoInicial())
 
+const diasSemana = [
+  'domingo',
+  'segunda',
+  'terca',
+  'quarta',
+  'quinta',
+  'sexta',
+  'sabado',
+]
+
+const camposAtendimentoFuncionario = [
+  'atendeDomingo',
+  'atendeSegunda',
+  'atendeTerca',
+  'atendeQuarta',
+  'atendeQuinta',
+  'atendeSexta',
+  'atendeSabado',
+]
+
 const servicoSelecionado = computed(() =>
   servicos.value.find((servico) => Number(servico.id) === Number(agendamento.value.servicoId)),
 )
+
+const funcionarioSelecionado = computed(() =>
+  funcionarios.value.find(
+    (funcionario) => Number(funcionario.id) === Number(agendamento.value.funcionarioId),
+  ),
+)
+
 const duracaoMinutos = computed(() => obterDuracaoValida(servicoSelecionado.value))
-const terminoPrevisto = computed(() => {
+
+const dataHoraFimSelecionada = computed(() => {
   if (!agendamento.value.dataHoraInicio || !duracaoMinutos.value) {
+    return null
+  }
+
+  return calcularDataHoraFim(agendamento.value.dataHoraInicio, duracaoMinutos.value)
+})
+
+const terminoPrevisto = computed(() =>
+  dataHoraFimSelecionada.value ? formatarDataHoraPreview(dataHoraFimSelecionada.value) : '',
+)
+
+const mensagemDisponibilidade = computed(() => {
+  if (!agendamento.value.dataAtendimento) {
     return ''
   }
 
-  const fim = calcularDataHoraFim(agendamento.value.dataHoraInicio, duracaoMinutos.value)
+  if (!empresaAtendeNaData(agendamento.value.dataAtendimento)) {
+    return `A empresa ${empresa.value?.nome || ''} não atende neste dia.`
+  }
 
-  return fim ? formatarDataHoraPreview(fim) : ''
+  if (!funcionarioSelecionado.value || !servicoSelecionado.value) {
+    return ''
+  }
+
+  if (!funcionarioAtendeNaData(funcionarioSelecionado.value, agendamento.value.dataAtendimento)) {
+    return `O funcionário ${funcionarioSelecionado.value.nome} não atende neste dia.`
+  }
+
+  if (horariosDisponiveis.value.length === 0) {
+    return 'Nenhum horário disponível para esta data.'
+  }
+
+  return ''
 })
+
+const horariosDisponiveis = computed(() => {
+  if (
+    !empresa.value ||
+    !servicoSelecionado.value ||
+    !funcionarioSelecionado.value ||
+    !agendamento.value.dataAtendimento ||
+    !duracaoMinutos.value ||
+    !empresaAtendeNaData(agendamento.value.dataAtendimento) ||
+    !funcionarioAtendeNaData(funcionarioSelecionado.value, agendamento.value.dataAtendimento)
+  ) {
+    return []
+  }
+
+  const data = agendamento.value.dataAtendimento
+  const abertura = normalizarHorario(empresa.value.horaAbertura, '08:00')
+  const fechamento = normalizarHorario(empresa.value.horaFechamento, '18:00')
+  const inicioFuncionario = normalizarHorario(
+    funcionarioSelecionado.value.horaInicioAtendimento,
+    abertura,
+  )
+  const fimFuncionario = normalizarHorario(funcionarioSelecionado.value.horaFimAtendimento, fechamento)
+  const inicioMinutos = Math.max(horarioParaMinutos(abertura), horarioParaMinutos(inicioFuncionario))
+  const fimMinutos = Math.min(horarioParaMinutos(fechamento), horarioParaMinutos(fimFuncionario))
+  const bloqueios = agendamentosDoFuncionarioNaData(data)
+
+  if (fimMinutos <= inicioMinutos) {
+    return []
+  }
+
+  const horarios = []
+
+  for (let minutos = inicioMinutos; minutos + duracaoMinutos.value <= fimMinutos; minutos += 30) {
+    const inicio = criarDataComMinutos(data, minutos)
+    const fim = calcularDataHoraFim(inicio, duracaoMinutos.value)
+
+    if (!conflitaComAgendamentos(inicio, fim, bloqueios)) {
+      horarios.push({
+        valor: formatarDataParaApi(inicio),
+        label: minutosParaHorario(minutos),
+      })
+    }
+  }
+
+  return horarios
+})
+
+watch(
+  () => [
+    agendamento.value.servicoId,
+    agendamento.value.funcionarioId,
+    agendamento.value.dataAtendimento,
+  ],
+  () => {
+    agendamento.value.dataHoraInicio = ''
+  },
+)
 
 function criarAgendamentoInicial() {
   return {
@@ -42,6 +155,7 @@ function criarAgendamentoInicial() {
     emailCliente: '',
     servicoId: '',
     funcionarioId: '',
+    dataAtendimento: '',
     dataHoraInicio: '',
     observacao: '',
   }
@@ -63,19 +177,31 @@ async function carregarDadosPublicos() {
 
     empresa.value = empresaApi
 
-    const [servicosApi, funcionariosApi] = await Promise.all([
+    const [servicosApi, funcionariosApi, agendamentosApi] = await Promise.all([
       buscarServicosPublicos(slug.value),
       buscarFuncionariosPublicos(slug.value),
+      buscarAgendamentosPublicos(slug.value),
     ])
 
     servicos.value = Array.isArray(servicosApi) ? servicosApi : []
     funcionarios.value = Array.isArray(funcionariosApi) ? funcionariosApi : []
+    agendamentosExistentes.value = Array.isArray(agendamentosApi) ? agendamentosApi : []
   } catch (error) {
     indisponivel.value = true
     console.error(error)
   } finally {
     carregando.value = false
   }
+}
+
+async function recarregarAgendamentosPublicos() {
+  const agendamentosApi = await buscarAgendamentosPublicos(slug.value)
+  agendamentosExistentes.value = Array.isArray(agendamentosApi) ? agendamentosApi : []
+}
+
+function selecionarHorario(horario) {
+  agendamento.value.dataHoraInicio = horario.valor
+  erro.value = ''
 }
 
 async function enviarAgendamento() {
@@ -89,53 +215,49 @@ async function enviarAgendamento() {
     }
 
     if (!agendamento.value.telefoneCliente.trim()) {
-      erro.value = 'Informe o telefone.'
+      erro.value = 'Informe o telefone do cliente.'
       return
     }
 
     if (!agendamento.value.servicoId) {
-      erro.value = 'Selecione um servico.'
+      erro.value = 'Selecione um serviço.'
       return
     }
 
     if (!agendamento.value.funcionarioId) {
-      erro.value = 'Selecione um funcionario.'
+      erro.value = 'Selecione um funcionário.'
+      return
+    }
+
+    if (!agendamento.value.dataAtendimento) {
+      erro.value = 'Selecione uma data.'
       return
     }
 
     if (!agendamento.value.dataHoraInicio) {
-      erro.value = 'Informe a data e hora do agendamento.'
+      erro.value = 'Selecione um horário disponível.'
       return
     }
-
-    const inicio = new Date(agendamento.value.dataHoraInicio)
-
-    if (Number.isNaN(inicio.getTime())) {
-      erro.value = 'Informe uma data e hora valida.'
-      return
-    }
-
-    const fim = duracaoMinutos.value ? calcularDataHoraFim(inicio, duracaoMinutos.value) : null
 
     enviando.value = true
 
     await criarAgendamentoPublico(slug.value, {
-      nomeCliente: agendamento.value.nomeCliente,
-      telefoneCliente: agendamento.value.telefoneCliente,
-      emailCliente: agendamento.value.emailCliente,
+      clienteNome: agendamento.value.nomeCliente.trim(),
+      clienteTelefone: agendamento.value.telefoneCliente.trim(),
+      clienteEmail: agendamento.value.emailCliente.trim(),
       servicoId: Number(agendamento.value.servicoId),
       funcionarioId: Number(agendamento.value.funcionarioId),
-      dataHoraInicio: formatarDataParaApi(inicio),
-      dataHoraFim: fim ? formatarDataParaApi(fim) : null,
-      observacao: agendamento.value.observacao,
+      dataHoraInicio: agendamento.value.dataHoraInicio,
+      observacao: agendamento.value.observacao.trim(),
     })
 
     agendamento.value = criarAgendamentoInicial()
-    mensagemSucesso.value = 'Agendamento realizado com sucesso.'
+    mensagemSucesso.value = 'Agendamento solicitado com sucesso.'
+    await recarregarAgendamentosPublicos()
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'Nao foi possivel realizar o agendamento.'
+    erro.value = mensagemApi || 'Não foi possível realizar o agendamento.'
     console.error(error)
   } finally {
     enviando.value = false
@@ -162,15 +284,91 @@ function calcularDataHoraFim(dataHoraInicio, duracao) {
   return new Date(inicio.getTime() + duracao * 60000)
 }
 
+function agendamentosDoFuncionarioNaData(data) {
+  return agendamentosExistentes.value
+    .filter((item) => Number(item.funcionarioId) === Number(agendamento.value.funcionarioId))
+    .filter((item) => String(item.status || '').toLowerCase() === 'agendado')
+    .filter((item) => String(item.dataHoraInicio || '').startsWith(data))
+    .map((item) => ({
+      inicio: new Date(item.dataHoraInicio),
+      fim: new Date(item.dataHoraFim),
+    }))
+    .filter((item) => !Number.isNaN(item.inicio.getTime()) && !Number.isNaN(item.fim.getTime()))
+}
+
+function conflitaComAgendamentos(inicio, fim, bloqueios) {
+  return bloqueios.some((bloqueio) => inicio < bloqueio.fim && fim > bloqueio.inicio)
+}
+
+function empresaAtendeNaData(data) {
+  const dia = obterDiaSemana(data)
+  const diasFuncionamento = String(empresa.value?.diasFuncionamento || '')
+    .split(',')
+    .map((diaTexto) => normalizarDia(diaTexto))
+    .filter(Boolean)
+
+  if (diasFuncionamento.length === 0) {
+    return dia !== 'domingo'
+  }
+
+  return diasFuncionamento.includes(dia)
+}
+
+function funcionarioAtendeNaData(funcionario, data) {
+  const indiceDia = criarDataLocal(data).getDay()
+  const campo = camposAtendimentoFuncionario[indiceDia]
+  const valor = funcionario?.[campo]
+
+  return valor === null || valor === undefined ? empresaAtendeNaData(data) : Boolean(valor)
+}
+
+function obterDiaSemana(data) {
+  return diasSemana[criarDataLocal(data).getDay()]
+}
+
+function criarDataLocal(data) {
+  const [ano, mes, dia] = String(data).split('-').map(Number)
+  return new Date(ano, mes - 1, dia)
+}
+
+function criarDataComMinutos(data, minutos) {
+  const dataLocal = criarDataLocal(data)
+  dataLocal.setHours(Math.floor(minutos / 60), minutos % 60, 0, 0)
+  return dataLocal
+}
+
+function normalizarDia(dia) {
+  return String(dia || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function normalizarHorario(horario, padrao) {
+  const texto = String(horario || padrao || '').slice(0, 5)
+  return /^\d{2}:\d{2}$/.test(texto) ? texto : padrao
+}
+
+function horarioParaMinutos(horario) {
+  const [hora, minuto] = normalizarHorario(horario, '00:00').split(':').map(Number)
+  return hora * 60 + minuto
+}
+
+function minutosParaHorario(minutos) {
+  const hora = String(Math.floor(minutos / 60)).padStart(2, '0')
+  const minuto = String(minutos % 60).padStart(2, '0')
+  return `${hora}:${minuto}`
+}
+
 function formatarDataParaApi(data) {
   const ano = data.getFullYear()
   const mes = String(data.getMonth() + 1).padStart(2, '0')
   const dia = String(data.getDate()).padStart(2, '0')
   const hora = String(data.getHours()).padStart(2, '0')
   const minuto = String(data.getMinutes()).padStart(2, '0')
-  const segundo = '00'
 
-  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}:00`
 }
 
 function formatarDataHoraPreview(data) {
@@ -223,7 +421,7 @@ onMounted(() => {
         <div class="dados-empresa">
           <p v-if="empresa?.telefone"><strong>Telefone:</strong> {{ empresa.telefone }}</p>
           <p v-if="empresa?.email"><strong>E-mail:</strong> {{ empresa.email }}</p>
-          <p v-if="empresa?.endereco"><strong>Endereco:</strong> {{ empresa.endereco }}</p>
+          <p v-if="empresa?.endereco"><strong>Endereço:</strong> {{ empresa.endereco }}</p>
         </div>
       </header>
 
@@ -290,14 +488,38 @@ onMounted(() => {
           </label>
 
           <label>
-            Data e hora *
-            <input v-model="agendamento.dataHoraInicio" type="datetime-local" />
+            Data do atendimento *
+            <input v-model="agendamento.dataAtendimento" type="date" />
           </label>
 
-          <div v-if="servicoSelecionado || terminoPrevisto" class="campo-grande previa">
-            <p v-if="duracaoMinutos">Duração: {{ duracaoMinutos }} minutos</p>
-            <p v-if="terminoPrevisto">Término previsto: {{ terminoPrevisto }}</p>
-            <p v-if="servicoSelecionado">Preço: {{ formatarPreco(servicoSelecionado.preco) }}</p>
+          <section class="campo-grande horarios">
+            <div class="titulo-horarios">
+              <h3>Horários disponíveis</h3>
+              <p v-if="!agendamento.dataAtendimento">Selecione uma data para ver os horários.</p>
+              <p v-else-if="!servicoSelecionado || !funcionarioSelecionado">
+                Selecione serviço e funcionário para ver os horários.
+              </p>
+              <p v-else-if="mensagemDisponibilidade">{{ mensagemDisponibilidade }}</p>
+            </div>
+
+            <div v-if="horariosDisponiveis.length" class="grade-horarios">
+              <button
+                v-for="horario in horariosDisponiveis"
+                :key="horario.valor"
+                type="button"
+                class="horario"
+                :class="{ selecionado: agendamento.dataHoraInicio === horario.valor }"
+                @click="selecionarHorario(horario)"
+              >
+                {{ horario.label }}
+              </button>
+            </div>
+          </section>
+
+          <div v-if="agendamento.dataHoraInicio" class="campo-grande previa">
+            <p>Duração: {{ duracaoMinutos }} minutos</p>
+            <p>Término previsto: {{ terminoPrevisto }}</p>
+            <p>Preço: {{ formatarPreco(servicoSelecionado?.preco) }}</p>
           </div>
 
           <label class="campo-grande">
@@ -465,6 +687,66 @@ textarea:focus {
 
 .campo-grande {
   grid-column: 1 / -1;
+}
+
+.horarios {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.titulo-horarios h3,
+.titulo-horarios p {
+  margin: 0;
+}
+
+.titulo-horarios h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.titulo-horarios p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.grade-horarios {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.horario {
+  min-height: 42px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: white;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 800;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.horario:hover {
+  transform: translateY(-1px);
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.horario.selecionado {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
 }
 
 .previa {

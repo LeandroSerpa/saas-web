@@ -252,6 +252,14 @@ export async function buscarFuncionariosPublicos(slug) {
   return tratarRespostaPublica(response)
 }
 
+export async function buscarAgendamentosPublicos(slug) {
+  const response = await fetch(`${API_URL}/publico/empresas/${slug}/agendamentos`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
 export async function criarAgendamentoPublico(slug, dados) {
   const response = await fetch(`${API_URL}/publico/empresas/${slug}/agendamentos`, {
     method: 'POST',
