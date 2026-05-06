@@ -17,10 +17,11 @@ const diasAtendimento = [
   { campo: 'atendeSexta', rotulo: 'Sexta' },
   { campo: 'atendeSabado', rotulo: 'Sabado' },
 ]
+const intervalosAgenda = [15, 30, 60]
 const linkPublico = computed(() => {
   const slug = String(empresa.value.slug || '').trim()
 
-  return slug ? `http://localhost:5173/agendar/${slug}` : ''
+  return slug ? `${window.location.origin}/agendar/${slug}` : ''
 })
 
 function criarEmpresaInicial() {
@@ -32,6 +33,7 @@ function criarEmpresaInicial() {
     endereco: '',
     horaAbertura: '',
     horaFechamento: '',
+    intervaloAgendaMinutos: 30,
     atendeDomingo: false,
     atendeSegunda: true,
     atendeTerca: true,
@@ -62,6 +64,7 @@ async function carregarMinhaEmpresa() {
       endereco: empresaApi.endereco || '',
       horaAbertura: empresaApi.horaAbertura || '',
       horaFechamento: empresaApi.horaFechamento || '',
+      intervaloAgendaMinutos: normalizarIntervaloAgenda(empresaApi.intervaloAgendaMinutos),
       atendeDomingo: Boolean(empresaApi.atendeDomingo),
       atendeSegunda: empresaApi.atendeSegunda !== false,
       atendeTerca: empresaApi.atendeTerca !== false,
@@ -92,6 +95,13 @@ async function salvarEmpresa() {
       return
     }
 
+    const intervaloAgendaMinutos = Number(empresa.value.intervaloAgendaMinutos)
+
+    if (!intervalosAgenda.includes(intervaloAgendaMinutos)) {
+      erro.value = 'Selecione um intervalo da agenda valido.'
+      return
+    }
+
     salvando.value = true
 
     const dadosEmpresa = {
@@ -102,6 +112,7 @@ async function salvarEmpresa() {
       endereco: empresa.value.endereco,
       horaAbertura: empresa.value.horaAbertura,
       horaFechamento: empresa.value.horaFechamento,
+      intervaloAgendaMinutos,
       atendeDomingo: Boolean(empresa.value.atendeDomingo),
       atendeSegunda: Boolean(empresa.value.atendeSegunda),
       atendeTerca: Boolean(empresa.value.atendeTerca),
@@ -125,6 +136,12 @@ async function salvarEmpresa() {
   } finally {
     salvando.value = false
   }
+}
+
+function normalizarIntervaloAgenda(valor) {
+  const intervalo = Number(valor)
+
+  return intervalosAgenda.includes(intervalo) ? intervalo : 30
 }
 
 async function copiarLinkPublico() {
@@ -248,6 +265,15 @@ onMounted(() => {
           <label>
             Hora de fechamento
             <input v-model="empresa.horaFechamento" type="time" />
+          </label>
+
+          <label>
+            Intervalo da agenda
+            <select v-model.number="empresa.intervaloAgendaMinutos">
+              <option v-for="intervalo in intervalosAgenda" :key="intervalo" :value="intervalo">
+                {{ intervalo }} minutos
+              </option>
+            </select>
           </label>
         </div>
 
@@ -394,6 +420,7 @@ label {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   min-width: 0;
@@ -412,6 +439,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   outline: none;
   border-color: #2563eb;
