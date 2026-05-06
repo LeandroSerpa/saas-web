@@ -56,6 +56,61 @@ defineEmits(['salvar', 'cancelar'])
         <input v-model="funcionario.ativo" type="checkbox" />
         Ativo
       </label>
+
+      <div class="secao-disponibilidade">
+        <div class="titulo-card">
+          <h3>Disponibilidade do funcionario</h3>
+        </div>
+
+        <div class="campos-disponibilidade">
+          <label>
+            Hora inicial de atendimento
+            <input v-model="funcionario.horaInicioAtendimento" type="time" />
+          </label>
+
+          <label>
+            Hora final de atendimento
+            <input v-model="funcionario.horaFimAtendimento" type="time" />
+          </label>
+        </div>
+
+        <div class="dias-semana">
+          <label class="campo-checkbox">
+            <input v-model="funcionario.atendeDomingo" type="checkbox" />
+            Domingo
+          </label>
+
+          <label class="campo-checkbox">
+            <input v-model="funcionario.atendeSegunda" type="checkbox" />
+            Segunda
+          </label>
+
+          <label class="campo-checkbox">
+            <input v-model="funcionario.atendeTerca" type="checkbox" />
+            Terca
+          </label>
+
+          <label class="campo-checkbox">
+            <input v-model="funcionario.atendeQuarta" type="checkbox" />
+            Quarta
+          </label>
+
+          <label class="campo-checkbox">
+            <input v-model="funcionario.atendeQuinta" type="checkbox" />
+            Quinta
+          </label>
+
+          <label class="campo-checkbox">
+            <input v-model="funcionario.atendeSexta" type="checkbox" />
+            Sexta
+          </label>
+
+          <label class="campo-checkbox">
+            <input v-model="funcionario.atendeSabado" type="checkbox" />
+            Sabado
+          </label>
+        </div>
+      </div>
     </div>
 
     <div class="rodape-formulario">

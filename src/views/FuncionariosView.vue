@@ -66,6 +66,15 @@ function criarFuncionarioInicial() {
     email: '',
     cargo: '',
     ativo: true,
+    horaInicioAtendimento: '',
+    horaFimAtendimento: '',
+    atendeDomingo: false,
+    atendeSegunda: true,
+    atendeTerca: true,
+    atendeQuarta: true,
+    atendeQuinta: true,
+    atendeSexta: true,
+    atendeSabado: true,
   }
 }
 
@@ -101,6 +110,15 @@ async function salvarFuncionario() {
       email: funcionario.value.email,
       cargo: funcionario.value.cargo,
       ativo: Boolean(funcionario.value.ativo),
+      horaInicioAtendimento: funcionario.value.horaInicioAtendimento || null,
+      horaFimAtendimento: funcionario.value.horaFimAtendimento || null,
+      atendeDomingo: Boolean(funcionario.value.atendeDomingo),
+      atendeSegunda: Boolean(funcionario.value.atendeSegunda),
+      atendeTerca: Boolean(funcionario.value.atendeTerca),
+      atendeQuarta: Boolean(funcionario.value.atendeQuarta),
+      atendeQuinta: Boolean(funcionario.value.atendeQuinta),
+      atendeSexta: Boolean(funcionario.value.atendeSexta),
+      atendeSabado: Boolean(funcionario.value.atendeSabado),
     }
 
     if (funcionarioEditandoId.value) {
@@ -134,6 +152,15 @@ function editarFuncionario(funcionarioItem) {
     email: funcionarioItem.email || '',
     cargo: funcionarioItem.cargo || '',
     ativo: estaAtivo(funcionarioItem),
+    horaInicioAtendimento: formatarHoraInput(funcionarioItem.horaInicioAtendimento),
+    horaFimAtendimento: formatarHoraInput(funcionarioItem.horaFimAtendimento),
+    atendeDomingo: obterDiaAtendimento(funcionarioItem.atendeDomingo, false),
+    atendeSegunda: obterDiaAtendimento(funcionarioItem.atendeSegunda, true),
+    atendeTerca: obterDiaAtendimento(funcionarioItem.atendeTerca, true),
+    atendeQuarta: obterDiaAtendimento(funcionarioItem.atendeQuarta, true),
+    atendeQuinta: obterDiaAtendimento(funcionarioItem.atendeQuinta, true),
+    atendeSexta: obterDiaAtendimento(funcionarioItem.atendeSexta, true),
+    atendeSabado: obterDiaAtendimento(funcionarioItem.atendeSabado, true),
   }
 }
 
@@ -169,6 +196,41 @@ async function alternarAtivoFuncionario(funcionarioItem) {
 
 function exibirValor(valor) {
   return valor || '-'
+}
+
+function formatarHoraInput(hora) {
+  return hora ? String(hora).slice(0, 5) : ''
+}
+
+function obterDiaAtendimento(valor, padrao) {
+  return valor === undefined || valor === null ? padrao : Boolean(valor)
+}
+
+function exibirDisponibilidade(funcionarioItem) {
+  const horaInicio = formatarHoraInput(funcionarioItem.horaInicioAtendimento)
+  const horaFim = formatarHoraInput(funcionarioItem.horaFimAtendimento)
+
+  if (!horaInicio || !horaFim) {
+    return 'Usa horario da empresa'
+  }
+
+  return `${horaInicio} as ${horaFim}`
+}
+
+function exibirDiasAtendimento(funcionarioItem) {
+  const dias = [
+    { campo: 'atendeDomingo', rotulo: 'Dom', padrao: false },
+    { campo: 'atendeSegunda', rotulo: 'Seg', padrao: true },
+    { campo: 'atendeTerca', rotulo: 'Ter', padrao: true },
+    { campo: 'atendeQuarta', rotulo: 'Qua', padrao: true },
+    { campo: 'atendeQuinta', rotulo: 'Qui', padrao: true },
+    { campo: 'atendeSexta', rotulo: 'Sex', padrao: true },
+    { campo: 'atendeSabado', rotulo: 'Sab', padrao: true },
+  ]
+    .filter((dia) => obterDiaAtendimento(funcionarioItem[dia.campo], dia.padrao))
+    .map((dia) => dia.rotulo)
+
+  return dias.length ? dias.join(', ') : '-'
 }
 
 function estaAtivo(funcionarioItem) {
@@ -295,6 +357,10 @@ onMounted(() => {
             <p><strong>Telefone:</strong> {{ exibirValor(funcionarioItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(funcionarioItem.email) }}</p>
             <p><strong>Cargo:</strong> {{ exibirValor(funcionarioItem.cargo) }}</p>
+            <p>
+              <strong>Disponibilidade:</strong> {{ exibirDisponibilidade(funcionarioItem) }}
+            </p>
+            <p><strong>Dias:</strong> {{ exibirDiasAtendimento(funcionarioItem) }}</p>
           </div>
 
           <div class="acoes">
@@ -598,6 +664,33 @@ onMounted(() => {
   gap: 16px;
 }
 
+:deep(.secao-disponibilidade) {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+:deep(.secao-disponibilidade h3) {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+:deep(.campos-disponibilidade) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+:deep(.dias-semana) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px 14px;
+}
+
 :deep(label) {
   display: grid;
   gap: 6px;
@@ -679,6 +772,7 @@ onMounted(() => {
 
   .lista-funcionarios,
   .campos-filtros,
+  :deep(.campos-disponibilidade),
   :deep(.campos) {
     grid-template-columns: 1fr;
   }
