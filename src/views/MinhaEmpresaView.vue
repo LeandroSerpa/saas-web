@@ -1,11 +1,12 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { atualizarMinhaEmpresa, buscarMinhaEmpresa } from '@/services/api'
 
 const carregando = ref(true)
 const salvando = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
+const mensagemLinkCopiado = ref('')
 const empresa = ref(criarEmpresaInicial())
 const diasAtendimento = [
   { campo: 'atendeDomingo', rotulo: 'Domingo' },
@@ -16,6 +17,11 @@ const diasAtendimento = [
   { campo: 'atendeSexta', rotulo: 'Sexta' },
   { campo: 'atendeSabado', rotulo: 'Sabado' },
 ]
+const linkPublico = computed(() => {
+  const slug = String(empresa.value.slug || '').trim()
+
+  return slug ? `http://localhost:5173/agendar/${slug}` : ''
+})
 
 function criarEmpresaInicial() {
   return {
@@ -33,6 +39,9 @@ function criarEmpresaInicial() {
     atendeQuinta: true,
     atendeSexta: true,
     atendeSabado: true,
+    slug: '',
+    agendamentoPublicoAtivo: false,
+    mensagemPublica: '',
   }
 }
 
@@ -41,6 +50,7 @@ async function carregarMinhaEmpresa() {
     carregando.value = true
     erro.value = ''
     mensagemSucesso.value = ''
+    mensagemLinkCopiado.value = ''
 
     const empresaApi = await buscarMinhaEmpresa()
 
@@ -59,6 +69,9 @@ async function carregarMinhaEmpresa() {
       atendeQuinta: empresaApi.atendeQuinta !== false,
       atendeSexta: empresaApi.atendeSexta !== false,
       atendeSabado: empresaApi.atendeSabado !== false,
+      slug: empresaApi.slug || '',
+      agendamentoPublicoAtivo: Boolean(empresaApi.agendamentoPublicoAtivo),
+      mensagemPublica: empresaApi.mensagemPublica || '',
     }
   } catch (error) {
     erro.value = 'Nao foi possivel carregar os dados da empresa.'
@@ -72,6 +85,7 @@ async function salvarEmpresa() {
   try {
     erro.value = ''
     mensagemSucesso.value = ''
+    mensagemLinkCopiado.value = ''
 
     if (!empresa.value.nome.trim()) {
       erro.value = 'Informe o nome da empresa.'
@@ -95,6 +109,9 @@ async function salvarEmpresa() {
       atendeQuinta: Boolean(empresa.value.atendeQuinta),
       atendeSexta: Boolean(empresa.value.atendeSexta),
       atendeSabado: Boolean(empresa.value.atendeSabado),
+      slug: empresa.value.slug,
+      agendamentoPublicoAtivo: Boolean(empresa.value.agendamentoPublicoAtivo),
+      mensagemPublica: empresa.value.mensagemPublica,
     }
 
     const resposta = await atualizarMinhaEmpresa(dadosEmpresa)
@@ -107,6 +124,33 @@ async function salvarEmpresa() {
     console.error(error)
   } finally {
     salvando.value = false
+  }
+}
+
+async function copiarLinkPublico() {
+  if (!linkPublico.value) {
+    return
+  }
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(linkPublico.value)
+    } else {
+      const campoTemporario = document.createElement('textarea')
+      campoTemporario.value = linkPublico.value
+      campoTemporario.setAttribute('readonly', '')
+      campoTemporario.style.position = 'absolute'
+      campoTemporario.style.left = '-9999px'
+      document.body.appendChild(campoTemporario)
+      campoTemporario.select()
+      document.execCommand('copy')
+      document.body.removeChild(campoTemporario)
+    }
+
+    mensagemLinkCopiado.value = 'Link copiado com sucesso.'
+  } catch (error) {
+    erro.value = 'Nao foi possivel copiar o link publico.'
+    console.error(error)
   }
 }
 
@@ -215,9 +259,59 @@ onMounted(() => {
         </div>
       </div>
 
+      <div class="secao-agendamento-publico">
+        <div class="titulo-card">
+          <h2>Agendamento público</h2>
+          <p>
+            Configure o link público para clientes realizarem agendamentos sem precisar acessar o
+            sistema.
+          </p>
+        </div>
+
+        <div class="campos">
+          <label>
+            Slug público
+            <input v-model="empresa.slug" type="text" placeholder="petshop-rodrigo" />
+          </label>
+
+          <label class="campo-checkbox">
+            <input v-model="empresa.agendamentoPublicoAtivo" type="checkbox" />
+            Permitir agendamento público
+          </label>
+
+          <label class="campo-grande">
+            Mensagem pública
+            <textarea
+              v-model="empresa.mensagemPublica"
+              placeholder="Ex: Agende seu atendimento de forma rápida e simples."
+              rows="4"
+            ></textarea>
+          </label>
+        </div>
+
+        <div class="link-publico">
+          <p v-if="linkPublico">
+            <strong>Link público:</strong>
+            <span>{{ linkPublico }}</span>
+          </p>
+
+          <p v-else>Preencha o slug para gerar o link público.</p>
+
+          <button class="botao secundario" :disabled="!linkPublico" @click="copiarLinkPublico">
+            Copiar link
+          </button>
+        </div>
+
+        <p v-if="mensagemLinkCopiado" class="sucesso-texto">{{ mensagemLinkCopiado }}</p>
+
+        <p v-if="!empresa.agendamentoPublicoAtivo" class="aviso-publico">
+          O agendamento público está desativado.
+        </p>
+      </div>
+
       <div class="rodape-formulario">
         <button class="botao principal" :disabled="salvando" @click="salvarEmpresa">
-          {{ salvando ? 'Salvando...' : 'Salvar' }}
+          Salvar
         </button>
       </div>
     </section>
@@ -227,7 +321,8 @@ onMounted(() => {
 <style scoped>
 .pagina,
 .formulario,
-.secao-horario {
+.secao-horario,
+.secao-agendamento-publico {
   display: grid;
   gap: 16px;
 }
@@ -298,7 +393,8 @@ label {
   font-size: 14px;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   min-width: 0;
   border: 1px solid #d1d5db;
@@ -309,7 +405,14 @@ input {
   box-sizing: border-box;
 }
 
-input:focus {
+textarea {
+  resize: vertical;
+  min-height: 110px;
+  font-family: inherit;
+}
+
+input:focus,
+textarea:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
@@ -335,6 +438,39 @@ input[type='checkbox'] {
   width: 18px;
   height: 18px;
   accent-color: #2563eb;
+}
+
+.link-publico {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.link-publico p {
+  margin: 0;
+  color: #1e3a8a;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.link-publico strong {
+  font-weight: 800;
+}
+
+.link-publico span {
+  margin-left: 6px;
+}
+
+.aviso-publico {
+  margin: 0;
+  color: #92400e;
+  font-weight: 800;
 }
 
 .rodape-formulario {
@@ -394,6 +530,12 @@ input[type='checkbox'] {
   border-color: #bbf7d0;
   background: #f0fdf4;
   color: #15803d;
+}
+
+.sucesso-texto {
+  color: #15803d;
+  font-weight: 800;
+  margin: 0;
 }
 
 @media (max-width: 900px) {
