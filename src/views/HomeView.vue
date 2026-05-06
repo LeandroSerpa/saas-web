@@ -181,6 +181,12 @@ async function carregarAgendamentos() {
 }
 
 async function alterarStatus(id, status) {
+  const mensagemConfirmacao = obterMensagemConfirmacaoStatus(status)
+
+  if (mensagemConfirmacao && !window.confirm(mensagemConfirmacao)) {
+    return
+  }
+
   try {
     atualizandoId.value = id
     erro.value = ''
@@ -196,6 +202,16 @@ async function alterarStatus(id, status) {
   } finally {
     atualizandoId.value = null
   }
+}
+
+function obterMensagemConfirmacaoStatus(status) {
+  const mensagens = {
+    concluido: 'Deseja marcar este agendamento como concluído?',
+    cancelado: 'Deseja cancelar este agendamento?',
+    faltou: 'Deseja marcar este agendamento como falta?',
+  }
+
+  return mensagens[status] || ''
 }
 
 async function excluirAgendamentoAgenda(id) {
