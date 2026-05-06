@@ -64,20 +64,34 @@ const agendamentosFiltrados = computed(() => {
 const indicadores = computed(() => {
   const totalAgendado = contarPorStatus('agendado')
   const totalConcluido = contarPorStatus('concluido')
+  const totalCancelado = contarPorStatus('cancelado')
+  const totalFaltou = contarPorStatus('faltou')
   const receitaPrevista = somarPorStatus('agendado')
   const receitaConcluida = somarPorStatus('concluido')
+  const perdasCancelamentoFalta = somarPorStatus('cancelado') + somarPorStatus('faltou')
+  const divisorTaxaConclusao = totalConcluido + totalCancelado + totalFaltou
 
   return [
     { titulo: 'Total de agendamentos', valor: agendamentosFiltrados.value.length },
     { titulo: 'Total agendado', valor: totalAgendado },
     { titulo: 'Total concluido', valor: totalConcluido },
-    { titulo: 'Total cancelado', valor: contarPorStatus('cancelado') },
-    { titulo: 'Total faltou', valor: contarPorStatus('faltou') },
+    { titulo: 'Total cancelado', valor: totalCancelado },
+    { titulo: 'Total faltou', valor: totalFaltou },
     { titulo: 'Receita prevista', valor: formatarPreco(receitaPrevista) },
     { titulo: 'Receita concluida', valor: formatarPreco(receitaConcluida) },
     {
       titulo: 'Ticket medio concluido',
       valor: formatarPreco(totalConcluido ? receitaConcluida / totalConcluido : 0),
+    },
+    {
+      titulo: 'Taxa de conclusao',
+      valor: formatarPercentual(
+        divisorTaxaConclusao ? totalConcluido / divisorTaxaConclusao : 0,
+      ),
+    },
+    {
+      titulo: 'Perdas por cancelamento/falta',
+      valor: formatarPreco(perdasCancelamentoFalta),
     },
   ]
 })
@@ -159,10 +173,33 @@ function formatarHorario(dataHora) {
   })
 }
 
+function formatarPeriodo(agendamento) {
+  const inicio = formatarHorario(agendamento.dataHoraInicio)
+  const fim = formatarHorario(agendamento.dataHoraFim)
+
+  if (inicio === '-' && fim === '-') {
+    return '-'
+  }
+
+  if (fim === '-') {
+    return inicio
+  }
+
+  return `${inicio} as ${fim}`
+}
+
 function formatarPreco(preco) {
   return obterPreco(preco).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
+  })
+}
+
+function formatarPercentual(valor) {
+  return Number(valor || 0).toLocaleString('pt-BR', {
+    style: 'percent',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
   })
 }
 
@@ -308,7 +345,7 @@ onMounted(() => {
             <tbody>
               <tr v-for="agendamento in agendamentosFiltrados" :key="agendamento.id">
                 <td>{{ formatarData(agendamento.dataHoraInicio) }}</td>
-                <td>{{ formatarHorario(agendamento.dataHoraInicio) }}</td>
+                <td>{{ formatarPeriodo(agendamento) }}</td>
                 <td>{{ agendamento.cliente || '-' }}</td>
                 <td>{{ agendamento.servico || '-' }}</td>
                 <td>{{ agendamento.funcionario || '-' }}</td>
@@ -481,7 +518,7 @@ onMounted(() => {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 840px;
+  min-width: 900px;
 }
 
 th,
