@@ -25,7 +25,7 @@ const mensagemSucessoAgendamento = ref('')
 const agendamentoEditandoId = ref(null)
 const agendamentoEditandoStatus = ref('agendado')
 const filtros = ref({
-  status: '',
+  status: 'agendado',
   dataInicial: '',
   dataFinal: '',
   busca: '',
@@ -107,8 +107,23 @@ const agendamentosFiltrados = computed(() => {
       const dataA = criarData(agendamentoA.dataHoraInicio)?.getTime() || 0
       const dataB = criarData(agendamentoB.dataHoraInicio)?.getTime() || 0
 
-      return dataA - dataB
+      if (filtros.value.status === 'agendado') {
+        return dataA - dataB
+      }
+
+      return dataB - dataA
     })
+})
+const textoFiltroStatus = computed(() => {
+  const textos = {
+    agendado: 'Exibindo apenas agendamentos em aberto.',
+    concluido: 'Exibindo agendamentos concluídos.',
+    cancelado: 'Exibindo agendamentos cancelados.',
+    faltou: 'Exibindo agendamentos marcados como falta.',
+    todos: 'Exibindo todos os agendamentos, incluindo cancelados e faltas.',
+  }
+
+  return textos[filtros.value.status || 'todos']
 })
 
 function prepararAgendamentoParaLista(agendamento) {
@@ -399,7 +414,7 @@ function criarData(dataHora) {
 
 function limparFiltros() {
   filtros.value = {
-    status: '',
+    status: 'agendado',
     dataInicial: '',
     dataFinal: '',
     busca: '',
@@ -474,11 +489,11 @@ onMounted(() => {
           <label>
             Status
             <select v-model="filtros.status">
-              <option value="">Todos</option>
-              <option value="agendado">Agendado</option>
-              <option value="concluido">Concluido</option>
-              <option value="cancelado">Cancelado</option>
+              <option value="agendado">Agendados</option>
+              <option value="concluido">Concluídos</option>
+              <option value="cancelado">Cancelados</option>
               <option value="faltou">Faltou</option>
+              <option value="">Todos</option>
             </select>
           </label>
 
@@ -505,6 +520,8 @@ onMounted(() => {
             <button class="botao secundario" @click="limparFiltros">Limpar filtros</button>
           </div>
         </div>
+
+        <p class="aviso-filtro">{{ textoFiltroStatus }}</p>
       </section>
 
       <div class="cabecalho-lista">
@@ -759,6 +776,13 @@ onMounted(() => {
 .acoes-filtros {
   display: flex;
   align-items: end;
+}
+
+.aviso-filtro {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .lista {
