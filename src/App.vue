@@ -94,6 +94,8 @@ onBeforeUnmount(() => {
         <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios">Relatorios</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa">Minha empresa</RouterLink>
         <RouterLink v-if="superAdmin" to="/empresas">Empresas</RouterLink>
+        <RouterLink v-if="superAdmin" to="/auditoria">Auditoria</RouterLink>
+        <RouterLink v-if="superAdmin" to="/lixeira">Lixeira</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios">Usuarios</RouterLink>
         <RouterLink to="/alterar-senha">Alterar senha</RouterLink>
       </nav>

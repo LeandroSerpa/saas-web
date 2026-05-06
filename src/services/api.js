@@ -25,6 +25,20 @@ function montarHeadersPublicos(comJson = false) {
   return headers
 }
 
+function montarQueryString(filtros = {}) {
+  const params = new URLSearchParams()
+
+  Object.entries(filtros || {}).forEach(([chave, valor]) => {
+    if (valor !== null && valor !== undefined && String(valor).trim()) {
+      params.append(chave, valor)
+    }
+  })
+
+  const query = params.toString()
+
+  return query ? `?${query}` : ''
+}
+
 function encerrarSessao() {
   localStorage.removeItem('token')
   localStorage.removeItem('usuario')
@@ -276,6 +290,42 @@ export async function criarAgendamentoPublico(slug, dados) {
   return tratarRespostaPublica(response)
 }
 
+export async function buscarAuditoria(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/auditoria${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarAuditoriaPorId(id) {
+  const response = await fetch(`${API_URL}/admin/auditoria/${id}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarAgendamentosExcluidos(filtros = {}) {
+  const response = await fetch(
+    `${API_URL}/admin/lixeira/agendamentos${montarQueryString(filtros)}`,
+    {
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function restaurarAgendamento(id) {
+  const response = await fetch(`${API_URL}/admin/lixeira/agendamentos/${id}/restaurar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function login(email, senha) {
   const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',
@@ -502,8 +552,8 @@ export async function atualizarStatusAgendamento(id, status) {
   return tratarResposta(response)
 }
 
-export async function excluirAgendamento(id) {
-  const response = await fetch(`${API_URL}/agendamentos/${id}`, {
+export async function excluirAgendamento(id, motivo = '') {
+  const response = await fetch(`${API_URL}/agendamentos/${id}${montarQueryString({ motivo })}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })

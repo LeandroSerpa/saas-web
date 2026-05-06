@@ -215,11 +215,11 @@ function obterMensagemConfirmacaoStatus(status) {
 }
 
 async function excluirAgendamentoAgenda(id) {
-  const confirmado = window.confirm(
-    'Tem certeza que deseja excluir este agendamento? Esta ação não poderá ser desfeita.',
+  const motivo = window.prompt(
+    'Informe o motivo da exclusão, se desejar:',
   )
 
-  if (!confirmado) {
+  if (motivo === null) {
     return
   }
 
@@ -228,7 +228,7 @@ async function excluirAgendamentoAgenda(id) {
     erro.value = ''
     mensagemSucessoAgendamento.value = ''
 
-    await excluirAgendamento(id)
+    await excluirAgendamento(id, motivo)
     await carregarAgendamentos()
 
     mensagemSucessoAgendamento.value = 'Agendamento excluido com sucesso.'

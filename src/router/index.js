@@ -11,6 +11,8 @@ import EmpresasView from '../views/EmpresasView.vue'
 import MinhaEmpresaView from '../views/MinhaEmpresaView.vue'
 import RelatoriosView from '../views/RelatoriosView.vue'
 import AgendamentoPublicoView from '../views/AgendamentoPublicoView.vue'
+import AuditoriaView from '../views/AuditoriaView.vue'
+import LixeiraView from '../views/LixeiraView.vue'
 
 const rotasProtegidas = {
   requiresAuth: true,
@@ -106,6 +108,18 @@ const router = createRouter({
       path: '/empresas',
       name: 'empresas',
       component: EmpresasView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/auditoria',
+      name: 'auditoria',
+      component: AuditoriaView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/lixeira',
+      name: 'lixeira',
+      component: LixeiraView,
       meta: rotasSuperAdmin,
     },
     {
