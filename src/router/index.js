@@ -9,6 +9,7 @@ import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
 import EmpresasView from '../views/EmpresasView.vue'
 import MinhaEmpresaView from '../views/MinhaEmpresaView.vue'
+import RelatoriosView from '../views/RelatoriosView.vue'
 
 const rotasProtegidas = {
   requiresAuth: true,
@@ -75,6 +76,12 @@ const router = createRouter({
       name: 'funcionarios',
       component: FuncionariosView,
       meta: rotasProtegidas,
+    },
+    {
+      path: '/relatorios',
+      name: 'relatorios',
+      component: RelatoriosView,
+      meta: rotasAdmin,
     },
     {
       path: '/alterar-senha',
