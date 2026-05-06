@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
-  buscarAgendamentosPublicos,
+  buscarDisponibilidadePublica,
   buscarEmpresaPublica,
   buscarFuncionariosPublicos,
   buscarServicosPublicos,
@@ -15,33 +15,14 @@ const slug = computed(() => String(route.params.slug || '').trim())
 const empresa = ref(null)
 const servicos = ref([])
 const funcionarios = ref([])
-const agendamentosExistentes = ref([])
+const disponibilidade = ref(null)
 const carregando = ref(true)
+const carregandoDisponibilidade = ref(false)
 const enviando = ref(false)
 const indisponivel = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const agendamento = ref(criarAgendamentoInicial())
-
-const diasSemana = [
-  'domingo',
-  'segunda',
-  'terca',
-  'quarta',
-  'quinta',
-  'sexta',
-  'sabado',
-]
-
-const camposAtendimentoFuncionario = [
-  'atendeDomingo',
-  'atendeSegunda',
-  'atendeTerca',
-  'atendeQuarta',
-  'atendeQuinta',
-  'atendeSexta',
-  'atendeSabado',
-]
 
 const servicoSelecionado = computed(() =>
   servicos.value.find((servico) => Number(servico.id) === Number(agendamento.value.servicoId)),
@@ -67,75 +48,105 @@ const terminoPrevisto = computed(() =>
   dataHoraFimSelecionada.value ? formatarDataHoraPreview(dataHoraFimSelecionada.value) : '',
 )
 
+const dataAtendimentoFormatada = computed(() =>
+  agendamento.value.dataAtendimento ? formatarDataAtendimento(agendamento.value.dataAtendimento) : '',
+)
+
+const inicioSelecionado = computed(() => {
+  const horario = String(agendamento.value.dataHoraInicio || '').slice(11, 16)
+
+  return horario || ''
+})
+
+const horariosDisponiveis = computed(() =>
+  normalizarListaHorarios(disponibilidade.value?.horariosDisponiveis).map((item) => ({
+    valor: item.valor,
+    label: item.label,
+    ocupado: false,
+  })),
+)
+
+const horariosOcupados = computed(() =>
+  normalizarListaHorarios(disponibilidade.value?.horariosOcupados)
+    .filter((item) => !horariosDisponiveis.value.some((horario) => horario.valor === item.valor))
+    .map((item) => ({
+      valor: item.valor,
+      label: item.label,
+      ocupado: true,
+    })),
+)
+
 const mensagemDisponibilidade = computed(() => {
-  if (!agendamento.value.dataAtendimento) {
+  if (!disponibilidade.value) {
     return ''
   }
 
-  if (!empresaAtendeNaData(agendamento.value.dataAtendimento)) {
-    return `A empresa ${empresa.value?.nome || ''} não atende neste dia.`
+  const mensagem = String(disponibilidade.value.mensagem || '').trim()
+
+  if (disponibilidade.value.empresaAtendeNoDia === false) {
+    return mensagem || `A empresa ${empresa.value?.nome || ''} não atende neste dia.`
   }
 
-  if (!funcionarioSelecionado.value || !servicoSelecionado.value) {
-    return ''
-  }
-
-  if (!funcionarioAtendeNaData(funcionarioSelecionado.value, agendamento.value.dataAtendimento)) {
-    return `O funcionário ${funcionarioSelecionado.value.nome} não atende neste dia.`
+  if (disponibilidade.value.funcionarioAtendeNoDia === false) {
+    return mensagem || `O funcionário ${funcionarioSelecionado.value?.nome || ''} não atende neste dia.`
   }
 
   if (horariosDisponiveis.value.length === 0) {
-    return 'Nenhum horário disponível para esta data.'
+    return mensagem || 'Nenhum horário disponível para esta data. Escolha outro dia.'
   }
 
   return ''
 })
 
-const horariosDisponiveis = computed(() => {
-  if (
-    !empresa.value ||
-    !servicoSelecionado.value ||
-    !funcionarioSelecionado.value ||
-    !agendamento.value.dataAtendimento ||
-    !duracaoMinutos.value ||
-    !empresaAtendeNaData(agendamento.value.dataAtendimento) ||
-    !funcionarioAtendeNaData(funcionarioSelecionado.value, agendamento.value.dataAtendimento)
-  ) {
-    return []
+const mensagemOrientacaoHorarios = computed(() => {
+  if (!agendamento.value.servicoId) {
+    return 'Escolha um serviço para consultar os horários.'
   }
 
-  const data = agendamento.value.dataAtendimento
-  const abertura = normalizarHorario(empresa.value.horaAbertura, '08:00')
-  const fechamento = normalizarHorario(empresa.value.horaFechamento, '18:00')
-  const inicioFuncionario = normalizarHorario(
-    funcionarioSelecionado.value.horaInicioAtendimento,
-    abertura,
-  )
-  const fimFuncionario = normalizarHorario(funcionarioSelecionado.value.horaFimAtendimento, fechamento)
-  const inicioMinutos = Math.max(horarioParaMinutos(abertura), horarioParaMinutos(inicioFuncionario))
-  const fimMinutos = Math.min(horarioParaMinutos(fechamento), horarioParaMinutos(fimFuncionario))
-  const bloqueios = agendamentosDoFuncionarioNaData(data)
-
-  if (fimMinutos <= inicioMinutos) {
-    return []
+  if (!agendamento.value.funcionarioId) {
+    return 'Escolha um funcionário para consultar os horários.'
   }
 
-  const horarios = []
-
-  for (let minutos = inicioMinutos; minutos + duracaoMinutos.value <= fimMinutos; minutos += 30) {
-    const inicio = criarDataComMinutos(data, minutos)
-    const fim = calcularDataHoraFim(inicio, duracaoMinutos.value)
-
-    if (!conflitaComAgendamentos(inicio, fim, bloqueios)) {
-      horarios.push({
-        valor: formatarDataParaApi(inicio),
-        label: minutosParaHorario(minutos),
-      })
-    }
+  if (!agendamento.value.dataAtendimento) {
+    return 'Escolha uma data para consultar os horários.'
   }
 
-  return horarios
+  if (carregandoDisponibilidade.value) {
+    return 'Buscando horários disponíveis...'
+  }
+
+  if (mensagemDisponibilidade.value) {
+    return mensagemDisponibilidade.value
+  }
+
+  if (horariosDisponiveis.value.length > 0) {
+    return agendamento.value.dataHoraInicio
+      ? 'Horário selecionado. Você já pode confirmar o agendamento.'
+      : 'Escolha um dos horários disponíveis abaixo.'
+  }
+
+  return 'Nenhum horário disponível para esta data. Tente escolher outro dia.'
 })
+
+const resumoVisivel = computed(() =>
+  Boolean(
+    agendamento.value.servicoId ||
+      agendamento.value.funcionarioId ||
+      agendamento.value.dataAtendimento ||
+      agendamento.value.dataHoraInicio,
+  ),
+)
+
+const formularioCompleto = computed(() =>
+  Boolean(
+    agendamento.value.nomeCliente.trim() &&
+      agendamento.value.telefoneCliente.trim() &&
+      agendamento.value.servicoId &&
+      agendamento.value.funcionarioId &&
+      agendamento.value.dataAtendimento &&
+      agendamento.value.dataHoraInicio,
+  ),
+)
 
 watch(
   () => [
@@ -145,6 +156,7 @@ watch(
   ],
   () => {
     agendamento.value.dataHoraInicio = ''
+    carregarDisponibilidade()
   },
 )
 
@@ -177,15 +189,13 @@ async function carregarDadosPublicos() {
 
     empresa.value = empresaApi
 
-    const [servicosApi, funcionariosApi, agendamentosApi] = await Promise.all([
+    const [servicosApi, funcionariosApi] = await Promise.all([
       buscarServicosPublicos(slug.value),
       buscarFuncionariosPublicos(slug.value),
-      buscarAgendamentosPublicos(slug.value),
     ])
 
     servicos.value = Array.isArray(servicosApi) ? servicosApi : []
     funcionarios.value = Array.isArray(funcionariosApi) ? funcionariosApi : []
-    agendamentosExistentes.value = Array.isArray(agendamentosApi) ? agendamentosApi : []
   } catch (error) {
     indisponivel.value = true
     console.error(error)
@@ -194,14 +204,45 @@ async function carregarDadosPublicos() {
   }
 }
 
-async function recarregarAgendamentosPublicos() {
-  const agendamentosApi = await buscarAgendamentosPublicos(slug.value)
-  agendamentosExistentes.value = Array.isArray(agendamentosApi) ? agendamentosApi : []
+async function carregarDisponibilidade() {
+  disponibilidade.value = null
+
+  if (
+    !slug.value ||
+    !agendamento.value.servicoId ||
+    !agendamento.value.funcionarioId ||
+    !agendamento.value.dataAtendimento
+  ) {
+    return
+  }
+
+  try {
+    carregandoDisponibilidade.value = true
+    erro.value = ''
+    disponibilidade.value = await buscarDisponibilidadePublica(
+      slug.value,
+      agendamento.value.servicoId,
+      agendamento.value.funcionarioId,
+      agendamento.value.dataAtendimento,
+    )
+  } catch (error) {
+    const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
+
+    erro.value = mensagemApi || 'Não foi possível buscar os horários disponíveis.'
+    console.error(error)
+  } finally {
+    carregandoDisponibilidade.value = false
+  }
 }
 
 function selecionarHorario(horario) {
-  agendamento.value.dataHoraInicio = horario.valor
+  if (horario.ocupado) {
+    return
+  }
+
+  agendamento.value.dataHoraInicio = `${agendamento.value.dataAtendimento}T${horario.valor}:00`
   erro.value = ''
+  mensagemSucesso.value = ''
 }
 
 async function enviarAgendamento() {
@@ -252,8 +293,9 @@ async function enviarAgendamento() {
     })
 
     agendamento.value = criarAgendamentoInicial()
+    disponibilidade.value = null
     mensagemSucesso.value = 'Agendamento solicitado com sucesso.'
-    await recarregarAgendamentosPublicos()
+    await carregarDisponibilidade()
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
@@ -284,91 +326,41 @@ function calcularDataHoraFim(dataHoraInicio, duracao) {
   return new Date(inicio.getTime() + duracao * 60000)
 }
 
-function agendamentosDoFuncionarioNaData(data) {
-  return agendamentosExistentes.value
-    .filter((item) => Number(item.funcionarioId) === Number(agendamento.value.funcionarioId))
-    .filter((item) => String(item.status || '').toLowerCase() === 'agendado')
-    .filter((item) => String(item.dataHoraInicio || '').startsWith(data))
-    .map((item) => ({
-      inicio: new Date(item.dataHoraInicio),
-      fim: new Date(item.dataHoraFim),
-    }))
-    .filter((item) => !Number.isNaN(item.inicio.getTime()) && !Number.isNaN(item.fim.getTime()))
+function normalizarListaHorarios(horarios) {
+  return Array.isArray(horarios)
+    ? horarios.map(normalizarHorarioDisponibilidade).filter((horario) => horario.valor)
+    : []
 }
 
-function conflitaComAgendamentos(inicio, fim, bloqueios) {
-  return bloqueios.some((bloqueio) => inicio < bloqueio.fim && fim > bloqueio.inicio)
-}
+function normalizarHorarioDisponibilidade(horario) {
+  if (horario && typeof horario === 'object') {
+    const valor = extrairHorario(
+      horario.horario || horario.hora || horario.inicio || horario.dataHoraInicio || '',
+    )
 
-function empresaAtendeNaData(data) {
-  const dia = obterDiaSemana(data)
-  const diasFuncionamento = String(empresa.value?.diasFuncionamento || '')
-    .split(',')
-    .map((diaTexto) => normalizarDia(diaTexto))
-    .filter(Boolean)
-
-  if (diasFuncionamento.length === 0) {
-    return dia !== 'domingo'
+    return {
+      valor,
+      label: String(horario.label || horario.texto || valor),
+    }
   }
 
-  return diasFuncionamento.includes(dia)
+  const valor = extrairHorario(horario)
+
+  return {
+    valor,
+    label: valor,
+  }
 }
 
-function funcionarioAtendeNaData(funcionario, data) {
-  const indiceDia = criarDataLocal(data).getDay()
-  const campo = camposAtendimentoFuncionario[indiceDia]
-  const valor = funcionario?.[campo]
+function extrairHorario(valor) {
+  const texto = String(valor || '')
+  const horario = texto.match(/\b\d{2}:\d{2}\b/)
 
-  return valor === null || valor === undefined ? empresaAtendeNaData(data) : Boolean(valor)
+  return horario ? horario[0] : ''
 }
 
-function obterDiaSemana(data) {
-  return diasSemana[criarDataLocal(data).getDay()]
-}
-
-function criarDataLocal(data) {
-  const [ano, mes, dia] = String(data).split('-').map(Number)
-  return new Date(ano, mes - 1, dia)
-}
-
-function criarDataComMinutos(data, minutos) {
-  const dataLocal = criarDataLocal(data)
-  dataLocal.setHours(Math.floor(minutos / 60), minutos % 60, 0, 0)
-  return dataLocal
-}
-
-function normalizarDia(dia) {
-  return String(dia || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-function normalizarHorario(horario, padrao) {
-  const texto = String(horario || padrao || '').slice(0, 5)
-  return /^\d{2}:\d{2}$/.test(texto) ? texto : padrao
-}
-
-function horarioParaMinutos(horario) {
-  const [hora, minuto] = normalizarHorario(horario, '00:00').split(':').map(Number)
-  return hora * 60 + minuto
-}
-
-function minutosParaHorario(minutos) {
-  const hora = String(Math.floor(minutos / 60)).padStart(2, '0')
-  const minuto = String(minutos % 60).padStart(2, '0')
-  return `${hora}:${minuto}`
-}
-
-function formatarDataParaApi(data) {
-  const ano = data.getFullYear()
-  const mes = String(data.getMonth() + 1).padStart(2, '0')
-  const dia = String(data.getDate()).padStart(2, '0')
-  const hora = String(data.getHours()).padStart(2, '0')
-  const minuto = String(data.getMinutes()).padStart(2, '0')
-
-  return `${ano}-${mes}-${dia}T${hora}:${minuto}:00`
+function horarioSelecionado(horario) {
+  return String(agendamento.value.dataHoraInicio || '').slice(11, 16) === horario.valor
 }
 
 function formatarDataHoraPreview(data) {
@@ -378,6 +370,20 @@ function formatarDataHoraPreview(data) {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+  })
+}
+
+function formatarDataAtendimento(data) {
+  const [ano, mes, dia] = String(data || '').split('-').map(Number)
+
+  if (!ano || !mes || !dia) {
+    return ''
+  }
+
+  return new Date(ano, mes - 1, dia).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   })
 }
 
@@ -495,11 +501,7 @@ onMounted(() => {
           <section class="campo-grande horarios">
             <div class="titulo-horarios">
               <h3>Horários disponíveis</h3>
-              <p v-if="!agendamento.dataAtendimento">Selecione uma data para ver os horários.</p>
-              <p v-else-if="!servicoSelecionado || !funcionarioSelecionado">
-                Selecione serviço e funcionário para ver os horários.
-              </p>
-              <p v-else-if="mensagemDisponibilidade">{{ mensagemDisponibilidade }}</p>
+              <p>{{ mensagemOrientacaoHorarios }}</p>
             </div>
 
             <div v-if="horariosDisponiveis.length" class="grade-horarios">
@@ -508,18 +510,44 @@ onMounted(() => {
                 :key="horario.valor"
                 type="button"
                 class="horario"
-                :class="{ selecionado: agendamento.dataHoraInicio === horario.valor }"
+                :class="{ selecionado: horarioSelecionado(horario) }"
                 @click="selecionarHorario(horario)"
               >
                 {{ horario.label }}
               </button>
             </div>
+
+            <div
+              v-else-if="
+                agendamento.servicoId &&
+                agendamento.funcionarioId &&
+                agendamento.dataAtendimento &&
+                !carregandoDisponibilidade
+              "
+              class="estado-horarios"
+            >
+              <strong>Nenhum horário livre nesta data.</strong>
+              <span>Escolha outro dia ou outro funcionário para tentar novamente.</span>
+            </div>
+
+            <div v-if="horariosOcupados.length" class="legenda-horarios">
+              <strong>Horários ocupados</strong>
+              <div class="lista-ocupados" aria-label="Horários ocupados">
+                <span v-for="horario in horariosOcupados" :key="horario.valor">
+                  {{ horario.label }}
+                </span>
+              </div>
+            </div>
           </section>
 
-          <div v-if="agendamento.dataHoraInicio" class="campo-grande previa">
-            <p>Duração: {{ duracaoMinutos }} minutos</p>
-            <p>Término previsto: {{ terminoPrevisto }}</p>
-            <p>Preço: {{ formatarPreco(servicoSelecionado?.preco) }}</p>
+          <div v-if="resumoVisivel" class="campo-grande previa">
+            <h3>Resumo do agendamento</h3>
+            <p><strong>Serviço:</strong> {{ servicoSelecionado?.nome || 'A selecionar' }}</p>
+            <p><strong>Funcionário:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}</p>
+            <p><strong>Data:</strong> {{ dataAtendimentoFormatada || 'A selecionar' }}</p>
+            <p><strong>Início:</strong> {{ inicioSelecionado || 'Selecione um horário' }}</p>
+            <p><strong>Término previsto:</strong> {{ terminoPrevisto || 'Selecione um horário' }}</p>
+            <p><strong>Preço:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
           </div>
 
           <label class="campo-grande">
@@ -533,9 +561,16 @@ onMounted(() => {
         </div>
 
         <div class="rodape-formulario">
-          <button class="botao principal" :disabled="enviando" @click="enviarAgendamento">
+          <button
+            class="botao principal"
+            :disabled="enviando || !formularioCompleto"
+            @click="enviarAgendamento"
+          >
             {{ enviando ? 'Enviando...' : 'Agendar' }}
           </button>
+          <p v-if="!agendamento.dataHoraInicio" class="aviso-horario">
+            Selecione um horário disponível para liberar o agendamento.
+          </p>
         </div>
       </section>
     </section>
@@ -691,8 +726,8 @@ textarea:focus {
 
 .horarios {
   display: grid;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #f8fafc;
@@ -717,18 +752,18 @@ textarea:focus {
 
 .grade-horarios {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 12px;
 }
 
 .horario {
-  min-height: 42px;
+  min-height: 60px;
   border: 1px solid #bfdbfe;
   border-radius: 8px;
   background: white;
   color: #1d4ed8;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   transition:
     background 0.15s ease,
@@ -737,7 +772,7 @@ textarea:focus {
     transform 0.15s ease;
 }
 
-.horario:hover {
+.horario:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: #2563eb;
   background: #eff6ff;
@@ -749,17 +784,70 @@ textarea:focus {
   color: white;
 }
 
-.previa {
+.estado-horarios {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  color: #475569;
+  font-size: 14px;
+}
+
+.estado-horarios strong {
+  color: #111827;
+}
+
+.legenda-horarios {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.legenda-horarios strong {
+  color: #475569;
+}
+
+.lista-ocupados {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
+}
+
+.lista-ocupados span {
+  display: inline-flex;
   align-items: center;
-  padding: 12px 14px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  text-decoration: line-through;
+}
+
+.previa {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 10px 14px;
+  padding: 14px;
   border: 1px solid #bfdbfe;
   border-radius: 8px;
   background: #eff6ff;
   color: #1e3a8a;
   font-size: 14px;
+}
+
+.previa h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #1e3a8a;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -772,6 +860,13 @@ textarea:focus {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.aviso-horario {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .botao {
@@ -787,7 +882,7 @@ textarea:focus {
     background 0.15s ease;
 }
 
-.botao:hover {
+.botao:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
@@ -801,7 +896,7 @@ textarea:focus {
   background: #2563eb;
 }
 
-.principal:hover {
+.principal:hover:not(:disabled) {
   background: #1d4ed8;
 }
 
@@ -826,7 +921,8 @@ textarea:focus {
     min-width: 0;
   }
 
-  .campos {
+  .campos,
+  .previa {
     grid-template-columns: 1fr;
   }
 }
