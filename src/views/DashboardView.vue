@@ -17,14 +17,34 @@ const erro = ref('')
 
 const cardsResumo = computed(() => [
   {
-    titulo: 'Agendamentos de hoje',
+    titulo: 'Agendamentos hoje',
     valor: agendamentosHoje.value.length,
     destaque: 'hoje',
   },
   {
-    titulo: 'Proximos agendamentos',
-    valor: proximosAgendamentos.value.length,
+    titulo: 'Concluidos hoje',
+    valor: contarPorStatus('concluido', agendamentosHoje.value),
+    destaque: 'concluido',
+  },
+  {
+    titulo: 'Receita concluida hoje',
+    valor: formatarMoeda(receitaPorStatus('concluido', agendamentosHoje.value)),
+    destaque: 'receita',
+  },
+  {
+    titulo: 'Agendamentos da semana',
+    valor: agendamentosSemana.value.length,
     destaque: 'agenda',
+  },
+  {
+    titulo: 'Receita prevista da semana',
+    valor: formatarMoeda(receitaPorStatus('agendado', agendamentosSemana.value)),
+    destaque: 'receita-prevista',
+  },
+  {
+    titulo: 'Receita concluida da semana',
+    valor: formatarMoeda(receitaPorStatus('concluido', agendamentosSemana.value)),
+    destaque: 'receita',
   },
   {
     titulo: 'Total agendado',
@@ -81,6 +101,17 @@ const agendamentosHoje = computed(() => {
   return agendamentos.value.filter((agendamento) => mesmaDataHoje(agendamento.dataHoraInicio))
 })
 
+const agendamentosSemana = computed(() => {
+  const inicioSemana = obterInicioSemanaAtual()
+  const fimSemana = obterFimSemanaAtual()
+
+  return agendamentos.value.filter((agendamento) => {
+    const dataInicio = criarData(agendamento.dataHoraInicio)
+
+    return dataInicio && dataInicio >= inicioSemana && dataInicio <= fimSemana
+  })
+})
+
 const proximosAgendamentos = computed(() => {
   const agora = new Date()
 
@@ -94,6 +125,33 @@ const proximosAgendamentos = computed(() => {
     })
     .sort((a, b) => new Date(a.dataHoraInicio) - new Date(b.dataHoraInicio))
     .slice(0, 5)
+})
+
+const resumoPorFuncionario = computed(() => {
+  const resumo = new Map()
+
+  agendamentos.value.forEach((agendamento) => {
+    const funcionario = agendamento.funcionario || 'Sem funcionario'
+    const item = resumo.get(funcionario) || {
+      funcionario,
+      quantidade: 0,
+      concluidos: 0,
+      receitaConcluida: 0,
+    }
+
+    item.quantidade += 1
+
+    if (agendamento.status === 'concluido') {
+      item.concluidos += 1
+      item.receitaConcluida += obterPreco(agendamento.preco)
+    }
+
+    resumo.set(funcionario, item)
+  })
+
+  return [...resumo.values()].sort((funcionarioA, funcionarioB) =>
+    funcionarioA.funcionario.localeCompare(funcionarioB.funcionario, 'pt-BR'),
+  )
 })
 
 async function carregarDados() {
@@ -120,14 +178,20 @@ async function carregarDados() {
   }
 }
 
-function contarPorStatus(status) {
-  return agendamentos.value.filter((agendamento) => agendamento.status === status).length
+function contarPorStatus(status, lista = agendamentos.value) {
+  return lista.filter((agendamento) => agendamento.status === status).length
 }
 
-function receitaPorStatus(status) {
-  return agendamentos.value
+function receitaPorStatus(status, lista = agendamentos.value) {
+  return lista
     .filter((agendamento) => agendamento.status === status)
-    .reduce((total, agendamento) => total + Number(agendamento.preco || 0), 0)
+    .reduce((total, agendamento) => total + obterPreco(agendamento.preco), 0)
+}
+
+function obterPreco(preco) {
+  const valor = Number(preco)
+
+  return Number.isFinite(valor) ? valor : 0
 }
 
 function formatarMoeda(valor) {
@@ -138,11 +202,12 @@ function formatarMoeda(valor) {
 }
 
 function mesmaDataHoje(dataHora) {
-  if (!dataHora) {
+  const data = criarData(dataHora)
+
+  if (!data) {
     return false
   }
 
-  const data = new Date(dataHora)
   const hoje = new Date()
 
   return (
@@ -152,15 +217,77 @@ function mesmaDataHoje(dataHora) {
   )
 }
 
-function formatarDataHora(dataHora) {
+function criarData(dataHora) {
   if (!dataHora) {
+    return null
+  }
+
+  const data = new Date(dataHora)
+
+  if (Number.isNaN(data.getTime())) {
+    return null
+  }
+
+  return data
+}
+
+function obterInicioSemanaAtual() {
+  const hoje = new Date()
+  const diaSemana = hoje.getDay()
+  const distanciaSegunda = diaSemana === 0 ? -6 : 1 - diaSemana
+  const inicioSemana = new Date(hoje)
+
+  inicioSemana.setDate(hoje.getDate() + distanciaSegunda)
+  inicioSemana.setHours(0, 0, 0, 0)
+
+  return inicioSemana
+}
+
+function obterFimSemanaAtual() {
+  const fimSemana = new Date(obterInicioSemanaAtual())
+
+  fimSemana.setDate(fimSemana.getDate() + 6)
+  fimSemana.setHours(23, 59, 59, 999)
+
+  return fimSemana
+}
+
+function formatarData(dataHora) {
+  const data = criarData(dataHora)
+
+  if (!data) {
     return '-'
   }
 
-  return new Date(dataHora).toLocaleString('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   })
+}
+
+function formatarHorario(dataHora) {
+  const data = criarData(dataHora)
+
+  if (!data) {
+    return '-'
+  }
+
+  return data.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatarPeriodo(agendamento) {
+  const inicio = formatarHorario(agendamento.dataHoraInicio)
+  const fim = formatarHorario(agendamento.dataHoraFim)
+
+  if (fim === '-') {
+    return inicio
+  }
+
+  return `${inicio} as ${fim}`
 }
 
 function exibirValor(valor) {
@@ -181,6 +308,17 @@ function statusClasse(status) {
   }
 
   return 'status agendado'
+}
+
+function statusTexto(status) {
+  const statusFormatados = {
+    agendado: 'Agendado',
+    concluido: 'Concluido',
+    cancelado: 'Cancelado',
+    faltou: 'Faltou',
+  }
+
+  return statusFormatados[status] || status || '-'
 }
 
 onMounted(() => {
@@ -257,10 +395,52 @@ onMounted(() => {
 
           <div class="detalhes">
             <p><strong>Funcionario:</strong> {{ exibirValor(agendamento.funcionario) }}</p>
-            <p><strong>Data/Hora:</strong> {{ formatarDataHora(agendamento.dataHoraInicio) }}</p>
+            <p><strong>Data:</strong> {{ formatarData(agendamento.dataHoraInicio) }}</p>
+            <p><strong>Horario:</strong> {{ formatarPeriodo(agendamento) }}</p>
             <p><strong>Preco:</strong> {{ formatarMoeda(agendamento.preco) }}</p>
+            <p><strong>Status:</strong> {{ statusTexto(agendamento.status) }}</p>
           </div>
         </article>
+      </section>
+    </section>
+
+    <section class="secao-resumo-funcionarios">
+      <div class="cabecalho-lista">
+        <div>
+          <h2>Resumo por funcionario</h2>
+          <p>Quantidade de agendamentos, concluidos e receita concluida por profissional.</p>
+        </div>
+      </div>
+
+      <section v-if="carregando" class="card">
+        <p>Carregando resumo por funcionario...</p>
+      </section>
+
+      <section v-else-if="resumoPorFuncionario.length === 0" class="card">
+        <p>Nenhum agendamento encontrado para montar o resumo por funcionario.</p>
+      </section>
+
+      <section v-else class="card tabela-card">
+        <div class="tabela-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Funcionario</th>
+                <th>Agendamentos</th>
+                <th>Concluidos</th>
+                <th>Receita concluida</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in resumoPorFuncionario" :key="item.funcionario">
+                <td>{{ item.funcionario }}</td>
+                <td>{{ item.quantidade }}</td>
+                <td>{{ item.concluidos }}</td>
+                <td>{{ formatarMoeda(item.receitaConcluida) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </section>
   </main>
@@ -319,7 +499,8 @@ onMounted(() => {
   gap: 14px;
 }
 
-.secao-proximos {
+.secao-proximos,
+.secao-resumo-funcionarios {
   display: grid;
   gap: 16px;
 }
@@ -371,6 +552,10 @@ onMounted(() => {
 .resumo-card.concluido,
 .resumo-card.receita {
   border-left-color: #16a34a;
+}
+
+.resumo-card.receita-prevista {
+  border-left-color: #0f766e;
 }
 
 .resumo-card.cancelado {
@@ -428,6 +613,7 @@ onMounted(() => {
 .detalhes p {
   margin: 6px 0;
   color: #374151;
+  word-break: break-word;
 }
 
 .detalhes strong {
@@ -461,6 +647,42 @@ onMounted(() => {
 .status.faltou {
   background: #fef3c7;
   color: #92400e;
+}
+
+.tabela-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.tabela-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+th,
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  color: #374151;
+}
+
+th {
+  background: #f8fafc;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .botao {
