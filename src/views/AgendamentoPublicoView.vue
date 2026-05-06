@@ -22,6 +22,8 @@ const enviando = ref(false)
 const indisponivel = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
+const mensagemCopia = ref('')
+const confirmacaoAgendamento = ref(null)
 const agendamento = ref(criarAgendamentoInicial())
 
 const servicoSelecionado = computed(() =>
@@ -173,6 +175,120 @@ function criarAgendamentoInicial() {
   }
 }
 
+function criarDadosConfirmacaoFormulario() {
+  return {
+    empresaNome: empresa.value?.nome || '',
+    clienteNome: agendamento.value.nomeCliente.trim(),
+    clienteTelefone: agendamento.value.telefoneCliente.trim(),
+    clienteEmail: agendamento.value.emailCliente.trim(),
+    servicoNome: servicoSelecionado.value?.nome || '',
+    funcionarioNome: funcionarioSelecionado.value?.nome || '',
+    dataAtendimento: dataAtendimentoFormatada.value,
+    horarioInicio: inicioSelecionado.value,
+    horarioTermino: formatarHorarioSeguro(dataHoraFimSelecionada.value),
+    duracao: duracaoMinutos.value ? `${duracaoMinutos.value} minutos` : '',
+    preco: formatarPreco(servicoSelecionado.value?.preco),
+    observacao: agendamento.value.observacao.trim(),
+    dataHoraInicio: agendamento.value.dataHoraInicio,
+    dataHoraFim: dataHoraFimSelecionada.value,
+  }
+}
+
+function criarConfirmacaoAgendamento(respostaApi, dadosFormulario) {
+  const dadosApi = respostaApi && typeof respostaApi === 'object' ? respostaApi : {}
+  const dataHoraInicioApi = obterPrimeiroValor(dadosApi.dataHoraInicio, dadosApi.inicio)
+  const dataHoraFimApi = obterPrimeiroValor(dadosApi.dataHoraFim, dadosApi.fim)
+  const id = obterPrimeiroValor(dadosApi.id, dadosApi.agendamentoId, dadosApi.codigo, dadosApi.protocolo)
+
+  return {
+    id,
+    status: obterPrimeiroValor(dadosApi.status, ''),
+    mensagem: obterPrimeiroValor(dadosApi.mensagem, 'Agendamento solicitado com sucesso.'),
+    empresaNome: obterPrimeiroValor(dadosApi.empresaNome, dadosApi.nomeEmpresa, dadosFormulario.empresaNome),
+    clienteNome: obterPrimeiroValor(dadosApi.clienteNome, dadosApi.nomeCliente, dadosFormulario.clienteNome),
+    clienteTelefone: obterPrimeiroValor(
+      dadosApi.clienteTelefone,
+      dadosApi.telefoneCliente,
+      dadosFormulario.clienteTelefone,
+    ),
+    clienteEmail: obterPrimeiroValor(
+      dadosApi.clienteEmail,
+      dadosApi.emailCliente,
+      dadosFormulario.clienteEmail,
+    ),
+    servicoNome: obterPrimeiroValor(dadosApi.servicoNome, dadosApi.nomeServico, dadosFormulario.servicoNome),
+    funcionarioNome: obterPrimeiroValor(
+      dadosApi.funcionarioNome,
+      dadosApi.nomeFuncionario,
+      dadosFormulario.funcionarioNome,
+    ),
+    dataAtendimento: formatarDataDaConfirmacao(dataHoraInicioApi) || dadosFormulario.dataAtendimento,
+    horarioInicio:
+      formatarHorarioSeguro(dataHoraInicioApi) ||
+      formatarHorarioSeguro(dadosFormulario.dataHoraInicio) ||
+      dadosFormulario.horarioInicio,
+    horarioTermino:
+      formatarHorarioSeguro(dataHoraFimApi) ||
+      formatarHorarioSeguro(dadosFormulario.dataHoraFim) ||
+      formatarHorarioSeguro(dadosFormulario.horarioTermino) ||
+      dadosFormulario.horarioTermino,
+    duracao: dadosFormulario.duracao,
+    preco: obterPrimeiroValor(formatarPrecoConfirmacao(dadosApi.preco), dadosFormulario.preco),
+    observacao: obterPrimeiroValor(dadosApi.observacao, dadosFormulario.observacao),
+  }
+}
+
+function obterPrimeiroValor(...valores) {
+  return valores.find((valor) => valor !== null && valor !== undefined && String(valor).trim()) || ''
+}
+
+function fazerNovoAgendamento() {
+  confirmacaoAgendamento.value = null
+  mensagemSucesso.value = ''
+  mensagemCopia.value = ''
+  erro.value = ''
+}
+
+async function copiarResumoConfirmacao() {
+  if (!confirmacaoAgendamento.value) {
+    return
+  }
+
+  try {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      throw new Error('Clipboard indisponivel')
+    }
+
+    await navigator.clipboard.writeText(montarTextoConfirmacao(confirmacaoAgendamento.value))
+    mensagemCopia.value = 'Resumo copiado para a área de transferência.'
+  } catch (error) {
+    mensagemCopia.value =
+      'Não foi possível copiar automaticamente. Você pode tirar um print desta confirmação.'
+    console.error(error)
+  }
+}
+
+function montarTextoConfirmacao(confirmacao) {
+  return [
+    'Agendamento solicitado com sucesso!',
+    `Empresa: ${confirmacao.empresaNome}`,
+    `Cliente: ${confirmacao.clienteNome}`,
+    confirmacao.clienteTelefone ? `Telefone: ${confirmacao.clienteTelefone}` : '',
+    confirmacao.clienteEmail ? `E-mail: ${confirmacao.clienteEmail}` : '',
+    `Serviço: ${confirmacao.servicoNome}`,
+    `Funcionário: ${confirmacao.funcionarioNome}`,
+    `Data: ${confirmacao.dataAtendimento}`,
+    `Início: ${confirmacao.horarioInicio}`,
+    `Término previsto: ${confirmacao.horarioTermino}`,
+    `Duração: ${confirmacao.duracao}`,
+    `Preço: ${confirmacao.preco}`,
+    confirmacao.observacao ? `Observação: ${confirmacao.observacao}` : '',
+    confirmacao.id ? `Código/Protocolo: ${confirmacao.id}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 async function carregarDadosPublicos() {
   try {
     carregando.value = true
@@ -282,7 +398,8 @@ async function enviarAgendamento() {
 
     enviando.value = true
 
-    await criarAgendamentoPublico(slug.value, {
+    const dadosConfirmacao = criarDadosConfirmacaoFormulario()
+    const respostaApi = await criarAgendamentoPublico(slug.value, {
       clienteNome: agendamento.value.nomeCliente.trim(),
       clienteTelefone: agendamento.value.telefoneCliente.trim(),
       clienteEmail: agendamento.value.emailCliente.trim(),
@@ -292,10 +409,11 @@ async function enviarAgendamento() {
       observacao: agendamento.value.observacao.trim(),
     })
 
+    confirmacaoAgendamento.value = criarConfirmacaoAgendamento(respostaApi, dadosConfirmacao)
     agendamento.value = criarAgendamentoInicial()
     disponibilidade.value = null
-    mensagemSucesso.value = 'Agendamento solicitado com sucesso.'
-    await carregarDisponibilidade()
+    mensagemSucesso.value = confirmacaoAgendamento.value.mensagem
+    mensagemCopia.value = ''
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
@@ -353,10 +471,41 @@ function normalizarHorarioDisponibilidade(horario) {
 }
 
 function extrairHorario(valor) {
-  const texto = String(valor || '')
-  const horario = texto.match(/\b\d{2}:\d{2}\b/)
+  return formatarHorarioSeguro(valor)
+}
 
-  return horario ? horario[0] : ''
+function formatarHorarioSeguro(valor) {
+  if (!valor) {
+    return ''
+  }
+
+  if (valor instanceof Date) {
+    if (Number.isNaN(valor.getTime())) {
+      return ''
+    }
+
+    return formatarHoraMinuto(valor.getHours(), valor.getMinutes())
+  }
+
+  const texto = String(valor || '')
+  const parteHorario = texto.includes('T') ? texto.split('T')[1] : texto
+  const horario = parteHorario.trim().match(/^(\d{2}):(\d{2})(?::\d{2})?/)
+
+  if (horario) {
+    return `${horario[1]}:${horario[2]}`
+  }
+
+  const data = criarDataValida(texto)
+
+  if (!data) {
+    return ''
+  }
+
+  return formatarHoraMinuto(data.getHours(), data.getMinutes())
+}
+
+function formatarHoraMinuto(hora, minuto) {
+  return `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`
 }
 
 function horarioSelecionado(horario) {
@@ -387,6 +536,40 @@ function formatarDataAtendimento(data) {
   })
 }
 
+function formatarDataDaConfirmacao(valor) {
+  const data = criarDataValida(valor)
+
+  if (!data) {
+    return ''
+  }
+
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatarDataHoraDaConfirmacao(valor) {
+  const data = criarDataValida(valor)
+
+  if (!data) {
+    return ''
+  }
+
+  return formatarDataHoraPreview(data)
+}
+
+function criarDataValida(valor) {
+  if (!valor) {
+    return null
+  }
+
+  const data = valor instanceof Date ? valor : new Date(valor)
+
+  return Number.isNaN(data.getTime()) ? null : data
+}
+
 function formatarPreco(preco) {
   if (preco === null || preco === undefined) {
     return 'R$ 0,00'
@@ -396,6 +579,10 @@ function formatarPreco(preco) {
     style: 'currency',
     currency: 'BRL',
   })
+}
+
+function formatarPrecoConfirmacao(preco) {
+  return preco === null || preco === undefined || preco === '' ? '' : formatarPreco(preco)
 }
 
 onMounted(() => {
@@ -435,11 +622,90 @@ onMounted(() => {
         <p>{{ erro }}</p>
       </section>
 
-      <section v-if="mensagemSucesso" class="card sucesso-card">
+      <section v-if="mensagemSucesso && !confirmacaoAgendamento" class="card sucesso-card">
         <p>{{ mensagemSucesso }}</p>
       </section>
 
-      <section class="card formulario">
+      <section v-if="confirmacaoAgendamento" class="card confirmacao-card">
+        <div class="confirmacao-topo">
+          <div>
+            <p class="subtitulo">Confirmação</p>
+            <h2>Agendamento solicitado com sucesso!</h2>
+            <p>
+              Guarde essas informações. A empresa poderá entrar em contato para confirmar o
+              atendimento.
+            </p>
+          </div>
+          <div v-if="confirmacaoAgendamento.id" class="protocolo">
+            <span>Código/Protocolo</span>
+            <strong>{{ confirmacaoAgendamento.id }}</strong>
+          </div>
+        </div>
+
+        <dl class="resumo-confirmacao">
+          <div>
+            <dt>Empresa</dt>
+            <dd>{{ confirmacaoAgendamento.empresaNome || 'Não informado' }}</dd>
+          </div>
+          <div>
+            <dt>Cliente</dt>
+            <dd>
+              {{ confirmacaoAgendamento.clienteNome || 'Não informado' }}
+              <span v-if="confirmacaoAgendamento.clienteTelefone">
+                {{ confirmacaoAgendamento.clienteTelefone }}
+              </span>
+              <span v-if="confirmacaoAgendamento.clienteEmail">
+                {{ confirmacaoAgendamento.clienteEmail }}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>Serviço</dt>
+            <dd>{{ confirmacaoAgendamento.servicoNome || 'Não informado' }}</dd>
+          </div>
+          <div>
+            <dt>Funcionário</dt>
+            <dd>{{ confirmacaoAgendamento.funcionarioNome || 'Não informado' }}</dd>
+          </div>
+          <div>
+            <dt>Data</dt>
+            <dd>{{ confirmacaoAgendamento.dataAtendimento || 'Não informado' }}</dd>
+          </div>
+          <div>
+            <dt>Início</dt>
+            <dd>{{ confirmacaoAgendamento.horarioInicio || 'Não informado' }}</dd>
+          </div>
+          <div>
+            <dt>Término previsto</dt>
+            <dd>{{ confirmacaoAgendamento.horarioTermino || 'Não informado' }}</dd>
+          </div>
+          <div>
+            <dt>Duração</dt>
+            <dd>{{ confirmacaoAgendamento.duracao || 'Não informado' }}</dd>
+          </div>
+          <div>
+            <dt>Preço</dt>
+            <dd>{{ confirmacaoAgendamento.preco || 'Não informado' }}</dd>
+          </div>
+          <div v-if="confirmacaoAgendamento.observacao" class="item-largo">
+            <dt>Observação</dt>
+            <dd>{{ confirmacaoAgendamento.observacao }}</dd>
+          </div>
+        </dl>
+
+        <p v-if="mensagemCopia" class="mensagem-copia">{{ mensagemCopia }}</p>
+
+        <div class="acoes-confirmacao">
+          <button class="botao principal" type="button" @click="fazerNovoAgendamento">
+            Fazer novo agendamento
+          </button>
+          <button class="botao secundario" type="button" @click="copiarResumoConfirmacao">
+            Copiar resumo
+          </button>
+        </div>
+      </section>
+
+      <section v-else class="card formulario">
         <div class="titulo-card">
           <h2>Dados do agendamento</h2>
           <p>Preencha os dados abaixo para solicitar seu atendimento.</p>
@@ -659,6 +925,112 @@ onMounted(() => {
 
 .dados-empresa strong {
   font-weight: 800;
+}
+
+.confirmacao-card {
+  display: grid;
+  gap: 18px;
+  border-color: #bbf7d0;
+  background: #fbfffd;
+}
+
+.confirmacao-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #dcfce7;
+}
+
+.confirmacao-topo h2 {
+  margin: 0;
+  color: #14532d;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.confirmacao-topo p:not(.subtitulo) {
+  margin: 8px 0 0;
+  color: #475569;
+}
+
+.protocolo {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  padding: 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.protocolo span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.protocolo strong {
+  font-size: 20px;
+  word-break: break-word;
+}
+
+.resumo-confirmacao {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.resumo-confirmacao div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+}
+
+.resumo-confirmacao .item-largo {
+  grid-column: 1 / -1;
+}
+
+.resumo-confirmacao dt {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.resumo-confirmacao dd {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 800;
+  word-break: break-word;
+}
+
+.resumo-confirmacao dd span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mensagem-copia {
+  margin: 0;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.acoes-confirmacao {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .formulario {
@@ -900,6 +1272,16 @@ textarea:focus {
   background: #1d4ed8;
 }
 
+.secundario {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #1f2937;
+}
+
+.secundario:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
 .erro {
   border-color: #fecaca;
   background: #fef2f2;
@@ -917,12 +1299,17 @@ textarea:focus {
     flex-direction: column;
   }
 
+  .confirmacao-topo {
+    flex-direction: column;
+  }
+
   .dados-empresa {
     min-width: 0;
   }
 
   .campos,
-  .previa {
+  .previa,
+  .resumo-confirmacao {
     grid-template-columns: 1fr;
   }
 }
