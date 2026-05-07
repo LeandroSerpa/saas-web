@@ -64,9 +64,12 @@ async function salvarCliente() {
 
     await carregarClientes()
   } catch (error) {
-    erro.value = clienteEditandoId.value
-      ? 'Nao foi possivel atualizar o cliente.'
-      : 'Nao foi possivel cadastrar o cliente.'
+    erro.value = obterMensagemErro(
+      error,
+      clienteEditandoId.value
+        ? 'Nao foi possivel atualizar o cliente.'
+        : 'Nao foi possivel cadastrar o cliente.',
+    )
     console.error(error)
   }
 }
@@ -94,6 +97,12 @@ function cancelarEdicaoCliente(limparMensagens = true) {
 
 function exibirValor(valor) {
   return valor || '-'
+}
+
+function obterMensagemErro(error, fallback) {
+  const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
+
+  return mensagem || fallback
 }
 
 onMounted(() => {

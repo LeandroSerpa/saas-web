@@ -110,9 +110,12 @@ async function salvarServico() {
     limparFormulario()
     await carregarServicos()
   } catch (error) {
-    erro.value = servicoEmEdicaoId.value
-      ? 'Nao foi possivel atualizar o servico.'
-      : 'Nao foi possivel cadastrar o servico.'
+    erro.value = obterMensagemErro(
+      error,
+      servicoEmEdicaoId.value
+        ? 'Nao foi possivel atualizar o servico.'
+        : 'Nao foi possivel cadastrar o servico.',
+    )
     console.error(error)
   }
 }
@@ -196,6 +199,12 @@ function normalizarTexto(valor) {
   return String(valor || '')
     .trim()
     .toLowerCase()
+}
+
+function obterMensagemErro(error, fallback) {
+  const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
+
+  return mensagem || fallback
 }
 
 function limparFiltros() {

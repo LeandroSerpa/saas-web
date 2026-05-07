@@ -73,7 +73,7 @@ async function salvarPersonalizacao() {
     await salvarMinhaPersonalizacao({ ...personalizacao.value })
     mensagemSucesso.value = 'Personalização salva com sucesso.'
   } catch (error) {
-    erro.value = 'Não foi possível salvar a personalização.'
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar a personalização.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -114,6 +114,12 @@ function nomeTema(tema) {
   }
 
   return nomes[tema] || tema
+}
+
+function obterMensagemErro(error, fallback) {
+  const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
+
+  return mensagem || fallback
 }
 </script>
 

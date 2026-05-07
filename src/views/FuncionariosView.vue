@@ -143,9 +143,12 @@ async function salvarFuncionario() {
 
     await carregarFuncionarios()
   } catch (error) {
-    erro.value = funcionarioEditandoId.value
-      ? 'Nao foi possivel atualizar o funcionario.'
-      : 'Nao foi possivel cadastrar o funcionario.'
+    erro.value = obterMensagemErro(
+      error,
+      funcionarioEditandoId.value
+        ? 'Nao foi possivel atualizar o funcionario.'
+        : 'Nao foi possivel cadastrar o funcionario.',
+    )
     console.error(error)
   }
 }
@@ -263,6 +266,12 @@ function normalizarTexto(valor) {
   return String(valor || '')
     .trim()
     .toLowerCase()
+}
+
+function obterMensagemErro(error, fallback) {
+  const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
+
+  return mensagem || fallback
 }
 
 function limparFiltros() {

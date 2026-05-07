@@ -14,6 +14,9 @@ import PersonalizacaoPublicaView from '../views/PersonalizacaoPublicaView.vue'
 import AgendamentoPublicoView from '../views/AgendamentoPublicoView.vue'
 import AuditoriaView from '../views/AuditoriaView.vue'
 import LixeiraView from '../views/LixeiraView.vue'
+import PlanosView from '../views/PlanosView.vue'
+import AssinaturasView from '../views/AssinaturasView.vue'
+import MeuPlanoView from '../views/MeuPlanoView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -113,9 +116,27 @@ const router = createRouter({
       meta: rotasAdmin,
     },
     {
+      path: '/meu-plano',
+      name: 'meu-plano',
+      component: MeuPlanoView,
+      meta: rotasAdmin,
+    },
+    {
       path: '/empresas',
       name: 'empresas',
       component: EmpresasView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/planos',
+      name: 'planos',
+      component: PlanosView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/assinaturas',
+      name: 'assinaturas',
+      component: AssinaturasView,
       meta: rotasSuperAdmin,
     },
     {

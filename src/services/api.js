@@ -332,6 +332,102 @@ export async function buscarAuditoriaPorId(id) {
   return tratarResposta(response)
 }
 
+export async function buscarPlanos() {
+  const response = await fetch(`${API_URL}/admin/planos`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarPlanoPorId(id) {
+  const response = await fetch(`${API_URL}/admin/planos/${id}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarPlano(dados) {
+  const response = await fetch(`${API_URL}/admin/planos`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarPlano(id, dados) {
+  const response = await fetch(`${API_URL}/admin/planos/${id}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function ativarPlano(id) {
+  const response = await fetch(`${API_URL}/admin/planos/${id}/ativar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function desativarPlano(id) {
+  const response = await fetch(`${API_URL}/admin/planos/${id}/desativar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarAssinaturas(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/assinaturas${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarAssinaturaEmpresa(empresaId) {
+  const response = await fetch(`${API_URL}/admin/assinaturas/empresa/${empresaId}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarAssinaturaEmpresa(empresaId, dados) {
+  const response = await fetch(`${API_URL}/admin/assinaturas/empresa/${empresaId}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMinhaAssinatura() {
+  const response = await fetch(`${API_URL}/minha-empresa/assinatura`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarUsoPlano() {
+  const response = await fetch(`${API_URL}/minha-empresa/uso-plano`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarAgendamentosExcluidos(filtros = {}) {
   const response = await fetch(
     `${API_URL}/admin/lixeira/agendamentos${montarQueryString(filtros)}`,
