@@ -8,7 +8,8 @@ const router = useRouter()
 
 const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
-const rotaSemLayout = computed(() => rotaLogin.value || rotaAgendamentoPublico.value)
+const rotaCadastroPublico = computed(() => route.path === '/comece-agora')
+const rotaSemLayout = computed(() => rotaLogin.value || rotaAgendamentoPublico.value || rotaCadastroPublico.value)
 const usuario = ref(null)
 const empresaLogada = computed(() => {
   if (usuario.value?.empresaNome) {
@@ -109,6 +110,8 @@ onBeforeUnmount(() => {
             <RouterLink to="/planos">Planos</RouterLink>
             <RouterLink to="/assinaturas">Assinaturas</RouterLink>
             <RouterLink to="/segmentos">Segmentos/Módulos</RouterLink>
+            <RouterLink to="/solicitacoes-cadastro">Solicitações</RouterLink>
+            <RouterLink to="/faturas-saas">Faturas</RouterLink>
             <RouterLink to="/auditoria">Auditoria</RouterLink>
             <RouterLink to="/lixeira">Lixeira</RouterLink>
           </div>

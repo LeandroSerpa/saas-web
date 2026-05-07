@@ -258,6 +258,32 @@ export async function buscarServicosPublicos(slug) {
   return tratarRespostaPublica(response)
 }
 
+export async function buscarSegmentosPublicos() {
+  const response = await fetch(`${API_URL}/publico/segmentos`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
+export async function buscarPlanosPublicos() {
+  const response = await fetch(`${API_URL}/publico/planos`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
+export async function enviarSolicitacaoCadastro(dados) {
+  const response = await fetch(`${API_URL}/publico/solicitacoes-cadastro`, {
+    method: 'POST',
+    headers: montarHeadersPublicos(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
 export async function buscarFuncionariosPublicos(slug) {
   const response = await fetch(`${API_URL}/publico/empresas/${slug}/funcionarios`, {
     headers: montarHeadersPublicos(),
@@ -412,6 +438,121 @@ export async function ativarSegmento(id) {
 export async function desativarSegmento(id) {
   const response = await fetch(`${API_URL}/admin/segmentos/${id}/desativar`, {
     method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarSolicitacoesCadastro(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarSolicitacaoCadastroPorId(id) {
+  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarSolicitacaoEmAnalise(id) {
+  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/em-analise`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function rejeitarSolicitacaoCadastro(id, dados) {
+  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/rejeitar`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function aprovarSolicitacaoCadastro(id, dados) {
+  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/aprovar`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarFaturas(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarFaturaPorId(id) {
+  const response = await fetch(`${API_URL}/admin/faturas/${id}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarFatura(dados) {
+  const response = await fetch(`${API_URL}/admin/faturas`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarFaturaPaga(id, dados = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas/${id}/marcar-paga`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cancelarFatura(id, dados = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas/${id}/cancelar`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarRelatorioOperacional(filtros = {}) {
+  const response = await fetch(`${API_URL}/relatorios/operacional${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarRelatorioFinanceiro(filtros = {}) {
+  const response = await fetch(`${API_URL}/relatorios/financeiro${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarRelatorioAgendamentos(filtros = {}) {
+  const response = await fetch(`${API_URL}/relatorios/agendamentos${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 

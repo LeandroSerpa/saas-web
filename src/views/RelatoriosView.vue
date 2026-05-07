@@ -62,39 +62,32 @@ const agendamentosFiltrados = computed(() => {
     })
 })
 const indicadores = computed(() => {
-  const totalAgendado = contarPorStatus('agendado')
   const totalConcluido = contarPorStatus('concluido')
   const totalCancelado = contarPorStatus('cancelado')
   const totalFaltou = contarPorStatus('faltou')
-  const receitaPrevista = somarPorStatus('agendado')
+  const receitaPrevista = agendamentosFiltrados.value.reduce((total, agendamento) => total + obterPreco(agendamento.preco), 0)
   const receitaConcluida = somarPorStatus('concluido')
-  const perdasCancelamentoFalta = somarPorStatus('cancelado') + somarPorStatus('faltou')
-  const divisorTaxaConclusao = totalConcluido + totalCancelado + totalFaltou
 
   return [
     { titulo: 'Total de agendamentos', valor: agendamentosFiltrados.value.length },
-    { titulo: 'Total agendado', valor: totalAgendado },
-    { titulo: 'Total concluido', valor: totalConcluido },
+    { titulo: 'Total concluído', valor: totalConcluido },
     { titulo: 'Total cancelado', valor: totalCancelado },
     { titulo: 'Total faltou', valor: totalFaltou },
     { titulo: 'Receita prevista', valor: formatarPreco(receitaPrevista) },
-    { titulo: 'Receita concluida', valor: formatarPreco(receitaConcluida) },
+    { titulo: 'Receita concluída', valor: formatarPreco(receitaConcluida) },
     {
-      titulo: 'Ticket medio concluido',
+      titulo: 'Ticket médio',
       valor: formatarPreco(totalConcluido ? receitaConcluida / totalConcluido : 0),
-    },
-    {
-      titulo: 'Taxa de conclusao',
-      valor: formatarPercentual(
-        divisorTaxaConclusao ? totalConcluido / divisorTaxaConclusao : 0,
-      ),
-    },
-    {
-      titulo: 'Perdas por cancelamento/falta',
-      valor: formatarPreco(perdasCancelamentoFalta),
     },
   ]
 })
+const graficos = computed(() => [
+  { titulo: 'Agendamentos por status', itens: agruparContagem(agendamentosFiltrados.value, (a) => statusTexto(a.status)) },
+  { titulo: 'Receita por status', itens: agruparSoma(agendamentosFiltrados.value, (a) => statusTexto(a.status), (a) => obterPreco(a.preco)), dinheiro: true },
+  { titulo: 'Agendamentos por serviço', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.servico || 'Sem serviço') },
+  { titulo: 'Agendamentos por funcionário', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.funcionario || 'Sem funcionário') },
+  { titulo: 'Agendamentos por dia', itens: agruparContagem(agendamentosFiltrados.value, (a) => formatarData(a.dataHoraInicio)) },
+])
 
 async function carregarAgendamentos() {
   try {
@@ -203,15 +196,91 @@ function formatarPercentual(valor) {
   })
 }
 
+function agruparContagem(lista, obterChave) {
+  const mapa = new Map()
+
+  lista.forEach((item) => {
+    const chave = obterChave(item)
+    mapa.set(chave, (mapa.get(chave) || 0) + 1)
+  })
+
+  return normalizarGrafico(mapa)
+}
+
+function agruparSoma(lista, obterChave, obterValor) {
+  const mapa = new Map()
+
+  lista.forEach((item) => {
+    const chave = obterChave(item)
+    mapa.set(chave, (mapa.get(chave) || 0) + obterValor(item))
+  })
+
+  return normalizarGrafico(mapa)
+}
+
+function normalizarGrafico(mapa) {
+  const maior = Math.max(...mapa.values(), 0)
+
+  return [...mapa.entries()]
+    .map(([nome, valor]) => ({
+      nome,
+      valor,
+      percentual: maior ? Math.max(4, (valor / maior) * 100) : 0,
+    }))
+    .sort((a, b) => b.valor - a.valor)
+}
+
 function statusTexto(status) {
   const statusFormatados = {
     agendado: 'Agendado',
-    concluido: 'Concluido',
+    concluido: 'Concluído',
     cancelado: 'Cancelado',
     faltou: 'Faltou',
   }
 
   return statusFormatados[status] || status || '-'
+}
+
+function baixarCsv() {
+  const cabecalho = ['Data', 'Horario', 'Cliente', 'Servico', 'Funcionario', 'Status', 'Valor']
+  const linhas = agendamentosFiltrados.value.map((agendamento) => [
+    formatarData(agendamento.dataHoraInicio),
+    formatarPeriodo(agendamento),
+    agendamento.cliente || '',
+    agendamento.servico || '',
+    agendamento.funcionario || '',
+    statusTexto(agendamento.status),
+    obterPreco(agendamento.preco),
+  ])
+  const csv = [cabecalho, ...linhas]
+    .map((linha) => linha.map((valor) => `"${String(valor).replaceAll('"', '""')}"`).join(';'))
+    .join('\n')
+
+  baixarArquivo('relatorio-agendamentos.csv', `\uFEFF${csv}`, 'text/csv;charset=utf-8')
+}
+
+function baixarJson() {
+  const dados = {
+    filtros: filtros.value,
+    indicadores: indicadores.value,
+    agendamentos: agendamentosFiltrados.value,
+  }
+
+  baixarArquivo('relatorio-agendamentos.json', JSON.stringify(dados, null, 2), 'application/json')
+}
+
+function imprimirRelatorio() {
+  window.print()
+}
+
+function baixarArquivo(nome, conteudo, tipo) {
+  const blob = new Blob([conteudo], { type: tipo })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = nome
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 function limparFiltros() {
@@ -234,11 +303,16 @@ onMounted(() => {
     <header class="cabecalho-pagina">
       <div>
         <p class="subtitulo">Indicadores</p>
-        <h1>Relatorios</h1>
-        <p class="descricao">Acompanhe indicadores financeiros e operacionais por periodo.</p>
+        <h1>Relatórios</h1>
+        <p class="descricao">Acompanhe indicadores financeiros e operacionais por período.</p>
       </div>
 
-      <button class="botao secundario" @click="carregarAgendamentos">Atualizar dados</button>
+      <div class="acoes-topo">
+        <button class="botao secundario" @click="carregarAgendamentos">Atualizar dados</button>
+        <button class="botao principal" :disabled="!agendamentosFiltrados.length" @click="baixarCsv">Baixar CSV</button>
+        <button class="botao principal" :disabled="!agendamentosFiltrados.length" @click="baixarJson">Baixar JSON</button>
+        <button class="botao secundario" @click="imprimirRelatorio">Imprimir/PDF</button>
+      </div>
     </header>
 
     <section v-if="erro" class="card erro">
@@ -267,14 +341,14 @@ onMounted(() => {
           <select v-model="filtros.status">
             <option value="">Todos</option>
             <option value="agendado">Agendado</option>
-            <option value="concluido">Concluido</option>
+            <option value="concluido">Concluído</option>
             <option value="cancelado">Cancelado</option>
             <option value="faltou">Faltou</option>
           </select>
         </label>
 
         <label>
-          Funcionario
+          Funcionário
           <select v-model="filtros.funcionario">
             <option value="">Todos</option>
             <option
@@ -288,7 +362,7 @@ onMounted(() => {
         </label>
 
         <label>
-          Servico
+          Serviço
           <select v-model="filtros.servico">
             <option value="">Todos</option>
             <option v-for="servico in servicosDisponiveis" :key="servico" :value="servico">
@@ -310,6 +384,23 @@ onMounted(() => {
       </article>
     </section>
 
+    <section v-if="!carregando && agendamentosFiltrados.length" class="grade-graficos">
+      <article v-for="grafico in graficos" :key="grafico.titulo" class="card grafico-card">
+        <h2>{{ grafico.titulo }}</h2>
+        <div class="barras">
+          <div v-for="item in grafico.itens" :key="item.nome" class="barra-linha">
+            <div class="barra-info">
+              <span>{{ item.nome }}</span>
+              <strong>{{ grafico.dinheiro ? formatarPreco(item.valor) : item.valor }}</strong>
+            </div>
+            <div class="barra-fundo">
+              <span :style="{ width: `${item.percentual}%` }"></span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
     <section class="secao-lista">
       <div class="cabecalho-lista">
         <div>
@@ -321,11 +412,11 @@ onMounted(() => {
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando relatorios...</p>
+        <p>Carregando relatórios...</p>
       </section>
 
       <section v-else-if="agendamentosFiltrados.length === 0" class="card">
-        <p>Nenhum agendamento encontrado para os filtros selecionados.</p>
+        <p>Nenhum dado encontrado para os filtros informados.</p>
       </section>
 
       <section v-else class="card tabela-card">
@@ -334,10 +425,10 @@ onMounted(() => {
             <thead>
               <tr>
                 <th>Data</th>
-                <th>Horario</th>
+                <th>Horário</th>
                 <th>Cliente</th>
-                <th>Servico</th>
-                <th>Funcionario</th>
+                <th>Serviço</th>
+                <th>Funcionário</th>
                 <th>Status</th>
                 <th>Valor</th>
               </tr>
@@ -372,11 +463,13 @@ onMounted(() => {
 }
 
 .cabecalho-pagina,
-.cabecalho-lista {
+.cabecalho-lista,
+.acoes-topo {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .subtitulo {
@@ -470,6 +563,55 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, minmax(180px, 1fr));
   gap: 16px;
+}
+
+.grade-graficos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.grafico-card {
+  display: grid;
+  gap: 16px;
+}
+
+.grafico-card h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.barras {
+  display: grid;
+  gap: 13px;
+}
+
+.barra-linha {
+  display: grid;
+  gap: 7px;
+}
+
+.barra-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #334155;
+  font-weight: 800;
+}
+
+.barra-fundo {
+  height: 12px;
+  overflow: hidden;
+  background: #e2e8f0;
+  border-radius: 999px;
+}
+
+.barra-fundo span {
+  display: block;
+  height: 100%;
+  background: #2563eb;
+  border-radius: 999px;
 }
 
 .indicador {
@@ -584,6 +726,11 @@ tbody tr:last-child td {
     background 0.15s ease;
 }
 
+.botao:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .botao:hover {
   transform: translateY(-1px);
 }
@@ -591,6 +738,10 @@ tbody tr:last-child td {
 .secundario {
   background: #0f172a;
   min-width: 140px;
+}
+
+.principal {
+  background: #2563eb;
 }
 
 .secundario:hover {
@@ -612,6 +763,19 @@ tbody tr:last-child td {
 
   .grade-indicadores {
     grid-template-columns: 1fr;
+  }
+
+  .grade-graficos {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .barra-lateral,
+  .topo-app,
+  .filtros-relatorios,
+  .acoes-topo {
+    display: none !important;
   }
 }
 </style>

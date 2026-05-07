@@ -19,6 +19,9 @@ import AssinaturasView from '../views/AssinaturasView.vue'
 import MeuPlanoView from '../views/MeuPlanoView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
 import SegmentosView from '../views/SegmentosView.vue'
+import CadastroEmpresaPublicoView from '../views/CadastroEmpresaPublicoView.vue'
+import SolicitacoesCadastroView from '../views/SolicitacoesCadastroView.vue'
+import FaturasSaasView from '../views/FaturasSaasView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -154,6 +157,18 @@ const router = createRouter({
       meta: rotasSuperAdmin,
     },
     {
+      path: '/solicitacoes-cadastro',
+      name: 'solicitacoes-cadastro',
+      component: SolicitacoesCadastroView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/faturas-saas',
+      name: 'faturas-saas',
+      component: FaturasSaasView,
+      meta: rotasSuperAdmin,
+    },
+    {
       path: '/auditoria',
       name: 'auditoria',
       component: AuditoriaView,
@@ -169,6 +184,11 @@ const router = createRouter({
       path: '/agendar/:slug',
       name: 'agendamento-publico',
       component: AgendamentoPublicoView,
+    },
+    {
+      path: '/comece-agora',
+      name: 'cadastro-empresa-publico',
+      component: CadastroEmpresaPublicoView,
     },
     {
       path: '/login',
@@ -187,7 +207,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.path.startsWith('/agendar')) {
+  if (to.path.startsWith('/agendar') || to.path === '/comece-agora') {
     return true
   }
 

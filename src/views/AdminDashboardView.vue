@@ -26,6 +26,12 @@ const cards = computed(() => [
   criarCard('Assinaturas bloqueadas', 'assinaturasBloqueadas'),
   criarCard('Assinaturas canceladas', 'assinaturasCanceladas'),
   criarCard('Receita mensal prevista', 'receitaMensalPrevista', 'receitaPrevistaMensal', true),
+  criarCard('Faturas abertas', 'faturasAbertas'),
+  criarCard('Faturas pagas', 'faturasPagas'),
+  criarCard('Faturas vencidas', 'faturasVencidas'),
+  criarCard('Valor aberto', 'valorAberto', '', true),
+  criarCard('Valor pago no mês', 'valorPagoMes', 'valorPagoNoMes', true),
+  criarCard('Valor vencido', 'valorVencido', '', true),
 ])
 
 const secoes = computed(() => [

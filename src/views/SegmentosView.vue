@@ -61,13 +61,18 @@ async function salvarSegmento() {
       return
     }
 
+    if (!corHexValidaOuVazia(segmento.value.cor)) {
+      erro.value = 'A cor deve estar no formato hexadecimal, exemplo #2563eb.'
+      return
+    }
+
     salvando.value = true
     const payload = {
       nome: segmento.value.nome,
       codigo: segmento.value.codigo,
       descricao: segmento.value.descricao,
       icone: segmento.value.icone,
-      cor: segmento.value.cor,
+      cor: segmento.value.cor || '#2563eb',
       permiteCamposEspecificos: Boolean(segmento.value.permiteCamposEspecificos),
       ativo: Boolean(segmento.value.ativo),
     }
@@ -155,6 +160,25 @@ function obterMensagemErro(error, fallback) {
   return mensagem || fallback
 }
 
+function corHexValidaOuVazia(cor) {
+  const texto = String(cor || '').trim()
+
+  return !texto || /^#[0-9a-fA-F]{6}$/.test(texto)
+}
+
+function corVisual() {
+  return corHexValidaOuVazia(segmento.value.cor) && segmento.value.cor ? segmento.value.cor : '#2563eb'
+}
+
+function atualizarCorVisual(event) {
+  segmento.value.cor = event.target.value
+}
+
+function usarCorPadrao() {
+  segmento.value.cor = '#2563eb'
+  erro.value = ''
+}
+
 onMounted(() => {
   carregarSegmentos()
 })
@@ -188,7 +212,11 @@ onMounted(() => {
         <label>Nome <input v-model="segmento.nome" type="text" placeholder="PetShop" /></label>
         <label>Código <input v-model="segmento.codigo" type="text" placeholder="PETSHOP" /></label>
         <label>Ícone <input v-model="segmento.icone" type="text" placeholder="tesoura, pata, casa..." /></label>
-        <label>Cor <input v-model="segmento.cor" type="color" /></label>
+        <div class="campo-cor">
+          <label>Cor <input :value="corVisual()" type="color" @input="atualizarCorVisual" /></label>
+          <label>Código da cor <input v-model="segmento.cor" type="text" placeholder="#2563eb" /></label>
+          <button type="button" class="botao secundario" @click="usarCorPadrao">Usar cor padrão</button>
+        </div>
         <label class="campo-grande">Descrição <textarea v-model="segmento.descricao" rows="3"></textarea></label>
       </div>
 
@@ -308,6 +336,17 @@ h1 {
 }
 
 .campo-grande {
+  grid-column: 1 / -1;
+}
+
+.campo-cor {
+  display: grid;
+  grid-template-columns: 90px minmax(160px, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.campo-cor .botao {
   grid-column: 1 / -1;
 }
 
