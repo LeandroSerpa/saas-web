@@ -216,10 +216,18 @@ function obterMensagemConfirmacaoStatus(status) {
 
 async function excluirAgendamentoAgenda(id) {
   const motivo = window.prompt(
-    'Informe o motivo da exclusão, se desejar:',
+    'Informe o motivo da exclusão (opcional). Clique em Cancelar para desistir.',
   )
 
   if (motivo === null) {
+    return
+  }
+
+  const confirmado = window.confirm(
+    'Tem certeza que deseja excluir este agendamento? Esta ação o enviará para a lixeira.',
+  )
+
+  if (!confirmado) {
     return
   }
 

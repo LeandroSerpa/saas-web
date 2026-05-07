@@ -13,6 +13,7 @@ import RelatoriosView from '../views/RelatoriosView.vue'
 import AgendamentoPublicoView from '../views/AgendamentoPublicoView.vue'
 import AuditoriaView from '../views/AuditoriaView.vue'
 import LixeiraView from '../views/LixeiraView.vue'
+import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
   requiresAuth: true,
@@ -157,7 +158,7 @@ router.beforeEach((to) => {
   if (to.meta.requiresAdmin) {
     const usuario = carregarUsuario()
 
-    if (usuario?.perfil !== 'ADMIN' && usuario?.perfil !== 'SUPER_ADMIN') {
+    if (!ehAdmin(usuario)) {
       return '/dashboard'
     }
   }
@@ -165,7 +166,7 @@ router.beforeEach((to) => {
   if (to.meta.requiresSuperAdmin) {
     const usuario = carregarUsuario()
 
-    if (usuario?.perfil !== 'SUPER_ADMIN') {
+    if (!ehSuperAdmin(usuario)) {
       return '/dashboard'
     }
   }

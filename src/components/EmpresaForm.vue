@@ -13,6 +13,17 @@ const diasAtendimento = [
   { campo: 'atendeSexta', rotulo: 'Sexta' },
   { campo: 'atendeSabado', rotulo: 'Sabado' },
 ]
+const intervalosAgenda = [15, 30, 60]
+
+function obterSlugPublico() {
+  return String(empresa.value.slugPublico || empresa.value.slug || '').trim()
+}
+
+function obterLinkPublico() {
+  const slug = obterSlugPublico()
+
+  return slug ? `${window.location.origin}/agendar/${slug}` : ''
+}
 
 defineProps({
   mensagemSucesso: {
@@ -89,6 +100,15 @@ defineEmits(['salvar', 'cancelar'])
           Hora de fechamento
           <input v-model="empresa.horaFechamento" type="time" />
         </label>
+
+        <label>
+          Intervalo da agenda
+          <select v-model.number="empresa.intervaloAgendaMinutos">
+            <option v-for="intervalo in intervalosAgenda" :key="intervalo" :value="intervalo">
+              {{ intervalo }} minutos
+            </option>
+          </select>
+        </label>
       </div>
 
       <div class="dias-atendimento">
@@ -96,6 +116,42 @@ defineEmits(['salvar', 'cancelar'])
           <input v-model="empresa[dia.campo]" type="checkbox" />
           {{ dia.rotulo }}
         </label>
+      </div>
+    </div>
+
+    <div class="secao-publica">
+      <div class="titulo-card">
+        <h2>Agendamento publico</h2>
+        <p>Configure como os clientes acessam a agenda publica desta empresa.</p>
+      </div>
+
+      <div class="campos">
+        <label>
+          Slug publico
+          <input v-model="empresa.slugPublico" type="text" placeholder="petshop-rodrigo" />
+        </label>
+
+        <label class="campo-checkbox">
+          <input v-model="empresa.permitirAgendamentoPublico" type="checkbox" />
+          Permitir agendamento publico
+        </label>
+
+        <label class="campo-grande">
+          Mensagem publica
+          <textarea
+            v-model="empresa.mensagemPublica"
+            rows="4"
+            placeholder="Ex: Agende seu atendimento de forma rapida e simples."
+          ></textarea>
+        </label>
+      </div>
+
+      <div class="link-publico">
+        <p v-if="obterLinkPublico()">
+          <strong>Link publico:</strong>
+          <span>{{ obterLinkPublico() }}</span>
+        </p>
+        <p v-else>Cadastre um slug publico para gerar o link de agendamento.</p>
       </div>
     </div>
 

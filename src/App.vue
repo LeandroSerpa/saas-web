@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,10 +21,8 @@ const empresaLogada = computed(() => {
 
   return 'Empresa ID: -'
 })
-const podeGerenciarUsuarios = computed(
-  () => usuario.value?.perfil === 'ADMIN' || usuario.value?.perfil === 'SUPER_ADMIN',
-)
-const superAdmin = computed(() => usuario.value?.perfil === 'SUPER_ADMIN')
+const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
+const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 
 function carregarUsuario() {
   const usuarioSalvo = localStorage.getItem('usuario')

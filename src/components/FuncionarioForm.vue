@@ -1,4 +1,6 @@
 <script setup>
+import { computed } from 'vue'
+
 const funcionario = defineModel({
   type: Object,
   required: true,
@@ -16,6 +18,24 @@ defineProps({
 })
 
 defineEmits(['salvar', 'cancelar'])
+
+const horarioInicioInvalido = computed(() => horarioPreenchidoInvalido(funcionario.value.horaInicioAtendimento))
+const horarioFimInvalido = computed(() => horarioPreenchidoInvalido(funcionario.value.horaFimAtendimento))
+
+function aplicarMascaraHorario(campo, valor) {
+  const digitos = String(valor || '')
+    .replace(/\D/g, '')
+    .slice(0, 4)
+
+  funcionario.value[campo] =
+    digitos.length > 2 ? `${digitos.slice(0, 2)}:${digitos.slice(2)}` : digitos
+}
+
+function horarioPreenchidoInvalido(valor) {
+  const texto = String(valor || '').trim()
+
+  return Boolean(texto) && !/^([01]\d|2[0-3]):[0-5]\d$/.test(texto)
+}
 </script>
 
 <template>
@@ -65,12 +85,32 @@ defineEmits(['salvar', 'cancelar'])
         <div class="campos-disponibilidade">
           <label>
             Hora inicial de atendimento
-            <input v-model="funcionario.horaInicioAtendimento" type="time" />
+            <input
+              :value="funcionario.horaInicioAtendimento"
+              type="text"
+              inputmode="numeric"
+              maxlength="5"
+              placeholder="HH:mm"
+              @input="aplicarMascaraHorario('horaInicioAtendimento', $event.target.value)"
+            />
+            <span v-if="horarioInicioInvalido" class="mensagem-campo">
+              Informe um horário válido entre 00:00 e 23:59.
+            </span>
           </label>
 
           <label>
             Hora final de atendimento
-            <input v-model="funcionario.horaFimAtendimento" type="time" />
+            <input
+              :value="funcionario.horaFimAtendimento"
+              type="text"
+              inputmode="numeric"
+              maxlength="5"
+              placeholder="HH:mm"
+              @input="aplicarMascaraHorario('horaFimAtendimento', $event.target.value)"
+            />
+            <span v-if="horarioFimInvalido" class="mensagem-campo">
+              Informe um horário válido entre 00:00 e 23:59.
+            </span>
           </label>
         </div>
 

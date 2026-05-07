@@ -62,6 +62,7 @@ function criarEmpresaInicial() {
     ativo: true,
     horaAbertura: '',
     horaFechamento: '',
+    intervaloAgendaMinutos: 30,
     atendeDomingo: false,
     atendeSegunda: true,
     atendeTerca: true,
@@ -69,6 +70,9 @@ function criarEmpresaInicial() {
     atendeQuinta: true,
     atendeSexta: true,
     atendeSabado: true,
+    slugPublico: '',
+    permitirAgendamentoPublico: false,
+    mensagemPublica: '',
   }
 }
 
@@ -97,6 +101,13 @@ async function salvarEmpresa() {
       return
     }
 
+    const intervaloAgendaMinutos = Number(empresa.value.intervaloAgendaMinutos)
+
+    if (![15, 30, 60].includes(intervaloAgendaMinutos)) {
+      erro.value = 'Selecione um intervalo da agenda valido.'
+      return
+    }
+
     const dadosEmpresa = {
       nome: empresa.value.nome,
       documento: empresa.value.documento,
@@ -106,6 +117,7 @@ async function salvarEmpresa() {
       ativo: Boolean(empresa.value.ativo),
       horaAbertura: empresa.value.horaAbertura,
       horaFechamento: empresa.value.horaFechamento,
+      intervaloAgendaMinutos,
       atendeDomingo: Boolean(empresa.value.atendeDomingo),
       atendeSegunda: Boolean(empresa.value.atendeSegunda),
       atendeTerca: Boolean(empresa.value.atendeTerca),
@@ -113,6 +125,11 @@ async function salvarEmpresa() {
       atendeQuinta: Boolean(empresa.value.atendeQuinta),
       atendeSexta: Boolean(empresa.value.atendeSexta),
       atendeSabado: Boolean(empresa.value.atendeSabado),
+      slug: empresa.value.slugPublico,
+      slugPublico: empresa.value.slugPublico,
+      agendamentoPublicoAtivo: Boolean(empresa.value.permitirAgendamentoPublico),
+      permitirAgendamentoPublico: Boolean(empresa.value.permitirAgendamentoPublico),
+      mensagemPublica: empresa.value.mensagemPublica,
     }
 
     if (empresaEditandoId.value) {
@@ -147,6 +164,7 @@ function editarEmpresa(empresaItem) {
     ativo: estaAtiva(empresaItem),
     horaAbertura: empresaItem.horaAbertura || '',
     horaFechamento: empresaItem.horaFechamento || '',
+    intervaloAgendaMinutos: normalizarIntervaloAgenda(empresaItem.intervaloAgendaMinutos),
     atendeDomingo: Boolean(empresaItem.atendeDomingo),
     atendeSegunda: empresaItem.atendeSegunda !== false,
     atendeTerca: empresaItem.atendeTerca !== false,
@@ -154,6 +172,11 @@ function editarEmpresa(empresaItem) {
     atendeQuinta: empresaItem.atendeQuinta !== false,
     atendeSexta: empresaItem.atendeSexta !== false,
     atendeSabado: empresaItem.atendeSabado !== false,
+    slugPublico: empresaItem.slugPublico || empresaItem.slug || '',
+    permitirAgendamentoPublico: Boolean(
+      empresaItem.permitirAgendamentoPublico ?? empresaItem.agendamentoPublicoAtivo,
+    ),
+    mensagemPublica: empresaItem.mensagemPublica || '',
   }
 }
 
@@ -189,6 +212,12 @@ async function alternarAtivoEmpresa(empresaItem) {
 
 function estaAtiva(empresaItem) {
   return empresaItem.ativo !== false
+}
+
+function normalizarIntervaloAgenda(valor) {
+  const intervalo = Number(valor)
+
+  return [15, 30, 60].includes(intervalo) ? intervalo : 30
 }
 
 function normalizarTexto(valor) {
@@ -230,6 +259,12 @@ function exibirDiasAtendimento(empresaItem) {
     .map((dia) => dia.rotulo)
 
   return dias.length ? dias.join(', ') : '-'
+}
+
+function exibirLinkPublico(empresaItem) {
+  const slug = String(empresaItem.slugPublico || empresaItem.slug || '').trim()
+
+  return slug ? `${window.location.origin}/agendar/${slug}` : ''
 }
 
 onMounted(() => {
@@ -334,6 +369,20 @@ onMounted(() => {
             <p><strong>Endereco:</strong> {{ exibirValor(empresaItem.endereco) }}</p>
             <p><strong>Horario:</strong> {{ exibirHorario(empresaItem) }}</p>
             <p><strong>Dias:</strong> {{ exibirDiasAtendimento(empresaItem) }}</p>
+            <p><strong>Intervalo:</strong> {{ normalizarIntervaloAgenda(empresaItem.intervaloAgendaMinutos) }} minutos</p>
+            <p>
+              <strong>Agendamento publico:</strong>
+              {{
+                empresaItem.permitirAgendamentoPublico || empresaItem.agendamentoPublicoAtivo
+                  ? 'Ativo'
+                  : 'Inativo'
+              }}
+            </p>
+            <p><strong>Slug publico:</strong> {{ exibirValor(empresaItem.slugPublico || empresaItem.slug) }}</p>
+            <p v-if="exibirLinkPublico(empresaItem)">
+              <strong>Link publico:</strong> {{ exibirLinkPublico(empresaItem) }}
+            </p>
+            <p v-else><strong>Link publico:</strong> cadastre um slug publico para gerar o link.</p>
           </div>
 
           <div class="acoes">
@@ -507,6 +556,44 @@ onMounted(() => {
 :deep(.secao-horario) {
   display: grid;
   gap: 16px;
+}
+
+:deep(.secao-publica) {
+  display: grid;
+  gap: 16px;
+}
+
+:deep(textarea) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 15px;
+  background: white;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: inherit;
+}
+
+:deep(textarea:focus) {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+:deep(.link-publico) {
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+:deep(.link-publico p) {
+  margin: 0;
+  color: #1e3a8a;
+  font-weight: 700;
+  word-break: break-word;
 }
 
 :deep(.dias-atendimento) {

@@ -103,6 +103,16 @@ async function salvarFuncionario() {
       return
     }
 
+    if (!horarioValidoOuVazio(funcionario.value.horaInicioAtendimento)) {
+      erro.value = 'Informe uma hora inicial de atendimento valida no formato HH:mm.'
+      return
+    }
+
+    if (!horarioValidoOuVazio(funcionario.value.horaFimAtendimento)) {
+      erro.value = 'Informe uma hora final de atendimento valida no formato HH:mm.'
+      return
+    }
+
     const dadosFuncionario = {
       empresaId: 1,
       nome: funcionario.value.nome,
@@ -110,8 +120,8 @@ async function salvarFuncionario() {
       email: funcionario.value.email,
       cargo: funcionario.value.cargo,
       ativo: Boolean(funcionario.value.ativo),
-      horaInicioAtendimento: funcionario.value.horaInicioAtendimento || null,
-      horaFimAtendimento: funcionario.value.horaFimAtendimento || null,
+      horaInicioAtendimento: normalizarHoraFuncionario(funcionario.value.horaInicioAtendimento),
+      horaFimAtendimento: normalizarHoraFuncionario(funcionario.value.horaFimAtendimento),
       atendeDomingo: Boolean(funcionario.value.atendeDomingo),
       atendeSegunda: Boolean(funcionario.value.atendeSegunda),
       atendeTerca: Boolean(funcionario.value.atendeTerca),
@@ -200,6 +210,18 @@ function exibirValor(valor) {
 
 function formatarHoraInput(hora) {
   return hora ? String(hora).slice(0, 5) : ''
+}
+
+function horarioValidoOuVazio(hora) {
+  const texto = String(hora || '').trim()
+
+  return !texto || /^([01]\d|2[0-3]):[0-5]\d$/.test(texto)
+}
+
+function normalizarHoraFuncionario(hora) {
+  const texto = String(hora || '').trim()
+
+  return texto || null
 }
 
 function obterDiaAtendimento(valor, padrao) {
@@ -714,6 +736,12 @@ onMounted(() => {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+:deep(.mensagem-campo) {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 :deep(input[type='checkbox']) {
