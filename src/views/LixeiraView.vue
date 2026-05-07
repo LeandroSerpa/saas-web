@@ -1,6 +1,6 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import { buscarAgendamentosExcluidos, restaurarAgendamento } from '@/services/api'
+import { computed, onMounted, ref } from 'vue'
+import { buscarAgendamentosExcluidos, buscarEmpresas, restaurarAgendamento } from '@/services/api'
 
 const filtrosIniciais = {
   empresaId: '',
@@ -12,17 +12,49 @@ const filtrosIniciais = {
 }
 
 const filtros = ref({ ...filtrosIniciais })
+const empresas = ref([])
 const agendamentos = ref([])
 const carregando = ref(false)
+const carregandoEmpresas = ref(false)
 const restaurandoId = ref(null)
 const erro = ref('')
+const erroEmpresas = ref('')
 const mensagemSucesso = ref('')
 
+const periodoAplicado = computed(() => {
+  const dataInicio = formatarDataFiltro(filtros.value.dataInicio)
+  const dataFim = formatarDataFiltro(filtros.value.dataFim)
+
+  if (!dataInicio && !dataFim) {
+    return 'Período aplicado: todos os agendamentos excluídos.'
+  }
+
+  if (dataInicio && !dataFim) {
+    return `Período aplicado: agendamentos a partir de ${dataInicio}.`
+  }
+
+  if (!dataInicio && dataFim) {
+    return `Período aplicado: agendamentos até ${dataFim}.`
+  }
+
+  if (filtros.value.dataInicio === filtros.value.dataFim) {
+    return `Período aplicado: agendamentos do dia ${dataInicio}.`
+  }
+
+  return `Período aplicado: agendamentos de ${dataInicio} até ${dataFim}.`
+})
+
 onMounted(() => {
+  carregarEmpresasFiltro()
   carregarLixeira()
 })
 
 async function carregarLixeira() {
+  if (!datasValidas()) {
+    erro.value = 'A data inicial não pode ser maior que a data final.'
+    return
+  }
+
   try {
     carregando.value = true
     erro.value = ''
@@ -36,6 +68,21 @@ async function carregarLixeira() {
     console.error('Erro ao carregar lixeira:', error)
   } finally {
     carregando.value = false
+  }
+}
+
+async function carregarEmpresasFiltro() {
+  try {
+    carregandoEmpresas.value = true
+    erroEmpresas.value = ''
+
+    const resposta = await buscarEmpresas()
+    empresas.value = extrairLista(resposta)
+  } catch (error) {
+    erroEmpresas.value = 'Não foi possível carregar a lista de empresas.'
+    console.error('Erro ao carregar empresas para filtro da lixeira:', error)
+  } finally {
+    carregandoEmpresas.value = false
   }
 }
 
@@ -133,6 +180,35 @@ function obterCampo(item, ...campos) {
   return campos.map((campo) => item?.[campo]).find((valor) => valor !== null && valor !== undefined && String(valor).trim()) || ''
 }
 
+function datasValidas() {
+  return !(
+    filtros.value.dataInicio &&
+    filtros.value.dataFim &&
+    filtros.value.dataInicio > filtros.value.dataFim
+  )
+}
+
+function formatarDataFiltro(valor) {
+  if (!valor) {
+    return ''
+  }
+
+  const [ano, mes, dia] = String(valor).split('-')
+
+  return ano && mes && dia ? `${dia}/${mes}/${ano}` : String(valor)
+}
+
+function obterDataHoraAgendamento(item) {
+  return obterCampo(item, 'dataHoraInicio', 'dataAtendimento', 'data')
+}
+
+function obterResumoAgendamento(item) {
+  const data = formatarData(obterDataHoraAgendamento(item))
+  const horario = formatarHorario(obterCampo(item, 'dataHoraInicio', 'horarioInicio', 'hora'))
+
+  return `Agendamento: ${data} às ${horario}`
+}
+
 function formatarData(valor) {
   const data = criarData(valor)
 
@@ -219,7 +295,7 @@ function obterSituacao(item) {
         </p>
         <p class="observacao-super-admin">
           Como SUPER_ADMIN, você está visualizando agendamentos excluídos de todas as empresas.
-          Use Empresa ID para filtrar uma empresa específica.
+          Use o filtro Empresa para visualizar uma empresa específica.
         </p>
       </div>
     </header>
@@ -232,11 +308,20 @@ function obterSituacao(item) {
       <p>{{ mensagemSucesso }}</p>
     </section>
 
+    <section v-if="erroEmpresas" class="card aviso-card">
+      <p>{{ erroEmpresas }}</p>
+    </section>
+
     <section class="card filtros">
       <div class="campos">
         <label>
-          Empresa ID
-          <input v-model="filtros.empresaId" type="text" placeholder="Ex: 1" />
+          Empresa
+          <select v-model="filtros.empresaId" :disabled="carregandoEmpresas">
+            <option value="">Todas as empresas</option>
+            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
+              {{ empresa.nome || 'Empresa sem nome' }} — ID {{ empresa.id }}
+            </option>
+          </select>
         </label>
         <label>
           Cliente
@@ -251,14 +336,16 @@ function obterSituacao(item) {
           <input v-model="filtros.servico" type="text" placeholder="Nome do serviço" />
         </label>
         <label>
-          Data inicial
+          Data inicial do agendamento
           <input v-model="filtros.dataInicio" type="date" />
         </label>
         <label>
-          Data final
+          Data final do agendamento
           <input v-model="filtros.dataFim" type="date" />
         </label>
       </div>
+
+      <p class="periodo-aplicado">{{ periodoAplicado }}</p>
 
       <div class="acoes">
         <button class="botao principal" :disabled="carregando" @click="carregarLixeira">
@@ -280,6 +367,7 @@ function obterSituacao(item) {
             <div>
               <span>Código/ID</span>
               <strong>{{ item.id }}</strong>
+              <p class="resumo-agendamento">{{ obterResumoAgendamento(item) }}</p>
             </div>
             <button
               class="botao principal"
@@ -308,11 +396,11 @@ function obterSituacao(item) {
               <dd>{{ obterCampo(item, 'funcionarioNome', 'nomeFuncionario', 'funcionario') || '-' }}</dd>
             </div>
             <div>
-              <dt>Data</dt>
-              <dd>{{ formatarData(obterCampo(item, 'dataHoraInicio', 'dataAtendimento', 'data')) }}</dd>
+              <dt>Data do agendamento</dt>
+              <dd>{{ formatarData(obterDataHoraAgendamento(item)) }}</dd>
             </div>
             <div>
-              <dt>Horário</dt>
+              <dt>Horário do agendamento</dt>
               <dd>{{ formatarHorario(obterCampo(item, 'dataHoraInicio', 'horarioInicio', 'hora')) }}</dd>
             </div>
             <div>
@@ -429,7 +517,23 @@ input {
   box-sizing: border-box;
 }
 
+select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: white;
+  box-sizing: border-box;
+}
+
 input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+select:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
@@ -479,6 +583,22 @@ input:focus {
   color: #15803d;
 }
 
+.aviso-card {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.periodo-aplicado {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 800;
+}
+
 .vazio {
   margin: 0;
   color: #64748b;
@@ -506,6 +626,12 @@ input:focus {
   display: block;
   margin-top: 3px;
   font-size: 20px;
+}
+
+.resumo-agendamento {
+  margin: 6px 0 0;
+  color: #1d4ed8;
+  font-weight: 800;
 }
 
 dl {
