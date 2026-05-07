@@ -3,12 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import EmpresaForm from '@/components/EmpresaForm.vue'
 import {
   buscarEmpresas,
+  buscarSegmentos,
   cadastrarEmpresa,
   atualizarEmpresa,
   atualizarAtivoEmpresa,
 } from '@/services/api'
 
 const empresas = ref([])
+const segmentos = ref([])
 const carregando = ref(true)
 const erro = ref('')
 const mensagemSucessoEmpresa = ref('')
@@ -73,6 +75,7 @@ function criarEmpresaInicial() {
     slugPublico: '',
     permitirAgendamentoPublico: false,
     mensagemPublica: '',
+    segmentoNegocioId: '',
   }
 }
 
@@ -81,7 +84,16 @@ async function carregarEmpresas() {
     carregando.value = true
     erro.value = ''
 
-    empresas.value = await buscarEmpresas()
+    const [empresasApi, segmentosApi] = await Promise.all([
+      buscarEmpresas(),
+      buscarSegmentos().catch((error) => {
+        console.error('Erro ao carregar segmentos para empresas:', error)
+        return []
+      }),
+    ])
+
+    empresas.value = empresasApi
+    segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
   } catch (error) {
     erro.value = 'Nao foi possivel carregar as empresas.'
     console.error(error)
@@ -130,6 +142,7 @@ async function salvarEmpresa() {
       agendamentoPublicoAtivo: Boolean(empresa.value.permitirAgendamentoPublico),
       permitirAgendamentoPublico: Boolean(empresa.value.permitirAgendamentoPublico),
       mensagemPublica: empresa.value.mensagemPublica,
+      segmentoNegocioId: empresa.value.segmentoNegocioId || null,
     }
 
     if (empresaEditandoId.value) {
@@ -177,6 +190,7 @@ function editarEmpresa(empresaItem) {
       empresaItem.permitirAgendamentoPublico ?? empresaItem.agendamentoPublicoAtivo,
     ),
     mensagemPublica: empresaItem.mensagemPublica || '',
+    segmentoNegocioId: empresaItem.segmentoNegocioId || empresaItem.segmentoNegocio?.id || '',
   }
 }
 
@@ -235,6 +249,24 @@ function limparFiltros() {
 
 function exibirValor(valor) {
   return valor || '-'
+}
+
+function extrairLista(resposta) {
+  if (Array.isArray(resposta)) {
+    return resposta
+  }
+
+  return resposta?.content || resposta?.items || resposta?.data || []
+}
+
+function exibirSegmento(empresaItem) {
+  return (
+    empresaItem.segmentoNegocioNome ||
+    empresaItem.segmentoNome ||
+    empresaItem.segmentoNegocio?.nome ||
+    segmentos.value.find((segmento) => String(segmento.id) === String(empresaItem.segmentoNegocioId))?.nome ||
+    'Não definido'
+  )
 }
 
 function exibirHorario(empresaItem) {
@@ -296,6 +328,7 @@ onMounted(() => {
       v-model="empresa"
       :mensagem-sucesso="mensagemSucessoEmpresa"
       :modo-edicao="Boolean(empresaEditandoId)"
+      :segmentos="segmentos"
       @salvar="salvarEmpresa"
       @cancelar="cancelarEdicaoEmpresa"
     />
@@ -366,6 +399,7 @@ onMounted(() => {
             <p><strong>Documento:</strong> {{ exibirValor(empresaItem.documento) }}</p>
             <p><strong>Telefone:</strong> {{ exibirValor(empresaItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(empresaItem.email) }}</p>
+            <p><strong>Segmento:</strong> {{ exibirSegmento(empresaItem) }}</p>
             <p><strong>Endereco:</strong> {{ exibirValor(empresaItem.endereco) }}</p>
             <p><strong>Horario:</strong> {{ exibirHorario(empresaItem) }}</p>
             <p><strong>Dias:</strong> {{ exibirDiasAtendimento(empresaItem) }}</p>

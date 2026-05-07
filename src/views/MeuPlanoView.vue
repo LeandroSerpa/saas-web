@@ -9,6 +9,13 @@ const erro = ref('')
 
 const plano = computed(() => assinatura.value?.plano || assinatura.value || {})
 const status = computed(() => assinatura.value?.status || '-')
+const nomePlanoAtual = computed(() => {
+  if ((assinatura.value?.visivelParaEmpresa ?? plano.value?.visivelParaEmpresa) === false) {
+    return 'Plano especial'
+  }
+
+  return plano.value.nome || assinatura.value?.planoNome || 'Plano especial'
+})
 const tipoPlano = computed(() =>
   normalizarTipoPlano(assinatura.value?.tipoPlano ?? plano.value?.tipoPlano ?? usoPlano.value?.tipoPlano),
 )
@@ -191,7 +198,7 @@ onMounted(() => {
       <section class="grade-resumo">
         <article class="card destaque">
           <p class="subtitulo">Plano atual</p>
-          <h2>{{ plano.nome || assinatura?.planoNome || '-' }}</h2>
+          <h2>{{ nomePlanoAtual }}</h2>
           <p>{{ plano.descricao || '-' }}</p>
         </article>
 

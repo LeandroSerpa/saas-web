@@ -23,6 +23,7 @@ const empresaLogada = computed(() => {
 })
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
+const menuAdminAberto = ref(true)
 
 function carregarUsuario() {
   const usuarioSalvo = localStorage.getItem('usuario')
@@ -94,12 +95,25 @@ onBeforeUnmount(() => {
         <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa">Minha empresa</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao">Personalizacao</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano">Meu plano</RouterLink>
-        <RouterLink v-if="superAdmin" to="/empresas">Empresas</RouterLink>
-        <RouterLink v-if="superAdmin" to="/planos">Planos</RouterLink>
-        <RouterLink v-if="superAdmin" to="/assinaturas">Assinaturas</RouterLink>
-        <RouterLink v-if="superAdmin" to="/auditoria">Auditoria</RouterLink>
-        <RouterLink v-if="superAdmin" to="/lixeira">Lixeira</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios">Usuarios</RouterLink>
+
+        <section v-if="superAdmin" class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
+            <span>Administração SaaS</span>
+            <span>{{ menuAdminAberto ? '−' : '+' }}</span>
+          </button>
+
+          <div v-if="menuAdminAberto" class="submenu">
+            <RouterLink to="/admin-dashboard">Dashboard SaaS</RouterLink>
+            <RouterLink to="/empresas">Empresas</RouterLink>
+            <RouterLink to="/planos">Planos</RouterLink>
+            <RouterLink to="/assinaturas">Assinaturas</RouterLink>
+            <RouterLink to="/segmentos">Segmentos/Módulos</RouterLink>
+            <RouterLink to="/auditoria">Auditoria</RouterLink>
+            <RouterLink to="/lixeira">Lixeira</RouterLink>
+          </div>
+        </section>
+
         <RouterLink to="/alterar-senha">Alterar senha</RouterLink>
       </nav>
     </aside>
@@ -192,6 +206,44 @@ onBeforeUnmount(() => {
 .menu-principal a.router-link-active {
   background: rgba(37, 99, 235, 0.22);
   color: white;
+}
+
+.grupo-menu {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(226, 232, 240, 0.16);
+}
+
+.grupo-menu-botao {
+  border: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.3);
+  color: #cbd5e1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.submenu {
+  display: grid;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(37, 99, 235, 0.45);
+}
+
+.submenu a {
+  padding: 9px 10px;
+  font-size: 14px;
 }
 
 .area-principal {

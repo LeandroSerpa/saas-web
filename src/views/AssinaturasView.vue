@@ -190,8 +190,12 @@ function precoPlano(item) {
   return item.precoMensal ?? item.planoPrecoMensal ?? item.plano?.precoMensal ?? buscarPlanoPorId(item.planoId)?.precoMensal
 }
 
+function planoAssinatura(item) {
+  return item.plano || buscarPlanoPorId(item.planoId) || {}
+}
+
 function tipoPlano(item) {
-  return normalizarTipoPlano(item.tipoPlano ?? item.plano?.tipoPlano ?? buscarPlanoPorId(item.planoId)?.tipoPlano)
+  return normalizarTipoPlano(item.tipoPlano ?? planoAssinatura(item).tipoPlano)
 }
 
 function normalizarTipoPlano(tipo) {
@@ -208,6 +212,10 @@ function buscarEmpresaPorId(id) {
 
 function buscarPlanoPorId(id) {
   return planos.value.find((plano) => String(plano.id) === String(id))
+}
+
+function planoVisivelParaEmpresa(item) {
+  return (item.visivelParaEmpresa ?? item.planoVisivelParaEmpresa ?? planoAssinatura(item).visivelParaEmpresa) !== false
 }
 
 function exibirLimite(valor) {
@@ -392,10 +400,14 @@ onMounted(() => {
             <span :class="['tipo-plano', tipoPlano(item).toLowerCase()]">
               {{ rotuloTipoPlano(tipoPlano(item)) }}
             </span>
+            <span v-if="!planoVisivelParaEmpresa(item)" class="badge-oculto">
+              Plano oculto para empresa
+            </span>
           </div>
 
           <div class="detalhes">
             <p><strong>Tipo do plano:</strong> {{ rotuloTipoPlano(tipoPlano(item)) }}</p>
+            <p><strong>Visível para empresa:</strong> {{ planoVisivelParaEmpresa(item) ? 'Sim' : 'Não' }}</p>
             <p><strong>Data início:</strong> {{ formatarData(item.dataInicio) }}</p>
             <p><strong>Data vencimento:</strong> {{ formatarData(item.dataVencimento) }}</p>
             <p><strong>Limites:</strong> {{ limitesResumo(item) }}</p>
@@ -526,7 +538,8 @@ textarea:focus {
 
 .contador,
 .status,
-.tipo-plano {
+.tipo-plano,
+.badge-oculto {
   border-radius: 999px;
   padding: 8px 12px;
   font-size: 13px;
@@ -573,6 +586,11 @@ textarea:focus {
 .tipo-plano.interno {
   background: #ede9fe;
   color: #5b21b6;
+}
+
+.badge-oculto {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .preco {

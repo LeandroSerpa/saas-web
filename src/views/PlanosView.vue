@@ -204,6 +204,10 @@ function rotuloTipoPlano(tipoPlano) {
   return tiposPlano.find((tipo) => tipo.valor === normalizarTipoPlano(tipoPlano))?.rotulo || 'Comercial'
 }
 
+function planoVisivelParaEmpresa(planoItem) {
+  return planoItem.visivelParaEmpresa !== false
+}
+
 function formatarPreco(preco) {
   return Number(preco || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -314,7 +318,7 @@ onMounted(() => {
         <label class="campo-checkbox ajuda-checkbox">
           <input v-model="plano.visivelParaEmpresa" type="checkbox" />
           Visível para a empresa
-          <small>Se desmarcado, a empresa verá apenas uma descrição simplificada do plano.</small>
+          <small>Quando desmarcado, a empresa verá o nome Plano especial na tela Meu plano.</small>
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permitePersonalizacao" type="checkbox" />
@@ -395,7 +399,9 @@ onMounted(() => {
             <span :class="{ ligado: planoItem.permiteRelatorios }">Relatórios</span>
             <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento público</span>
             <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritário</span>
-            <span :class="{ ligado: planoItem.visivelParaEmpresa ?? true }">Visível para empresa</span>
+            <span :class="{ ligado: planoVisivelParaEmpresa(planoItem) }">
+              Visível para empresa: {{ planoVisivelParaEmpresa(planoItem) ? 'Sim' : 'Não' }}
+            </span>
           </div>
 
           <div class="acoes">

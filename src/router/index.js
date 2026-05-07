@@ -17,6 +17,8 @@ import LixeiraView from '../views/LixeiraView.vue'
 import PlanosView from '../views/PlanosView.vue'
 import AssinaturasView from '../views/AssinaturasView.vue'
 import MeuPlanoView from '../views/MeuPlanoView.vue'
+import AdminDashboardView from '../views/AdminDashboardView.vue'
+import SegmentosView from '../views/SegmentosView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -128,6 +130,12 @@ const router = createRouter({
       meta: rotasSuperAdmin,
     },
     {
+      path: '/admin-dashboard',
+      name: 'admin-dashboard',
+      component: AdminDashboardView,
+      meta: rotasSuperAdmin,
+    },
+    {
       path: '/planos',
       name: 'planos',
       component: PlanosView,
@@ -137,6 +145,12 @@ const router = createRouter({
       path: '/assinaturas',
       name: 'assinaturas',
       component: AssinaturasView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/segmentos',
+      name: 'segmentos',
+      component: SegmentosView,
       meta: rotasSuperAdmin,
     },
     {

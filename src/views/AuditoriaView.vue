@@ -1,6 +1,13 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { buscarAuditoria, buscarAuditoriaPorId, buscarEmpresas } from '@/services/api'
+import {
+  buscarAcoesAuditoria,
+  buscarAuditoria,
+  buscarAuditoriaPorId,
+  buscarEmpresas,
+  buscarEntidadesAuditoria,
+  buscarModulosAuditoria,
+} from '@/services/api'
 
 const filtrosIniciais = {
   empresaId: '',
@@ -15,6 +22,12 @@ const filtrosIniciais = {
 
 const filtros = ref({ ...filtrosIniciais })
 const empresas = ref([])
+const acoesAuditoria = ref([])
+const modulosAuditoria = ref([])
+const entidadesAuditoria = ref([])
+const usarSelectAcoes = ref(false)
+const usarSelectModulos = ref(false)
+const usarSelectEntidades = ref(false)
 const logs = ref([])
 const carregando = ref(false)
 const carregandoEmpresas = ref(false)
@@ -25,6 +38,7 @@ const detalhe = ref(null)
 
 onMounted(() => {
   carregarEmpresasFiltro()
+  carregarOpcoesAuditoria()
   carregarAuditoria()
 })
 
@@ -64,6 +78,30 @@ async function carregarEmpresasFiltro() {
   }
 }
 
+async function carregarOpcoesAuditoria() {
+  await Promise.all([
+    carregarOpcaoFiltro(buscarAcoesAuditoria, acoesAuditoria, usarSelectAcoes, 'ações'),
+    carregarOpcaoFiltro(buscarModulosAuditoria, modulosAuditoria, usarSelectModulos, 'módulos'),
+    carregarOpcaoFiltro(buscarEntidadesAuditoria, entidadesAuditoria, usarSelectEntidades, 'entidades'),
+  ])
+}
+
+async function carregarOpcaoFiltro(funcaoBusca, destino, usarSelect, nome) {
+  try {
+    const resposta = await funcaoBusca()
+    const opcoes = extrairLista(resposta)
+      .map(normalizarOpcaoFiltro)
+      .filter(Boolean)
+
+    destino.value = opcoes
+    usarSelect.value = opcoes.length > 0
+  } catch (error) {
+    destino.value = []
+    usarSelect.value = false
+    console.error(`Erro ao carregar ${nome} da auditoria:`, error)
+  }
+}
+
 async function abrirDetalhes(log) {
   try {
     carregandoDetalhe.value = true
@@ -88,7 +126,15 @@ function extrairLista(resposta) {
     return resposta
   }
 
-  return resposta?.content || resposta?.items || resposta?.dados || resposta?.registros || []
+  return resposta?.content || resposta?.items || resposta?.data || resposta?.dados || resposta?.registros || []
+}
+
+function normalizarOpcaoFiltro(item) {
+  if (typeof item === 'string') {
+    return item
+  }
+
+  return item?.valor || item?.nome || item?.codigo || item?.label || item?.descricao || ''
 }
 
 function obterMensagemErroAuditoria(error) {
@@ -223,15 +269,33 @@ function formatarJson(valor) {
         </label>
         <label>
           Módulo
-          <input v-model="filtros.modulo" type="text" placeholder="Ex: agenda" />
+          <select v-if="usarSelectModulos" v-model="filtros.modulo">
+            <option value="">Todos os módulos</option>
+            <option v-for="modulo in modulosAuditoria" :key="modulo" :value="modulo">
+              {{ modulo }}
+            </option>
+          </select>
+          <input v-else v-model="filtros.modulo" type="text" placeholder="Ex: agenda" />
         </label>
         <label>
           Entidade
-          <input v-model="filtros.entidade" type="text" placeholder="Ex: Agendamento" />
+          <select v-if="usarSelectEntidades" v-model="filtros.entidade">
+            <option value="">Todas as entidades</option>
+            <option v-for="entidade in entidadesAuditoria" :key="entidade" :value="entidade">
+              {{ entidade }}
+            </option>
+          </select>
+          <input v-else v-model="filtros.entidade" type="text" placeholder="Ex: Agendamento" />
         </label>
         <label>
           Ação
-          <input v-model="filtros.acao" type="text" placeholder="Ex: EXCLUIR" />
+          <select v-if="usarSelectAcoes" v-model="filtros.acao">
+            <option value="">Todas as ações</option>
+            <option v-for="acao in acoesAuditoria" :key="acao" :value="acao">
+              {{ acao }}
+            </option>
+          </select>
+          <input v-else v-model="filtros.acao" type="text" placeholder="Ex: EXCLUIR" />
         </label>
         <label>
           Usuário

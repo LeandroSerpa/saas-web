@@ -34,6 +34,10 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  segmentos: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 defineEmits(['salvar', 'cancelar'])
@@ -76,6 +80,16 @@ defineEmits(['salvar', 'cancelar'])
       <label class="campo-grande">
         Endereco
         <input v-model="empresa.endereco" type="text" placeholder="Ex: Rua Principal, 100" />
+      </label>
+
+      <label>
+        Segmento de negócio
+        <select v-model="empresa.segmentoNegocioId">
+          <option value="">Sem segmento</option>
+          <option v-for="segmento in segmentos" :key="segmento.id" :value="segmento.id">
+            {{ segmento.nome }}
+          </option>
+        </select>
       </label>
 
       <label class="campo-checkbox">

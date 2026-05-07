@@ -332,6 +332,92 @@ export async function buscarAuditoriaPorId(id) {
   return tratarResposta(response)
 }
 
+export async function buscarDashboardSaas() {
+  const response = await fetch(`${API_URL}/admin/dashboard-saas`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarAcoesAuditoria() {
+  const response = await fetch(`${API_URL}/admin/auditoria/acoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarModulosAuditoria() {
+  const response = await fetch(`${API_URL}/admin/auditoria/modulos`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarEntidadesAuditoria() {
+  const response = await fetch(`${API_URL}/admin/auditoria/entidades`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarSegmentos() {
+  const response = await fetch(`${API_URL}/admin/segmentos`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarSegmentoPorId(id) {
+  const response = await fetch(`${API_URL}/admin/segmentos/${id}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarSegmento(dados) {
+  const response = await fetch(`${API_URL}/admin/segmentos`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarSegmento(id, dados) {
+  const response = await fetch(`${API_URL}/admin/segmentos/${id}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function ativarSegmento(id) {
+  const response = await fetch(`${API_URL}/admin/segmentos/${id}/ativar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function desativarSegmento(id) {
+  const response = await fetch(`${API_URL}/admin/segmentos/${id}/desativar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarPlanos() {
   const response = await fetch(`${API_URL}/admin/planos`, {
     headers: montarHeaders(),
