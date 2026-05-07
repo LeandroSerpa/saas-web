@@ -7,8 +7,8 @@ const filtrosIniciais = {
   cliente: '',
   funcionario: '',
   servico: '',
-  dataInicial: '',
-  dataFinal: '',
+  dataInicio: '',
+  dataFim: '',
 }
 
 const filtros = ref({ ...filtrosIniciais })
@@ -29,6 +29,7 @@ async function carregarLixeira() {
     mensagemSucesso.value = ''
 
     const resposta = await buscarAgendamentosExcluidos(filtros.value)
+    console.debug('Lixeira de agendamentos carregada:', resposta)
     agendamentos.value = extrairLista(resposta)
   } catch (error) {
     erro.value = obterMensagemErroLixeira(error)
@@ -200,6 +201,10 @@ function formatarPreco(valor) {
     currency: 'BRL',
   })
 }
+
+function obterSituacao(item) {
+  return item?.excluido === false ? 'Ativo' : 'Excluído'
+}
 </script>
 
 <template>
@@ -211,6 +216,10 @@ function formatarPreco(valor) {
         <p class="descricao">
           Agendamentos excluídos não são apagados definitivamente. O SUPER_ADMIN pode consultar e
           restaurar registros quando não houver conflito de horário.
+        </p>
+        <p class="observacao-super-admin">
+          Como SUPER_ADMIN, você está visualizando agendamentos excluídos de todas as empresas.
+          Use Empresa ID para filtrar uma empresa específica.
         </p>
       </div>
     </header>
@@ -243,11 +252,11 @@ function formatarPreco(valor) {
         </label>
         <label>
           Data inicial
-          <input v-model="filtros.dataInicial" type="date" />
+          <input v-model="filtros.dataInicio" type="date" />
         </label>
         <label>
           Data final
-          <input v-model="filtros.dataFinal" type="date" />
+          <input v-model="filtros.dataFim" type="date" />
         </label>
       </div>
 
@@ -307,8 +316,12 @@ function formatarPreco(valor) {
               <dd>{{ formatarHorario(obterCampo(item, 'dataHoraInicio', 'horarioInicio', 'hora')) }}</dd>
             </div>
             <div>
-              <dt>Status</dt>
+              <dt>Status original</dt>
               <dd>{{ obterCampo(item, 'status') || '-' }}</dd>
+            </div>
+            <div>
+              <dt>Situação</dt>
+              <dd><span class="situacao-excluido">{{ obterSituacao(item) }}</span></dd>
             </div>
             <div>
               <dt>Preço</dt>
@@ -367,6 +380,16 @@ h1 {
 .descricao {
   margin: 6px 0 0;
   color: #64748b;
+}
+
+.observacao-super-admin {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 800;
 }
 
 .card {
@@ -517,6 +540,18 @@ dd {
   color: #111827;
   font-weight: 800;
   word-break: break-word;
+}
+
+.situacao-excluido {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 @media (max-width: 1000px) {
