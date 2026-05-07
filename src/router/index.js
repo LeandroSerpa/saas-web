@@ -10,6 +10,7 @@ import UsuariosView from '../views/UsuariosView.vue'
 import EmpresasView from '../views/EmpresasView.vue'
 import MinhaEmpresaView from '../views/MinhaEmpresaView.vue'
 import RelatoriosView from '../views/RelatoriosView.vue'
+import PersonalizacaoPublicaView from '../views/PersonalizacaoPublicaView.vue'
 import AgendamentoPublicoView from '../views/AgendamentoPublicoView.vue'
 import AuditoriaView from '../views/AuditoriaView.vue'
 import LixeiraView from '../views/LixeiraView.vue'
@@ -103,6 +104,12 @@ const router = createRouter({
       path: '/minha-empresa',
       name: 'minha-empresa',
       component: MinhaEmpresaView,
+      meta: rotasAdmin,
+    },
+    {
+      path: '/personalizacao',
+      name: 'personalizacao',
+      component: PersonalizacaoPublicaView,
       meta: rotasAdmin,
     },
     {

@@ -290,6 +290,32 @@ export async function criarAgendamentoPublico(slug, dados) {
   return tratarRespostaPublica(response)
 }
 
+export async function buscarMinhaPersonalizacao() {
+  const response = await fetch(`${API_URL}/minha-empresa/personalizacao`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMinhaPersonalizacao(dados) {
+  const response = await fetch(`${API_URL}/minha-empresa/personalizacao`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarPersonalizacaoPublica(slug) {
+  const response = await fetch(`${API_URL}/publico/empresas/${slug}/personalizacao`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
 export async function buscarAuditoria(filtros = {}) {
   const response = await fetch(`${API_URL}/admin/auditoria${montarQueryString(filtros)}`, {
     headers: montarHeaders(),

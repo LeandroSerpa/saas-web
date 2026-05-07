@@ -5,6 +5,7 @@ import {
   buscarDisponibilidadePublica,
   buscarEmpresaPublica,
   buscarFuncionariosPublicos,
+  buscarPersonalizacaoPublica,
   buscarServicosPublicos,
   criarAgendamentoPublico,
 } from '@/services/api'
@@ -13,6 +14,7 @@ const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
 
 const empresa = ref(null)
+const personalizacao = ref(criarPersonalizacaoPublicaPadrao())
 const servicos = ref([])
 const funcionarios = ref([])
 const disponibilidade = ref(null)
@@ -48,6 +50,23 @@ const dataHoraFimSelecionada = computed(() => {
 
 const terminoPrevisto = computed(() =>
   dataHoraFimSelecionada.value ? formatarDataHoraPreview(dataHoraFimSelecionada.value) : '',
+)
+
+const estilosPersonalizados = computed(() => ({
+  '--cor-principal-publica': personalizacao.value.corPrincipal,
+  '--cor-secundaria-publica': personalizacao.value.corSecundaria,
+}))
+
+const tituloPublico = computed(() => personalizacao.value.tituloPagina || empresa.value?.nome || 'Agendamento')
+
+const subtituloPublico = computed(
+  () => personalizacao.value.subtituloPagina || empresa.value?.mensagemPublica || '',
+)
+
+const mensagemConfirmacaoPublica = computed(
+  () =>
+    personalizacao.value.mensagemConfirmacao ||
+    'Guarde essas informações. A empresa poderá entrar em contato para confirmar o atendimento.',
 )
 
 const dataAtendimentoFormatada = computed(() =>
@@ -175,6 +194,49 @@ function criarAgendamentoInicial() {
   }
 }
 
+function criarPersonalizacaoPublicaPadrao() {
+  return {
+    logoUrl: '',
+    bannerUrl: '',
+    corPrincipal: '#2563eb',
+    corSecundaria: '#0f172a',
+    tituloPagina: '',
+    subtituloPagina: '',
+    textoSobre: '',
+    textoInstrucoes: '',
+    politicaCancelamento: '',
+    mensagemConfirmacao: '',
+    whatsapp: '',
+    instagram: '',
+    site: '',
+    tema: 'PADRAO',
+    mostrarPreco: true,
+    mostrarFuncionario: true,
+    mostrarEndereco: true,
+    mostrarTelefone: true,
+  }
+}
+
+function normalizarPersonalizacaoPublica(dados) {
+  const padrao = criarPersonalizacaoPublicaPadrao()
+  const origem = dados && typeof dados === 'object' ? dados : {}
+
+  return {
+    ...padrao,
+    ...origem,
+    corPrincipal: corHexValida(origem.corPrincipal) ? origem.corPrincipal : padrao.corPrincipal,
+    corSecundaria: corHexValida(origem.corSecundaria) ? origem.corSecundaria : padrao.corSecundaria,
+    mostrarPreco: origem.mostrarPreco !== false,
+    mostrarFuncionario: origem.mostrarFuncionario !== false,
+    mostrarEndereco: origem.mostrarEndereco !== false,
+    mostrarTelefone: origem.mostrarTelefone !== false,
+  }
+}
+
+function corHexValida(cor) {
+  return /^#[0-9a-fA-F]{6}$/.test(String(cor || '').trim())
+}
+
 function criarDadosConfirmacaoFormulario() {
   return {
     empresaNome: empresa.value?.nome || '',
@@ -281,12 +343,18 @@ function montarTextoConfirmacao(confirmacao) {
     `Início: ${confirmacao.horarioInicio}`,
     `Término previsto: ${confirmacao.horarioTermino}`,
     `Duração: ${confirmacao.duracao}`,
-    `Preço: ${confirmacao.preco}`,
+    personalizacao.value.mostrarPreco ? `Preço: ${confirmacao.preco}` : '',
     confirmacao.observacao ? `Observação: ${confirmacao.observacao}` : '',
     confirmacao.id ? `Código/Protocolo: ${confirmacao.id}` : '',
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+function montarLabelServico(servico) {
+  return personalizacao.value.mostrarPreco
+    ? `${servico.nome} - ${formatarPreco(servico.preco)}`
+    : servico.nome
 }
 
 async function carregarDadosPublicos() {
@@ -296,7 +364,13 @@ async function carregarDadosPublicos() {
     mensagemSucesso.value = ''
     indisponivel.value = false
 
-    const empresaApi = await buscarEmpresaPublica(slug.value)
+    const [empresaApi, personalizacaoApi] = await Promise.all([
+      buscarEmpresaPublica(slug.value),
+      buscarPersonalizacaoPublica(slug.value).catch((error) => {
+        console.error('Não foi possível carregar a personalização pública.', error)
+        return null
+      }),
+    ])
 
     if (!empresaApi || empresaApi.agendamentoPublicoAtivo === false) {
       indisponivel.value = true
@@ -304,6 +378,7 @@ async function carregarDadosPublicos() {
     }
 
     empresa.value = empresaApi
+    personalizacao.value = normalizarPersonalizacaoPublica(personalizacaoApi)
 
     const [servicosApi, funcionariosApi] = await Promise.all([
       buscarServicosPublicos(slug.value),
@@ -312,6 +387,10 @@ async function carregarDadosPublicos() {
 
     servicos.value = Array.isArray(servicosApi) ? servicosApi : []
     funcionarios.value = Array.isArray(funcionariosApi) ? funcionariosApi : []
+
+    if (!personalizacao.value.mostrarFuncionario && funcionarios.value.length === 1) {
+      agendamento.value.funcionarioId = funcionarios.value[0].id
+    }
   } catch (error) {
     indisponivel.value = true
     console.error(error)
@@ -591,7 +670,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="pagina-publica">
+  <main class="pagina-publica" :style="estilosPersonalizados">
     <section v-if="carregando" class="card estado">
       <p>Carregando agendamento...</p>
     </section>
@@ -602,21 +681,57 @@ onMounted(() => {
     </section>
 
     <section v-else class="conteudo-publico">
+      <section v-if="personalizacao.bannerUrl" class="banner-publico">
+        <img :src="personalizacao.bannerUrl" alt="" />
+      </section>
+
       <header class="cabecalho-publico card">
         <div>
+          <img v-if="personalizacao.logoUrl" class="logo-publico" :src="personalizacao.logoUrl" alt="" />
           <p class="subtitulo">Agendamento online</p>
-          <h1>{{ empresa?.nome || 'Agendamento' }}</h1>
-          <p v-if="empresa?.mensagemPublica" class="mensagem-publica">
-            {{ empresa.mensagemPublica }}
+          <h1>{{ tituloPublico }}</h1>
+          <p v-if="subtituloPublico" class="mensagem-publica">
+            {{ subtituloPublico }}
           </p>
         </div>
 
         <div class="dados-empresa">
-          <p v-if="empresa?.telefone"><strong>Telefone:</strong> {{ empresa.telefone }}</p>
+          <p v-if="personalizacao.mostrarTelefone && empresa?.telefone">
+            <strong>Telefone:</strong> {{ empresa.telefone }}
+          </p>
           <p v-if="empresa?.email"><strong>E-mail:</strong> {{ empresa.email }}</p>
-          <p v-if="empresa?.endereco"><strong>Endereço:</strong> {{ empresa.endereco }}</p>
+          <p v-if="personalizacao.mostrarEndereco && empresa?.endereco">
+            <strong>Endereço:</strong> {{ empresa.endereco }}
+          </p>
         </div>
       </header>
+
+      <section
+        v-if="
+          personalizacao.textoSobre ||
+          personalizacao.textoInstrucoes ||
+          personalizacao.whatsapp ||
+          personalizacao.instagram ||
+          personalizacao.site
+        "
+        class="card bloco-publico"
+      >
+        <p v-if="personalizacao.textoSobre">{{ personalizacao.textoSobre }}</p>
+        <p v-if="personalizacao.textoInstrucoes" class="instrucoes-publicas">
+          {{ personalizacao.textoInstrucoes }}
+        </p>
+        <div class="links-publicos">
+          <a v-if="personalizacao.whatsapp" :href="personalizacao.whatsapp" target="_blank" rel="noreferrer">
+            WhatsApp
+          </a>
+          <a v-if="personalizacao.instagram" :href="personalizacao.instagram" target="_blank" rel="noreferrer">
+            Instagram
+          </a>
+          <a v-if="personalizacao.site" :href="personalizacao.site" target="_blank" rel="noreferrer">
+            Site
+          </a>
+        </div>
+      </section>
 
       <section v-if="erro" class="card erro">
         <p>{{ erro }}</p>
@@ -632,8 +747,7 @@ onMounted(() => {
             <p class="subtitulo">Confirmação</p>
             <h2>Agendamento solicitado com sucesso!</h2>
             <p>
-              Guarde essas informações. A empresa poderá entrar em contato para confirmar o
-              atendimento.
+              {{ mensagemConfirmacaoPublica }}
             </p>
           </div>
           <div v-if="confirmacaoAgendamento.id" class="protocolo">
@@ -683,7 +797,7 @@ onMounted(() => {
             <dt>Duração</dt>
             <dd>{{ confirmacaoAgendamento.duracao || 'Não informado' }}</dd>
           </div>
-          <div>
+          <div v-if="personalizacao.mostrarPreco">
             <dt>Preço</dt>
             <dd>{{ confirmacaoAgendamento.preco || 'Não informado' }}</dd>
           </div>
@@ -740,12 +854,12 @@ onMounted(() => {
             <select v-model="agendamento.servicoId">
               <option value="">Selecione um serviço</option>
               <option v-for="servico in servicos" :key="servico.id" :value="servico.id">
-                {{ servico.nome }} - {{ formatarPreco(servico.preco) }}
+                {{ montarLabelServico(servico) }}
               </option>
             </select>
           </label>
 
-          <label>
+          <label v-if="personalizacao.mostrarFuncionario || funcionarios.length !== 1">
             Funcionário *
             <select v-model="agendamento.funcionarioId">
               <option value="">Selecione um funcionário</option>
@@ -809,11 +923,13 @@ onMounted(() => {
           <div v-if="resumoVisivel" class="campo-grande previa">
             <h3>Resumo do agendamento</h3>
             <p><strong>Serviço:</strong> {{ servicoSelecionado?.nome || 'A selecionar' }}</p>
-            <p><strong>Funcionário:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}</p>
+            <p v-if="personalizacao.mostrarFuncionario || funcionarios.length !== 1">
+              <strong>Funcionário:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}
+            </p>
             <p><strong>Data:</strong> {{ dataAtendimentoFormatada || 'A selecionar' }}</p>
             <p><strong>Início:</strong> {{ inicioSelecionado || 'Selecione um horário' }}</p>
             <p><strong>Término previsto:</strong> {{ terminoPrevisto || 'Selecione um horário' }}</p>
-            <p><strong>Preço:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
+            <p v-if="personalizacao.mostrarPreco"><strong>Preço:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
           </div>
 
           <label class="campo-grande">
@@ -838,6 +954,11 @@ onMounted(() => {
             Selecione um horário disponível para liberar o agendamento.
           </p>
         </div>
+      </section>
+
+      <section v-if="personalizacao.politicaCancelamento" class="card politica-publica">
+        <h2>Política de cancelamento</h2>
+        <p>{{ personalizacao.politicaCancelamento }}</p>
       </section>
     </section>
   </main>
@@ -868,6 +989,19 @@ onMounted(() => {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
+.banner-publico {
+  height: 230px;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.banner-publico img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .estado {
   width: min(100%, 620px);
   text-align: center;
@@ -893,10 +1027,19 @@ onMounted(() => {
 
 .subtitulo {
   margin: 0 0 4px;
-  color: #2563eb;
+  color: var(--cor-principal-publica, #2563eb);
   font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.logo-publico {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
 }
 
 .cabecalho-publico h1 {
@@ -904,6 +1047,7 @@ onMounted(() => {
   font-size: 32px;
   font-weight: 800;
   letter-spacing: 0;
+  color: var(--cor-secundaria-publica, #0f172a);
 }
 
 .mensagem-publica {
@@ -924,6 +1068,37 @@ onMounted(() => {
 }
 
 .dados-empresa strong {
+  font-weight: 800;
+}
+
+.bloco-publico {
+  display: grid;
+  gap: 12px;
+}
+
+.bloco-publico p {
+  margin: 0;
+  color: #475569;
+}
+
+.instrucoes-publicas {
+  padding: 12px;
+  border-left: 4px solid var(--cor-principal-publica, #2563eb);
+  background: #f8fafc;
+}
+
+.links-publicos {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.links-publicos a {
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: white;
+  background: var(--cor-secundaria-publica, #0f172a);
+  text-decoration: none;
   font-weight: 800;
 }
 
@@ -1133,7 +1308,7 @@ textarea:focus {
   border: 1px solid #bfdbfe;
   border-radius: 8px;
   background: white;
-  color: #1d4ed8;
+  color: var(--cor-principal-publica, #1d4ed8);
   cursor: pointer;
   font-size: 16px;
   font-weight: 800;
@@ -1146,13 +1321,13 @@ textarea:focus {
 
 .horario:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: #2563eb;
+  border-color: var(--cor-principal-publica, #2563eb);
   background: #eff6ff;
 }
 
 .horario.selecionado {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: var(--cor-principal-publica, #2563eb);
+  border-color: var(--cor-principal-publica, #2563eb);
   color: white;
 }
 
@@ -1265,11 +1440,28 @@ textarea:focus {
 }
 
 .principal {
-  background: #2563eb;
+  background: var(--cor-principal-publica, #2563eb);
 }
 
 .principal:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--cor-secundaria-publica, #1d4ed8);
+}
+
+.politica-publica {
+  display: grid;
+  gap: 8px;
+}
+
+.politica-publica h2 {
+  margin: 0;
+  color: var(--cor-secundaria-publica, #0f172a);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.politica-publica p {
+  margin: 0;
+  color: #475569;
 }
 
 .secundario {
