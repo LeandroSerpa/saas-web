@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { buscarAuditoria, buscarAuditoriaPorId } from '@/services/api'
+import { buscarAuditoria, buscarAuditoriaPorId, buscarEmpresas } from '@/services/api'
 
 const filtrosIniciais = {
   empresaId: '',
@@ -14,13 +14,17 @@ const filtrosIniciais = {
 }
 
 const filtros = ref({ ...filtrosIniciais })
+const empresas = ref([])
 const logs = ref([])
 const carregando = ref(false)
+const carregandoEmpresas = ref(false)
 const carregandoDetalhe = ref(false)
 const erro = ref('')
+const erroEmpresas = ref('')
 const detalhe = ref(null)
 
 onMounted(() => {
+  carregarEmpresasFiltro()
   carregarAuditoria()
 })
 
@@ -43,6 +47,21 @@ async function carregarAuditoria() {
 function limparFiltros() {
   filtros.value = { ...filtrosIniciais }
   carregarAuditoria()
+}
+
+async function carregarEmpresasFiltro() {
+  try {
+    carregandoEmpresas.value = true
+    erroEmpresas.value = ''
+
+    const resposta = await buscarEmpresas()
+    empresas.value = extrairLista(resposta)
+  } catch (error) {
+    erroEmpresas.value = 'Não foi possível carregar a lista de empresas.'
+    console.error('Erro ao carregar empresas para filtro da auditoria:', error)
+  } finally {
+    carregandoEmpresas.value = false
+  }
 }
 
 async function abrirDetalhes(log) {
@@ -182,11 +201,25 @@ function formatarJson(valor) {
       <p>{{ erro }}</p>
     </section>
 
+    <section v-if="erroEmpresas" class="card aviso-card">
+      <p>{{ erroEmpresas }}</p>
+    </section>
+
     <section class="card filtros">
+      <p class="observacao-super-admin">
+        Como SUPER_ADMIN, você pode consultar logs de todas as empresas ou filtrar uma empresa
+        específica.
+      </p>
+
       <div class="campos">
         <label>
-          Empresa ID
-          <input v-model="filtros.empresaId" type="text" placeholder="Ex: 1" />
+          Empresa
+          <select v-model="filtros.empresaId" :disabled="carregandoEmpresas">
+            <option value="">Todas as empresas</option>
+            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
+              {{ empresa.nome || 'Empresa sem nome' }} — ID {{ empresa.id }}
+            </option>
+          </select>
         </label>
         <label>
           Módulo
@@ -378,10 +411,36 @@ input {
   box-sizing: border-box;
 }
 
+select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: white;
+  box-sizing: border-box;
+}
+
 input:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.observacao-super-admin {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: 800;
 }
 
 .acoes,
@@ -426,6 +485,12 @@ input:focus {
   border-color: #fecaca;
   background: #fef2f2;
   color: #991b1b;
+}
+
+.aviso-card {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
 }
 
 .vazio {
