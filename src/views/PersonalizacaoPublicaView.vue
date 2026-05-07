@@ -14,6 +14,8 @@ const estilosPreview = computed(() => ({
   '--cor-secundaria': personalizacao.value.corSecundaria || '#0f172a',
 }))
 
+const classeTemaPreview = computed(() => `tema-${normalizarTema(personalizacao.value.tema).toLowerCase()}`)
+
 onMounted(() => {
   carregarPersonalizacao()
 })
@@ -98,6 +100,21 @@ function normalizarPersonalizacao(dados) {
 function corHexValida(cor) {
   return /^#[0-9a-fA-F]{6}$/.test(String(cor || '').trim())
 }
+
+function normalizarTema(tema) {
+  return temas.includes(tema) ? tema : 'PADRAO'
+}
+
+function nomeTema(tema) {
+  const nomes = {
+    PADRAO: 'Padrão',
+    MODERNO: 'Moderno',
+    ESCURO: 'Escuro',
+    SUAVE: 'Suave',
+  }
+
+  return nomes[tema] || tema
+}
 </script>
 
 <template>
@@ -155,7 +172,7 @@ function corHexValida(cor) {
             <label>
               Tema
               <select v-model="personalizacao.tema">
-                <option v-for="tema in temas" :key="tema" :value="tema">{{ tema }}</option>
+                <option v-for="tema in temas" :key="tema" :value="tema">{{ nomeTema(tema) }}</option>
               </select>
             </label>
           </div>
@@ -249,14 +266,14 @@ function corHexValida(cor) {
         </div>
       </form>
 
-      <aside class="card preview" :style="estilosPreview">
+      <aside class="card preview" :class="classeTemaPreview" :style="estilosPreview">
         <div v-if="personalizacao.bannerUrl" class="preview-banner">
           <img :src="personalizacao.bannerUrl" alt="" />
         </div>
         <div class="preview-topo">
           <img v-if="personalizacao.logoUrl" :src="personalizacao.logoUrl" alt="" />
           <div>
-            <span>{{ personalizacao.tema }}</span>
+            <span>{{ nomeTema(normalizarTema(personalizacao.tema)) }}</span>
             <h2>{{ personalizacao.tituloPagina || 'Sua empresa' }}</h2>
             <p>{{ personalizacao.subtituloPagina || 'Agende seu atendimento online.' }}</p>
           </div>
@@ -431,12 +448,48 @@ input[type='checkbox'] {
 .preview {
   position: sticky;
   top: 18px;
+  color: #111827;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.preview.tema-padrao {
+  background: white;
+  border-color: #e5e7eb;
+}
+
+.preview.tema-moderno {
+  border-radius: 18px;
+  border-color: rgba(37, 99, 235, 0.18);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.92)),
+    linear-gradient(135deg, var(--cor-principal), var(--cor-secundaria));
+  box-shadow: 0 22px 52px rgba(15, 23, 42, 0.18);
+}
+
+.preview.tema-escuro {
+  border-color: rgba(148, 163, 184, 0.24);
+  background: #111827;
+  color: #e5e7eb;
+  box-shadow: 0 22px 54px rgba(2, 6, 23, 0.34);
+}
+
+.preview.tema-suave {
+  border-color: #e0e7ff;
+  background: #f8fbff;
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
 }
 
 .preview-banner {
   height: 150px;
   overflow: hidden;
   border-radius: 8px;
+}
+
+.tema-moderno .preview-banner {
+  border-radius: 16px;
 }
 
 .preview-banner img {
@@ -468,6 +521,13 @@ input[type='checkbox'] {
   color: var(--cor-secundaria);
 }
 
+.tema-escuro .preview-topo h2,
+.tema-escuro .preview-texto,
+.tema-escuro .preview-instrucoes,
+.tema-escuro .preview-servico small {
+  color: #e5e7eb;
+}
+
 .preview-texto,
 .preview-instrucoes {
   margin: 0;
@@ -480,12 +540,47 @@ input[type='checkbox'] {
   background: #f8fafc;
 }
 
+.tema-moderno .preview-instrucoes {
+  border-radius: 14px;
+  border-left: none;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.tema-escuro .preview-instrucoes {
+  background: #1f2937;
+  border-left-color: var(--cor-principal);
+}
+
+.tema-suave .preview-instrucoes {
+  background: #eef6ff;
+  border-left-color: color-mix(in srgb, var(--cor-principal), white 30%);
+}
+
 .preview-servico {
   display: grid;
   gap: 8px;
   padding: 14px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
+  background: white;
+}
+
+.tema-moderno .preview-servico {
+  border-radius: 16px;
+  border-color: rgba(37, 99, 235, 0.16);
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.16);
+}
+
+.tema-escuro .preview-servico {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: #1f2937;
+}
+
+.tema-suave .preview-servico {
+  border-color: #dbeafe;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.06);
 }
 
 .preview-servico span {
@@ -502,6 +597,17 @@ input[type='checkbox'] {
   font-weight: 800;
 }
 
+.tema-moderno .preview-servico button {
+  border-radius: 999px;
+  padding: 12px 16px;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.24);
+}
+
+.tema-suave .preview-servico button {
+  color: var(--cor-secundaria);
+  background: color-mix(in srgb, var(--cor-principal), white 76%);
+}
+
 .preview-links {
   display: flex;
   gap: 8px;
@@ -514,6 +620,19 @@ input[type='checkbox'] {
   color: white;
   background: var(--cor-secundaria);
   font-weight: 800;
+}
+
+.tema-moderno .preview-links a {
+  border-radius: 999px;
+}
+
+.tema-escuro .preview-links a {
+  background: #374151;
+}
+
+.tema-suave .preview-links a {
+  color: var(--cor-secundaria);
+  background: #e0f2fe;
 }
 
 .preview-confirmacao {

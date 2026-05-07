@@ -57,6 +57,8 @@ const estilosPersonalizados = computed(() => ({
   '--cor-secundaria-publica': personalizacao.value.corSecundaria,
 }))
 
+const classeTemaPublico = computed(() => `tema-${normalizarTemaPublico(personalizacao.value.tema).toLowerCase()}`)
+
 const tituloPublico = computed(() => personalizacao.value.tituloPagina || empresa.value?.nome || 'Agendamento')
 
 const subtituloPublico = computed(
@@ -235,6 +237,10 @@ function normalizarPersonalizacaoPublica(dados) {
 
 function corHexValida(cor) {
   return /^#[0-9a-fA-F]{6}$/.test(String(cor || '').trim())
+}
+
+function normalizarTemaPublico(tema) {
+  return ['PADRAO', 'MODERNO', 'ESCURO', 'SUAVE'].includes(tema) ? tema : 'PADRAO'
 }
 
 function criarDadosConfirmacaoFormulario() {
@@ -670,7 +676,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="pagina-publica" :style="estilosPersonalizados">
+  <main class="pagina-publica" :class="classeTemaPublico" :style="estilosPersonalizados">
     <section v-if="carregando" class="card estado">
       <p>Carregando agendamento...</p>
     </section>
@@ -974,6 +980,22 @@ onMounted(() => {
   color: #111827;
 }
 
+.pagina-publica.tema-moderno {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 34%),
+    linear-gradient(135deg, #f8fafc 0%, #e0f2fe 48%, #eef2ff 100%);
+}
+
+.pagina-publica.tema-escuro {
+  background: #020617;
+  color: #e5e7eb;
+}
+
+.pagina-publica.tema-suave {
+  background: #f7fbff;
+  color: #1f2937;
+}
+
 .conteudo-publico {
   width: 100%;
   max-width: 980px;
@@ -989,11 +1011,39 @@ onMounted(() => {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
+.tema-moderno .card {
+  border-radius: 18px;
+  border-color: rgba(37, 99, 235, 0.16);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
+}
+
+.tema-escuro .card {
+  background: #111827;
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #e5e7eb;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+}
+
+.tema-suave .card {
+  background: #ffffff;
+  border-color: #dbeafe;
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.07);
+}
+
 .banner-publico {
   height: 230px;
   overflow: hidden;
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.tema-moderno .banner-publico {
+  border-radius: 22px;
+  box-shadow: 0 24px 52px rgba(15, 23, 42, 0.2);
+}
+
+.tema-suave .banner-publico {
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.1);
 }
 
 .banner-publico img {
@@ -1016,6 +1066,18 @@ onMounted(() => {
 .estado p {
   margin: 0;
   color: #64748b;
+}
+
+.tema-escuro .estado p,
+.tema-escuro .mensagem-publica,
+.tema-escuro .dados-empresa p,
+.tema-escuro .titulo-card p,
+.tema-escuro .titulo-horarios p,
+.tema-escuro .aviso-horario,
+.tema-escuro .previa,
+.tema-escuro .bloco-publico p,
+.tema-escuro .politica-publica p {
+  color: #cbd5e1;
 }
 
 .cabecalho-publico {
@@ -1220,6 +1282,13 @@ onMounted(() => {
   font-weight: 800;
 }
 
+.tema-escuro .titulo-card h2,
+.tema-escuro .titulo-horarios h3,
+.tema-escuro .estado-horarios strong,
+.tema-escuro .politica-publica h2 {
+  color: #f8fafc;
+}
+
 .titulo-card p {
   margin: 6px 0 0;
   color: #64748b;
@@ -1253,6 +1322,29 @@ textarea {
   box-sizing: border-box;
 }
 
+.tema-escuro input,
+.tema-escuro select,
+.tema-escuro textarea {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.tema-moderno input,
+.tema-moderno select,
+.tema-moderno textarea,
+.tema-moderno .horarios,
+.tema-moderno .previa {
+  border-radius: 14px;
+}
+
+.tema-suave input,
+.tema-suave select,
+.tema-suave textarea {
+  border-color: #bfdbfe;
+  background: #fbfdff;
+}
+
 textarea {
   min-height: 110px;
   resize: vertical;
@@ -1278,6 +1370,21 @@ textarea:focus {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #f8fafc;
+}
+
+.tema-escuro .horarios,
+.tema-escuro .estado-horarios,
+.tema-escuro .previa,
+.tema-escuro .resumo-confirmacao div,
+.tema-escuro .lista-ocupados span {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+.tema-suave .horarios,
+.tema-suave .previa {
+  background: #f1f8ff;
+  border-color: #dbeafe;
 }
 
 .titulo-horarios h3,
@@ -1317,6 +1424,22 @@ textarea:focus {
     border-color 0.15s ease,
     color 0.15s ease,
     transform 0.15s ease;
+}
+
+.tema-moderno .horario {
+  min-height: 64px;
+  border-radius: 16px;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.1);
+}
+
+.tema-escuro .horario {
+  background: #1f2937;
+  border-color: #334155;
+}
+
+.tema-suave .horario {
+  background: #ffffff;
+  border-color: #dbeafe;
 }
 
 .horario:hover:not(:disabled) {
@@ -1427,6 +1550,22 @@ textarea:focus {
     transform 0.15s ease,
     opacity 0.15s ease,
     background 0.15s ease;
+}
+
+.tema-moderno .botao {
+  border-radius: 999px;
+  padding: 12px 18px;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+}
+
+.tema-suave .botao {
+  color: var(--cor-secundaria-publica, #0f172a);
+  background: color-mix(in srgb, var(--cor-principal-publica), white 74%);
+}
+
+.tema-escuro .secundario {
+  background: #334155;
+  color: #f8fafc;
 }
 
 .botao:hover:not(:disabled) {
