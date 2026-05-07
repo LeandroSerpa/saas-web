@@ -33,8 +33,8 @@ async function carregarAuditoria() {
     const resposta = await buscarAuditoria(filtros.value)
     logs.value = extrairLista(resposta)
   } catch (error) {
-    erro.value = mensagemErroPermissao(error) || 'Nao foi possivel carregar a auditoria.'
-    console.error(error)
+    erro.value = obterMensagemErroAuditoria(error)
+    console.error('Erro ao carregar auditoria:', error)
   } finally {
     carregando.value = false
   }
@@ -52,8 +52,9 @@ async function abrirDetalhes(log) {
 
     detalhe.value = await buscarAuditoriaPorId(log.id)
   } catch (error) {
-    erro.value = mensagemErroPermissao(error) || 'Nao foi possivel carregar os detalhes do log.'
-    console.error(error)
+    erro.value =
+      obterMensagemErroPermissao(error) || limparMensagemBackend(error?.message) || 'Nao foi possivel carregar os detalhes do log.'
+    console.error('Erro ao carregar detalhes da auditoria:', error)
   } finally {
     carregandoDetalhe.value = false
   }
@@ -71,7 +72,16 @@ function extrairLista(resposta) {
   return resposta?.content || resposta?.items || resposta?.dados || resposta?.registros || []
 }
 
-function mensagemErroPermissao(error) {
+function obterMensagemErroAuditoria(error) {
+  return (
+    obterMensagemErroPermissao(error) ||
+    obterMensagemErroInterno(error, 'Nao foi possivel carregar a auditoria. Tente novamente apos alguns instantes.') ||
+    limparMensagemBackend(error?.message) ||
+    'Nao foi possivel carregar a auditoria. Tente novamente apos alguns instantes.'
+  )
+}
+
+function obterMensagemErroPermissao(error) {
   const mensagem = String(error?.message || '').toLowerCase()
 
   return mensagem.includes('forbidden') ||
@@ -80,6 +90,41 @@ function mensagemErroPermissao(error) {
     mensagem.includes('unauthorized')
     ? 'Voce nao tem permissao para acessar a auditoria.'
     : ''
+}
+
+function obterMensagemErroInterno(error, mensagemPadrao) {
+  const mensagem = String(error?.message || '').toLowerCase()
+
+  return mensagem.includes('500') ||
+    mensagem.includes('internal server error') ||
+    mensagem.includes('erro interno')
+    ? mensagemPadrao
+    : ''
+}
+
+function limparMensagemBackend(mensagem) {
+  const texto = String(mensagem || '').trim()
+
+  if (!texto || mensagemTecnica(texto)) {
+    return ''
+  }
+
+  return texto.length > 220 ? `${texto.slice(0, 220).trim()}...` : texto
+}
+
+function mensagemTecnica(mensagem) {
+  const texto = mensagem.toLowerCase()
+
+  return (
+    texto.includes('select ') ||
+    texto.includes(' from ') ||
+    texto.includes('jdbc') ||
+    texto.includes('sql') ||
+    texto.includes('stack trace') ||
+    texto.includes('exception') ||
+    texto.includes('org.hibernate') ||
+    texto.includes('java.')
+  )
 }
 
 function formatarDataHora(valor) {

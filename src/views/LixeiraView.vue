@@ -31,8 +31,8 @@ async function carregarLixeira() {
     const resposta = await buscarAgendamentosExcluidos(filtros.value)
     agendamentos.value = extrairLista(resposta)
   } catch (error) {
-    erro.value = error?.message || 'Nao foi possivel carregar a lixeira de agendamentos.'
-    console.error(error)
+    erro.value = obterMensagemErroLixeira(error)
+    console.error('Erro ao carregar lixeira:', error)
   } finally {
     carregando.value = false
   }
@@ -57,8 +57,8 @@ async function restaurar(item) {
     mensagemSucesso.value = 'Agendamento restaurado com sucesso.'
     agendamentos.value = agendamentos.value.filter((agendamento) => agendamento.id !== item.id)
   } catch (error) {
-    erro.value = error?.message || 'Nao foi possivel restaurar o agendamento.'
-    console.error(error)
+    erro.value = limparMensagemBackend(error?.message) || 'Nao foi possivel restaurar o agendamento.'
+    console.error('Erro ao restaurar agendamento:', error)
   } finally {
     restaurandoId.value = null
   }
@@ -70,6 +70,62 @@ function extrairLista(resposta) {
   }
 
   return resposta?.content || resposta?.items || resposta?.dados || resposta?.agendamentos || []
+}
+
+function obterMensagemErroLixeira(error) {
+  return (
+    obterMensagemErroPermissao(error) ||
+    obterMensagemErroInterno(error, 'Nao foi possivel carregar a lixeira. Tente novamente apos alguns instantes.') ||
+    limparMensagemBackend(error?.message) ||
+    'Nao foi possivel carregar a lixeira. Verifique os filtros ou tente novamente.'
+  )
+}
+
+function obterMensagemErroPermissao(error) {
+  const mensagem = String(error?.message || '').toLowerCase()
+
+  return mensagem.includes('forbidden') ||
+    mensagem.includes('permiss') ||
+    mensagem.includes('403') ||
+    mensagem.includes('unauthorized')
+    ? 'Voce nao tem permissao para acessar a lixeira.'
+    : ''
+}
+
+function obterMensagemErroInterno(error, mensagemPadrao) {
+  const mensagem = String(error?.message || '').toLowerCase()
+
+  return mensagem.includes('500') ||
+    mensagem.includes('internal server error') ||
+    mensagem.includes('erro interno')
+    ? mensagemPadrao
+    : ''
+}
+
+function limparMensagemBackend(mensagem) {
+  const texto = String(mensagem || '').trim()
+
+  if (!texto || mensagemTecnica(texto)) {
+    return ''
+  }
+
+  return texto.length > 220 ? '' : texto
+}
+
+function mensagemTecnica(mensagem) {
+  const texto = mensagem.toLowerCase()
+
+  return (
+    texto.length > 500 ||
+    texto.includes('select ') ||
+    texto.includes(' from ') ||
+    texto.includes('jdbc') ||
+    texto.includes('sql') ||
+    texto.includes('stack trace') ||
+    texto.includes('exception') ||
+    texto.includes('org.hibernate') ||
+    texto.includes('java.')
+  )
 }
 
 function obterCampo(item, ...campos) {
