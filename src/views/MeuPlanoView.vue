@@ -9,18 +9,32 @@ const erro = ref('')
 
 const plano = computed(() => assinatura.value?.plano || assinatura.value || {})
 const status = computed(() => assinatura.value?.status || '-')
+const tipoPlano = computed(() =>
+  normalizarTipoPlano(assinatura.value?.tipoPlano ?? plano.value?.tipoPlano ?? usoPlano.value?.tipoPlano),
+)
+const avisoTipoPlano = computed(() => {
+  if (tipoPlano.value === 'PARCERIA') {
+    return 'Você está em um plano especial de parceria.'
+  }
+
+  if (tipoPlano.value === 'INTERNO') {
+    return 'Você está em um plano interno/cortesia.'
+  }
+
+  return ''
+})
 const alertaStatus = computed(() => {
   if (['BLOQUEADA', 'CANCELADA'].includes(status.value)) {
     return {
       tipo: 'vermelho',
-      texto: 'Sua assinatura esta bloqueada ou cancelada.',
+      texto: 'Sua assinatura está bloqueada ou cancelada.',
     }
   }
 
   if (status.value === 'ATRASADA') {
     return {
       tipo: 'amarelo',
-      texto: 'Sua assinatura esta atrasada.',
+      texto: 'Sua assinatura está atrasada.',
     }
   }
 
@@ -28,12 +42,12 @@ const alertaStatus = computed(() => {
 })
 
 const itensUso = computed(() => [
-  criarItemUso('Usuarios', ['usuarios', 'usuariosAtivos', 'qtdUsuarios'], obterLimite('limiteUsuarios')),
+  criarItemUso('Usuários', ['usuarios', 'usuariosAtivos', 'qtdUsuarios'], obterLimite('limiteUsuarios')),
   criarItemUso('Clientes', ['clientes', 'qtdClientes'], obterLimite('limiteClientes')),
-  criarItemUso('Funcionarios', ['funcionarios', 'qtdFuncionarios'], obterLimite('limiteFuncionarios')),
-  criarItemUso('Servicos', ['servicos', 'qtdServicos'], obterLimite('limiteServicos')),
+  criarItemUso('Funcionários', ['funcionarios', 'qtdFuncionarios'], obterLimite('limiteFuncionarios')),
+  criarItemUso('Serviços', ['servicos', 'qtdServicos'], obterLimite('limiteServicos')),
   criarItemUso(
-    'Agendamentos no mes',
+    'Agendamentos no mês',
     ['agendamentosMes', 'agendamentosNoMes', 'qtdAgendamentosMes'],
     obterLimite('limiteAgendamentosMes', 'limiteAgendamentos'),
   ),
@@ -52,7 +66,7 @@ async function carregarMeuPlano() {
     assinatura.value = assinaturaApi || null
     usoPlano.value = usoApi || null
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os dados do plano.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os dados do plano.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -98,6 +112,20 @@ function permissaoLigada(campo) {
   return Boolean(plano.value?.[campo] ?? usoPlano.value?.[campo])
 }
 
+function normalizarTipoPlano(tipo) {
+  return ['COMERCIAL', 'PARCERIA', 'INTERNO'].includes(tipo) ? tipo : 'COMERCIAL'
+}
+
+function rotuloTipoPlano(tipo) {
+  const rotulos = {
+    COMERCIAL: 'Comercial',
+    PARCERIA: 'Parceria / Permuta',
+    INTERNO: 'Interno / Cortesia',
+  }
+
+  return rotulos[normalizarTipoPlano(tipo)] || rotulos.COMERCIAL
+}
+
 function exibirLimite(limite) {
   return limite === null ? 'Ilimitado' : limite
 }
@@ -130,7 +158,7 @@ onMounted(() => {
       <div>
         <p class="subtitulo">Assinatura</p>
         <h1>Meu plano</h1>
-        <p class="descricao">Acompanhe o plano atual, permissoes e limites de uso da empresa.</p>
+        <p class="descricao">Acompanhe o plano atual, permissões e limites de uso da empresa.</p>
       </div>
 
       <button class="botao secundario" @click="carregarMeuPlano">Atualizar dados</button>
@@ -152,8 +180,12 @@ onMounted(() => {
       </section>
 
       <section v-if="proximoDoLimite" class="card alerta amarelo">
-        <p>Voce esta proximo do limite do seu plano.</p>
+        <p>Você está próximo do limite do seu plano.</p>
         <small>Fale com o administrador para alterar seu plano.</small>
+      </section>
+
+      <section v-if="avisoTipoPlano" class="card alerta informativo">
+        <p>{{ avisoTipoPlano }}</p>
       </section>
 
       <section class="grade-resumo">
@@ -169,26 +201,31 @@ onMounted(() => {
         </article>
 
         <article class="card metrica">
+          <span>Tipo</span>
+          <strong>{{ rotuloTipoPlano(tipoPlano) }}</strong>
+        </article>
+
+        <article class="card metrica">
           <span>Data de vencimento</span>
           <strong>{{ formatarData(assinatura?.dataVencimento) }}</strong>
         </article>
 
         <article class="card metrica">
-          <span>Preco mensal</span>
+          <span>Preço mensal</span>
           <strong>{{ formatarPreco(plano.precoMensal ?? assinatura?.precoMensal) }}</strong>
         </article>
       </section>
 
       <section class="card">
         <div class="titulo-card">
-          <h2>Permissoes</h2>
+          <h2>Permissões</h2>
         </div>
 
         <div class="permissoes">
-          <span :class="{ ligado: permissaoLigada('permitePersonalizacao') }">Personalizacao</span>
-          <span :class="{ ligado: permissaoLigada('permiteRelatorios') }">Relatorios</span>
-          <span :class="{ ligado: permissaoLigada('permiteAgendamentoPublico') }">Agendamento publico</span>
-          <span :class="{ ligado: permissaoLigada('permiteSuportePrioritario') }">Suporte prioritario</span>
+          <span :class="{ ligado: permissaoLigada('permitePersonalizacao') }">Personalização</span>
+          <span :class="{ ligado: permissaoLigada('permiteRelatorios') }">Relatórios</span>
+          <span :class="{ ligado: permissaoLigada('permiteAgendamentoPublico') }">Agendamento público</span>
+          <span :class="{ ligado: permissaoLigada('permiteSuportePrioritario') }">Suporte prioritário</span>
         </div>
       </section>
 
@@ -271,7 +308,7 @@ h2 {
 .grade-resumo {
   align-items: stretch;
   display: grid;
-  grid-template-columns: minmax(280px, 1.4fr) repeat(3, minmax(160px, 1fr));
+  grid-template-columns: minmax(280px, 1.4fr) repeat(4, minmax(160px, 1fr));
 }
 
 .metrica {
@@ -371,6 +408,12 @@ h2 {
   border-color: #fde68a;
   background: #fffbeb;
   color: #92400e;
+}
+
+.alerta.informativo {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .erro p,

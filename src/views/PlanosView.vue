@@ -8,6 +8,11 @@ import {
   desativarPlano,
 } from '@/services/api'
 
+const tiposPlano = [
+  { valor: 'COMERCIAL', rotulo: 'Comercial' },
+  { valor: 'PARCERIA', rotulo: 'Parceria / Permuta' },
+  { valor: 'INTERNO', rotulo: 'Interno / Cortesia' },
+]
 const planos = ref([])
 const carregando = ref(true)
 const salvando = ref(false)
@@ -27,8 +32,11 @@ function criarPlanoInicial() {
   return {
     nome: '',
     descricao: '',
+    tipoPlano: 'COMERCIAL',
     precoMensal: '',
     ativo: true,
+    visivelParaEmpresa: true,
+    observacaoInterna: '',
     limiteUsuarios: '',
     limiteClientes: '',
     limiteFuncionarios: '',
@@ -47,7 +55,7 @@ async function carregarPlanos() {
     erro.value = ''
     planos.value = extrairLista(await buscarPlanos())
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os planos.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os planos.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -78,7 +86,7 @@ async function salvarPlano() {
     cancelarEdicao(false)
     await carregarPlanos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar o plano.')
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar o plano.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -101,7 +109,7 @@ async function alternarAtivo(planoItem) {
 
     await carregarPlanos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel atualizar o status do plano.')
+    erro.value = obterMensagemErro(error, 'Não foi possível atualizar o status do plano.')
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -115,8 +123,11 @@ function editarPlano(planoItem) {
   plano.value = {
     nome: planoItem.nome || '',
     descricao: planoItem.descricao || '',
+    tipoPlano: normalizarTipoPlano(planoItem.tipoPlano),
     precoMensal: planoItem.precoMensal ?? planoItem.preco ?? '',
     ativo: estaAtivo(planoItem),
+    visivelParaEmpresa: planoItem.visivelParaEmpresa ?? true,
+    observacaoInterna: planoItem.observacaoInterna || '',
     limiteUsuarios: obterLimite(planoItem, 'limiteUsuarios'),
     limiteClientes: obterLimite(planoItem, 'limiteClientes'),
     limiteFuncionarios: obterLimite(planoItem, 'limiteFuncionarios'),
@@ -142,8 +153,11 @@ function montarPayloadPlano() {
   return {
     nome: plano.value.nome,
     descricao: plano.value.descricao,
+    tipoPlano: normalizarTipoPlano(plano.value.tipoPlano),
     precoMensal: numeroOuZero(plano.value.precoMensal),
     ativo: Boolean(plano.value.ativo),
+    visivelParaEmpresa: plano.value.visivelParaEmpresa !== false,
+    observacaoInterna: plano.value.observacaoInterna,
     limiteUsuarios: limiteOuNulo(plano.value.limiteUsuarios),
     limiteClientes: limiteOuNulo(plano.value.limiteClientes),
     limiteFuncionarios: limiteOuNulo(plano.value.limiteFuncionarios),
@@ -182,6 +196,14 @@ function estaAtivo(planoItem) {
   return planoItem.ativo !== false
 }
 
+function normalizarTipoPlano(tipoPlano) {
+  return ['COMERCIAL', 'PARCERIA', 'INTERNO'].includes(tipoPlano) ? tipoPlano : 'COMERCIAL'
+}
+
+function rotuloTipoPlano(tipoPlano) {
+  return tiposPlano.find((tipo) => tipo.valor === normalizarTipoPlano(tipoPlano))?.rotulo || 'Comercial'
+}
+
 function formatarPreco(preco) {
   return Number(preco || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -208,9 +230,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao SaaS</p>
+        <p class="subtitulo">Administração SaaS</p>
         <h1>Planos</h1>
-        <p class="descricao">Gerencie os planos comerciais e limites de uso das empresas.</p>
+        <p class="descricao">Gerencie planos comerciais, parcerias, cortesias e limites de uso das empresas.</p>
       </div>
 
       <button class="botao secundario" @click="carregarPlanos">Atualizar dados</button>
@@ -228,7 +250,7 @@ onMounted(() => {
     <form class="card formulario" @submit.prevent="salvarPlano">
       <div class="titulo-card">
         <h2>{{ planoEditandoId ? 'Editar plano' : 'Novo plano' }}</h2>
-        <p>Limites vazios serao tratados como ilimitados.</p>
+        <p>Limites vazios serão tratados como ilimitados.</p>
       </div>
 
       <div class="campos">
@@ -237,15 +259,33 @@ onMounted(() => {
           <input v-model="plano.nome" type="text" />
         </label>
         <label>
-          Preco mensal
+          Preço mensal
           <input v-model="plano.precoMensal" type="number" min="0" step="0.01" />
         </label>
+        <label>
+          Tipo do plano
+          <select v-model="plano.tipoPlano">
+            <option v-for="tipo in tiposPlano" :key="tipo.valor" :value="tipo.valor">
+              {{ tipo.rotulo }}
+            </option>
+          </select>
+          <small>Use Parceria para empresas que recebem o sistema por permuta, troca de serviços ou acordo especial.</small>
+        </label>
         <label class="campo-grande">
-          Descricao
+          Descrição
           <textarea v-model="plano.descricao" rows="3"></textarea>
         </label>
+        <label class="campo-grande">
+          Observação interna
+          <textarea
+            v-model="plano.observacaoInterna"
+            rows="3"
+            placeholder="Ex: Permuta por banho e tosa mensal."
+          ></textarea>
+          <small>Visível apenas para o SUPER_ADMIN. Use para registrar detalhes comerciais, permutas ou acordos internos.</small>
+        </label>
         <label>
-          Limite de usuarios
+          Limite de usuários
           <input v-model="plano.limiteUsuarios" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
@@ -253,15 +293,15 @@ onMounted(() => {
           <input v-model="plano.limiteClientes" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
-          Limite de funcionarios
+          Limite de funcionários
           <input v-model="plano.limiteFuncionarios" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
-          Limite de servicos
+          Limite de serviços
           <input v-model="plano.limiteServicos" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
-          Limite de agendamentos/mes
+          Limite de agendamentos/mês
           <input v-model="plano.limiteAgendamentosMes" type="number" min="0" placeholder="Ilimitado" />
         </label>
       </div>
@@ -271,21 +311,26 @@ onMounted(() => {
           <input v-model="plano.ativo" type="checkbox" />
           Ativo
         </label>
+        <label class="campo-checkbox ajuda-checkbox">
+          <input v-model="plano.visivelParaEmpresa" type="checkbox" />
+          Visível para a empresa
+          <small>Se desmarcado, a empresa verá apenas uma descrição simplificada do plano.</small>
+        </label>
         <label class="campo-checkbox">
           <input v-model="plano.permitePersonalizacao" type="checkbox" />
-          Permite personalizacao
+          Permite personalização
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permiteRelatorios" type="checkbox" />
-          Permite relatorios
+          Permite relatórios
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permiteAgendamentoPublico" type="checkbox" />
-          Permite agendamento publico
+          Permite agendamento público
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permiteSuportePrioritario" type="checkbox" />
-          Permite suporte prioritario
+          Permite suporte prioritário
         </label>
       </div>
 
@@ -294,7 +339,7 @@ onMounted(() => {
           {{ salvando ? 'Salvando...' : 'Salvar plano' }}
         </button>
         <button v-if="planoEditandoId" type="button" class="botao secundario" @click="cancelarEdicao">
-          Cancelar edicao
+          Cancelar edição
         </button>
       </div>
     </form>
@@ -327,23 +372,30 @@ onMounted(() => {
             <span :class="['status', estaAtivo(planoItem) ? 'ativo' : 'inativo']">
               {{ estaAtivo(planoItem) ? 'Ativo' : 'Inativo' }}
             </span>
+            <span :class="['tipo-plano', normalizarTipoPlano(planoItem.tipoPlano).toLowerCase()]">
+              {{ rotuloTipoPlano(planoItem.tipoPlano) }}
+            </span>
           </div>
 
           <p class="texto">{{ planoItem.descricao || '-' }}</p>
+          <p v-if="planoItem.observacaoInterna" class="observacao-interna">
+            <strong>Observação interna:</strong> {{ planoItem.observacaoInterna }}
+          </p>
 
           <div class="limites">
-            <span>Usuarios: {{ exibirLimite(planoItem.limiteUsuarios) }}</span>
+            <span>Usuários: {{ exibirLimite(planoItem.limiteUsuarios) }}</span>
             <span>Clientes: {{ exibirLimite(planoItem.limiteClientes) }}</span>
-            <span>Funcionarios: {{ exibirLimite(planoItem.limiteFuncionarios) }}</span>
-            <span>Servicos: {{ exibirLimite(planoItem.limiteServicos) }}</span>
-            <span>Agendamentos/mes: {{ exibirLimite(planoItem.limiteAgendamentosMes ?? planoItem.limiteAgendamentos) }}</span>
+            <span>Funcionários: {{ exibirLimite(planoItem.limiteFuncionarios) }}</span>
+            <span>Serviços: {{ exibirLimite(planoItem.limiteServicos) }}</span>
+            <span>Agendamentos/mês: {{ exibirLimite(planoItem.limiteAgendamentosMes ?? planoItem.limiteAgendamentos) }}</span>
           </div>
 
           <div class="permissoes">
-            <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalizacao</span>
-            <span :class="{ ligado: planoItem.permiteRelatorios }">Relatorios</span>
-            <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento publico</span>
-            <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritario</span>
+            <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalização</span>
+            <span :class="{ ligado: planoItem.permiteRelatorios }">Relatórios</span>
+            <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento público</span>
+            <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritário</span>
+            <span :class="{ ligado: planoItem.visivelParaEmpresa ?? true }">Visível para empresa</span>
           </div>
 
           <div class="acoes">
@@ -444,6 +496,7 @@ label {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
@@ -454,6 +507,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   outline: 2px solid #bfdbfe;
   border-color: #2563eb;
@@ -477,8 +531,20 @@ textarea:focus {
   padding: 10px 12px;
 }
 
+.campo-checkbox.ajuda-checkbox {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
 .campo-checkbox input {
   width: auto;
+}
+
+label small {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .lista {
@@ -489,6 +555,7 @@ textarea:focus {
 
 .contador,
 .status,
+.tipo-plano,
 .limites span,
 .permissoes span {
   border-radius: 999px;
@@ -513,6 +580,34 @@ textarea:focus {
 .permissoes span {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.tipo-plano.comercial {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.tipo-plano.parceria {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tipo-plano.interno {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.observacao-interna {
+  margin: 0;
+  border-left: 4px solid #2563eb;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #334155;
+}
+
+.observacao-interna strong {
+  font-weight: 800;
 }
 
 .preco {

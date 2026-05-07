@@ -8,6 +8,11 @@ import {
 } from '@/services/api'
 
 const statusAssinatura = ['ATIVA', 'TESTE', 'ATRASADA', 'BLOQUEADA', 'CANCELADA']
+const tiposPlano = [
+  { valor: 'COMERCIAL', rotulo: 'Comercial' },
+  { valor: 'PARCERIA', rotulo: 'Parceria / Permuta' },
+  { valor: 'INTERNO', rotulo: 'Interno / Cortesia' },
+]
 const assinaturas = ref([])
 const empresas = ref([])
 const planos = ref([])
@@ -38,6 +43,7 @@ function criarAssinaturaInicial() {
     dataFim: '',
     dataVencimento: '',
     observacao: '',
+    observacaoComercial: '',
   }
 }
 
@@ -56,7 +62,7 @@ async function carregarDados() {
     empresas.value = extrairLista(empresasApi)
     planos.value = extrairLista(planosApi)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar as assinaturas.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar as assinaturas.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -84,7 +90,7 @@ async function salvarAssinatura() {
     cancelarEdicao(false)
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar a assinatura.')
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar a assinatura.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -103,6 +109,7 @@ function editarAssinatura(item) {
     dataFim: formatarDataInput(item.dataFim),
     dataVencimento: formatarDataInput(item.dataVencimento),
     observacao: item.observacao || '',
+    observacaoComercial: item.observacaoComercial || '',
   }
 }
 
@@ -123,6 +130,7 @@ function montarPayloadAssinatura() {
     dataFim: dataOuNulo(assinatura.value.dataFim),
     dataVencimento: dataOuNulo(assinatura.value.dataVencimento),
     observacao: assinatura.value.observacao,
+    observacaoComercial: assinatura.value.observacaoComercial,
   }
 }
 
@@ -182,6 +190,18 @@ function precoPlano(item) {
   return item.precoMensal ?? item.planoPrecoMensal ?? item.plano?.precoMensal ?? buscarPlanoPorId(item.planoId)?.precoMensal
 }
 
+function tipoPlano(item) {
+  return normalizarTipoPlano(item.tipoPlano ?? item.plano?.tipoPlano ?? buscarPlanoPorId(item.planoId)?.tipoPlano)
+}
+
+function normalizarTipoPlano(tipo) {
+  return ['COMERCIAL', 'PARCERIA', 'INTERNO'].includes(tipo) ? tipo : 'COMERCIAL'
+}
+
+function rotuloTipoPlano(tipo) {
+  return tiposPlano.find((tipoItem) => tipoItem.valor === normalizarTipoPlano(tipo))?.rotulo || 'Comercial'
+}
+
 function buscarEmpresaPorId(id) {
   return empresas.value.find((empresa) => String(empresa.id) === String(id))
 }
@@ -198,9 +218,9 @@ function limitesResumo(item) {
   const plano = item.plano || buscarPlanoPorId(item.planoId) || {}
 
   return [
-    `Usuarios: ${exibirLimite(plano.limiteUsuarios ?? item.limiteUsuarios)}`,
+    `Usuários: ${exibirLimite(plano.limiteUsuarios ?? item.limiteUsuarios)}`,
     `Clientes: ${exibirLimite(plano.limiteClientes ?? item.limiteClientes)}`,
-    `Servicos: ${exibirLimite(plano.limiteServicos ?? item.limiteServicos)}`,
+    `Serviços: ${exibirLimite(plano.limiteServicos ?? item.limiteServicos)}`,
     `Agend.: ${exibirLimite(plano.limiteAgendamentosMes ?? item.limiteAgendamentosMes)}`,
   ].join(' | ')
 }
@@ -220,7 +240,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao SaaS</p>
+        <p class="subtitulo">Administração SaaS</p>
         <h1>Assinaturas</h1>
         <p class="descricao">Vincule empresas aos planos e acompanhe status comerciais.</p>
       </div>
@@ -312,7 +332,7 @@ onMounted(() => {
           </select>
         </label>
         <label>
-          Data inicio
+          Data início
           <input v-model="assinatura.dataInicio" type="date" />
         </label>
         <label>
@@ -324,8 +344,13 @@ onMounted(() => {
           <input v-model="assinatura.dataVencimento" type="date" />
         </label>
         <label class="campo-grande">
-          Observacao
+          Observação
           <textarea v-model="assinatura.observacao" rows="3"></textarea>
+        </label>
+        <label class="campo-grande">
+          Observação comercial da assinatura
+          <textarea v-model="assinatura.observacaoComercial" rows="3"></textarea>
+          <small>Use para registrar o acordo com esta empresa, como permuta, cortesia ou condição especial.</small>
         </label>
       </div>
 
@@ -334,7 +359,7 @@ onMounted(() => {
           {{ salvando ? 'Salvando...' : 'Salvar assinatura' }}
         </button>
         <button v-if="empresaEditandoId" type="button" class="botao secundario" @click="cancelarEdicao">
-          Cancelar edicao
+          Cancelar edição
         </button>
       </div>
     </form>
@@ -343,7 +368,7 @@ onMounted(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Assinaturas das empresas</h2>
-          <p>Cards com plano, vencimento, limites e observacoes.</p>
+          <p>Cards com plano, vencimento, limites e observações.</p>
         </div>
         <span class="contador">{{ assinaturasOrdenadas.length }} assinatura(s)</span>
       </div>
@@ -364,13 +389,18 @@ onMounted(() => {
               <p class="preco">{{ nomePlano(item) }} - {{ formatarPreco(precoPlano(item)) }}</p>
             </div>
             <span :class="['status', String(item.status || '').toLowerCase()]">{{ item.status || '-' }}</span>
+            <span :class="['tipo-plano', tipoPlano(item).toLowerCase()]">
+              {{ rotuloTipoPlano(tipoPlano(item)) }}
+            </span>
           </div>
 
           <div class="detalhes">
-            <p><strong>Data inicio:</strong> {{ formatarData(item.dataInicio) }}</p>
+            <p><strong>Tipo do plano:</strong> {{ rotuloTipoPlano(tipoPlano(item)) }}</p>
+            <p><strong>Data início:</strong> {{ formatarData(item.dataInicio) }}</p>
             <p><strong>Data vencimento:</strong> {{ formatarData(item.dataVencimento) }}</p>
             <p><strong>Limites:</strong> {{ limitesResumo(item) }}</p>
-            <p><strong>Observacao:</strong> {{ item.observacao || '-' }}</p>
+            <p><strong>Observação:</strong> {{ item.observacao || '-' }}</p>
+            <p><strong>Observação comercial:</strong> {{ item.observacaoComercial || '-' }}</p>
           </div>
 
           <div class="acoes">
@@ -463,6 +493,13 @@ label {
   font-weight: 800;
 }
 
+label small {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 input,
 select,
 textarea {
@@ -488,7 +525,8 @@ textarea:focus {
 }
 
 .contador,
-.status {
+.status,
+.tipo-plano {
   border-radius: 999px;
   padding: 8px 12px;
   font-size: 13px;
@@ -520,6 +558,21 @@ textarea:focus {
 .status.teste {
   background: #dcfce7;
   color: #166534;
+}
+
+.tipo-plano.comercial {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.tipo-plano.parceria {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tipo-plano.interno {
+  background: #ede9fe;
+  color: #5b21b6;
 }
 
 .preco {
