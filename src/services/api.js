@@ -800,8 +800,70 @@ export async function buscarRelatorioFinanceiro(filtros = {}) {
   return tratarResposta(response)
 }
 
+export async function buscarRelatorioResumo(filtros = {}) {
+  return buscarRelatorio('/relatorios/resumo', filtros)
+}
+
+export async function buscarRelatorioAgendamentosPorDia(filtros = {}) {
+  return buscarRelatorio('/relatorios/agendamentos-por-dia', filtros)
+}
+
+export async function buscarRelatorioReceitaPorDia(filtros = {}) {
+  return buscarRelatorio('/relatorios/receita-por-dia', filtros)
+}
+
+export async function buscarRelatorioServicos(filtros = {}) {
+  return buscarRelatorio('/relatorios/servicos', filtros)
+}
+
+export async function buscarRelatorioFuncionarios(filtros = {}) {
+  return buscarRelatorio('/relatorios/funcionarios', filtros)
+}
+
+export async function buscarRelatorioClientesRecorrentes(filtros = {}) {
+  return buscarRelatorio('/relatorios/clientes-recorrentes', filtros)
+}
+
+export async function buscarRelatorioStatus(filtros = {}) {
+  return buscarRelatorio('/relatorios/status', filtros)
+}
+
 export async function buscarRelatorioAgendamentos(filtros = {}) {
-  const response = await fetch(`${API_URL}/relatorios/agendamentos${montarQueryString(filtros)}`, {
+  return buscarRelatorio('/relatorios/agendamentos', filtros)
+}
+
+export async function baixarRelatorioAgendamentosCsv(filtros = {}) {
+  const response = await fetch(`${API_URL}/relatorios/agendamentos.csv${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  if (!response.ok) {
+    const mensagem = await extrairMensagemResposta(response)
+
+    if (response.status === 401) {
+      encerrarSessao()
+    }
+
+    throw new Error(mensagem || 'Não foi possível exportar o relatório.')
+  }
+
+  const blob = await response.blob()
+  const data = new Date().toISOString().slice(0, 10)
+  const nomeArquivo = `relatorio-agendamentos-${data}.csv`
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = nomeArquivo
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+
+  return nomeArquivo
+}
+
+async function buscarRelatorio(caminho, filtros = {}) {
+  const response = await fetch(`${API_URL}${caminho}${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
