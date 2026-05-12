@@ -67,7 +67,7 @@ async function enviarSolicitacao() {
     }
 
     if (!aceiteContato.value) {
-      erro.value = 'Você precisa aceitar o contato para enviar a solicitação.'
+      erro.value = 'Voce precisa aceitar o contato para enviar a solicitação.'
       return
     }
 
@@ -76,7 +76,7 @@ async function enviarSolicitacao() {
     sucesso.value = 'Solicitação enviada com sucesso. Nossa equipe irá analisar seus dados e entrar em contato.'
     limparFormulario()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível enviar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel enviar a solicitação.')
     console.error(error)
   } finally {
     enviando.value = false
@@ -167,7 +167,7 @@ onMounted(() => {
             <label>Documento <input v-model="formulario.documento" type="text" /></label>
             <label>Telefone <input v-model="formulario.telefoneEmpresa" type="text" /></label>
             <label>E-mail da empresa <input v-model="formulario.emailEmpresa" type="email" /></label>
-            <label class="campo-grande">Endereço <input v-model="formulario.endereco" type="text" /></label>
+            <label class="campo-grande">Endereco <input v-model="formulario.endereco" type="text" /></label>
             <label>
               Segmento de negócio
               <select v-model="formulario.segmentoNegocioId" :disabled="carregando">
@@ -186,7 +186,7 @@ onMounted(() => {
                 </option>
               </select>
               <small v-if="!carregando && planos.length === 0">
-                Nenhum plano público disponível no momento. Nossa equipe irá indicar o melhor plano após análise.
+                Nenhum plano publico disponivel no momento. Nossa equipe irá indicar o melhor plano apos análise.
               </small>
             </label>
           </div>
@@ -204,7 +204,7 @@ onMounted(() => {
         <section class="secao">
           <h2>Mensagem</h2>
           <label class="campo-grande">
-            Conte rapidamente o que você precisa
+            Conte rapidamente o que voce precisa
             <textarea v-model="formulario.mensagem" rows="4"></textarea>
           </label>
           <label class="checkbox">

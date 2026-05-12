@@ -56,7 +56,7 @@ async function carregarPlanos() {
     erro.value = ''
     planos.value = extrairLista(await buscarPlanos())
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível carregar os planos.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os planos.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -87,7 +87,7 @@ async function salvarPlano() {
     cancelarEdicao(false)
     await carregarPlanos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível salvar o plano.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar o plano.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -110,7 +110,7 @@ async function alternarAtivo(planoItem) {
 
     await carregarPlanos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível atualizar o status do plano.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel atualizar o status do plano.')
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -250,7 +250,7 @@ watch(
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
+        <p class="subtitulo">Administracao SaaS</p>
         <h1>Planos</h1>
         <p class="descricao">Gerencie planos comerciais, parcerias, cortesias e limites de uso das empresas.</p>
       </div>
@@ -279,7 +279,7 @@ watch(
           <input v-model="plano.nome" type="text" />
         </label>
         <label>
-          Preço mensal
+          Preco mensal
           <input v-model="plano.precoMensal" type="number" min="0" step="0.01" />
         </label>
         <label>
@@ -289,23 +289,23 @@ watch(
               {{ tipo.rotulo }}
             </option>
           </select>
-          <small>Use Parceria para empresas que recebem o sistema por permuta, troca de serviços ou acordo especial.</small>
+          <small>Use Parceria para empresas que recebem o sistema por permuta, troca de servicos ou acordo especial.</small>
         </label>
         <label class="campo-grande">
-          Descrição
+          Descricao
           <textarea v-model="plano.descricao" rows="3"></textarea>
         </label>
         <label class="campo-grande">
-          Observação interna
+          Observacao interna
           <textarea
             v-model="plano.observacaoInterna"
             rows="3"
-            placeholder="Ex: Permuta por banho e tosa mensal."
+            placeholder="Ex: Permuta por banao e tosa mensal."
           ></textarea>
           <small>Visível apenas para o SUPER_ADMIN. Use para registrar detalhes comerciais, permutas ou acordos internos.</small>
         </label>
         <label>
-          Limite de usuários
+          Limite de usuarios
           <input v-model="plano.limiteUsuarios" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
@@ -313,11 +313,11 @@ watch(
           <input v-model="plano.limiteClientes" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
-          Limite de funcionários
+          Limite de funcionarios
           <input v-model="plano.limiteFuncionarios" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
-          Limite de serviços
+          Limite de servicos
           <input v-model="plano.limiteServicos" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
@@ -334,24 +334,24 @@ watch(
         <label class="campo-checkbox ajuda-checkbox">
           <input v-model="plano.visivelParaEmpresa" type="checkbox" />
           Visível para a empresa
-          <small>Quando desmarcado, a empresa verá o nome Plano especial na tela Meu plano.</small>
+          <small>Quanao desmarcado, a empresa verá o nome Plano especial na tela Meu plano.</small>
         </label>
         <label class="campo-checkbox ajuda-checkbox">
           <input v-model="plano.exibirNoCadastroPublico" type="checkbox" />
-          Exibir no cadastro público
-          <small>Quando marcado, este plano aparece para empresas externas na página Comece agora.</small>
+          Exibir no cadastro publico
+          <small>Quanao marcado, este plano aparece para empresas externas na página Comece agora.</small>
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permitePersonalizacao" type="checkbox" />
-          Permite personalização
+          Permite personalizacao
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permiteRelatorios" type="checkbox" />
-          Permite relatórios
+          Permite relatorios
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permiteAgendamentoPublico" type="checkbox" />
-          Permite agendamento público
+          Permite agendamento publico
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permiteSuportePrioritario" type="checkbox" />
@@ -384,7 +384,7 @@ watch(
       </section>
 
       <section v-else-if="planosOrdenados.length === 0" class="card">
-        <p>Nenhum plano encontrado.</p>
+        <p>Nenhum plano enaontrado.</p>
       </section>
 
       <section v-else class="lista">
@@ -404,27 +404,27 @@ watch(
 
           <p class="texto">{{ planoItem.descricao || '-' }}</p>
           <p v-if="planoItem.observacaoInterna" class="observacao-interna">
-            <strong>Observação interna:</strong> {{ planoItem.observacaoInterna }}
+            <strong>Observacao interna:</strong> {{ planoItem.observacaoInterna }}
           </p>
 
           <div class="limites">
-            <span>Usuários: {{ exibirLimite(planoItem.limiteUsuarios) }}</span>
+            <span>Usuarios: {{ exibirLimite(planoItem.limiteUsuarios) }}</span>
             <span>Clientes: {{ exibirLimite(planoItem.limiteClientes) }}</span>
-            <span>Funcionários: {{ exibirLimite(planoItem.limiteFuncionarios) }}</span>
-            <span>Serviços: {{ exibirLimite(planoItem.limiteServicos) }}</span>
+            <span>Funcionarios: {{ exibirLimite(planoItem.limiteFuncionarios) }}</span>
+            <span>Servicos: {{ exibirLimite(planoItem.limiteServicos) }}</span>
             <span>Agendamentos/mês: {{ exibirLimite(planoItem.limiteAgendamentosMes ?? planoItem.limiteAgendamentos) }}</span>
           </div>
 
           <div class="permissoes">
-            <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalização</span>
-            <span :class="{ ligado: planoItem.permiteRelatorios }">Relatórios</span>
-            <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento público</span>
+            <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalizacao</span>
+            <span :class="{ ligado: planoItem.permiteRelatorios }">Relatorios</span>
+            <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento publico</span>
             <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritário</span>
             <span :class="{ ligado: planoVisivelParaEmpresa(planoItem) }">
-              Visível para empresa: {{ planoVisivelParaEmpresa(planoItem) ? 'Sim' : 'Não' }}
+              Visível para empresa: {{ planoVisivelParaEmpresa(planoItem) ? 'Sim' : 'Nao' }}
             </span>
             <span :class="{ ligado: planoExibidoNoCadastroPublico(planoItem) }">
-              Cadastro público: {{ planoExibidoNoCadastroPublico(planoItem) ? 'Sim' : 'Não' }}
+              Cadastro publico: {{ planoExibidoNoCadastroPublico(planoItem) ? 'Sim' : 'Nao' }}
             </span>
           </div>
 

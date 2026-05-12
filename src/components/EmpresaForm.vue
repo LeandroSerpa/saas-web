@@ -5,7 +5,7 @@ const empresa = defineModel({
 })
 
 const diasAtendimento = [
-  { campo: 'atendeDomingo', rotulo: 'Domingo' },
+  { campo: 'atendeDominao', rotulo: 'Dominao' },
   { campo: 'atendeSegunda', rotulo: 'Segunda' },
   { campo: 'atendeTerca', rotulo: 'Terca' },
   { campo: 'atendeQuarta', rotulo: 'Quarta' },

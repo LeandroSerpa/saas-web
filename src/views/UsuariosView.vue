@@ -328,7 +328,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="usuarios.length === 0" class="card">
-        <p>Nenhum usuario encontrado.</p>
+        <p>Nenhum usuario enaontrado.</p>
       </section>
 
       <section v-else class="lista-usuarios">
@@ -374,7 +374,7 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === usuarioItem.id" class="atualizando">
-            Atualizando usuario...
+            Atualizanao usuario...
           </p>
         </article>
       </section>

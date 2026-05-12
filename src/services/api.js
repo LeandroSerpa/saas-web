@@ -49,7 +49,7 @@ function encerrarSessao() {
 }
 
 async function extrairMensagemErro(response) {
-  const mensagemPadrao = 'Não foi possível concluir a operação.'
+  const mensagemPadrao = 'Nao foi possivel concluir a operacao.'
 
   const dados = await lerJsonErro(response)
 
@@ -133,7 +133,7 @@ function mensagemGenerica(mensagem) {
 }
 
 async function extrairMensagemResposta(response) {
-  const mensagemPadrao = 'Não foi possível concluir a operação.'
+  const mensagemPadrao = 'Nao foi possivel concluir a operacao.'
 
   try {
     const data = await response.clone().json()
@@ -408,7 +408,7 @@ export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionar
   const response = await fetch(`${API_URL}/servicos/${servicoId}/funcionarios`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify({ funcionarioIds }),
+    body: JSON.stringify(funcionarioIds),
   })
 
   return tratarResposta(response)
@@ -426,7 +426,7 @@ export async function salvarServicosVinculadosAoFuncionario(funcionarioId, servi
   const response = await fetch(`${API_URL}/funcionarios/${funcionarioId}/servicos`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify({ servicoIds }),
+    body: JSON.stringify(servicoIds),
   })
 
   return tratarResposta(response)
@@ -643,8 +643,8 @@ export async function cancelarFatura(id, dados = {}) {
   return tratarResposta(response)
 }
 
-export async function buscarRelatorioOperacional(filtros = {}) {
-  const response = await fetch(`${API_URL}/relatorios/operacional${montarQueryString(filtros)}`, {
+export async function buscarRelatorioOperacaonal(filtros = {}) {
+  const response = await fetch(`${API_URL}/relatorios/operacaonal${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 

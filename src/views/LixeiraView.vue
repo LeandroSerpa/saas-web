@@ -26,22 +26,22 @@ const periodoAplicado = computed(() => {
   const dataFim = formatarDataFiltro(filtros.value.dataFim)
 
   if (!dataInicio && !dataFim) {
-    return 'Período aplicado: todos os agendamentos excluídos.'
+    return 'Periodo aplicado: todos os agendamentos excluídos.'
   }
 
   if (dataInicio && !dataFim) {
-    return `Período aplicado: agendamentos a partir de ${dataInicio}.`
+    return `Periodo aplicado: agendamentos a partir de ${dataInicio}.`
   }
 
   if (!dataInicio && dataFim) {
-    return `Período aplicado: agendamentos até ${dataFim}.`
+    return `Periodo aplicado: agendamentos até ${dataFim}.`
   }
 
   if (filtros.value.dataInicio === filtros.value.dataFim) {
-    return `Período aplicado: agendamentos do dia ${dataInicio}.`
+    return `Periodo aplicado: agendamentos do dia ${dataInicio}.`
   }
 
-  return `Período aplicado: agendamentos de ${dataInicio} até ${dataFim}.`
+  return `Periodo aplicado: agendamentos de ${dataInicio} até ${dataFim}.`
 })
 
 onMounted(() => {
@@ -51,7 +51,7 @@ onMounted(() => {
 
 async function carregarLixeira() {
   if (!datasValidas()) {
-    erro.value = 'A data inicial não pode ser maior que a data final.'
+    erro.value = 'A data inicial nao pode ser maior que a data final.'
     return
   }
 
@@ -79,7 +79,7 @@ async function carregarEmpresasFiltro() {
     const resposta = await buscarEmpresas()
     empresas.value = extrairLista(resposta)
   } catch (error) {
-    erroEmpresas.value = 'Não foi possível carregar a lista de empresas.'
+    erroEmpresas.value = 'Nao foi possivel carregar a lista de empresas.'
     console.error('Erro ao carregar empresas para filtro da lixeira:', error)
   } finally {
     carregandoEmpresas.value = false
@@ -290,11 +290,11 @@ function obterSituacao(item) {
         <p class="subtitulo">Super admin</p>
         <h1>Lixeira de agendamentos</h1>
         <p class="descricao">
-          Agendamentos excluídos não são apagados definitivamente. O SUPER_ADMIN pode consultar e
-          restaurar registros quando não houver conflito de horário.
+          Agendamentos excluídos nao são apagados definitivamente. O SUPER_ADMIN pode consultar e
+          restaurar registros quanao nao houver conflito de horario.
         </p>
         <p class="observacao-super-admin">
-          Como SUPER_ADMIN, você está visualizando agendamentos excluídos de todas as empresas.
+          Como SUPER_ADMIN, voce está visualizanao agendamentos excluídos de todas as empresas.
           Use o filtro Empresa para visualizar uma empresa específica.
         </p>
       </div>
@@ -328,12 +328,12 @@ function obterSituacao(item) {
           <input v-model="filtros.cliente" type="text" placeholder="Nome do cliente" />
         </label>
         <label>
-          Funcionário
-          <input v-model="filtros.funcionario" type="text" placeholder="Nome do funcionário" />
+          Funcionario
+          <input v-model="filtros.funcionario" type="text" placeholder="Nome do funcionario" />
         </label>
         <label>
-          Serviço
-          <input v-model="filtros.servico" type="text" placeholder="Nome do serviço" />
+          Servico
+          <input v-model="filtros.servico" type="text" placeholder="Nome do servico" />
         </label>
         <label>
           Data inicial do agendamento
@@ -359,7 +359,7 @@ function obterSituacao(item) {
 
     <section class="card">
       <p v-if="carregando">Carregando agendamentos excluídos...</p>
-      <p v-else-if="!agendamentos.length" class="vazio">Nenhum agendamento excluído encontrado.</p>
+      <p v-else-if="!agendamentos.length" class="vazio">Nenhum agendamento excluído enaontrado.</p>
 
       <div v-else class="lista">
         <article v-for="item in agendamentos" :key="item.id" class="agendamento-card">
@@ -388,11 +388,11 @@ function obterSituacao(item) {
               <dd>{{ obterCampo(item, 'clienteNome', 'nomeCliente', 'cliente') || '-' }}</dd>
             </div>
             <div>
-              <dt>Serviço</dt>
+              <dt>Servico</dt>
               <dd>{{ obterCampo(item, 'servicoNome', 'nomeServico', 'servico') || '-' }}</dd>
             </div>
             <div>
-              <dt>Funcionário</dt>
+              <dt>Funcionario</dt>
               <dd>{{ obterCampo(item, 'funcionarioNome', 'nomeFuncionario', 'funcionario') || '-' }}</dd>
             </div>
             <div>
@@ -400,7 +400,7 @@ function obterSituacao(item) {
               <dd>{{ formatarData(obterDataHoraAgendamento(item)) }}</dd>
             </div>
             <div>
-              <dt>Horário do agendamento</dt>
+              <dt>Horario do agendamento</dt>
               <dd>{{ formatarHorario(obterCampo(item, 'dataHoraInicio', 'horarioInicio', 'hora')) }}</dd>
             </div>
             <div>
@@ -412,11 +412,11 @@ function obterSituacao(item) {
               <dd><span class="situacao-excluido">{{ obterSituacao(item) }}</span></dd>
             </div>
             <div>
-              <dt>Preço</dt>
+              <dt>Preco</dt>
               <dd>{{ formatarPreco(obterCampo(item, 'preco', 'valor')) }}</dd>
             </div>
             <div class="item-largo">
-              <dt>Observação</dt>
+              <dt>Observacao</dt>
               <dd>{{ obterCampo(item, 'observacao') || '-' }}</dd>
             </div>
             <div>

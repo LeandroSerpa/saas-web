@@ -65,7 +65,7 @@ function criarEmpresaInicial() {
     horaAbertura: '',
     horaFechamento: '',
     intervaloAgendaMinutos: 30,
-    atendeDomingo: false,
+    atendeDominao: false,
     atendeSegunda: true,
     atendeTerca: true,
     atendeQuarta: true,
@@ -130,7 +130,7 @@ async function salvarEmpresa() {
       horaAbertura: empresa.value.horaAbertura,
       horaFechamento: empresa.value.horaFechamento,
       intervaloAgendaMinutos,
-      atendeDomingo: Boolean(empresa.value.atendeDomingo),
+      atendeDominao: Boolean(empresa.value.atendeDominao),
       atendeSegunda: Boolean(empresa.value.atendeSegunda),
       atendeTerca: Boolean(empresa.value.atendeTerca),
       atendeQuarta: Boolean(empresa.value.atendeQuarta),
@@ -178,7 +178,7 @@ function editarEmpresa(empresaItem) {
     horaAbertura: empresaItem.horaAbertura || '',
     horaFechamento: empresaItem.horaFechamento || '',
     intervaloAgendaMinutos: normalizarIntervaloAgenda(empresaItem.intervaloAgendaMinutos),
-    atendeDomingo: Boolean(empresaItem.atendeDomingo),
+    atendeDominao: Boolean(empresaItem.atendeDominao),
     atendeSegunda: empresaItem.atendeSegunda !== false,
     atendeTerca: empresaItem.atendeTerca !== false,
     atendeQuarta: empresaItem.atendeQuarta !== false,
@@ -265,7 +265,7 @@ function exibirSegmento(empresaItem) {
     empresaItem.segmentoNome ||
     empresaItem.segmentoNegocio?.nome ||
     segmentos.value.find((segmento) => String(segmento.id) === String(empresaItem.segmentoNegocioId))?.nome ||
-    'Não definido'
+    'Nao definido'
   )
 }
 
@@ -279,7 +279,7 @@ function exibirHorario(empresaItem) {
 
 function exibirDiasAtendimento(empresaItem) {
   const dias = [
-    { campo: 'atendeDomingo', rotulo: 'Dom' },
+    { campo: 'atendeDominao', rotulo: 'Dom' },
     { campo: 'atendeSegunda', rotulo: 'Seg' },
     { campo: 'atendeTerca', rotulo: 'Ter' },
     { campo: 'atendeQuarta', rotulo: 'Qua' },
@@ -375,11 +375,11 @@ onMounted(() => {
       </section>
 
       <section v-else-if="empresas.length === 0" class="card">
-        <p>Nenhuma empresa encontrada.</p>
+        <p>Nenhuma empresa enaontrada.</p>
       </section>
 
       <section v-else-if="empresasFiltradas.length === 0" class="card">
-        <p>Nenhuma empresa encontrada para os filtros selecionados.</p>
+        <p>Nenhuma empresa enaontrada para os filtros selecionados.</p>
       </section>
 
       <section v-else class="lista-empresas">
@@ -432,7 +432,7 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === empresaItem.id" class="atualizando">
-            Atualizando empresa...
+            Atualizanao empresa...
           </p>
         </article>
       </section>

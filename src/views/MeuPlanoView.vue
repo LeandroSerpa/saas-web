@@ -21,11 +21,11 @@ const tipoPlano = computed(() =>
 )
 const avisoTipoPlano = computed(() => {
   if (tipoPlano.value === 'PARCERIA') {
-    return 'Você está em um plano especial de parceria.'
+    return 'Voce está em um plano especial de parceria.'
   }
 
   if (tipoPlano.value === 'INTERNO') {
-    return 'Você está em um plano interno/cortesia.'
+    return 'Voce está em um plano interno/cortesia.'
   }
 
   return ''
@@ -49,10 +49,10 @@ const alertaStatus = computed(() => {
 })
 
 const itensUso = computed(() => [
-  criarItemUso('Usuários', ['usuarios', 'usuariosAtivos', 'qtdUsuarios'], obterLimite('limiteUsuarios')),
+  criarItemUso('Usuarios', ['usuarios', 'usuariosAtivos', 'qtdUsuarios'], obterLimite('limiteUsuarios')),
   criarItemUso('Clientes', ['clientes', 'qtdClientes'], obterLimite('limiteClientes')),
-  criarItemUso('Funcionários', ['funcionarios', 'qtdFuncionarios'], obterLimite('limiteFuncionarios')),
-  criarItemUso('Serviços', ['servicos', 'qtdServicos'], obterLimite('limiteServicos')),
+  criarItemUso('Funcionarios', ['funcionarios', 'qtdFuncionarios'], obterLimite('limiteFuncionarios')),
+  criarItemUso('Servicos', ['servicos', 'qtdServicos'], obterLimite('limiteServicos')),
   criarItemUso(
     'Agendamentos no mês',
     ['agendamentosMes', 'agendamentosNoMes', 'qtdAgendamentosMes'],
@@ -73,7 +73,7 @@ async function carregarMeuPlano() {
     assinatura.value = assinaturaApi || null
     usoPlano.value = usoApi || null
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível carregar os dados do plano.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os dados do plano.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -165,7 +165,7 @@ onMounted(() => {
       <div>
         <p class="subtitulo">Assinatura</p>
         <h1>Meu plano</h1>
-        <p class="descricao">Acompanhe o plano atual, permissões e limites de uso da empresa.</p>
+        <p class="descricao">Acompanhe o plano atual, permissoes e limites de uso da empresa.</p>
       </div>
 
       <button class="botao secundario" @click="carregarMeuPlano">Atualizar dados</button>
@@ -187,7 +187,7 @@ onMounted(() => {
       </section>
 
       <section v-if="proximoDoLimite" class="card alerta amarelo">
-        <p>Você está próximo do limite do seu plano.</p>
+        <p>Voce está próximo do limite do seu plano.</p>
         <small>Fale com o administrador para alterar seu plano.</small>
       </section>
 
@@ -218,7 +218,7 @@ onMounted(() => {
         </article>
 
         <article class="card metrica">
-          <span>Preço mensal</span>
+          <span>Preco mensal</span>
           <strong>{{ formatarPreco(plano.precoMensal ?? assinatura?.precoMensal) }}</strong>
         </article>
       </section>
@@ -229,9 +229,9 @@ onMounted(() => {
         </div>
 
         <div class="permissoes">
-          <span :class="{ ligado: permissaoLigada('permitePersonalizacao') }">Personalização</span>
-          <span :class="{ ligado: permissaoLigada('permiteRelatorios') }">Relatórios</span>
-          <span :class="{ ligado: permissaoLigada('permiteAgendamentoPublico') }">Agendamento público</span>
+          <span :class="{ ligado: permissaoLigada('permitePersonalizacao') }">Personalizacao</span>
+          <span :class="{ ligado: permissaoLigada('permiteRelatorios') }">Relatorios</span>
+          <span :class="{ ligado: permissaoLigada('permiteAgendamentoPublico') }">Agendamento publico</span>
           <span :class="{ ligado: permissaoLigada('permiteSuportePrioritario') }">Suporte prioritário</span>
         </div>
       </section>

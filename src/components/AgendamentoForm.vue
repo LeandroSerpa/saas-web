@@ -60,8 +60,8 @@ function formatarPreco(preco) {
       <p>
         {{
           modoEdicao
-            ? 'Atualize cliente, serviço, funcionário e horário.'
-            : 'Escolha cliente, serviço, funcionário e horário.'
+            ? 'Atualize cliente, servico, funcionario e horario.'
+            : 'Escolha cliente, servico, funcionario e horario.'
         }}
       </p>
     </div>
@@ -103,7 +103,7 @@ function formatarPreco(preco) {
       </label>
 
       <div v-if="duracaoMinutos || terminoPrevisto" class="campo-grande previa-agendamento">
-        <p v-if="duracaoMinutos">Duração: {{ duracaoMinutos }} minutos</p>
+        <p v-if="duracaoMinutos">Duracao: {{ duracaoMinutos }} minutos</p>
         <p v-if="terminoPrevisto">Término previsto: {{ terminoPrevisto }}</p>
       </div>
 

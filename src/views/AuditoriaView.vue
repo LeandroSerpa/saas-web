@@ -71,7 +71,7 @@ async function carregarEmpresasFiltro() {
     const resposta = await buscarEmpresas()
     empresas.value = extrairLista(resposta)
   } catch (error) {
-    erroEmpresas.value = 'Não foi possível carregar a lista de empresas.'
+    erroEmpresas.value = 'Nao foi possivel carregar a lista de empresas.'
     console.error('Erro ao carregar empresas para filtro da auditoria:', error)
   } finally {
     carregandoEmpresas.value = false
@@ -239,7 +239,7 @@ function formatarJson(valor) {
       <div>
         <p class="subtitulo">Super admin</p>
         <h1>Auditoria do sistema</h1>
-        <p class="descricao">Acompanhe ações realizadas por usuários, empresas e clientes públicos.</p>
+        <p class="descricao">Acompanhe ações realizadas por usuarios, empresas e clientes publicos.</p>
       </div>
     </header>
 
@@ -253,7 +253,7 @@ function formatarJson(valor) {
 
     <section class="card filtros">
       <p class="observacao-super-admin">
-        Como SUPER_ADMIN, você pode consultar logs de todas as empresas ou filtrar uma empresa
+        Como SUPER_ADMIN, voce pode consultar logs de todas as empresas ou filtrar uma empresa
         específica.
       </p>
 
@@ -298,7 +298,7 @@ function formatarJson(valor) {
           <input v-else v-model="filtros.acao" type="text" placeholder="Ex: EXCLUIR" />
         </label>
         <label>
-          Usuário
+          Usuario
           <input v-model="filtros.usuario" type="text" placeholder="Nome, e-mail ou ID" />
         </label>
         <label>
@@ -311,7 +311,7 @@ function formatarJson(valor) {
         </label>
         <label>
           Texto livre
-          <input v-model="filtros.texto" type="text" placeholder="Buscar na descrição" />
+          <input v-model="filtros.texto" type="text" placeholder="Buscar na descricao" />
         </label>
       </div>
 
@@ -327,7 +327,7 @@ function formatarJson(valor) {
 
     <section class="card">
       <p v-if="carregando">Carregando logs...</p>
-      <p v-else-if="!logs.length" class="vazio">Nenhum log encontrado para os filtros informados.</p>
+      <p v-else-if="!logs.length" class="vazio">Nenhum log enaontrado para os filtros informados.</p>
 
       <div v-else class="tabela-container">
         <table>
@@ -335,12 +335,12 @@ function formatarJson(valor) {
             <tr>
               <th>Data/hora</th>
               <th>Empresa</th>
-              <th>Usuário</th>
+              <th>Usuario</th>
               <th>Perfil</th>
               <th>Módulo</th>
               <th>Entidade</th>
               <th>Ação</th>
-              <th>Descrição</th>
+              <th>Descricao</th>
               <th></th>
             </tr>
           </thead>
@@ -365,7 +365,7 @@ function formatarJson(valor) {
       </div>
     </section>
 
-    <section v-if="detalhe" class="modal-fundo" @click.self="fecharDetalhes">
+    <section v-if="detalhe" class="modal-funao" @click.self="fecharDetalhes">
       <div class="modal card">
         <div class="modal-topo">
           <h2>Detalhes do log</h2>
@@ -376,12 +376,12 @@ function formatarJson(valor) {
           <p><strong>ID:</strong> {{ detalhe.id || '-' }}</p>
           <p><strong>Data/hora:</strong> {{ formatarDataHora(obterCampo(detalhe, 'dataHora', 'criadoEm', 'createdAt')) }}</p>
           <p><strong>Empresa:</strong> {{ obterCampo(detalhe, 'empresaNome', 'empresaId', 'empresa') }}</p>
-          <p><strong>Usuário:</strong> {{ obterCampo(detalhe, 'usuarioNome', 'usuarioEmail', 'usuario') }}</p>
+          <p><strong>Usuario:</strong> {{ obterCampo(detalhe, 'usuarioNome', 'usuarioEmail', 'usuario') }}</p>
           <p><strong>Perfil:</strong> {{ obterCampo(detalhe, 'perfil', 'usuarioPerfil') }}</p>
           <p><strong>Módulo:</strong> {{ obterCampo(detalhe, 'modulo') }}</p>
           <p><strong>Entidade:</strong> {{ obterCampo(detalhe, 'entidade', 'tipoEntidade') }}</p>
           <p><strong>Ação:</strong> {{ obterCampo(detalhe, 'acao') }}</p>
-          <p class="campo-largo"><strong>Descrição:</strong> {{ obterCampo(detalhe, 'descricao') }}</p>
+          <p class="campo-largo"><strong>Descricao:</strong> {{ obterCampo(detalhe, 'descricao') }}</p>
           <p><strong>IP:</strong> {{ obterCampo(detalhe, 'ip') }}</p>
           <p class="campo-largo"><strong>User agent:</strong> {{ obterCampo(detalhe, 'userAgent') }}</p>
         </div>
@@ -587,7 +587,7 @@ th {
   text-transform: uppercase;
 }
 
-.modal-fundo {
+.modal-funao {
   position: fixed;
   inset: 0;
   display: grid;

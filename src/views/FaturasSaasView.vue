@@ -49,7 +49,7 @@ async function carregarDados() {
     empresas.value = extrairLista(empresasApi)
     planos.value = extrairLista(planosApi)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível carregar as faturas.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar as faturas.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -79,7 +79,7 @@ async function salvarFatura() {
     fatura.value = criarFaturaInicial()
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível criar a fatura.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel criar a fatura.')
   } finally {
     salvando.value = false
   }
@@ -91,18 +91,18 @@ async function marcarPaga(item) {
     mensagemSucesso.value = 'Fatura marcada como paga.'
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível marcar a fatura como paga.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel marcar a fatura como paga.')
   }
 }
 
 async function cancelar(item) {
-  const observacao = window.prompt('Informe a observação do cancelamento:') || ''
+  const observacao = window.prompt('Informe a observacao do cancelamento:') || ''
   try {
     await cancelarFatura(item.id, { observacao })
     mensagemSucesso.value = 'Fatura cancelada com sucesso.'
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível cancelar a fatura.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel cancelar a fatura.')
   }
 }
 
@@ -146,9 +146,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
+        <p class="subtitulo">Administracao SaaS</p>
         <h1>Faturas</h1>
-        <p class="descricao">Controle cobranças manuais e prepare a operação para Asaas, Mercado Pago ou Stripe.</p>
+        <p class="descricao">Controle cobranças manuais e prepare a operacao para Asaas, Mercado Pago ou Stripe.</p>
       </div>
       <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
     </header>
@@ -179,13 +179,13 @@ onMounted(() => {
         <label>Forma de pagamento <select v-model="fatura.formaPagamento"><option v-for="forma in formasPagamento" :key="forma">{{ forma }}</option></select></label>
         <label>Gateway <select v-model="fatura.gateway"><option v-for="gateway in gateways" :key="gateway">{{ gateway }}</option></select></label>
         <label>Link de pagamento <input v-model="fatura.linkPagamento" type="text" /></label>
-        <label class="campo-grande">Observação <textarea v-model="fatura.observacao" rows="3"></textarea></label>
+        <label class="campo-grande">Observacao <textarea v-model="fatura.observacao" rows="3"></textarea></label>
       </div>
       <button class="botao principal" :disabled="salvando">{{ salvando ? 'Salvando...' : 'Criar fatura' }}</button>
     </form>
 
     <section v-if="carregando" class="card"><p>Carregando faturas...</p></section>
-    <section v-else-if="!faturas.length" class="card"><p>Nenhuma fatura encontrada.</p></section>
+    <section v-else-if="!faturas.length" class="card"><p>Nenhuma fatura enaontrada.</p></section>
     <section v-else class="lista">
       <article v-for="item in faturas" :key="item.id" class="card item-card">
         <div class="topo-card"><div><h2>{{ nomeEmpresa(item) }}</h2><p>{{ nomePlano(item) }}</p></div><span class="badge">{{ item.status || 'ABERTA' }}</span></div>
@@ -196,7 +196,7 @@ onMounted(() => {
           <p><strong>Vencimento:</strong> {{ item.dataVencimento || '-' }}</p>
           <p><strong>Pagamento:</strong> {{ item.dataPagamento || '-' }}</p>
           <p><strong>Link de pagamento:</strong> <a v-if="item.linkPagamento" :href="item.linkPagamento" target="_blank" rel="noreferrer">Abrir link</a><span v-else>-</span></p>
-          <p><strong>Observação:</strong> {{ item.observacao || '-' }}</p>
+          <p><strong>Observacao:</strong> {{ item.observacao || '-' }}</p>
         </div>
         <div class="acoes"><button class="botao sucesso-botao" @click="marcarPaga(item)">Marcar como paga</button><button class="botao perigo" @click="cancelar(item)">Cancelar</button></div>
       </article>

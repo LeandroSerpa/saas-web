@@ -68,7 +68,7 @@ function criarFuncionarioInicial() {
     ativo: true,
     horaInicioAtendimento: '',
     horaFimAtendimento: '',
-    atendeDomingo: false,
+    atendeDominao: false,
     atendeSegunda: true,
     atendeTerca: true,
     atendeQuarta: true,
@@ -122,7 +122,7 @@ async function salvarFuncionario() {
       ativo: Boolean(funcionario.value.ativo),
       horaInicioAtendimento: normalizarHoraFuncionario(funcionario.value.horaInicioAtendimento),
       horaFimAtendimento: normalizarHoraFuncionario(funcionario.value.horaFimAtendimento),
-      atendeDomingo: Boolean(funcionario.value.atendeDomingo),
+      atendeDominao: Boolean(funcionario.value.atendeDominao),
       atendeSegunda: Boolean(funcionario.value.atendeSegunda),
       atendeTerca: Boolean(funcionario.value.atendeTerca),
       atendeQuarta: Boolean(funcionario.value.atendeQuarta),
@@ -133,10 +133,10 @@ async function salvarFuncionario() {
 
     if (funcionarioEditandoId.value) {
       await atualizarFuncionario(funcionarioEditandoId.value, dadosFuncionario)
-      mensagemSucessoFuncionario.value = 'Funcionário atualizado com sucesso.'
+      mensagemSucessoFuncionario.value = 'Funcionario atualizado com sucesso.'
     } else {
       await cadastrarFuncionario(dadosFuncionario)
-      mensagemSucessoFuncionario.value = 'Funcionário cadastrado com sucesso.'
+      mensagemSucessoFuncionario.value = 'Funcionario cadastrado com sucesso.'
     }
 
     cancelarEdicaoFuncionario(false)
@@ -167,7 +167,7 @@ function editarFuncionario(funcionarioItem) {
     ativo: estaAtivo(funcionarioItem),
     horaInicioAtendimento: formatarHoraInput(funcionarioItem.horaInicioAtendimento),
     horaFimAtendimento: formatarHoraInput(funcionarioItem.horaFimAtendimento),
-    atendeDomingo: obterDiaAtendimento(funcionarioItem.atendeDomingo, false),
+    atendeDominao: obterDiaAtendimento(funcionarioItem.atendeDominao, false),
     atendeSegunda: obterDiaAtendimento(funcionarioItem.atendeSegunda, true),
     atendeTerca: obterDiaAtendimento(funcionarioItem.atendeTerca, true),
     atendeQuarta: obterDiaAtendimento(funcionarioItem.atendeQuarta, true),
@@ -244,7 +244,7 @@ function exibirDisponibilidade(funcionarioItem) {
 
 function exibirDiasAtendimento(funcionarioItem) {
   const dias = [
-    { campo: 'atendeDomingo', rotulo: 'Dom', padrao: false },
+    { campo: 'atendeDominao', rotulo: 'Dom', padrao: false },
     { campo: 'atendeSegunda', rotulo: 'Seg', padrao: true },
     { campo: 'atendeTerca', rotulo: 'Ter', padrao: true },
     { campo: 'atendeQuarta', rotulo: 'Qua', padrao: true },
@@ -360,11 +360,11 @@ onMounted(() => {
       </section>
 
       <section v-else-if="funcionarios.length === 0" class="card">
-        <p>Nenhum funcionario encontrado.</p>
+        <p>Nenhum funcionario enaontrado.</p>
       </section>
 
       <section v-else-if="funcionariosFiltrados.length === 0" class="card">
-        <p>Nenhum funcionario encontrado para os filtros selecionados.</p>
+        <p>Nenhum funcionario enaontrado para os filtros selecionados.</p>
       </section>
 
       <section v-else class="lista-funcionarios">
@@ -409,7 +409,7 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === funcionarioItem.id" class="atualizando">
-            Atualizando funcionario...
+            Atualizanao funcionario...
           </p>
         </article>
       </section>

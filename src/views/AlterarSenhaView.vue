@@ -7,13 +7,13 @@ const router = useRouter()
 
 const senhaAtual = ref('')
 const novaSenha = ref('')
-const confirmarNovaSenha = ref('')
+const confirmacaoNovaSenha = ref('')
 const erro = ref('')
 const mensagemSucesso = ref('')
 const carregando = ref(false)
 const mostrarSenhaAtual = ref(false)
 const mostrarNovaSenha = ref(false)
-const mostrarConfirmarNovaSenha = ref(false)
+const mostrarConfirmacaovaSenha = ref(false)
 
 async function salvarSenha() {
   try {
@@ -34,7 +34,7 @@ async function salvarSenha() {
       return
     }
 
-    if (!confirmarNovaSenha.value) {
+    if (!confirmacaoNovaSenha.value) {
       erro.value = 'Confirme a nova senha.'
       return
     }
@@ -44,7 +44,7 @@ async function salvarSenha() {
       return
     }
 
-    if (novaSenha.value !== confirmarNovaSenha.value) {
+    if (novaSenha.value !== confirmacaoNovaSenha.value) {
       erro.value = 'A nova senha e a confirmacao precisam ser iguais.'
       return
     }
@@ -56,7 +56,7 @@ async function salvarSenha() {
     mensagemSucesso.value = 'Senha alterada com sucesso. Faca login novamente.'
     senhaAtual.value = ''
     novaSenha.value = ''
-    confirmarNovaSenha.value = ''
+    confirmacaoNovaSenha.value = ''
 
     localStorage.removeItem('token')
     localStorage.removeItem('usuario')
@@ -166,21 +166,21 @@ async function salvarSenha() {
           Confirmar nova senha *
           <span class="campo-senha">
             <input
-              v-model="confirmarNovaSenha"
-              :type="mostrarConfirmarNovaSenha ? 'text' : 'password'"
+              v-model="confirmacaoNovaSenha"
+              :type="mostrarConfirmacaovaSenha ? 'text' : 'password'"
               autocomplete="new-password"
             />
             <button
               class="botao-olho"
               type="button"
               :aria-label="
-                mostrarConfirmarNovaSenha
+                mostrarConfirmacaovaSenha
                   ? 'Ocultar confirmacao de senha'
                   : 'Mostrar confirmacao de senha'
               "
-              @click="mostrarConfirmarNovaSenha = !mostrarConfirmarNovaSenha"
+              @click="mostrarConfirmacaovaSenha = !mostrarConfirmacaovaSenha"
             >
-              <svg v-if="!mostrarConfirmarNovaSenha" viewBox="0 0 24 24" aria-hidden="true">
+              <svg v-if="!mostrarConfirmacaovaSenha" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
                 />

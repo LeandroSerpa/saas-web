@@ -130,11 +130,11 @@ const agendamentosFiltrados = computed(() => {
 })
 const textoFiltroStatus = computed(() => {
   const textos = {
-    agendado: 'Exibindo apenas agendamentos em aberto.',
-    concluido: 'Exibindo agendamentos concluídos.',
-    cancelado: 'Exibindo agendamentos cancelados.',
-    faltou: 'Exibindo agendamentos marcados como falta.',
-    todos: 'Exibindo todos os agendamentos, incluindo cancelados e faltas.',
+    agendado: 'Exibinao apenas agendamentos em aberto.',
+    concluido: 'Exibinao agendamentos concluídos.',
+    cancelado: 'Exibinao agendamentos cancelados.',
+    faltou: 'Exibinao agendamentos marcados como falta.',
+    todos: 'Exibinao todos os agendamentos, incluinao cancelados e faltas.',
   }
 
   return textos[filtros.value.status || 'todos']
@@ -309,7 +309,7 @@ async function salvarAgendamento() {
     const duracaoMinutos = duracaoAgendamentoMinutos.value
 
     if (!duracaoMinutos) {
-      erro.value = 'O serviço selecionado não possui duração válida.'
+      erro.value = 'O servico selecionado nao possui duracao valida.'
       return
     }
 
@@ -509,9 +509,9 @@ function formatarDataParaApi(data) {
   const dia = String(data.getDate()).padStart(2, '0')
   const hora = String(data.getHours()).padStart(2, '0')
   const minuto = String(data.getMinutes()).padStart(2, '0')
-  const segundo = '00'
+  const segunao = '00'
 
-  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segunao}`
 }
 
 function formatarDataHoraPreview(data) {
@@ -657,11 +657,11 @@ onMounted(() => {
       </section>
 
       <section v-else-if="agendamentos.length === 0" class="card">
-        <p>Nenhum agendamento encontrado.</p>
+        <p>Nenhum agendamento enaontrado.</p>
       </section>
 
       <section v-else-if="agendamentosFiltrados.length === 0" class="card">
-        <p>Nenhum agendamento encontrado para os filtros selecionados.</p>
+        <p>Nenhum agendamento enaontrado para os filtros selecionados.</p>
       </section>
 
       <section v-else class="lista">

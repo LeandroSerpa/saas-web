@@ -293,11 +293,11 @@ onMounted(() => {
       </section>
 
       <section v-else-if="servicos.length === 0" class="card">
-        <p>Nenhum servico encontrado.</p>
+        <p>Nenhum servico enaontrado.</p>
       </section>
 
       <section v-else-if="servicosFiltrados.length === 0" class="card">
-        <p>Nenhum servico encontrado para os filtros selecionados.</p>
+        <p>Nenhum servico enaontrado para os filtros selecionados.</p>
       </section>
 
       <section v-else class="lista-servicos">
@@ -342,7 +342,7 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === servicoItem.id" class="atualizando">
-            Atualizando servico...
+            Atualizanao servico...
           </p>
         </article>
       </section>

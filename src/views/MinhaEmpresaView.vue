@@ -9,7 +9,7 @@ const mensagemSucesso = ref('')
 const mensagemLinkCopiado = ref('')
 const empresa = ref(criarEmpresaInicial())
 const diasAtendimento = [
-  { campo: 'atendeDomingo', rotulo: 'Domingo' },
+  { campo: 'atendeDominao', rotulo: 'Dominao' },
   { campo: 'atendeSegunda', rotulo: 'Segunda' },
   { campo: 'atendeTerca', rotulo: 'Terca' },
   { campo: 'atendeQuarta', rotulo: 'Quarta' },
@@ -34,7 +34,7 @@ function criarEmpresaInicial() {
     horaAbertura: '',
     horaFechamento: '',
     intervaloAgendaMinutos: 30,
-    atendeDomingo: false,
+    atendeDominao: false,
     atendeSegunda: true,
     atendeTerca: true,
     atendeQuarta: true,
@@ -65,7 +65,7 @@ async function carregarMinhaEmpresa() {
       horaAbertura: empresaApi.horaAbertura || '',
       horaFechamento: empresaApi.horaFechamento || '',
       intervaloAgendaMinutos: normalizarIntervaloAgenda(empresaApi.intervaloAgendaMinutos),
-      atendeDomingo: Boolean(empresaApi.atendeDomingo),
+      atendeDominao: Boolean(empresaApi.atendeDominao),
       atendeSegunda: empresaApi.atendeSegunda !== false,
       atendeTerca: empresaApi.atendeTerca !== false,
       atendeQuarta: empresaApi.atendeQuarta !== false,
@@ -113,7 +113,7 @@ async function salvarEmpresa() {
       horaAbertura: empresa.value.horaAbertura,
       horaFechamento: empresa.value.horaFechamento,
       intervaloAgendaMinutos,
-      atendeDomingo: Boolean(empresa.value.atendeDomingo),
+      atendeDominao: Boolean(empresa.value.atendeDominao),
       atendeSegunda: Boolean(empresa.value.atendeSegunda),
       atendeTerca: Boolean(empresa.value.atendeTerca),
       atendeQuarta: Boolean(empresa.value.atendeQuarta),
@@ -220,7 +220,7 @@ onMounted(() => {
     <section v-else class="card formulario">
       <div class="titulo-card">
         <h2>Dados da empresa</h2>
-        <p>Edite as informacoes que identificam sua empresa no sistema.</p>
+        <p>Edite as informa??es que identificam sua empresa no sistema.</p>
       </div>
 
       <div class="campos">
@@ -287,26 +287,26 @@ onMounted(() => {
 
       <div class="secao-agendamento-publico">
         <div class="titulo-card">
-          <h2>Agendamento público</h2>
+          <h2>Agendamento publico</h2>
           <p>
-            Configure o link público para clientes realizarem agendamentos sem precisar acessar o
+            Configure o link publico para clientes realizarem agendamentos sem precisar acessar o
             sistema.
           </p>
         </div>
 
         <div class="campos">
           <label>
-            Slug público
+            Slug publico
             <input v-model="empresa.slug" type="text" placeholder="petshop-rodrigo" />
           </label>
 
           <label class="campo-checkbox">
             <input v-model="empresa.agendamentoPublicoAtivo" type="checkbox" />
-            Permitir agendamento público
+            Permitir agendamento publico
           </label>
 
           <label class="campo-grande">
-            Mensagem pública
+            Mensagem publica
             <textarea
               v-model="empresa.mensagemPublica"
               placeholder="Ex: Agende seu atendimento de forma rápida e simples."
@@ -317,11 +317,11 @@ onMounted(() => {
 
         <div class="link-publico">
           <p v-if="linkPublico">
-            <strong>Link público:</strong>
+            <strong>Link publico:</strong>
             <span>{{ linkPublico }}</span>
           </p>
 
-          <p v-else>Preencha o slug para gerar o link público.</p>
+          <p v-else>Preencha o slug para gerar o link publico.</p>
 
           <button class="botao secundario" :disabled="!linkPublico" @click="copiarLinkPublico">
             Copiar link
@@ -331,7 +331,7 @@ onMounted(() => {
         <p v-if="mensagemLinkCopiado" class="sucesso-texto">{{ mensagemLinkCopiado }}</p>
 
         <p v-if="!empresa.agendamentoPublicoAtivo" class="aviso-publico">
-          O agendamento público está desativado.
+          O agendamento publico está desativado.
         </p>
       </div>
 

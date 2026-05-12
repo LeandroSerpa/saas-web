@@ -17,7 +17,7 @@ const carregando = ref(true)
 const salvando = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
-const aprovando = ref(null)
+const aprovanao = ref(null)
 const filtros = ref({ status: '', segmentoId: '', planoId: '', texto: '' })
 const aprovacao = ref(criarAprovacaoInicial())
 
@@ -47,7 +47,7 @@ async function carregarDados() {
     segmentos.value = extrairLista(segmentosApi)
     planos.value = extrairLista(planosApi)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível carregar as solicitações.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar as solicitações.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -61,12 +61,12 @@ async function marcarEmAnalise(item) {
     mensagemSucesso.value = 'Solicitação marcada em análise.'
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível atualizar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel atualizar a solicitação.')
   }
 }
 
 async function rejeitar(item) {
-  const observacao = window.prompt('Informe a observação da rejeição:')
+  const observacao = window.prompt('Informe a observacao da rejeição:')
 
   if (observacao === null) {
     return
@@ -78,12 +78,12 @@ async function rejeitar(item) {
     mensagemSucesso.value = 'Solicitação rejeitada com sucesso.'
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível rejeitar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel rejeitar a solicitação.')
   }
 }
 
 function abrirAprovacao(item) {
-  aprovando.value = item
+  aprovanao.value = item
   aprovacao.value = {
     ...criarAprovacaoInicial(),
     planoId: item.planoId || item.planoDesejadoId || '',
@@ -94,12 +94,12 @@ async function aprovar() {
   try {
     salvando.value = true
     mensagemSucesso.value = ''
-    await aprovarSolicitacaoCadastro(aprovando.value.id, { ...aprovacao.value })
+    await aprovarSolicitacaoCadastro(aprovanao.value.id, { ...aprovacao.value })
     mensagemSucesso.value = 'Solicitação aprovada com sucesso.'
-    aprovando.value = null
+    aprovanao.value = null
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível aprovar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel aprovar a solicitação.')
   } finally {
     salvando.value = false
   }
@@ -141,9 +141,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
+        <p class="subtitulo">Administracao SaaS</p>
         <h1>Solicitações</h1>
-        <p class="descricao">Analise pedidos públicos de cadastro e converta em empresas ativas.</p>
+        <p class="descricao">Analise pedidos publicos de cadastro e converta em empresas ativas.</p>
       </div>
       <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
     </header>
@@ -165,7 +165,7 @@ onMounted(() => {
     </section>
 
     <section v-if="carregando" class="card"><p>Carregando solicitações...</p></section>
-    <section v-else-if="!solicitacoes.length" class="card"><p>Nenhuma solicitação encontrada.</p></section>
+    <section v-else-if="!solicitacoes.length" class="card"><p>Nenhuma solicitação enaontrada.</p></section>
 
     <section v-else class="lista">
       <article v-for="item in solicitacoes" :key="item.id" class="card item-card">
@@ -192,21 +192,21 @@ onMounted(() => {
       </article>
     </section>
 
-    <section v-if="aprovando" class="modal-fundo" @click.self="aprovando = null">
+    <section v-if="aprovanao" class="modal-funao" @click.self="aprovanao = null">
       <form class="card modal" @submit.prevent="aprovar">
         <div class="topo-card">
           <h2>Aprovar solicitação</h2>
-          <button type="button" class="botao secundario" @click="aprovando = null">Fechar</button>
+          <button type="button" class="botao secundario" @click="aprovanao = null">Fechar</button>
         </div>
         <div class="campos">
           <label>Plano <select v-model="aprovacao.planoId"><option value="">Selecione</option><option v-for="p in planos" :key="p.id" :value="p.id">{{ p.nome }}</option></select></label>
           <label>Status da assinatura <select v-model="aprovacao.statusAssinatura"><option>ATIVA</option><option>TESTE</option></select></label>
           <label>Data de vencimento <input v-model="aprovacao.dataVencimento" type="date" /></label>
           <label>Senha inicial do admin <input v-model="aprovacao.senhaInicialAdmin" type="text" /></label>
-          <label class="campo-grande">Observação da assinatura <textarea v-model="aprovacao.observacaoAssinatura" rows="3"></textarea></label>
-          <label class="campo-grande">Observação comercial <textarea v-model="aprovacao.observacaoComercial" rows="3"></textarea></label>
+          <label class="campo-grande">Observacao da assinatura <textarea v-model="aprovacao.observacaoAssinatura" rows="3"></textarea></label>
+          <label class="campo-grande">Observacao comercial <textarea v-model="aprovacao.observacaoComercial" rows="3"></textarea></label>
           <label class="checkbox"><input v-model="aprovacao.criarEmpresa" type="checkbox" /> Criar empresa</label>
-          <label class="checkbox"><input v-model="aprovacao.criarUsuarioAdmin" type="checkbox" /> Criar usuário admin</label>
+          <label class="checkbox"><input v-model="aprovacao.criarUsuarioAdmin" type="checkbox" /> Criar usuario admin</label>
         </div>
         <button class="botao principal" :disabled="salvando">{{ salvando ? 'Aprovando...' : 'Aprovar solicitação' }}</button>
       </form>
@@ -215,5 +215,5 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.pagina,.filtros,.item-card,.modal{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.topo-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px}.descricao,.topo-card p{color:#64748b;margin-top:6px}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.campos{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:16px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit;box-sizing:border-box}.checkbox{display:flex;align-items:center;gap:8px}.checkbox input{width:auto}.lista{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:18px}.detalhes p{margin:7px 0;color:#374151}.badge{background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:8px 12px;font-weight:800}.botao{border:none;color:white;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:800}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.modal-fundo{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:rgba(15,23,42,.42);z-index:20}.modal{width:min(100%,860px);max-height:86vh;overflow:auto}@media(max-width:900px){.cabecalho-pagina,.topo-card{align-items:flex-start;flex-direction:column}.campos,.lista{grid-template-columns:1fr}}
+.pagina,.filtros,.item-card,.modal{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.topo-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px}.descricao,.topo-card p{color:#64748b;margin-top:6px}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.campos{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:16px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit;box-sizing:border-box}.checkbox{display:flex;align-items:center;gap:8px}.checkbox input{width:auto}.lista{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:18px}.detalhes p{margin:7px 0;color:#374151}.badge{background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:8px 12px;font-weight:800}.botao{border:none;color:white;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:800}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.modal-funao{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:rgba(15,23,42,.42);z-index:20}.modal{width:min(100%,860px);max-height:86vh;overflow:auto}@media(max-width:900px){.cabecalho-pagina,.topo-card{align-items:flex-start;flex-direction:column}.campos,.lista{grid-template-columns:1fr}}
 </style>

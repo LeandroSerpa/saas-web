@@ -149,7 +149,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="clientes.length === 0" class="card">
-        <p>Nenhum cliente encontrado.</p>
+        <p>Nenhum cliente enaontrado.</p>
       </section>
 
       <section v-else class="lista-clientes">

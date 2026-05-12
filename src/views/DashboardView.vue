@@ -373,7 +373,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="proximosAgendamentos.length === 0" class="card">
-        <p>Nenhum proximo agendamento em aberto. A agenda esta tranquila por enquanto.</p>
+        <p>Nenhum proximo agendamento em aberto. A agenda esta tranquila por enquanao.</p>
       </section>
 
       <section v-else class="lista-proximos">
@@ -417,7 +417,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="resumoPorFuncionario.length === 0" class="card">
-        <p>Nenhum agendamento encontrado para montar o resumo por funcionario.</p>
+        <p>Nenhum agendamento enaontrado para montar o resumo por funcionario.</p>
       </section>
 
       <section v-else class="card tabela-card">

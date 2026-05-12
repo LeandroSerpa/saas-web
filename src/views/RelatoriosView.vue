@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 import { buscarAgendamentos } from '@/services/api'
 
@@ -70,13 +70,13 @@ const indicadores = computed(() => {
 
   return [
     { titulo: 'Total de agendamentos', valor: agendamentosFiltrados.value.length },
-    { titulo: 'Total concluído', valor: totalConcluido },
+    { titulo: 'Total concluÃ­do', valor: totalConcluido },
     { titulo: 'Total cancelado', valor: totalCancelado },
     { titulo: 'Total faltou', valor: totalFaltou },
     { titulo: 'Receita prevista', valor: formatarPreco(receitaPrevista) },
-    { titulo: 'Receita concluída', valor: formatarPreco(receitaConcluida) },
+    { titulo: 'Receita concluÃ­da', valor: formatarPreco(receitaConcluida) },
     {
-      titulo: 'Ticket médio',
+      titulo: 'Ticket mÃ©dio',
       valor: formatarPreco(totalConcluido ? receitaConcluida / totalConcluido : 0),
     },
   ]
@@ -84,8 +84,8 @@ const indicadores = computed(() => {
 const graficos = computed(() => [
   { titulo: 'Agendamentos por status', itens: agruparContagem(agendamentosFiltrados.value, (a) => statusTexto(a.status)) },
   { titulo: 'Receita por status', itens: agruparSoma(agendamentosFiltrados.value, (a) => statusTexto(a.status), (a) => obterPreco(a.preco)), dinheiro: true },
-  { titulo: 'Agendamentos por serviço', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.servico || 'Sem serviço') },
-  { titulo: 'Agendamentos por funcionário', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.funcionario || 'Sem funcionário') },
+  { titulo: 'Agendamentos por serviÃ§o', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.servico || 'Sem serviÃ§o') },
+  { titulo: 'Agendamentos por funcionÃ¡rio', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.funcionario || 'Sem funcionÃ¡rio') },
   { titulo: 'Agendamentos por dia', itens: agruparContagem(agendamentosFiltrados.value, (a) => formatarData(a.dataHoraInicio)) },
 ])
 
@@ -233,7 +233,7 @@ function normalizarGrafico(mapa) {
 function statusTexto(status) {
   const statusFormatados = {
     agendado: 'Agendado',
-    concluido: 'Concluído',
+    concluido: 'ConcluÃ­do',
     cancelado: 'Cancelado',
     faltou: 'Faltou',
   }
@@ -278,7 +278,7 @@ function baixarArquivo(nome, conteudo, tipo) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = nome
+  link.downaoad = nome
   link.click()
   URL.revokeObjectURL(url)
 }
@@ -303,8 +303,8 @@ onMounted(() => {
     <header class="cabecalho-pagina">
       <div>
         <p class="subtitulo">Indicadores</p>
-        <h1>Relatórios</h1>
-        <p class="descricao">Acompanhe indicadores financeiros e operacionais por período.</p>
+        <h1>RelatÃ³rios</h1>
+        <p class="descricao">Acompanhe indicadores financeiros e operacaonais por perÃ­odo.</p>
       </div>
 
       <div class="acoes-topo">
@@ -341,14 +341,14 @@ onMounted(() => {
           <select v-model="filtros.status">
             <option value="">Todos</option>
             <option value="agendado">Agendado</option>
-            <option value="concluido">Concluído</option>
+            <option value="concluido">ConcluÃ­do</option>
             <option value="cancelado">Cancelado</option>
             <option value="faltou">Faltou</option>
           </select>
         </label>
 
         <label>
-          Funcionário
+          FuncionÃ¡rio
           <select v-model="filtros.funcionario">
             <option value="">Todos</option>
             <option
@@ -362,7 +362,7 @@ onMounted(() => {
         </label>
 
         <label>
-          Serviço
+          ServiÃ§o
           <select v-model="filtros.servico">
             <option value="">Todos</option>
             <option v-for="servico in servicosDisponiveis" :key="servico" :value="servico">
@@ -389,11 +389,11 @@ onMounted(() => {
         <h2>{{ grafico.titulo }}</h2>
         <div class="barras">
           <div v-for="item in grafico.itens" :key="item.nome" class="barra-linha">
-            <div class="barra-info">
+            <div class="barra-inao">
               <span>{{ item.nome }}</span>
               <strong>{{ grafico.dinheiro ? formatarPreco(item.valor) : item.valor }}</strong>
             </div>
-            <div class="barra-fundo">
+            <div class="barra-funao">
               <span :style="{ width: `${item.percentual}%` }"></span>
             </div>
           </div>
@@ -412,11 +412,11 @@ onMounted(() => {
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando relatórios...</p>
+        <p>Carregando relatÃ³rios...</p>
       </section>
 
       <section v-else-if="agendamentosFiltrados.length === 0" class="card">
-        <p>Nenhum dado encontrado para os filtros informados.</p>
+        <p>Nenhum dado enaontrado para os filtros informados.</p>
       </section>
 
       <section v-else class="card tabela-card">
@@ -425,10 +425,10 @@ onMounted(() => {
             <thead>
               <tr>
                 <th>Data</th>
-                <th>Horário</th>
+                <th>HorÃ¡rio</th>
                 <th>Cliente</th>
-                <th>Serviço</th>
-                <th>Funcionário</th>
+                <th>ServiÃ§o</th>
+                <th>FuncionÃ¡rio</th>
                 <th>Status</th>
                 <th>Valor</th>
               </tr>
@@ -592,7 +592,7 @@ onMounted(() => {
   gap: 7px;
 }
 
-.barra-info {
+.barra-inao {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -600,14 +600,14 @@ onMounted(() => {
   font-weight: 800;
 }
 
-.barra-fundo {
+.barra-funao {
   height: 12px;
   overflow: hidden;
   background: #e2e8f0;
   border-radius: 999px;
 }
 
-.barra-fundo span {
+.barra-funao span {
   display: block;
   height: 100%;
   background: #2563eb;
@@ -779,3 +779,4 @@ tbody tr:last-child td {
   }
 }
 </style>
+

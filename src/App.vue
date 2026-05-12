@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
 
         <section v-if="superAdmin" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
-            <span>Administração SaaS</span>
+            <span>Administracao SaaS</span>
             <span>{{ menuAdminAberto ? '−' : '+' }}</span>
           </button>
 

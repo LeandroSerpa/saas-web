@@ -13,9 +13,9 @@ import {
 
 const abas = [
   { chave: 'EMPRESA', rotulo: 'Indisponibilidade da empresa' },
-  { chave: 'FUNCIONARIO', rotulo: 'Indisponibilidade de funcionario' },
-  { chave: 'SERVICO', rotulo: 'Indisponibilidade de servico' },
-  { chave: 'VINCULOS', rotulo: 'Funcionarios por servico' },
+  { chave: 'FUNCIONARIO', rotulo: 'Indisponibilidade de funcionário' },
+  { chave: 'SERVICO', rotulo: 'Indisponibilidade de serviço' },
+  { chave: 'VINCULOS', rotulo: 'Funcionários por serviço' },
 ]
 
 const abaAtiva = ref('EMPRESA')
@@ -29,6 +29,7 @@ const carregandoVinculos = ref(false)
 const salvando = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
+const mensagemVinculos = ref('')
 const indisponibilidadeEditandoId = ref(null)
 const ignorarResetAba = ref(false)
 const formulario = ref(criarFormularioInicial('EMPRESA'))
@@ -42,6 +43,10 @@ const indisponibilidadesDaAba = computed(() =>
 
       return dataB - dataA
     }),
+)
+
+const tipoIndisponibilidadeAtivo = computed(() =>
+  abaAtiva.value === 'VINCULOS' ? 'EMPRESA' : abaAtiva.value,
 )
 
 const servicosAtivos = computed(() => servicos.value.filter((servico) => servico.ativo !== false))
@@ -61,6 +66,7 @@ watch(abaAtiva, (tipo) => {
 
   erro.value = ''
   mensagemSucesso.value = ''
+  mensagemVinculos.value = ''
   indisponibilidadeEditandoId.value = null
   formulario.value = criarFormularioInicial(tipo)
 })
@@ -88,16 +94,16 @@ async function carregarDados() {
     erro.value = ''
 
     const [indisponibilidadesApi, funcionariosApi, servicosApi] = await Promise.all([
-      buscarIndisponibilidades(),
+      buscarIndisponibilidades({ tipo: tipoIndisponibilidadeAtivo.value }),
       buscarFuncionarios(),
       buscarServicos(),
     ])
 
-    indisponibilidades.value = Array.isArray(indisponibilidadesApi) ? indisponibilidadesApi : []
-    funcionarios.value = Array.isArray(funcionariosApi) ? funcionariosApi : []
-    servicos.value = Array.isArray(servicosApi) ? servicosApi : []
+    indisponibilidades.value = normalizarColecao(indisponibilidadesApi)
+    funcionarios.value = normalizarColecao(funcionariosApi)
+    servicos.value = normalizarColecao(servicosApi)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os dados de disponibilidade.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os dados de disponibilidade.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -107,10 +113,10 @@ async function carregarDados() {
 async function carregarIndisponibilidades() {
   try {
     erro.value = ''
-    const dados = await buscarIndisponibilidades()
-    indisponibilidades.value = Array.isArray(dados) ? dados : []
+    const dados = await buscarIndisponibilidades({ tipo: tipoIndisponibilidadeAtivo.value })
+    indisponibilidades.value = normalizarColecao(dados)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar as indisponibilidades.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar as indisponibilidades.')
     console.error(error)
   }
 }
@@ -141,7 +147,7 @@ async function salvarIndisponibilidade() {
     cancelarEdicao(false)
     await carregarIndisponibilidades()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar a indisponibilidade.')
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar a indisponibilidade.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -157,10 +163,10 @@ async function excluirIndisponibilidadeSelecionada(item) {
     erro.value = ''
     mensagemSucesso.value = ''
     await excluirIndisponibilidade(item.id)
-    mensagemSucesso.value = 'Indisponibilidade excluida com sucesso.'
+    mensagemSucesso.value = 'Indisponibilidade excluída com sucesso.'
     await carregarIndisponibilidades()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel excluir a indisponibilidade.')
+    erro.value = obterMensagemErro(error, 'Não foi possível excluir a indisponibilidade.')
     console.error(error)
   }
 }
@@ -199,11 +205,11 @@ function cancelarEdicao(limparMensagem = true) {
 
 function validarFormulario() {
   if (abaAtiva.value === 'FUNCIONARIO' && !formulario.value.funcionarioId) {
-    return 'Selecione um funcionario.'
+    return 'Selecione um funcionário.'
   }
 
   if (abaAtiva.value === 'SERVICO' && !formulario.value.servicoId) {
-    return 'Selecione um servico.'
+    return 'Selecione um serviço.'
   }
 
   if (!formulario.value.inicio) {
@@ -227,7 +233,7 @@ function validarFormulario() {
 function montarPayloadIndisponibilidade() {
   const tipo = abaAtiva.value
 
-  return {
+  const payload = {
     tipo,
     funcionarioId: tipo === 'FUNCIONARIO' ? Number(formulario.value.funcionarioId) : null,
     servicoId: tipo === 'SERVICO' ? Number(formulario.value.servicoId) : null,
@@ -235,8 +241,13 @@ function montarPayloadIndisponibilidade() {
     fim: obterFimFormulario(),
     diaInteiro: Boolean(formulario.value.diaInteiro),
     motivo: formulario.value.motivo.trim(),
-    ativo: Boolean(formulario.value.ativo),
   }
+
+  if (indisponibilidadeEditandoId.value || formulario.value.ativo === false) {
+    payload.ativo = Boolean(formulario.value.ativo)
+  }
+
+  return payload
 }
 
 function obterInicioFormulario() {
@@ -257,6 +268,7 @@ function obterFimFormulario() {
 
 async function carregarVinculosDoServico() {
   funcionariosSelecionados.value = []
+  mensagemVinculos.value = ''
 
   if (!servicoVinculoId.value) {
     return
@@ -267,8 +279,14 @@ async function carregarVinculosDoServico() {
     erro.value = ''
     const dados = await buscarFuncionariosVinculadosAoServico(servicoVinculoId.value)
     funcionariosSelecionados.value = normalizarIds(dados)
+    if (funcionariosSelecionados.value.length === 0) {
+      mensagemVinculos.value =
+        'Nenhum funcionario vinculado. Se nenhum vínculo for salvo, todos os funcionarios ativos poderão executar este serviço.'
+    }
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os vinculos do servico.')
+    funcionariosSelecionados.value = []
+    mensagemVinculos.value =
+      'Nenhum funcionario vinculado. Se nenhum vínculo for salvo, todos os funcionarios ativos poderão executar este serviço.'
     console.error(error)
   } finally {
     carregandoVinculos.value = false
@@ -277,7 +295,7 @@ async function carregarVinculosDoServico() {
 
 async function salvarVinculos() {
   if (!servicoVinculoId.value) {
-    erro.value = 'Selecione um servico.'
+    erro.value = 'Selecione um serviço.'
     return
   }
 
@@ -289,9 +307,10 @@ async function salvarVinculos() {
       servicoVinculoId.value,
       funcionariosSelecionados.value.map(Number),
     )
-    mensagemSucesso.value = 'Vinculos salvos com sucesso.'
+    mensagemSucesso.value = 'Vínculos atualizados com sucesso.'
+    await carregarVinculosDoServico()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar os vinculos.')
+    erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -306,6 +325,23 @@ function normalizarIds(dados) {
   return lista
     .map((item) => Number(typeof item === 'object' ? item.id || item.funcionarioId : item))
     .filter((id) => Number.isFinite(id))
+}
+
+function normalizarColecao(dados) {
+  if (Array.isArray(dados)) {
+    return dados
+  }
+
+  if (!dados || typeof dados !== 'object') {
+    return []
+  }
+
+  return (dados.content || dados.items || dados.itens || dados.data || dados.resultado || []).map(
+    (item) => ({
+      tipo: tipoIndisponibilidadeAtivo.value,
+      ...item,
+    }),
+  )
 }
 
 function alternarFuncionario(funcionarioId) {
@@ -340,7 +376,7 @@ function obterNomeServico(item) {
 }
 
 function formatarPeriodo(item) {
-  return `${formatarDataHora(item.inicio || item.dataHoraInicio)} ate ${formatarDataHora(
+  return `${formatarDataHora(item.inicio || item.dataHoraInicio)} até ${formatarDataHora(
     item.fim || item.dataHoraFim,
   )}`
 }
@@ -399,7 +435,7 @@ onMounted(() => {
         <p class="subtitulo">Operacao</p>
         <h1>Disponibilidade</h1>
         <p class="descricao">
-          Gerencie periodos de indisponibilidade e vinculos entre funcionarios e servicos.
+          Gerencie periodos de indisponibilidade e vínculos entre funcionarios e servicos.
         </p>
       </div>
 
@@ -414,7 +450,7 @@ onMounted(() => {
       <p>{{ mensagemSucesso }}</p>
     </section>
 
-    <nav class="abas" aria-label="Secoes de disponibilidade">
+    <nav class="abas" aria-label="Seções de disponibilidade">
       <button
         v-for="aba in abas"
         :key="aba.chave"
@@ -435,14 +471,14 @@ onMounted(() => {
         <section class="card formulario">
           <div class="titulo-card">
             <h2>{{ indisponibilidadeEditandoId ? 'Editar indisponibilidade' : 'Nova indisponibilidade' }}</h2>
-            <p>Defina o periodo e mantenha a agenda protegida.</p>
+            <p>Defina o período e mantenha a agenda protegida.</p>
           </div>
 
           <div class="campos">
             <label v-if="abaAtiva === 'FUNCIONARIO'">
-              Funcionario *
+              Funcionário *
               <select v-model="formulario.funcionarioId">
-                <option value="">Selecione um funcionario</option>
+                <option value="">Selecione um funcionário</option>
                 <option v-for="funcionario in funcionariosAtivos" :key="funcionario.id" :value="funcionario.id">
                   {{ funcionario.nome }}
                 </option>
@@ -450,9 +486,9 @@ onMounted(() => {
             </label>
 
             <label v-if="abaAtiva === 'SERVICO'">
-              Servico *
+              Serviço *
               <select v-model="formulario.servicoId">
-                <option value="">Selecione um servico</option>
+                <option value="">Selecione um serviço</option>
                 <option v-for="servico in servicosAtivos" :key="servico.id" :value="servico.id">
                   {{ servico.nome }}
                 </option>
@@ -487,7 +523,7 @@ onMounted(() => {
 
             <label class="campo-grande">
               Motivo
-              <input v-model="formulario.motivo" type="text" placeholder="Ex: feriado, manutencao ou treinamento" />
+              <input v-model="formulario.motivo" type="text" placeholder="Ex: feriado, manutenção ou treinamento" />
             </label>
           </div>
 
@@ -510,7 +546,7 @@ onMounted(() => {
           <div class="cabecalho-lista">
             <div>
               <h2>Indisponibilidades</h2>
-              <p>Periodos cadastrados para a secao selecionada.</p>
+              <p>Períodos cadastrados para a seção selecionada.</p>
             </div>
 
             <span class="contador">{{ indisponibilidadesDaAba.length }} registro(s)</span>
@@ -525,7 +561,7 @@ onMounted(() => {
               <div class="topo-card">
                 <div>
                   <span :class="['badge', normalizarTipo(item.tipo).toLowerCase()]">
-                    {{ normalizarTipo(item.tipo) === 'EMPRESA' ? 'Empresa' : normalizarTipo(item.tipo) === 'FUNCIONARIO' ? 'Funcionario' : 'Servico' }}
+                    {{ normalizarTipo(item.tipo) === 'EMPRESA' ? 'Empresa' : normalizarTipo(item.tipo) === 'FUNCIONARIO' ? 'Funcionário' : 'Serviço' }}
                   </span>
                   <h3 v-if="normalizarTipo(item.tipo) === 'EMPRESA'">Tipo: Empresa</h3>
                   <h3 v-else-if="normalizarTipo(item.tipo) === 'FUNCIONARIO'">
@@ -540,9 +576,9 @@ onMounted(() => {
               </div>
 
               <div class="detalhes">
-                <p><strong>Periodo:</strong> {{ formatarPeriodo(item) }}</p>
+                <p><strong>Período:</strong> {{ formatarPeriodo(item) }}</p>
                 <p><strong>Motivo:</strong> {{ item.motivo || '-' }}</p>
-                <p><strong>Situacao:</strong> {{ item.ativo !== false ? 'Ativo' : 'Inativo' }}</p>
+                <p><strong>Situação:</strong> {{ item.ativo !== false ? 'Ativo' : 'Inativo' }}</p>
               </div>
 
               <div class="acoes">
@@ -560,18 +596,18 @@ onMounted(() => {
 
       <section v-else class="card vinculos-card">
         <div class="titulo-card">
-          <h2>Funcionarios por servico</h2>
+          <h2>Funcionários por serviço</h2>
           <p>
-            Se nenhum funcionario for vinculado a este servico, todos os funcionarios ativos poderao
-            executa-lo. Quando houver pelo menos um vinculo, somente os funcionarios selecionados
-            poderao atender este servico.
+            Se nenhum funcionario for vinculado a este servico, todos os funcionarios ativos poderão
+            executá-lo. Quando houver pelo menos um vínculo, somente os funcionários selecionados
+            poderão atender este serviço.
           </p>
         </div>
 
         <label class="servico-vinculo">
           Servico
           <select v-model="servicoVinculoId">
-            <option value="">Selecione um servico</option>
+            <option value="">Selecione um serviço</option>
             <option v-for="servico in servicosAtivos" :key="servico.id" :value="servico.id">
               {{ servico.nome }}
             </option>
@@ -581,10 +617,12 @@ onMounted(() => {
         <section v-if="servicoVinculoId" class="lista-funcionarios">
           <div class="cabecalho-lista">
             <div>
-              <h2>{{ servicoVinculoSelecionado?.nome || 'Servico selecionado' }}</h2>
-              <p>{{ carregandoVinculos ? 'Carregando vinculos...' : 'Marque quem pode executar este servico.' }}</p>
+              <h2>{{ servicoVinculoSelecionado?.nome || 'Serviço selecionado' }}</h2>
+              <p>{{ carregandoVinculos ? 'Carregando vínculos...' : 'Marque quem pode executar este serviço.' }}</p>
             </div>
           </div>
+
+          <p v-if="mensagemVinculos" class="aviso-vinculos">{{ mensagemVinculos }}</p>
 
           <label
             v-for="funcionario in funcionariosAtivos"
@@ -602,7 +640,7 @@ onMounted(() => {
 
         <div class="acoes">
           <button class="botao principal" type="button" :disabled="salvando" @click="salvarVinculos">
-            {{ salvando ? 'Salvando...' : 'Salvar vinculos' }}
+            {{ salvando ? 'Salvando...' : 'Salvar vínculos' }}
           </button>
         </div>
       </section>
@@ -919,6 +957,13 @@ input[type='checkbox'] {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #f8fafc;
+}
+
+.aviso-vinculos {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {
