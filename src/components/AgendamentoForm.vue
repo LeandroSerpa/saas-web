@@ -33,6 +33,10 @@ defineProps({
     type: String,
     default: '',
   },
+  carregandoFuncionarios: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 defineEmits(['salvar', 'cancelar'])
@@ -86,7 +90,7 @@ function formatarPreco(preco) {
       <label>
         Funcionario *
         <select v-model="agendamento.funcionarioId">
-          <option value="">Selecione um funcionario</option>
+          <option value="">{{ carregandoFuncionarios ? 'Carregando funcionarios...' : 'Selecione um funcionario' }}</option>
           <option v-for="funcionario in funcionarios" :key="funcionario.id" :value="funcionario.id">
             {{ funcionario.nome }}
           </option>

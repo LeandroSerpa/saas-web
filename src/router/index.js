@@ -4,6 +4,7 @@ import HomeView from '../views/HomeView.vue'
 import ClientesView from '../views/ClientesView.vue'
 import ServicosView from '../views/ServicosView.vue'
 import FuncionariosView from '../views/FuncionariosView.vue'
+import DisponibilidadeView from '../views/DisponibilidadeView.vue'
 import LoginView from '../views/LoginView.vue'
 import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
@@ -89,6 +90,12 @@ const router = createRouter({
       name: 'funcionarios',
       component: FuncionariosView,
       meta: rotasProtegidas,
+    },
+    {
+      path: '/disponibilidade',
+      name: 'disponibilidade',
+      component: DisponibilidadeView,
+      meta: rotasAdmin,
     },
     {
       path: '/relatorios',

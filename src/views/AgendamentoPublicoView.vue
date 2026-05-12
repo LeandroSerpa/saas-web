@@ -17,6 +17,7 @@ const empresa = ref(null)
 const personalizacao = ref(criarPersonalizacaoPublicaPadrao())
 const servicos = ref([])
 const funcionarios = ref([])
+const funcionariosServico = ref([])
 const disponibilidade = ref(null)
 const carregando = ref(true)
 const carregandoDisponibilidade = ref(false)
@@ -33,9 +34,15 @@ const servicoSelecionado = computed(() =>
 )
 
 const funcionarioSelecionado = computed(() =>
-  funcionarios.value.find(
+  funcionariosDisponiveis.value.find(
     (funcionario) => Number(funcionario.id) === Number(agendamento.value.funcionarioId),
   ),
+)
+
+const funcionariosDisponiveis = computed(() =>
+  agendamento.value.servicoId && funcionariosServico.value.length
+    ? funcionariosServico.value
+    : funcionarios.value,
 )
 
 const duracaoMinutos = computed(() => obterDuracaoValida(servicoSelecionado.value))
@@ -115,7 +122,10 @@ const mensagemDisponibilidade = computed(() => {
   }
 
   if (horariosDisponiveis.value.length === 0) {
-    return mensagem || 'Nenhum horário disponível para esta data. Escolha outro dia.'
+    return (
+      mensagem ||
+      'Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.'
+    )
   }
 
   return ''
@@ -148,7 +158,7 @@ const mensagemOrientacaoHorarios = computed(() => {
       : 'Escolha um dos horários disponíveis abaixo.'
   }
 
-  return 'Nenhum horário disponível para esta data. Tente escolher outro dia.'
+  return 'Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.'
 })
 
 const resumoVisivel = computed(() =>
@@ -180,6 +190,13 @@ watch(
   () => {
     agendamento.value.dataHoraInicio = ''
     carregarDisponibilidade()
+  },
+)
+
+watch(
+  () => agendamento.value.servicoId,
+  () => {
+    carregarFuncionariosDoServicoPublico()
   },
 )
 
@@ -394,14 +411,38 @@ async function carregarDadosPublicos() {
     servicos.value = Array.isArray(servicosApi) ? servicosApi : []
     funcionarios.value = Array.isArray(funcionariosApi) ? funcionariosApi : []
 
-    if (!personalizacao.value.mostrarFuncionario && funcionarios.value.length === 1) {
-      agendamento.value.funcionarioId = funcionarios.value[0].id
+    if (!personalizacao.value.mostrarFuncionario && funcionariosDisponiveis.value.length === 1) {
+      agendamento.value.funcionarioId = funcionariosDisponiveis.value[0].id
     }
   } catch (error) {
     indisponivel.value = true
     console.error(error)
   } finally {
     carregando.value = false
+  }
+}
+
+async function carregarFuncionariosDoServicoPublico() {
+  funcionariosServico.value = []
+  agendamento.value.funcionarioId = ''
+  disponibilidade.value = null
+
+  if (!slug.value || !agendamento.value.servicoId) {
+    return
+  }
+
+  try {
+    const dados = await buscarFuncionariosPublicos(slug.value, {
+      servicoId: agendamento.value.servicoId,
+    })
+    funcionariosServico.value = Array.isArray(dados) ? dados : []
+
+    if (!personalizacao.value.mostrarFuncionario && funcionariosDisponiveis.value.length === 1) {
+      agendamento.value.funcionarioId = funcionariosDisponiveis.value[0].id
+    }
+  } catch (error) {
+    funcionariosServico.value = []
+    console.error(error)
   }
 }
 
@@ -865,12 +906,12 @@ onMounted(() => {
             </select>
           </label>
 
-          <label v-if="personalizacao.mostrarFuncionario || funcionarios.length !== 1">
+          <label v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
             Funcionário *
             <select v-model="agendamento.funcionarioId">
               <option value="">Selecione um funcionário</option>
               <option
-                v-for="funcionario in funcionarios"
+                v-for="funcionario in funcionariosDisponiveis"
                 :key="funcionario.id"
                 :value="funcionario.id"
               >
@@ -913,7 +954,7 @@ onMounted(() => {
               class="estado-horarios"
             >
               <strong>Nenhum horário livre nesta data.</strong>
-              <span>Escolha outro dia ou outro funcionário para tentar novamente.</span>
+              <span>Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.</span>
             </div>
 
             <div v-if="horariosOcupados.length" class="legenda-horarios">
@@ -929,7 +970,7 @@ onMounted(() => {
           <div v-if="resumoVisivel" class="campo-grande previa">
             <h3>Resumo do agendamento</h3>
             <p><strong>Serviço:</strong> {{ servicoSelecionado?.nome || 'A selecionar' }}</p>
-            <p v-if="personalizacao.mostrarFuncionario || funcionarios.length !== 1">
+            <p v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
               <strong>Funcionário:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}
             </p>
             <p><strong>Data:</strong> {{ dataAtendimentoFormatada || 'A selecionar' }}</p>

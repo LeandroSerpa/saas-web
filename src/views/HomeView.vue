@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import AgendamentoCard from '@/components/AgendamentoCard.vue'
 import AgendamentoForm from '@/components/AgendamentoForm.vue'
 import {
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
+  buscarFuncionariosVinculadosAoServico,
   buscarServicos,
   atualizarStatusAgendamento,
   atualizarAgendamento,
@@ -17,6 +18,8 @@ const agendamentos = ref([])
 const clientes = ref([])
 const servicos = ref([])
 const funcionarios = ref([])
+const funcionariosVinculadosAoServico = ref([])
+const carregandoFuncionariosServico = ref(false)
 
 const carregando = ref(true)
 const erro = ref('')
@@ -47,6 +50,17 @@ const servicosAtivos = computed(() => servicos.value.filter((servico) => servico
 const funcionariosAtivos = computed(() =>
   funcionarios.value.filter((funcionario) => funcionario.ativo === true),
 )
+const funcionariosDisponiveisAgendamento = computed(() => {
+  if (!novoAgendamento.value.servicoId || funcionariosVinculadosAoServico.value.length === 0) {
+    return funcionariosAtivos.value
+  }
+
+  const idsPermitidos = funcionariosVinculadosAoServico.value.map(Number)
+
+  return funcionariosAtivos.value.filter((funcionario) =>
+    idsPermitidos.includes(Number(funcionario.id)),
+  )
+})
 const servicoSelecionadoAgendamento = computed(() => buscarServicoSelecionado())
 const duracaoAgendamentoMinutos = computed(() =>
   obterDuracaoValida(servicoSelecionadoAgendamento.value),
@@ -125,6 +139,13 @@ const textoFiltroStatus = computed(() => {
 
   return textos[filtros.value.status || 'todos']
 })
+
+watch(
+  () => novoAgendamento.value.servicoId,
+  () => {
+    carregarFuncionariosDoServicoSelecionado()
+  },
+)
 
 function prepararAgendamentoParaLista(agendamento) {
   const servico = buscarServicoDoAgendamento(agendamento)
@@ -270,6 +291,16 @@ async function salvarAgendamento() {
       return
     }
 
+    if (
+      funcionariosVinculadosAoServico.value.length > 0 &&
+      !funcionariosVinculadosAoServico.value
+        .map(Number)
+        .includes(Number(novoAgendamento.value.funcionarioId))
+    ) {
+      erro.value = 'Este funcionario nao esta vinculado ao servico selecionado.'
+      return
+    }
+
     if (!novoAgendamento.value.dataHoraInicio) {
       erro.value = 'Informe a data e hora do agendamento.'
       return
@@ -313,10 +344,37 @@ async function salvarAgendamento() {
 
     await carregarAgendamentos()
   } catch (error) {
-    const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
-
-    erro.value = mensagemApi || 'Nao foi possivel concluir a operacao.'
+    erro.value = obterMensagemAgendamento(error)
     console.error(error)
+  }
+}
+
+async function carregarFuncionariosDoServicoSelecionado() {
+  funcionariosVinculadosAoServico.value = []
+
+  if (!novoAgendamento.value.servicoId) {
+    return
+  }
+
+  try {
+    carregandoFuncionariosServico.value = true
+    const dados = await buscarFuncionariosVinculadosAoServico(novoAgendamento.value.servicoId)
+    funcionariosVinculadosAoServico.value = normalizarIds(dados)
+
+    if (
+      funcionariosVinculadosAoServico.value.length > 0 &&
+      novoAgendamento.value.funcionarioId &&
+      !funcionariosVinculadosAoServico.value
+        .map(Number)
+        .includes(Number(novoAgendamento.value.funcionarioId))
+    ) {
+      novoAgendamento.value.funcionarioId = ''
+    }
+  } catch (error) {
+    funcionariosVinculadosAoServico.value = []
+    console.error(error)
+  } finally {
+    carregandoFuncionariosServico.value = false
   }
 }
 
@@ -466,6 +524,42 @@ function formatarDataHoraPreview(data) {
   })
 }
 
+function normalizarIds(dados) {
+  const lista = Array.isArray(dados)
+    ? dados
+    : dados?.funcionarioIds || dados?.funcionarios || dados?.itens || []
+
+  return lista
+    .map((item) => Number(typeof item === 'object' ? item.id || item.funcionarioId : item))
+    .filter((id) => Number.isFinite(id))
+}
+
+function obterMensagemAgendamento(error) {
+  const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
+  const mensagemNormalizada = normalizarTexto(mensagemApi)
+
+  if (mensagemNormalizada.includes('empresa') && mensagemNormalizada.includes('indispon')) {
+    return 'Empresa indisponivel no periodo selecionado.'
+  }
+
+  if (mensagemNormalizada.includes('funcionario') && mensagemNormalizada.includes('indispon')) {
+    return 'Funcionario indisponivel no periodo selecionado.'
+  }
+
+  if (mensagemNormalizada.includes('servico') && mensagemNormalizada.includes('indispon')) {
+    return 'Servico indisponivel no periodo selecionado.'
+  }
+
+  if (
+    mensagemNormalizada.includes('vincul') ||
+    (mensagemNormalizada.includes('funcionario') && mensagemNormalizada.includes('servico'))
+  ) {
+    return 'Este funcionario nao esta vinculado ao servico selecionado.'
+  }
+
+  return mensagemApi || 'Nao foi possivel concluir a operacao.'
+}
+
 onMounted(() => {
   carregarDados()
 })
@@ -492,11 +586,12 @@ onMounted(() => {
         v-model="novoAgendamento"
         :clientes="clientes"
         :servicos="servicosAtivos"
-        :funcionarios="funcionariosAtivos"
+        :funcionarios="funcionariosDisponiveisAgendamento"
         :mensagem-sucesso="mensagemSucessoAgendamento"
         :modo-edicao="Boolean(agendamentoEditandoId)"
         :duracao-minutos="duracaoAgendamentoMinutos"
         :termino-previsto="terminoPrevistoAgendamento"
+        :carregando-funcionarios="carregandoFuncionariosServico"
         @salvar="salvarAgendamento"
         @cancelar="cancelarEdicaoAgendamento"
       />

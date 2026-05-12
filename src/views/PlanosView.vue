@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   ativarPlano,
   atualizarPlano,
@@ -36,6 +36,7 @@ function criarPlanoInicial() {
     precoMensal: '',
     ativo: true,
     visivelParaEmpresa: true,
+    exibirNoCadastroPublico: true,
     observacaoInterna: '',
     limiteUsuarios: '',
     limiteClientes: '',
@@ -127,6 +128,7 @@ function editarPlano(planoItem) {
     precoMensal: planoItem.precoMensal ?? planoItem.preco ?? '',
     ativo: estaAtivo(planoItem),
     visivelParaEmpresa: planoItem.visivelParaEmpresa ?? true,
+    exibirNoCadastroPublico: planoItem.exibirNoCadastroPublico ?? false,
     observacaoInterna: planoItem.observacaoInterna || '',
     limiteUsuarios: obterLimite(planoItem, 'limiteUsuarios'),
     limiteClientes: obterLimite(planoItem, 'limiteClientes'),
@@ -157,6 +159,7 @@ function montarPayloadPlano() {
     precoMensal: numeroOuZero(plano.value.precoMensal),
     ativo: Boolean(plano.value.ativo),
     visivelParaEmpresa: plano.value.visivelParaEmpresa !== false,
+    exibirNoCadastroPublico: Boolean(plano.value.exibirNoCadastroPublico),
     observacaoInterna: plano.value.observacaoInterna,
     limiteUsuarios: limiteOuNulo(plano.value.limiteUsuarios),
     limiteClientes: limiteOuNulo(plano.value.limiteClientes),
@@ -208,6 +211,10 @@ function planoVisivelParaEmpresa(planoItem) {
   return planoItem.visivelParaEmpresa !== false
 }
 
+function planoExibidoNoCadastroPublico(planoItem) {
+  return planoItem.exibirNoCadastroPublico === true
+}
+
 function formatarPreco(preco) {
   return Number(preco || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -228,6 +235,15 @@ function obterMensagemErro(error, fallback) {
 onMounted(() => {
   carregarPlanos()
 })
+
+watch(
+  () => plano.value.tipoPlano,
+  (tipoPlano) => {
+    if (!planoEditandoId.value) {
+      plano.value.exibirNoCadastroPublico = normalizarTipoPlano(tipoPlano) === 'COMERCIAL'
+    }
+  },
+)
 </script>
 
 <template>
@@ -320,6 +336,11 @@ onMounted(() => {
           Visível para a empresa
           <small>Quando desmarcado, a empresa verá o nome Plano especial na tela Meu plano.</small>
         </label>
+        <label class="campo-checkbox ajuda-checkbox">
+          <input v-model="plano.exibirNoCadastroPublico" type="checkbox" />
+          Exibir no cadastro público
+          <small>Quando marcado, este plano aparece para empresas externas na página Comece agora.</small>
+        </label>
         <label class="campo-checkbox">
           <input v-model="plano.permitePersonalizacao" type="checkbox" />
           Permite personalização
@@ -401,6 +422,9 @@ onMounted(() => {
             <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritário</span>
             <span :class="{ ligado: planoVisivelParaEmpresa(planoItem) }">
               Visível para empresa: {{ planoVisivelParaEmpresa(planoItem) ? 'Sim' : 'Não' }}
+            </span>
+            <span :class="{ ligado: planoExibidoNoCadastroPublico(planoItem) }">
+              Cadastro público: {{ planoExibidoNoCadastroPublico(planoItem) ? 'Sim' : 'Não' }}
             </span>
           </div>
 

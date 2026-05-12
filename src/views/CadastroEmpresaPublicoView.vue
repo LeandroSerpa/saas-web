@@ -46,24 +46,34 @@ async function enviarSolicitacao() {
     erro.value = ''
     sucesso.value = ''
 
-    if (!formulario.value.nomeEmpresa.trim() || !formulario.value.emailEmpresa.trim()) {
-      erro.value = 'Informe ao menos o nome e o e-mail da empresa.'
+    if (!formulario.value.nomeEmpresa.trim()) {
+      erro.value = 'Informe o nome da empresa.'
       return
     }
 
-    if (!formulario.value.responsavelNome.trim() || !formulario.value.responsavelEmail.trim()) {
-      erro.value = 'Informe o nome e o e-mail do responsável.'
+    if (!formulario.value.responsavelNome.trim()) {
+      erro.value = 'Informe o nome do responsável.'
+      return
+    }
+
+    if (!formulario.value.responsavelTelefone.trim()) {
+      erro.value = 'Informe o telefone do responsável.'
+      return
+    }
+
+    if (!formulario.value.responsavelEmail.trim()) {
+      erro.value = 'Informe o e-mail do responsável.'
       return
     }
 
     if (!aceiteContato.value) {
-      erro.value = 'Aceite ser contatado para enviar a solicitação.'
+      erro.value = 'Você precisa aceitar o contato para enviar a solicitação.'
       return
     }
 
     enviando.value = true
-    await enviarSolicitacaoCadastro({ ...formulario.value, aceiteContato: true })
-    sucesso.value = 'Solicitação enviada com sucesso. Em breve entraremos em contato.'
+    await enviarSolicitacaoCadastro(montarPayloadSolicitacao())
+    sucesso.value = 'Solicitação enviada com sucesso. Nossa equipe irá analisar seus dados e entrar em contato.'
     limparFormulario()
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível enviar a solicitação.')
@@ -88,6 +98,31 @@ function limparFormulario() {
     mensagem: '',
   }
   aceiteContato.value = false
+}
+
+function montarPayloadSolicitacao() {
+  return {
+    nomeEmpresa: textoOuNulo(formulario.value.nomeEmpresa),
+    documento: textoOuNulo(formulario.value.documento),
+    telefone: textoOuNulo(formulario.value.telefoneEmpresa),
+    emailEmpresa: textoOuNulo(formulario.value.emailEmpresa),
+    endereco: textoOuNulo(formulario.value.endereco),
+    nomeResponsavel: textoOuNulo(formulario.value.responsavelNome),
+    emailResponsavel: textoOuNulo(formulario.value.responsavelEmail),
+    telefoneResponsavel: textoOuNulo(formulario.value.responsavelTelefone),
+    segmentoNegocioId: idOuNulo(formulario.value.segmentoNegocioId),
+    planoSaasId: idOuNulo(formulario.value.planoId),
+    mensagem: textoOuNulo(formulario.value.mensagem),
+  }
+}
+
+function textoOuNulo(valor) {
+  const texto = String(valor ?? '').trim()
+  return texto || null
+}
+
+function idOuNulo(valor) {
+  return valor === '' || valor === null || valor === undefined ? null : Number(valor)
 }
 
 function extrairLista(resposta) {
@@ -145,11 +180,14 @@ onMounted(() => {
             <label>
               Plano desejado
               <select v-model="formulario.planoId" :disabled="carregando">
-                <option value="">Selecione</option>
+                <option value="">Opcional</option>
                 <option v-for="plano in planos" :key="plano.id" :value="plano.id">
                   {{ plano.nome }}
                 </option>
               </select>
+              <small v-if="!carregando && planos.length === 0">
+                Nenhum plano público disponível no momento. Nossa equipe irá indicar o melhor plano após análise.
+              </small>
             </label>
           </div>
         </section>
@@ -256,6 +294,13 @@ label {
   font-weight: 800;
 }
 
+label small {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 input,
 select,
 textarea {
@@ -313,3 +358,4 @@ textarea {
   }
 }
 </style>
+

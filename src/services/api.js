@@ -226,8 +226,8 @@ export async function buscarServicos() {
   return tratarResposta(response)
 }
 
-export async function buscarFuncionarios() {
-  const response = await fetch(`${API_URL}/funcionarios`, {
+export async function buscarFuncionarios(filtros = {}) {
+  const response = await fetch(`${API_URL}/funcionarios${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -284,8 +284,8 @@ export async function enviarSolicitacaoCadastro(dados) {
   return tratarRespostaPublica(response)
 }
 
-export async function buscarFuncionariosPublicos(slug) {
-  const response = await fetch(`${API_URL}/publico/empresas/${slug}/funcionarios`, {
+export async function buscarFuncionariosPublicos(slug, filtros = {}) {
+  const response = await fetch(`${API_URL}/publico/empresas/${slug}/funcionarios${montarQueryString(filtros)}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -319,6 +319,114 @@ export async function criarAgendamentoPublico(slug, dados) {
 export async function buscarMinhaPersonalizacao() {
   const response = await fetch(`${API_URL}/minha-empresa/personalizacao`, {
     headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarIndisponibilidades(filtros = {}) {
+  const response = await fetch(`${API_URL}/indisponibilidades${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarIndisponibilidadePorId(id) {
+  const response = await fetch(`${API_URL}/indisponibilidades/${id}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarIndisponibilidade(dados) {
+  const response = await fetch(`${API_URL}/indisponibilidades`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarIndisponibilidade(id, dados) {
+  const response = await fetch(`${API_URL}/indisponibilidades/${id}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function excluirIndisponibilidade(id) {
+  const response = await fetch(`${API_URL}/indisponibilidades/${id}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarFuncionarioServicos(filtros = {}) {
+  const response = await fetch(`${API_URL}/funcionario-servicos${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function vincularFuncionarioServico(dados) {
+  const response = await fetch(`${API_URL}/funcionario-servicos`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function excluirFuncionarioServico(id) {
+  const response = await fetch(`${API_URL}/funcionario-servicos/${id}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarFuncionariosVinculadosAoServico(servicoId) {
+  const response = await fetch(`${API_URL}/servicos/${servicoId}/funcionarios`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionarioIds) {
+  const response = await fetch(`${API_URL}/servicos/${servicoId}/funcionarios`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify({ funcionarioIds }),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarServicosVinculadosAoFuncionario(funcionarioId) {
+  const response = await fetch(`${API_URL}/funcionarios/${funcionarioId}/servicos`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarServicosVinculadosAoFuncionario(funcionarioId, servicoIds) {
+  const response = await fetch(`${API_URL}/funcionarios/${funcionarioId}/servicos`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify({ servicoIds }),
   })
 
   return tratarResposta(response)
