@@ -58,6 +58,12 @@ const servicoVinculoSelecionado = computed(() =>
   servicos.value.find((servico) => Number(servico.id) === Number(servicoVinculoId.value)),
 )
 
+const funcionariosVinculadosAtuais = computed(() =>
+  funcionariosAtivos.value.filter((funcionario) =>
+    funcionariosSelecionados.value.includes(Number(funcionario.id)),
+  ),
+)
+
 watch(abaAtiva, (tipo) => {
   if (ignorarResetAba.value) {
     ignorarResetAba.value = false
@@ -318,20 +324,11 @@ async function carregarVinculosDoServico({ limparSucesso = true } = {}) {
     const idsExtraidos = extrairFuncionarioIds(listaNormalizada)
     funcionariosSelecionados.value = idsExtraidos
 
-    console.debug('Vínculos do serviço carregados:', {
-      respostaBruta: dados,
-      listaNormalizada,
-      idsExtraidos,
-      funcionariosCarregados: funcionariosAtivos.value.map((funcionario) => Number(funcionario.id)),
-    })
-
-    if (funcionariosSelecionados.value.length === 0) {
-      mensagemVinculos.value =
-        'Nenhum funcionário vinculado. Se nenhum vínculo for salvo, todos os funcionários ativos poderão executar este serviço.'
-    }
+    console.debug('Vínculos retornados pela API:', dados)
+    console.debug('IDs extraídos:', idsExtraidos)
   } catch (error) {
     funcionariosSelecionados.value = []
-    erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os vínculos.')
     console.error(error)
   } finally {
     carregandoVinculos.value = false
@@ -418,8 +415,38 @@ function normalizarColecao(dados) {
     return dados.Value
   }
 
+  if (dados.value !== undefined && (dados.Count !== undefined || dados.count !== undefined)) {
+    return dados.value ? [dados.value].flat() : []
+  }
+
+  if (dados.Value !== undefined && (dados.Count !== undefined || dados.count !== undefined)) {
+    return dados.Value ? [dados.Value].flat() : []
+  }
+
   if (Array.isArray(dados.content)) {
     return dados.content
+  }
+
+  if (Array.isArray(dados.data?.value)) {
+    return dados.data.value
+  }
+
+  if (Array.isArray(dados.data?.Value)) {
+    return dados.data.Value
+  }
+
+  if (
+    dados.data?.value !== undefined &&
+    (dados.data.Count !== undefined || dados.data.count !== undefined)
+  ) {
+    return dados.data.value ? [dados.data.value].flat() : []
+  }
+
+  if (
+    dados.data?.Value !== undefined &&
+    (dados.data.Count !== undefined || dados.data.count !== undefined)
+  ) {
+    return dados.data.Value ? [dados.data.Value].flat() : []
   }
 
   if (Array.isArray(dados.data?.content)) {
@@ -806,7 +833,20 @@ onMounted(() => {
             </div>
           </div>
 
-          <p v-if="mensagemVinculos" class="aviso-vinculos">{{ mensagemVinculos }}</p>
+          <section class="vinculos-atuais">
+            <h3>Funcionários vinculados atualmente</h3>
+            <div v-if="funcionariosVinculadosAtuais.length" class="chips-vinculos">
+              <span
+                v-for="funcionario in funcionariosVinculadosAtuais"
+                :key="funcionario.id"
+              >
+                {{ funcionario.nome }}
+              </span>
+            </div>
+            <p v-else>
+              Nenhum funcionário vinculado. Enquanto não houver vínculo salvo, todos os funcionários ativos poderão executar este serviço.
+            </p>
+          </section>
 
           <label
             v-for="funcionario in funcionariosAtivos"
@@ -1155,11 +1195,44 @@ input[type='checkbox'] {
   background: #f8fafc;
 }
 
-.aviso-vinculos {
+.vinculos-atuais {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.vinculos-atuais h3 {
+  margin: 0;
+  color: #1e3a8a;
+  font-size: 15px;
+}
+
+.vinculos-atuais p {
   margin: 0;
   color: #475569;
   font-size: 14px;
   font-weight: 700;
+}
+
+.chips-vinculos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips-vinculos span {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 @media (max-width: 900px) {

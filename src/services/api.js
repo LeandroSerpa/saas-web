@@ -481,8 +481,38 @@ function normalizarColecaoResposta(dados) {
     return dados.Value
   }
 
+  if (dados.value !== undefined && (dados.Count !== undefined || dados.count !== undefined)) {
+    return dados.value ? [dados.value].flat() : []
+  }
+
+  if (dados.Value !== undefined && (dados.Count !== undefined || dados.count !== undefined)) {
+    return dados.Value ? [dados.Value].flat() : []
+  }
+
   if (Array.isArray(dados.content)) {
     return dados.content
+  }
+
+  if (Array.isArray(dados.data?.value)) {
+    return dados.data.value
+  }
+
+  if (Array.isArray(dados.data?.Value)) {
+    return dados.data.Value
+  }
+
+  if (
+    dados.data?.value !== undefined &&
+    (dados.data.Count !== undefined || dados.data.count !== undefined)
+  ) {
+    return dados.data.value ? [dados.data.value].flat() : []
+  }
+
+  if (
+    dados.data?.Value !== undefined &&
+    (dados.data.Count !== undefined || dados.data.count !== undefined)
+  ) {
+    return dados.data.Value ? [dados.data.Value].flat() : []
   }
 
   if (Array.isArray(dados.data?.content)) {
