@@ -49,7 +49,7 @@ function encerrarSessao() {
 }
 
 async function extrairMensagemErro(response) {
-  const mensagemPadrao = 'Nao foi possivel concluir a operacao.'
+  const mensagemPadrao = 'Não foi possível concluir a operação.'
 
   const dados = await lerJsonErro(response)
 
@@ -133,7 +133,7 @@ function mensagemGenerica(mensagem) {
 }
 
 async function extrairMensagemResposta(response) {
-  const mensagemPadrao = 'Nao foi possivel concluir a operacao.'
+  const mensagemPadrao = 'Não foi possível concluir a operação.'
 
   try {
     const data = await response.clone().json()
@@ -405,10 +405,10 @@ export async function buscarFuncionariosVinculadosAoServico(servicoId) {
 }
 
 export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionarioIds) {
-  const response = await fetch(`${API_URL}/servicos/${servicoId}/funcionarios`, {
+  const response = await fetch(`${API_URL}/servicos/${servicoId}/funcionarios-vinculados`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(funcionarioIds),
+    body: JSON.stringify({ funcionarioIds }),
   })
 
   return tratarResposta(response)

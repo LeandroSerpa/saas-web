@@ -56,7 +56,7 @@ async function carregarPlanos() {
     erro.value = ''
     planos.value = extrairLista(await buscarPlanos())
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os planos.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os planos.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -87,7 +87,7 @@ async function salvarPlano() {
     cancelarEdicao(false)
     await carregarPlanos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar o plano.')
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar o plano.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -110,7 +110,7 @@ async function alternarAtivo(planoItem) {
 
     await carregarPlanos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel atualizar o status do plano.')
+    erro.value = obterMensagemErro(error, 'Não foi possível atualizar o status do plano.')
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -250,7 +250,7 @@ watch(
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao SaaS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
         <h1>Planos</h1>
         <p class="descricao">Gerencie planos comerciais, parcerias, cortesias e limites de uso das empresas.</p>
       </div>
@@ -279,7 +279,7 @@ watch(
           <input v-model="plano.nome" type="text" />
         </label>
         <label>
-          Preco mensal
+          Preço mensal
           <input v-model="plano.precoMensal" type="number" min="0" step="0.01" />
         </label>
         <label>
@@ -289,14 +289,14 @@ watch(
               {{ tipo.rotulo }}
             </option>
           </select>
-          <small>Use Parceria para empresas que recebem o sistema por permuta, troca de servicos ou acordo especial.</small>
+          <small>Use Parceria para empresas que recebem o sistema por permuta, troca de serviços ou acordo especial.</small>
         </label>
         <label class="campo-grande">
-          Descricao
+          Descrição
           <textarea v-model="plano.descricao" rows="3"></textarea>
         </label>
         <label class="campo-grande">
-          Observacao interna
+          Observação interna
           <textarea
             v-model="plano.observacaoInterna"
             rows="3"
@@ -313,11 +313,11 @@ watch(
           <input v-model="plano.limiteClientes" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
-          Limite de funcionarios
+          Limite de funcionários
           <input v-model="plano.limiteFuncionarios" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
-          Limite de servicos
+          Limite de serviços
           <input v-model="plano.limiteServicos" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
@@ -384,7 +384,7 @@ watch(
       </section>
 
       <section v-else-if="planosOrdenados.length === 0" class="card">
-        <p>Nenhum plano enaontrado.</p>
+        <p>Nenhum plano encontrado.</p>
       </section>
 
       <section v-else class="lista">
@@ -404,20 +404,20 @@ watch(
 
           <p class="texto">{{ planoItem.descricao || '-' }}</p>
           <p v-if="planoItem.observacaoInterna" class="observacao-interna">
-            <strong>Observacao interna:</strong> {{ planoItem.observacaoInterna }}
+            <strong>Observação interna:</strong> {{ planoItem.observacaoInterna }}
           </p>
 
           <div class="limites">
-            <span>Usuarios: {{ exibirLimite(planoItem.limiteUsuarios) }}</span>
+            <span>Usuários: {{ exibirLimite(planoItem.limiteUsuarios) }}</span>
             <span>Clientes: {{ exibirLimite(planoItem.limiteClientes) }}</span>
-            <span>Funcionarios: {{ exibirLimite(planoItem.limiteFuncionarios) }}</span>
-            <span>Servicos: {{ exibirLimite(planoItem.limiteServicos) }}</span>
+            <span>Funcionários: {{ exibirLimite(planoItem.limiteFuncionarios) }}</span>
+            <span>Serviços: {{ exibirLimite(planoItem.limiteServicos) }}</span>
             <span>Agendamentos/mês: {{ exibirLimite(planoItem.limiteAgendamentosMes ?? planoItem.limiteAgendamentos) }}</span>
           </div>
 
           <div class="permissoes">
-            <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalizacao</span>
-            <span :class="{ ligado: planoItem.permiteRelatorios }">Relatorios</span>
+            <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalização</span>
+            <span :class="{ ligado: planoItem.permiteRelatorios }">Relatórios</span>
             <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento publico</span>
             <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritário</span>
             <span :class="{ ligado: planoVisivelParaEmpresa(planoItem) }">

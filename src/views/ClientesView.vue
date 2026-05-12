@@ -27,7 +27,7 @@ async function carregarClientes() {
 
     clientes.value = await buscarClientes()
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os clientes.'
+    erro.value = 'Não foi possível carregar os clientes.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -67,8 +67,8 @@ async function salvarCliente() {
     erro.value = obterMensagemErro(
       error,
       clienteEditandoId.value
-        ? 'Nao foi possivel atualizar o cliente.'
-        : 'Nao foi possivel cadastrar o cliente.',
+        ? 'Não foi possível atualizar o cliente.'
+        : 'Não foi possível cadastrar o cliente.',
     )
     console.error(error)
   }
@@ -149,7 +149,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="clientes.length === 0" class="card">
-        <p>Nenhum cliente enaontrado.</p>
+        <p>Nenhum cliente encontrado.</p>
       </section>
 
       <section v-else class="lista-clientes">
@@ -162,7 +162,7 @@ onMounted(() => {
           <div class="detalhes">
             <p><strong>Telefone:</strong> {{ exibirValor(clienteItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(clienteItem.email) }}</p>
-            <p><strong>Observacao:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
+            <p><strong>Observação:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
           </div>
 
           <div class="acoes">

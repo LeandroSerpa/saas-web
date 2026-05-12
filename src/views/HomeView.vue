@@ -180,7 +180,7 @@ async function carregarDados() {
     servicos.value = servicosApi
     funcionarios.value = funcionariosApi
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os dados.'
+    erro.value = 'Não foi possível carregar os dados.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -194,7 +194,7 @@ async function carregarAgendamentos() {
 
     agendamentos.value = await buscarAgendamentos()
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os agendamentos.'
+    erro.value = 'Não foi possível carregar os agendamentos.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -218,7 +218,7 @@ async function alterarStatus(id, status) {
 
     mensagemSucessoAgendamento.value = 'Status atualizado com sucesso.'
   } catch (error) {
-    erro.value = 'Nao foi possivel atualizar o status do agendamento.'
+    erro.value = 'Não foi possível atualizar o status do agendamento.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -264,7 +264,7 @@ async function excluirAgendamentoAgenda(id) {
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'Nao foi possivel excluir o agendamento.'
+    erro.value = mensagemApi || 'Não foi possível excluir o agendamento.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -539,25 +539,25 @@ function obterMensagemAgendamento(error) {
   const mensagemNormalizada = normalizarTexto(mensagemApi)
 
   if (mensagemNormalizada.includes('empresa') && mensagemNormalizada.includes('indispon')) {
-    return 'Empresa indisponivel no periodo selecionado.'
+    return 'Empresa indisponível no período selecionado.'
   }
 
   if (mensagemNormalizada.includes('funcionario') && mensagemNormalizada.includes('indispon')) {
-    return 'Funcionario indisponivel no periodo selecionado.'
+    return 'Funcionário indisponível no período selecionado.'
   }
 
   if (mensagemNormalizada.includes('servico') && mensagemNormalizada.includes('indispon')) {
-    return 'Servico indisponivel no periodo selecionado.'
+    return 'Serviço indisponível no período selecionado.'
   }
 
   if (
     mensagemNormalizada.includes('vincul') ||
     (mensagemNormalizada.includes('funcionario') && mensagemNormalizada.includes('servico'))
   ) {
-    return 'Este funcionario nao esta vinculado ao servico selecionado.'
+    return 'Este funcionário não está vinculado ao serviço selecionado.'
   }
 
-  return mensagemApi || 'Nao foi possivel concluir a operacao.'
+  return mensagemApi || 'Não foi possível concluir a operação.'
 }
 
 onMounted(() => {
@@ -569,7 +569,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Operacao diaria</p>
+        <p class="subtitulo">Operação diária</p>
         <h1>Agenda</h1>
         <p class="descricao">Cadastre e acompanhe os agendamentos da empresa.</p>
       </div>
@@ -657,11 +657,11 @@ onMounted(() => {
       </section>
 
       <section v-else-if="agendamentos.length === 0" class="card">
-        <p>Nenhum agendamento enaontrado.</p>
+        <p>Nenhum agendamento encontrado.</p>
       </section>
 
       <section v-else-if="agendamentosFiltrados.length === 0" class="card">
-        <p>Nenhum agendamento enaontrado para os filtros selecionados.</p>
+        <p>Nenhum agendamento encontrado para os filtros selecionados.</p>
       </section>
 
       <section v-else class="lista">

@@ -70,13 +70,13 @@ const indicadores = computed(() => {
 
   return [
     { titulo: 'Total de agendamentos', valor: agendamentosFiltrados.value.length },
-    { titulo: 'Total concluÃ­do', valor: totalConcluido },
+    { titulo: 'Total concluído', valor: totalConcluido },
     { titulo: 'Total cancelado', valor: totalCancelado },
     { titulo: 'Total faltou', valor: totalFaltou },
     { titulo: 'Receita prevista', valor: formatarPreco(receitaPrevista) },
-    { titulo: 'Receita concluÃ­da', valor: formatarPreco(receitaConcluida) },
+    { titulo: 'Receita concluída', valor: formatarPreco(receitaConcluida) },
     {
-      titulo: 'Ticket mÃ©dio',
+      titulo: 'Ticket médio',
       valor: formatarPreco(totalConcluido ? receitaConcluida / totalConcluido : 0),
     },
   ]
@@ -84,8 +84,8 @@ const indicadores = computed(() => {
 const graficos = computed(() => [
   { titulo: 'Agendamentos por status', itens: agruparContagem(agendamentosFiltrados.value, (a) => statusTexto(a.status)) },
   { titulo: 'Receita por status', itens: agruparSoma(agendamentosFiltrados.value, (a) => statusTexto(a.status), (a) => obterPreco(a.preco)), dinheiro: true },
-  { titulo: 'Agendamentos por serviÃ§o', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.servico || 'Sem serviÃ§o') },
-  { titulo: 'Agendamentos por funcionÃ¡rio', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.funcionario || 'Sem funcionÃ¡rio') },
+  { titulo: 'Agendamentos por serviço', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.servico || 'Sem serviço') },
+  { titulo: 'Agendamentos por funcionário', itens: agruparContagem(agendamentosFiltrados.value, (a) => a.funcionario || 'Sem funcionário') },
   { titulo: 'Agendamentos por dia', itens: agruparContagem(agendamentosFiltrados.value, (a) => formatarData(a.dataHoraInicio)) },
 ])
 
@@ -96,7 +96,7 @@ async function carregarAgendamentos() {
 
     agendamentos.value = await buscarAgendamentos()
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os relatorios.'
+    erro.value = 'Não foi possível carregar os relatórios.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -178,7 +178,7 @@ function formatarPeriodo(agendamento) {
     return inicio
   }
 
-  return `${inicio} as ${fim}`
+  return `${inicio} às ${fim}`
 }
 
 function formatarPreco(preco) {
@@ -233,7 +233,7 @@ function normalizarGrafico(mapa) {
 function statusTexto(status) {
   const statusFormatados = {
     agendado: 'Agendado',
-    concluido: 'ConcluÃ­do',
+    concluido: 'Concluído',
     cancelado: 'Cancelado',
     faltou: 'Faltou',
   }
@@ -242,7 +242,7 @@ function statusTexto(status) {
 }
 
 function baixarCsv() {
-  const cabecalho = ['Data', 'Horario', 'Cliente', 'Servico', 'Funcionario', 'Status', 'Valor']
+  const cabecalho = ['Data', 'Horário', 'Cliente', 'Serviço', 'Funcionário', 'Status', 'Valor']
   const linhas = agendamentosFiltrados.value.map((agendamento) => [
     formatarData(agendamento.dataHoraInicio),
     formatarPeriodo(agendamento),
@@ -303,8 +303,8 @@ onMounted(() => {
     <header class="cabecalho-pagina">
       <div>
         <p class="subtitulo">Indicadores</p>
-        <h1>RelatÃ³rios</h1>
-        <p class="descricao">Acompanhe indicadores financeiros e operacaonais por perÃ­odo.</p>
+        <h1>Relatórios</h1>
+        <p class="descricao">Acompanhe indicadores financeiros e operacionais por período.</p>
       </div>
 
       <div class="acoes-topo">
@@ -341,14 +341,14 @@ onMounted(() => {
           <select v-model="filtros.status">
             <option value="">Todos</option>
             <option value="agendado">Agendado</option>
-            <option value="concluido">ConcluÃ­do</option>
+            <option value="concluido">Concluído</option>
             <option value="cancelado">Cancelado</option>
             <option value="faltou">Faltou</option>
           </select>
         </label>
 
         <label>
-          FuncionÃ¡rio
+          Funcionário
           <select v-model="filtros.funcionario">
             <option value="">Todos</option>
             <option
@@ -362,7 +362,7 @@ onMounted(() => {
         </label>
 
         <label>
-          ServiÃ§o
+          Serviço
           <select v-model="filtros.servico">
             <option value="">Todos</option>
             <option v-for="servico in servicosDisponiveis" :key="servico" :value="servico">
@@ -412,11 +412,11 @@ onMounted(() => {
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando relatÃ³rios...</p>
+        <p>Carregando relatórios...</p>
       </section>
 
       <section v-else-if="agendamentosFiltrados.length === 0" class="card">
-        <p>Nenhum dado enaontrado para os filtros informados.</p>
+        <p>Nenhum dado encontrado para os filtros informados.</p>
       </section>
 
       <section v-else class="card tabela-card">
@@ -425,10 +425,10 @@ onMounted(() => {
             <thead>
               <tr>
                 <th>Data</th>
-                <th>HorÃ¡rio</th>
+                <th>Horário</th>
                 <th>Cliente</th>
-                <th>ServiÃ§o</th>
-                <th>FuncionÃ¡rio</th>
+                <th>Serviço</th>
+                <th>Funcionário</th>
                 <th>Status</th>
                 <th>Valor</th>
               </tr>

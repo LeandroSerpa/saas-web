@@ -62,7 +62,7 @@ async function carregarDados() {
     empresas.value = extrairLista(empresasApi)
     planos.value = extrairLista(planosApi)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar as assinaturas.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar as assinaturas.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -90,7 +90,7 @@ async function salvarAssinatura() {
     cancelarEdicao(false)
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar a assinatura.')
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar a assinatura.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -226,9 +226,9 @@ function limitesResumo(item) {
   const plano = item.plano || buscarPlanoPorId(item.planoId) || {}
 
   return [
-    `Usuarios: ${exibirLimite(plano.limiteUsuarios ?? item.limiteUsuarios)}`,
+    `Usuários: ${exibirLimite(plano.limiteUsuarios ?? item.limiteUsuarios)}`,
     `Clientes: ${exibirLimite(plano.limiteClientes ?? item.limiteClientes)}`,
-    `Servicos: ${exibirLimite(plano.limiteServicos ?? item.limiteServicos)}`,
+    `Serviços: ${exibirLimite(plano.limiteServicos ?? item.limiteServicos)}`,
     `Agend.: ${exibirLimite(plano.limiteAgendamentosMes ?? item.limiteAgendamentosMes)}`,
   ].join(' | ')
 }
@@ -248,7 +248,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao SaaS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
         <h1>Assinaturas</h1>
         <p class="descricao">Vincule empresas aos planos e acompanhe status comerciais.</p>
       </div>
@@ -352,11 +352,11 @@ onMounted(() => {
           <input v-model="assinatura.dataVencimento" type="date" />
         </label>
         <label class="campo-grande">
-          Observacao
+          Observação
           <textarea v-model="assinatura.observacao" rows="3"></textarea>
         </label>
         <label class="campo-grande">
-          Observacao comercial da assinatura
+          Observação comercial da assinatura
           <textarea v-model="assinatura.observacaoComercial" rows="3"></textarea>
           <small>Use para registrar o acordo com esta empresa, como permuta, cortesia ou condição especial.</small>
         </label>
@@ -411,8 +411,8 @@ onMounted(() => {
             <p><strong>Data início:</strong> {{ formatarData(item.dataInicio) }}</p>
             <p><strong>Data vencimento:</strong> {{ formatarData(item.dataVencimento) }}</p>
             <p><strong>Limites:</strong> {{ limitesResumo(item) }}</p>
-            <p><strong>Observacao:</strong> {{ item.observacao || '-' }}</p>
-            <p><strong>Observacao comercial:</strong> {{ item.observacaoComercial || '-' }}</p>
+            <p><strong>Observação:</strong> {{ item.observacao || '-' }}</p>
+            <p><strong>Observação comercial:</strong> {{ item.observacaoComercial || '-' }}</p>
           </div>
 
           <div class="acoes">

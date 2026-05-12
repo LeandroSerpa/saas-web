@@ -48,11 +48,11 @@ defineEmits(['salvar', 'cancelar'])
       </label>
 
       <label class="campo-grande">
-        Observacao
+        Observação
         <input
           v-model="cliente.observacao"
           type="text"
-          placeholder="Ex: Cliente prefere atendimento pela manha"
+          placeholder="Ex: Cliente prefere atendimento pela manhã"
         />
       </label>
     </div>

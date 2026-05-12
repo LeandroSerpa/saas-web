@@ -69,7 +69,7 @@ async function carregarServicos() {
 
     servicos.value = await buscarServicos()
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os servicos.'
+    erro.value = 'Não foi possível carregar os serviços.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -83,17 +83,17 @@ async function salvarServico() {
     mensagemSucessoStatus.value = ''
 
     if (!servico.value.nome.trim()) {
-      erro.value = 'Informe o nome do servico.'
+      erro.value = 'Informe o nome do serviço.'
       return
     }
 
     if (servico.value.preco === '' || servico.value.preco === null) {
-      erro.value = 'Informe o preco do servico.'
+      erro.value = 'Informe o preço do serviço.'
       return
     }
 
     if (!servico.value.duracaoMinutos) {
-      erro.value = 'Informe a duracao do servico.'
+      erro.value = 'Informe a duração do serviço.'
       return
     }
 
@@ -101,10 +101,10 @@ async function salvarServico() {
 
     if (servicoEmEdicaoId.value) {
       await atualizarServico(servicoEmEdicaoId.value, dadosServico)
-      mensagemSucessoServico.value = 'Servico atualizado com sucesso.'
+      mensagemSucessoServico.value = 'Serviço atualizado com sucesso.'
     } else {
       await cadastrarServico(dadosServico)
-      mensagemSucessoServico.value = 'Servico cadastrado com sucesso.'
+      mensagemSucessoServico.value = 'Serviço cadastrado com sucesso.'
     }
 
     limparFormulario()
@@ -113,8 +113,8 @@ async function salvarServico() {
     erro.value = obterMensagemErro(
       error,
       servicoEmEdicaoId.value
-        ? 'Nao foi possivel atualizar o servico.'
-        : 'Nao foi possivel cadastrar o servico.',
+        ? 'Não foi possível atualizar o serviço.'
+        : 'Não foi possível cadastrar o serviço.',
     )
     console.error(error)
   }
@@ -131,10 +131,10 @@ async function alternarAtivoServico(servicoItem) {
     await carregarServicos()
 
     mensagemSucessoStatus.value = estaAtivo(servicoItem)
-      ? 'Servico desativado com sucesso.'
-      : 'Servico ativado com sucesso.'
+      ? 'Serviço desativado com sucesso.'
+      : 'Serviço ativado com sucesso.'
   } catch (error) {
-    erro.value = 'Nao foi possivel atualizar o status do servico.'
+    erro.value = 'Não foi possível atualizar o status do serviço.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -223,9 +223,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Catalogo</p>
-        <h1>Servicos</h1>
-        <p class="descricao">Gerencie os servicos disponiveis para agendamento.</p>
+        <p class="subtitulo">Catálogo</p>
+        <h1>Serviços</h1>
+        <p class="descricao">Gerencie os serviços disponíveis para agendamento.</p>
       </div>
 
       <button class="botao secundario" @click="carregarServicos">Atualizar dados</button>
@@ -251,7 +251,7 @@ onMounted(() => {
       <section class="card filtros-servicos">
         <div class="titulo-card">
           <h2>Filtros</h2>
-          <p>Refine a lista de servicos cadastrados.</p>
+          <p>Refine a lista de serviços cadastrados.</p>
         </div>
 
         <div class="campos-filtros">
@@ -269,7 +269,7 @@ onMounted(() => {
             <input
               v-model="filtros.busca"
               type="text"
-              placeholder="Busque por nome ou descricao"
+              placeholder="Busque por nome ou descrição"
             />
           </label>
 
@@ -281,23 +281,23 @@ onMounted(() => {
 
       <div class="cabecalho-lista">
         <div>
-          <h2>Servicos cadastrados</h2>
-          <p>Lista de servicos retornados pela API publicada.</p>
+          <h2>Serviços cadastrados</h2>
+          <p>Lista de serviços retornados pela API publicada.</p>
         </div>
 
-        <span class="contador">{{ servicosFiltrados.length }} servico(s)</span>
+        <span class="contador">{{ servicosFiltrados.length }} serviço(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando servicos...</p>
+        <p>Carregando serviços...</p>
       </section>
 
       <section v-else-if="servicos.length === 0" class="card">
-        <p>Nenhum servico enaontrado.</p>
+        <p>Nenhum serviço encontrado.</p>
       </section>
 
       <section v-else-if="servicosFiltrados.length === 0" class="card">
-        <p>Nenhum servico enaontrado para os filtros selecionados.</p>
+        <p>Nenhum serviço encontrado para os filtros selecionados.</p>
       </section>
 
       <section v-else class="lista-servicos">
@@ -318,9 +318,9 @@ onMounted(() => {
           </div>
 
           <div class="detalhes">
-            <p><strong>Descricao:</strong> {{ exibirValor(servicoItem.descricao) }}</p>
-            <p><strong>Preco:</strong> {{ formatarPreco(servicoItem.preco) }}</p>
-            <p><strong>Duracao:</strong> {{ exibirValor(servicoItem.duracaoMinutos) }} minutos</p>
+            <p><strong>Descrição:</strong> {{ exibirValor(servicoItem.descricao) }}</p>
+            <p><strong>Preço:</strong> {{ formatarPreco(servicoItem.preco) }}</p>
+            <p><strong>Duração:</strong> {{ exibirValor(servicoItem.duracaoMinutos) }} minutos</p>
           </div>
 
           <div class="acoes">
@@ -342,7 +342,7 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === servicoItem.id" class="atualizando">
-            Atualizanao servico...
+            Atualizando serviço...
           </p>
         </article>
       </section>

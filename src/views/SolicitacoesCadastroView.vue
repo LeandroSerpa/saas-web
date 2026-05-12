@@ -47,7 +47,7 @@ async function carregarDados() {
     segmentos.value = extrairLista(segmentosApi)
     planos.value = extrairLista(planosApi)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar as solicitações.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar as solicitações.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -61,7 +61,7 @@ async function marcarEmAnalise(item) {
     mensagemSucesso.value = 'Solicitação marcada em análise.'
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel atualizar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Não foi possível atualizar a solicitação.')
   }
 }
 
@@ -78,7 +78,7 @@ async function rejeitar(item) {
     mensagemSucesso.value = 'Solicitação rejeitada com sucesso.'
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel rejeitar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Não foi possível rejeitar a solicitação.')
   }
 }
 
@@ -99,7 +99,7 @@ async function aprovar() {
     aprovanao.value = null
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel aprovar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Não foi possível aprovar a solicitação.')
   } finally {
     salvando.value = false
   }
@@ -141,7 +141,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao SaaS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
         <h1>Solicitações</h1>
         <p class="descricao">Analise pedidos publicos de cadastro e converta em empresas ativas.</p>
       </div>
@@ -203,10 +203,10 @@ onMounted(() => {
           <label>Status da assinatura <select v-model="aprovacao.statusAssinatura"><option>ATIVA</option><option>TESTE</option></select></label>
           <label>Data de vencimento <input v-model="aprovacao.dataVencimento" type="date" /></label>
           <label>Senha inicial do admin <input v-model="aprovacao.senhaInicialAdmin" type="text" /></label>
-          <label class="campo-grande">Observacao da assinatura <textarea v-model="aprovacao.observacaoAssinatura" rows="3"></textarea></label>
-          <label class="campo-grande">Observacao comercial <textarea v-model="aprovacao.observacaoComercial" rows="3"></textarea></label>
+          <label class="campo-grande">Observação da assinatura <textarea v-model="aprovacao.observacaoAssinatura" rows="3"></textarea></label>
+          <label class="campo-grande">Observação comercial <textarea v-model="aprovacao.observacaoComercial" rows="3"></textarea></label>
           <label class="checkbox"><input v-model="aprovacao.criarEmpresa" type="checkbox" /> Criar empresa</label>
-          <label class="checkbox"><input v-model="aprovacao.criarUsuarioAdmin" type="checkbox" /> Criar usuario admin</label>
+          <label class="checkbox"><input v-model="aprovacao.criarUsuarioAdmin" type="checkbox" /> Criar usuário admin</label>
         </div>
         <button class="botao principal" :disabled="salvando">{{ salvando ? 'Aprovando...' : 'Aprovar solicitação' }}</button>
       </form>

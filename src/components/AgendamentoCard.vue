@@ -126,17 +126,17 @@ function podeExcluir(status) {
 
     <div class="detalhes">
       <p><strong>Cliente:</strong> {{ agendamento.cliente }}</p>
-      <p><strong>Servico:</strong> {{ agendamento.servico }}</p>
-      <p><strong>Funcionario:</strong> {{ agendamento.funcionario }}</p>
+      <p><strong>Serviço:</strong> {{ agendamento.servico }}</p>
+      <p><strong>Funcionário:</strong> {{ agendamento.funcionario }}</p>
       <p><strong>Data:</strong> {{ formatarData(agendamento.dataHoraInicio) }}</p>
-      <p><strong>Horario:</strong> {{ formatarPeriodo(agendamento) }}</p>
+      <p><strong>Horário:</strong> {{ formatarPeriodo(agendamento) }}</p>
       <p v-if="agendamento.duracaoMinutosVisual">
-        <strong>Duracao:</strong> {{ agendamento.duracaoMinutosVisual }} minutos
+        <strong>Duração:</strong> {{ agendamento.duracaoMinutosVisual }} minutos
       </p>
-      <p><strong>Preco:</strong> {{ formatarPreco(agendamento.preco) }}</p>
+      <p><strong>Preço:</strong> {{ formatarPreco(agendamento.preco) }}</p>
       <p><strong>Status:</strong> {{ statusTexto(agendamento.status) }}</p>
       <p v-if="agendamento.observacao">
-        <strong>Observacao:</strong> {{ agendamento.observacao }}
+        <strong>Observação:</strong> {{ agendamento.observacao }}
       </p>
     </div>
 

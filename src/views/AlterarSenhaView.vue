@@ -65,7 +65,7 @@ async function salvarSenha() {
       router.push('/login')
     }, 1000)
   } catch (error) {
-    erro.value = 'Nao foi possivel alterar a senha. Confira a senha atual e tente novamente.'
+    erro.value = 'Não foi possível alterar a senha. Confira a senha atual e tente novamente.'
     console.error(error)
   } finally {
     carregando.value = false

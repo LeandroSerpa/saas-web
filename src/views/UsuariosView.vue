@@ -72,7 +72,7 @@ async function carregarDados() {
       usuarios.value = await buscarUsuarios()
     }
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os usuarios.'
+    erro.value = 'Não foi possível carregar os usuários.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -136,10 +136,10 @@ async function salvarUsuario() {
 
     if (usuarioEditandoId.value) {
       await atualizarUsuario(usuarioEditandoId.value, dadosUsuario)
-      mensagemSucessoUsuario.value = 'Usuario atualizado com sucesso.'
+      mensagemSucessoUsuario.value = 'Usuário atualizado com sucesso.'
     } else {
       await cadastrarUsuario(dadosUsuario)
-      mensagemSucessoUsuario.value = 'Usuario cadastrado com sucesso.'
+      mensagemSucessoUsuario.value = 'Usuário cadastrado com sucesso.'
     }
 
     cancelarEdicaoUsuario(false)
@@ -147,8 +147,8 @@ async function salvarUsuario() {
     await carregarDados()
   } catch (error) {
     erro.value = usuarioEditandoId.value
-      ? 'Nao foi possivel atualizar o usuario.'
-      : 'Nao foi possivel cadastrar o usuario.'
+      ? 'Não foi possível atualizar o usuário.'
+      : 'Não foi possível cadastrar o usuário.'
     console.error(error)
   }
 }
@@ -184,12 +184,12 @@ function cancelarEdicaoUsuario(limparMensagens = true) {
 async function alternarAtivoUsuario(usuarioItem) {
   try {
     if (usuarioAtual(usuarioItem)) {
-      erro.value = 'O usuario atual nao pode ser desativado.'
+      erro.value = 'O usuário atual não pode ser desativado.'
       return
     }
 
     if (!podeAlterarAtivoUsuario(usuarioItem)) {
-      erro.value = 'Voce nao tem permissao para alterar o status deste usuario.'
+      erro.value = 'Você não tem permissão para alterar o status deste usuário.'
       return
     }
 
@@ -202,10 +202,10 @@ async function alternarAtivoUsuario(usuarioItem) {
     await carregarDados()
 
     mensagemSucessoStatus.value = estaAtivo(usuarioItem)
-      ? 'Usuario desativado com sucesso.'
-      : 'Usuario ativado com sucesso.'
+      ? 'Usuário desativado com sucesso.'
+      : 'Usuário ativado com sucesso.'
   } catch (error) {
-    erro.value = 'Nao foi possivel atualizar o status do usuario.'
+    erro.value = 'Não foi possível atualizar o status do usuário.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -284,9 +284,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao</p>
-        <h1>Usuarios</h1>
-        <p class="descricao">Gerencie usuarios com acesso ao sistema.</p>
+        <p class="subtitulo">Administração</p>
+        <h1>Usuários</h1>
+        <p class="descricao">Gerencie usuários com acesso ao sistema.</p>
       </div>
 
       <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
@@ -316,19 +316,19 @@ onMounted(() => {
     <section class="secao-usuarios">
       <div class="cabecalho-lista">
         <div>
-          <h2>Usuarios cadastrados</h2>
-          <p>Lista de usuarios administrativos retornados pela API.</p>
+          <h2>Usuários cadastrados</h2>
+          <p>Lista de usuários administrativos retornados pela API.</p>
         </div>
 
-        <span class="contador">{{ usuarios.length }} usuario(s)</span>
+        <span class="contador">{{ usuarios.length }} usuário(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando usuarios...</p>
+        <p>Carregando usuários...</p>
       </section>
 
       <section v-else-if="usuarios.length === 0" class="card">
-        <p>Nenhum usuario enaontrado.</p>
+        <p>Nenhum usuário encontrado.</p>
       </section>
 
       <section v-else class="lista-usuarios">
@@ -351,7 +351,7 @@ onMounted(() => {
               <strong>Empresa:</strong>
               {{ exibirValor(usuarioItem.empresaNome || usuarioItem.empresaId) }}
             </p>
-            <p v-if="usuarioAtual(usuarioItem)" class="usuario-atual">Usuario atual</p>
+            <p v-if="usuarioAtual(usuarioItem)" class="usuario-atual">Usuário atual</p>
           </div>
 
           <div class="acoes">
@@ -374,7 +374,7 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === usuarioItem.id" class="atualizando">
-            Atualizanao usuario...
+            Atualizando usuário...
           </p>
         </article>
       </section>

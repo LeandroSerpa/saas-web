@@ -77,7 +77,7 @@ async function carregarMinhaEmpresa() {
       mensagemPublica: empresaApi.mensagemPublica || '',
     }
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os dados da empresa.'
+    erro.value = 'Não foi possível carregar os dados da empresa.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -131,7 +131,7 @@ async function salvarEmpresa() {
     atualizarEmpresaNoUsuarioLogado(nomeAtualizado)
     mensagemSucesso.value = 'Empresa atualizada com sucesso.'
   } catch (error) {
-    erro.value = 'Nao foi possivel atualizar a empresa.'
+    erro.value = 'Não foi possível atualizar a empresa.'
     console.error(error)
   } finally {
     salvando.value = false
@@ -166,7 +166,7 @@ async function copiarLinkPublico() {
 
     mensagemLinkCopiado.value = 'Link copiado com sucesso.'
   } catch (error) {
-    erro.value = 'Nao foi possivel copiar o link publico.'
+    erro.value = 'Não foi possível copiar o link público.'
     console.error(error)
   }
 }
@@ -197,7 +197,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao</p>
+        <p class="subtitulo">Administração</p>
         <h1>Minha empresa</h1>
         <p class="descricao">Atualize os dados cadastrais da empresa logada.</p>
       </div>
@@ -252,7 +252,7 @@ onMounted(() => {
 
       <div class="secao-horario">
         <div class="titulo-card">
-          <h2>Horario de funcionamento</h2>
+          <h2>Horário de funcionamento</h2>
           <p>Configure os horarios e dias de atendimento da empresa.</p>
         </div>
 

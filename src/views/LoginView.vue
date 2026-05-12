@@ -41,7 +41,7 @@ async function entrar() {
 
     router.push('/dashboard')
   } catch (error) {
-    erro.value = 'Nao foi possivel fazer login. Confira e-mail e senha.'
+    erro.value = 'Não foi possível fazer login. Confira e-mail e senha.'
     console.error(error)
   } finally {
     carregando.value = false

@@ -145,7 +145,7 @@ const mensagemOrientacaoHorarios = computed(() => {
   }
 
   if (carregandoDisponibilidade.value) {
-    return 'Buscanao horarios disponiveis...'
+    return 'Buscando horários disponíveis...'
   }
 
   if (mensagemDisponibilidade.value) {
@@ -154,8 +154,8 @@ const mensagemOrientacaoHorarios = computed(() => {
 
   if (horariosDisponiveis.value.length > 0) {
     return agendamento.value.dataHoraInicio
-      ? 'Horario selecionado. Voce já pode confirmacao agendamento.'
-      : 'Escolha um dos horarios disponiveis abaixo.'
+      ? 'Horário selecionado. Você já pode confirmar o agendamento.'
+      : 'Escolha um dos horários disponíveis abaixo.'
   }
 
   return 'Nenhum horario disponivel para esta data. Escolha outro dia, servico ou funcionario.'
@@ -348,7 +348,7 @@ async function copiarResumoConfirmacao() {
     mensagemCopia.value = 'Resumo copiado para a área de transferência.'
   } catch (error) {
     mensagemCopia.value =
-      'Nao foi possivel copiar automaticamente. Voce pode tirar um print desta confirmacao.'
+      'Não foi possível copiar automaticamente. Você pode tirar um print desta confirmação.'
     console.error(error)
   }
 }
@@ -360,14 +360,14 @@ function montarTextoConfirmacao(confirmacao) {
     `Cliente: ${confirmacao.clienteNome}`,
     confirmacao.clienteTelefone ? `Telefone: ${confirmacao.clienteTelefone}` : '',
     confirmacao.clienteEmail ? `E-mail: ${confirmacao.clienteEmail}` : '',
-    `Servico: ${confirmacao.servicoNome}`,
-    `Funcionario: ${confirmacao.funcionarioNome}`,
+    `Serviço: ${confirmacao.servicoNome}`,
+    `Funcionário: ${confirmacao.funcionarioNome}`,
     `Data: ${confirmacao.dataAtendimento}`,
     `Início: ${confirmacao.horarioInicio}`,
     `Término previsto: ${confirmacao.horarioTermino}`,
-    `Duracao: ${confirmacao.duracao}`,
-    personalizacao.value.mostrarPreco ? `Preco: ${confirmacao.preco}` : '',
-    confirmacao.observacao ? `Observacao: ${confirmacao.observacao}` : '',
+    `Duração: ${confirmacao.duracao}`,
+    personalizacao.value.mostrarPreco ? `Preço: ${confirmacao.preco}` : '',
+    confirmacao.observacao ? `Observação: ${confirmacao.observacao}` : '',
     confirmacao.id ? `Código/Protocolo: ${confirmacao.id}` : '',
   ]
     .filter(Boolean)
@@ -390,7 +390,7 @@ async function carregarDadosPublicos() {
     const [empresaApi, personalizacaoApi] = await Promise.all([
       buscarEmpresaPublica(slug.value),
       buscarPersonalizacaoPublica(slug.value).catch((error) => {
-        console.error('Nao foi possivel carregar a personalizacao publica.', error)
+        console.error('Não foi possível carregar a personalização pública.', error)
         return null
       }),
     ])
@@ -470,7 +470,7 @@ async function carregarDisponibilidade() {
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'Nao foi possivel buscar os horarios disponiveis.'
+    erro.value = mensagemApi || 'Não foi possível buscar os horários disponíveis.'
     console.error(error)
   } finally {
     carregandoDisponibilidade.value = false
@@ -543,7 +543,7 @@ async function enviarAgendamento() {
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'Nao foi possivel realizar o agendamento.'
+    erro.value = mensagemApi || 'Não foi possível realizar o agendamento.'
     console.error(error)
   } finally {
     enviando.value = false
@@ -723,7 +723,7 @@ onMounted(() => {
     </section>
 
     <section v-else-if="indisponivel" class="card estado">
-      <h1>Agendamento indisponivel.</h1>
+      <h1>Agendamento indisponível.</h1>
       <p>Entre em contato diretamente com a empresa.</p>
     </section>
 
@@ -821,11 +821,11 @@ onMounted(() => {
             </dd>
           </div>
           <div>
-            <dt>Servico</dt>
+            <dt>Serviço</dt>
             <dd>{{ confirmacaoAgendamento.servicoNome || 'Nao informado' }}</dd>
           </div>
           <div>
-            <dt>Funcionario</dt>
+            <dt>Funcionário</dt>
             <dd>{{ confirmacaoAgendamento.funcionarioNome || 'Nao informado' }}</dd>
           </div>
           <div>
@@ -841,15 +841,15 @@ onMounted(() => {
             <dd>{{ confirmacaoAgendamento.horarioTermino || 'Nao informado' }}</dd>
           </div>
           <div>
-            <dt>Duracao</dt>
-            <dd>{{ confirmacaoAgendamento.duracao || 'Nao informado' }}</dd>
+            <dt>Duração</dt>
+            <dd>{{ confirmacaoAgendamento.duracao || 'Não informado' }}</dd>
           </div>
           <div v-if="personalizacao.mostrarPreco">
-            <dt>Preco</dt>
-            <dd>{{ confirmacaoAgendamento.preco || 'Nao informado' }}</dd>
+            <dt>Preço</dt>
+            <dd>{{ confirmacaoAgendamento.preco || 'Não informado' }}</dd>
           </div>
           <div v-if="confirmacaoAgendamento.observacao" class="item-largo">
-            <dt>Observacao</dt>
+            <dt>Observação</dt>
             <dd>{{ confirmacaoAgendamento.observacao }}</dd>
           </div>
         </dl>
@@ -897,7 +897,7 @@ onMounted(() => {
           </label>
 
           <label>
-            Servico *
+            Serviço *
             <select v-model="agendamento.servicoId">
               <option value="">Selecione um servico</option>
               <option v-for="servico in servicos" :key="servico.id" :value="servico.id">
@@ -907,7 +907,7 @@ onMounted(() => {
           </label>
 
           <label v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
-            Funcionario *
+            Funcionário *
             <select v-model="agendamento.funcionarioId">
               <option value="">Selecione um funcionario</option>
               <option
@@ -927,7 +927,7 @@ onMounted(() => {
 
           <section class="campo-grande horarios">
             <div class="titulo-horarios">
-              <h3>Horarios disponiveis</h3>
+              <h3>Horários disponíveis</h3>
               <p>{{ mensagemOrientacaoHorarios }}</p>
             </div>
 
@@ -958,8 +958,8 @@ onMounted(() => {
             </div>
 
             <div v-if="horariosOcupados.length" class="legenda-horarios">
-              <strong>Horarios ocupados</strong>
-              <div class="lista-ocupados" aria-label="Horarios ocupados">
+              <strong>Horários ocupados</strong>
+              <div class="lista-ocupados" aria-label="Horários ocupados">
                 <span v-for="horario in horariosOcupados" :key="horario.valor">
                   {{ horario.label }}
                 </span>
@@ -969,18 +969,18 @@ onMounted(() => {
 
           <div v-if="resumoVisivel" class="campo-grande previa">
             <h3>Resumo do agendamento</h3>
-            <p><strong>Servico:</strong> {{ servicoSelecionado?.nome || 'A selecionar' }}</p>
+            <p><strong>Serviço:</strong> {{ servicoSelecionado?.nome || 'A selecionar' }}</p>
             <p v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
-              <strong>Funcionario:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}
+              <strong>Funcionário:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}
             </p>
             <p><strong>Data:</strong> {{ dataAtendimentoFormatada || 'A selecionar' }}</p>
             <p><strong>Início:</strong> {{ inicioSelecionado || 'Selecione um horario' }}</p>
             <p><strong>Término previsto:</strong> {{ terminoPrevisto || 'Selecione um horario' }}</p>
-            <p v-if="personalizacao.mostrarPreco"><strong>Preco:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
+            <p v-if="personalizacao.mostrarPreco"><strong>Preço:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
           </div>
 
           <label class="campo-grande">
-            Observacao
+            Observação
             <textarea
               v-model="agendamento.observacao"
               rows="4"

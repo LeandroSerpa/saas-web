@@ -78,9 +78,9 @@ function formatarPreco(preco) {
       </label>
 
       <label>
-        Servico *
+        Serviço *
         <select v-model="agendamento.servicoId">
-          <option value="">Selecione um servico</option>
+          <option value="">Selecione um serviço</option>
           <option v-for="servico in servicos" :key="servico.id" :value="servico.id">
             {{ servico.nome }} - {{ formatarPreco(servico.preco) }}
           </option>
@@ -88,9 +88,9 @@ function formatarPreco(preco) {
       </label>
 
       <label>
-        Funcionario *
+        Funcionário *
         <select v-model="agendamento.funcionarioId">
-          <option value="">{{ carregandoFuncionarios ? 'Carregando funcionarios...' : 'Selecione um funcionario' }}</option>
+          <option value="">{{ carregandoFuncionarios ? 'Carregando funcionários...' : 'Selecione um funcionário' }}</option>
           <option v-for="funcionario in funcionarios" :key="funcionario.id" :value="funcionario.id">
             {{ funcionario.nome }}
           </option>
@@ -103,16 +103,16 @@ function formatarPreco(preco) {
       </label>
 
       <div v-if="duracaoMinutos || terminoPrevisto" class="campo-grande previa-agendamento">
-        <p v-if="duracaoMinutos">Duracao: {{ duracaoMinutos }} minutos</p>
+        <p v-if="duracaoMinutos">Duração: {{ duracaoMinutos }} minutos</p>
         <p v-if="terminoPrevisto">Término previsto: {{ terminoPrevisto }}</p>
       </div>
 
       <label class="campo-grande">
-        Observacao
+        Observação
         <input
           v-model="agendamento.observacao"
           type="text"
-          placeholder="Ex: Cliente pediu preferencia por horario pontual"
+          placeholder="Ex: Cliente pediu preferência por horário pontual"
         />
       </label>
     </div>

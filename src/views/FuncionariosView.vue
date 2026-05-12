@@ -85,7 +85,7 @@ async function carregarFuncionarios() {
 
     funcionarios.value = await buscarFuncionarios()
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os funcionarios.'
+    erro.value = 'Não foi possível carregar os funcionários.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -99,17 +99,17 @@ async function salvarFuncionario() {
     mensagemSucessoStatus.value = ''
 
     if (!funcionario.value.nome.trim()) {
-      erro.value = 'Informe o nome do funcionario.'
+      erro.value = 'Informe o nome do funcionário.'
       return
     }
 
     if (!horarioValidoOuVazio(funcionario.value.horaInicioAtendimento)) {
-      erro.value = 'Informe uma hora inicial de atendimento valida no formato HH:mm.'
+      erro.value = 'Informe uma hora inicial de atendimento válida no formato HH:mm.'
       return
     }
 
     if (!horarioValidoOuVazio(funcionario.value.horaFimAtendimento)) {
-      erro.value = 'Informe uma hora final de atendimento valida no formato HH:mm.'
+      erro.value = 'Informe uma hora final de atendimento válida no formato HH:mm.'
       return
     }
 
@@ -133,10 +133,10 @@ async function salvarFuncionario() {
 
     if (funcionarioEditandoId.value) {
       await atualizarFuncionario(funcionarioEditandoId.value, dadosFuncionario)
-      mensagemSucessoFuncionario.value = 'Funcionario atualizado com sucesso.'
+      mensagemSucessoFuncionario.value = 'Funcionário atualizado com sucesso.'
     } else {
       await cadastrarFuncionario(dadosFuncionario)
-      mensagemSucessoFuncionario.value = 'Funcionario cadastrado com sucesso.'
+      mensagemSucessoFuncionario.value = 'Funcionário cadastrado com sucesso.'
     }
 
     cancelarEdicaoFuncionario(false)
@@ -146,8 +146,8 @@ async function salvarFuncionario() {
     erro.value = obterMensagemErro(
       error,
       funcionarioEditandoId.value
-        ? 'Nao foi possivel atualizar o funcionario.'
-        : 'Nao foi possivel cadastrar o funcionario.',
+        ? 'Não foi possível atualizar o funcionário.'
+        : 'Não foi possível cadastrar o funcionário.',
     )
     console.error(error)
   }
@@ -197,10 +197,10 @@ async function alternarAtivoFuncionario(funcionarioItem) {
     await carregarFuncionarios()
 
     mensagemSucessoStatus.value = estaAtivo(funcionarioItem)
-      ? 'Funcionario desativado com sucesso.'
-      : 'Funcionario ativado com sucesso.'
+      ? 'Funcionário desativado com sucesso.'
+      : 'Funcionário ativado com sucesso.'
   } catch (error) {
-    erro.value = 'Nao foi possivel atualizar o status do funcionario.'
+    erro.value = 'Não foi possível atualizar o status do funcionário.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -236,10 +236,10 @@ function exibirDisponibilidade(funcionarioItem) {
   const horaFim = formatarHoraInput(funcionarioItem.horaFimAtendimento)
 
   if (!horaInicio || !horaFim) {
-    return 'Usa horario da empresa'
+    return 'Usa horário da empresa'
   }
 
-  return `${horaInicio} as ${horaFim}`
+  return `${horaInicio} às ${horaFim}`
 }
 
 function exibirDiasAtendimento(funcionarioItem) {
@@ -291,8 +291,8 @@ onMounted(() => {
     <header class="cabecalho-pagina">
       <div>
         <p class="subtitulo">Equipe</p>
-        <h1>Funcionarios</h1>
-        <p class="descricao">Gerencie os profissionais disponiveis para atendimento.</p>
+        <h1>Funcionários</h1>
+        <p class="descricao">Gerencie os profissionais disponíveis para atendimento.</p>
       </div>
 
       <button class="botao secundario" @click="carregarFuncionarios">Atualizar dados</button>
@@ -318,7 +318,7 @@ onMounted(() => {
       <section class="card filtros-funcionarios">
         <div class="titulo-card">
           <h2>Filtros</h2>
-          <p>Refine a lista de funcionarios cadastrados.</p>
+          <p>Refine a lista de funcionários cadastrados.</p>
         </div>
 
         <div class="campos-filtros">
@@ -348,23 +348,23 @@ onMounted(() => {
 
       <div class="cabecalho-lista">
         <div>
-          <h2>Funcionarios cadastrados</h2>
-          <p>Lista de funcionarios retornados pela API publicada.</p>
+          <h2>Funcionários cadastrados</h2>
+          <p>Lista de funcionários retornados pela API publicada.</p>
         </div>
 
-        <span class="contador">{{ funcionariosFiltrados.length }} funcionario(s)</span>
+        <span class="contador">{{ funcionariosFiltrados.length }} funcionário(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando funcionarios...</p>
+        <p>Carregando funcionários...</p>
       </section>
 
       <section v-else-if="funcionarios.length === 0" class="card">
-        <p>Nenhum funcionario enaontrado.</p>
+        <p>Nenhum funcionário encontrado.</p>
       </section>
 
       <section v-else-if="funcionariosFiltrados.length === 0" class="card">
-        <p>Nenhum funcionario enaontrado para os filtros selecionados.</p>
+        <p>Nenhum funcionário encontrado para os filtros selecionados.</p>
       </section>
 
       <section v-else class="lista-funcionarios">
@@ -409,7 +409,7 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === funcionarioItem.id" class="atualizando">
-            Atualizanao funcionario...
+            Atualizando funcionário...
           </p>
         </article>
       </section>

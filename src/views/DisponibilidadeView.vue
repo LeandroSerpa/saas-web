@@ -69,11 +69,24 @@ watch(abaAtiva, (tipo) => {
   mensagemVinculos.value = ''
   indisponibilidadeEditandoId.value = null
   formulario.value = criarFormularioInicial(tipo)
+
+  if (tipo !== 'VINCULOS') {
+    carregarIndisponibilidades()
+  }
 })
 
 watch(servicoVinculoId, () => {
   carregarVinculosDoServico()
 })
+
+watch(
+  () => formulario.value.diaInteiro,
+  (diaInteiro) => {
+    if (diaInteiro) {
+      formulario.value.fim = ''
+    }
+  },
+)
 
 function criarFormularioInicial(tipo) {
   return {
@@ -99,7 +112,7 @@ async function carregarDados() {
       buscarServicos(),
     ])
 
-    indisponibilidades.value = normalizarColecao(indisponibilidadesApi)
+    atualizarIndisponibilidadesDaAba(indisponibilidadesApi)
     funcionarios.value = normalizarColecao(funcionariosApi)
     servicos.value = normalizarColecao(servicosApi)
   } catch (error) {
@@ -114,7 +127,7 @@ async function carregarIndisponibilidades() {
   try {
     erro.value = ''
     const dados = await buscarIndisponibilidades({ tipo: tipoIndisponibilidadeAtivo.value })
-    indisponibilidades.value = normalizarColecao(dados)
+    atualizarIndisponibilidadesDaAba(dados)
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar as indisponibilidades.')
     console.error(error)
@@ -213,10 +226,10 @@ function validarFormulario() {
   }
 
   if (!formulario.value.inicio) {
-    return 'Informe a data inicial.'
+    return formulario.value.diaInteiro ? 'Informe a data.' : 'Informe a data inicial.'
   }
 
-  if (!formulario.value.fim) {
+  if (!formulario.value.diaInteiro && !formulario.value.fim) {
     return 'Informe a data final.'
   }
 
@@ -263,7 +276,7 @@ function obterFimFormulario() {
     return formatarDataHoraApi(formulario.value.fim)
   }
 
-  return `${String(formulario.value.fim).slice(0, 10)}T23:59:00`
+  return `${String(formulario.value.inicio).slice(0, 10)}T23:59:00`
 }
 
 async function carregarVinculosDoServico() {
@@ -281,12 +294,11 @@ async function carregarVinculosDoServico() {
     funcionariosSelecionados.value = normalizarIds(dados)
     if (funcionariosSelecionados.value.length === 0) {
       mensagemVinculos.value =
-        'Nenhum funcionario vinculado. Se nenhum vínculo for salvo, todos os funcionarios ativos poderão executar este serviço.'
+        'Nenhum funcionário vinculado. Se nenhum vínculo for salvo, todos os funcionários ativos poderão executar este serviço.'
     }
   } catch (error) {
     funcionariosSelecionados.value = []
-    mensagemVinculos.value =
-      'Nenhum funcionario vinculado. Se nenhum vínculo for salvo, todos os funcionarios ativos poderão executar este serviço.'
+    erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
     console.error(error)
   } finally {
     carregandoVinculos.value = false
@@ -294,6 +306,10 @@ async function carregarVinculosDoServico() {
 }
 
 async function salvarVinculos() {
+  if (salvando.value) {
+    return
+  }
+
   if (!servicoVinculoId.value) {
     erro.value = 'Selecione um serviço.'
     return
@@ -320,7 +336,7 @@ async function salvarVinculos() {
 function normalizarIds(dados) {
   const lista = Array.isArray(dados)
     ? dados
-    : dados?.funcionarioIds || dados?.funcionarios || dados?.itens || []
+    : dados?.funcionarioIds || dados?.funcionarios || dados?.content || dados?.data?.content || dados?.data || dados?.itens || []
 
   return lista
     .map((item) => Number(typeof item === 'object' ? item.id || item.funcionarioId : item))
@@ -336,12 +352,32 @@ function normalizarColecao(dados) {
     return []
   }
 
-  return (dados.content || dados.items || dados.itens || dados.data || dados.resultado || []).map(
-    (item) => ({
-      tipo: tipoIndisponibilidadeAtivo.value,
-      ...item,
-    }),
-  )
+  if (Array.isArray(dados.content)) {
+    return dados.content
+  }
+
+  if (Array.isArray(dados.data?.content)) {
+    return dados.data.content
+  }
+
+  if (Array.isArray(dados.data)) {
+    return dados.data
+  }
+
+  return dados.items || dados.itens || dados.resultado || []
+}
+
+function atualizarIndisponibilidadesDaAba(dados) {
+  const tipo = tipoIndisponibilidadeAtivo.value
+  const itens = normalizarColecao(dados).map((item) => ({
+    tipo,
+    ...item,
+  }))
+
+  indisponibilidades.value = [
+    ...indisponibilidades.value.filter((item) => normalizarTipo(item.tipo) !== tipo),
+    ...itens,
+  ]
 }
 
 function alternarFuncionario(funcionarioId) {
@@ -420,7 +456,19 @@ function formatarDataHoraApi(valor) {
 function obterMensagemErro(error, fallback) {
   const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
 
-  return mensagem || fallback
+  return mensagem && !mensagemTecnica(mensagem) ? mensagem : fallback
+}
+
+function mensagemTecnica(mensagem) {
+  const texto = mensagem.toLowerCase()
+
+  return [
+    'failed to fetch',
+    'networkerror',
+    'load failed',
+    'internal server error',
+    'no message available',
+  ].includes(texto)
 }
 
 onMounted(() => {
@@ -432,10 +480,10 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Operacao</p>
+        <p class="subtitulo">Operação</p>
         <h1>Disponibilidade</h1>
         <p class="descricao">
-          Gerencie periodos de indisponibilidade e vínculos entre funcionarios e servicos.
+          Gerencie períodos de indisponibilidade e vínculos entre funcionários e serviços.
         </p>
       </div>
 
@@ -496,7 +544,7 @@ onMounted(() => {
             </label>
 
             <label>
-              Data/hora inicial *
+              {{ formulario.diaInteiro ? 'Data *' : 'Data/hora inicial *' }}
               <input
                 v-model="formulario.inicio"
                 :type="formulario.diaInteiro ? 'date' : 'datetime-local'"
@@ -507,7 +555,8 @@ onMounted(() => {
               Data/hora final *
               <input
                 v-model="formulario.fim"
-                :type="formulario.diaInteiro ? 'date' : 'datetime-local'"
+                type="datetime-local"
+                :disabled="formulario.diaInteiro"
               />
             </label>
 
@@ -598,14 +647,14 @@ onMounted(() => {
         <div class="titulo-card">
           <h2>Funcionários por serviço</h2>
           <p>
-            Se nenhum funcionario for vinculado a este servico, todos os funcionarios ativos poderão
+            Se nenhum funcionário for vinculado a este serviço, todos os funcionários ativos poderão
             executá-lo. Quando houver pelo menos um vínculo, somente os funcionários selecionados
             poderão atender este serviço.
           </p>
         </div>
 
         <label class="servico-vinculo">
-          Servico
+          Serviço
           <select v-model="servicoVinculoId">
             <option value="">Selecione um serviço</option>
             <option v-for="servico in servicosAtivos" :key="servico.id" :value="servico.id">
@@ -639,7 +688,12 @@ onMounted(() => {
         </section>
 
         <div class="acoes">
-          <button class="botao principal" type="button" :disabled="salvando" @click="salvarVinculos">
+          <button
+            class="botao principal"
+            type="button"
+            :disabled="salvando || carregandoVinculos"
+            @click="salvarVinculos"
+          >
             {{ salvando ? 'Salvando...' : 'Salvar vínculos' }}
           </button>
         </div>
@@ -778,6 +832,13 @@ select:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+input:disabled,
+select:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 input[type='checkbox'] {

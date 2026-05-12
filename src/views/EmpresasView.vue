@@ -95,7 +95,7 @@ async function carregarEmpresas() {
     empresas.value = empresasApi
     segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar as empresas.'
+    erro.value = 'Não foi possível carregar as empresas.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -157,8 +157,8 @@ async function salvarEmpresa() {
     await carregarEmpresas()
   } catch (error) {
     erro.value = empresaEditandoId.value
-      ? 'Nao foi possivel atualizar a empresa.'
-      : 'Nao foi possivel cadastrar a empresa.'
+      ? 'Não foi possível atualizar a empresa.'
+      : 'Não foi possível cadastrar a empresa.'
     console.error(error)
   }
 }
@@ -217,7 +217,7 @@ async function alternarAtivoEmpresa(empresaItem) {
       ? 'Empresa desativada com sucesso.'
       : 'Empresa ativada com sucesso.'
   } catch (error) {
-    erro.value = 'Nao foi possivel atualizar o status da empresa.'
+    erro.value = 'Não foi possível atualizar o status da empresa.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -308,9 +308,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao</p>
+        <p class="subtitulo">Administração</p>
         <h1>Empresas</h1>
-        <p class="descricao">Gerencie as empresas disponiveis na plataforma.</p>
+        <p class="descricao">Gerencie as empresas disponíveis na plataforma.</p>
       </div>
 
       <button class="botao secundario" @click="carregarEmpresas">Atualizar dados</button>
@@ -401,7 +401,7 @@ onMounted(() => {
             <p><strong>E-mail:</strong> {{ exibirValor(empresaItem.email) }}</p>
             <p><strong>Segmento:</strong> {{ exibirSegmento(empresaItem) }}</p>
             <p><strong>Endereco:</strong> {{ exibirValor(empresaItem.endereco) }}</p>
-            <p><strong>Horario:</strong> {{ exibirHorario(empresaItem) }}</p>
+            <p><strong>Horário:</strong> {{ exibirHorario(empresaItem) }}</p>
             <p><strong>Dias:</strong> {{ exibirDiasAtendimento(empresaItem) }}</p>
             <p><strong>Intervalo:</strong> {{ normalizarIntervaloAgenda(empresaItem.intervaloAgendaMinutos) }} minutos</p>
             <p>

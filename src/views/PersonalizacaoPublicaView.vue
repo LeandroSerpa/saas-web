@@ -52,7 +52,7 @@ async function carregarPersonalizacao() {
     const dados = await buscarMinhaPersonalizacao()
     personalizacao.value = normalizarPersonalizacao(dados)
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar a personalizacao.'
+    erro.value = 'Não foi possível carregar a personalização.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -71,9 +71,9 @@ async function salvarPersonalizacao() {
 
     salvando.value = true
     await salvarMinhaPersonalizacao({ ...personalizacao.value })
-    mensagemSucesso.value = 'Personalizacao salva com sucesso.'
+    mensagemSucesso.value = 'Personalização salva com sucesso.'
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar a personalizacao.')
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar a personalização.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -128,7 +128,7 @@ function obterMensagemErro(error, fallback) {
     <header class="cabecalho-pagina">
       <div>
         <p class="subtitulo">Agendamento publico</p>
-        <h1>Personalizacao da página publica</h1>
+        <h1>Personalização da página pública</h1>
         <p class="descricao">
           Configure a aparência e os textos exibidos na página publica de agendamento da sua
           empresa.
@@ -289,7 +289,7 @@ function obterMensagemErro(error, fallback) {
           {{ personalizacao.textoInstrucoes }}
         </p>
         <article class="preview-servico">
-          <strong>Servico exemplo</strong>
+          <strong>Serviço exemplo</strong>
           <span v-if="personalizacao.mostrarPreco">R$ 120,00</span>
           <small v-if="personalizacao.mostrarFuncionario">Atendimento com profissional selecionado</small>
           <button type="button">Agendar</button>

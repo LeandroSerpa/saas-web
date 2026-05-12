@@ -10,10 +10,10 @@ const cards = computed(() => [
   criarCard('Total de empresas', 'totalEmpresas'),
   criarCard('Empresas ativas', 'empresasAtivas'),
   criarCard('Empresas inativas', 'empresasInativas'),
-  criarCard('Total de usuarios', 'totalUsuarios'),
+  criarCard('Total de usuários', 'totalUsuarios'),
   criarCard('Total de clientes', 'totalClientes'),
-  criarCard('Total de servicos', 'totalServicos'),
-  criarCard('Total de funcionarios', 'totalFuncionarios'),
+  criarCard('Total de serviços', 'totalServicos'),
+  criarCard('Total de funcionários', 'totalFuncionarios'),
   criarCard('Total de agendamentos', 'totalAgendamentos'),
   criarCard('Agendamentos do mês', 'agendamentosMes', 'agendamentosDoMes'),
   criarCard('Agendamentos hoje', 'agendamentosHoje'),
@@ -51,7 +51,7 @@ async function carregarDashboard() {
     erro.value = ''
     dados.value = await buscarDashboardSaas()
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar o Dashboard SaaS.'
+    erro.value = 'Não foi possível carregar o Dashboard SaaS.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -137,9 +137,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao SaaS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
         <h1>Dashboard SaaS</h1>
-        <p class="descricao">Visão geral operacaonal, comercial e administrativa da plataforma.</p>
+        <p class="descricao">Visão geral operacional, comercial e administrativa da plataforma.</p>
       </div>
 
       <button class="botao secundario" @click="carregarDashboard">Atualizar dados</button>

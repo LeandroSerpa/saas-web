@@ -39,7 +39,7 @@ async function carregarSegmentos() {
     erro.value = ''
     segmentos.value = extrairLista(await buscarSegmentos())
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os segmentos.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os segmentos.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -88,7 +88,7 @@ async function salvarSegmento() {
     cancelarEdicao(false)
     await carregarSegmentos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel salvar o segmento.')
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar o segmento.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -111,7 +111,7 @@ async function alternarAtivo(item) {
 
     await carregarSegmentos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel atualizar o status do segmento.')
+    erro.value = obterMensagemErro(error, 'Não foi possível atualizar o status do segmento.')
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -188,7 +188,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao SaaS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
         <h1>Segmentos/Módulos</h1>
         <p class="descricao">
           Segmentos permitem adaptar o SaaS para nichos diferentes, como Barbearia, PetShop,
@@ -217,7 +217,7 @@ onMounted(() => {
           <label>Código da cor <input v-model="segmento.cor" type="text" placeholder="#2563eb" /></label>
           <button type="button" class="botao secundario" @click="usarCorPadrao">Usar cor padrão</button>
         </div>
-        <label class="campo-grande">Descricao <textarea v-model="segmento.descricao" rows="3"></textarea></label>
+        <label class="campo-grande">Descrição <textarea v-model="segmento.descricao" rows="3"></textarea></label>
       </div>
 
       <div class="opcoes">
@@ -235,13 +235,13 @@ onMounted(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Segmentos cadastrados</h2>
-          <p>Lista de segmentos de negócio disponiveis para empresas.</p>
+          <p>Lista de segmentos de negócio disponíveis para empresas.</p>
         </div>
         <span class="contador">{{ segmentosOrdenados.length }} segmento(s)</span>
       </div>
 
       <section v-if="carregando" class="card"><p>Carregando segmentos...</p></section>
-      <section v-else-if="!segmentosOrdenados.length" class="card"><p>Nenhum segmento enaontrado.</p></section>
+      <section v-else-if="!segmentosOrdenados.length" class="card"><p>Nenhum segmento encontrado.</p></section>
 
       <section v-else class="lista">
         <article v-for="item in segmentosOrdenados" :key="item.id" class="card item-card">

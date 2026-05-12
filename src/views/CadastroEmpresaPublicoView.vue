@@ -76,7 +76,7 @@ async function enviarSolicitacao() {
     sucesso.value = 'Solicitação enviada com sucesso. Nossa equipe irá analisar seus dados e entrar em contato.'
     limparFormulario()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel enviar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Não foi possível enviar a solicitação.')
     console.error(error)
   } finally {
     enviando.value = false

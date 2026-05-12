@@ -38,12 +38,12 @@ defineEmits(['salvar', 'cancelar'])
       </label>
 
       <label>
-        Preco *
+        Preço *
         <input v-model="servico.preco" type="number" min="0" step="0.01" placeholder="Ex: 120.00" />
       </label>
 
       <label>
-        Duracao em minutos *
+        Duração em minutos *
         <input v-model="servico.duracaoMinutos" type="number" min="1" step="1" placeholder="Ex: 60" />
       </label>
 
@@ -53,11 +53,11 @@ defineEmits(['salvar', 'cancelar'])
       </label>
 
       <label class="campo-grande">
-        Descricao
+        Descrição
         <input
           v-model="servico.descricao"
           type="text"
-          placeholder="Ex: Atendimento completo com avaliacao"
+          placeholder="Ex: Atendimento completo com avaliação"
         />
       </label>
     </div>

@@ -86,22 +86,22 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <nav class="menu-principal" aria-label="Navegacao principal">
+      <nav class="menu-principal" aria-label="Navegação principal">
         <RouterLink to="/dashboard">Dashboard</RouterLink>
         <RouterLink to="/agenda">Agenda</RouterLink>
         <RouterLink to="/clientes">Clientes</RouterLink>
-        <RouterLink to="/servicos">Servicos</RouterLink>
-        <RouterLink to="/funcionarios">Funcionarios</RouterLink>
+        <RouterLink to="/servicos">Serviços</RouterLink>
+        <RouterLink to="/funcionarios">Funcionários</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade">Disponibilidade</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios">Relatorios</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios">Relatórios</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa">Minha empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao">Personalizacao</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao">Personalização</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano">Meu plano</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios">Usuarios</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios">Usuários</RouterLink>
 
         <section v-if="superAdmin" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
-            <span>Administracao SaaS</span>
+            <span>ADMINISTRAÇÃO SAAS</span>
             <span>{{ menuAdminAberto ? '−' : '+' }}</span>
           </button>
 
@@ -132,8 +132,8 @@ onBeforeUnmount(() => {
         <div class="usuario-logado">
           <div>
             <strong>{{ empresaLogada }}</strong>
-            <span>Usuario: {{ usuario?.nome || 'Usuario' }}</span>
-            <small>{{ usuario?.email || 'Sessao ativa' }}</small>
+            <span>Usuário: {{ usuario?.nome || 'Usuário' }}</span>
+            <small>{{ usuario?.email || 'Sessão ativa' }}</small>
           </div>
 
           <button class="botao-sair" @click="sair">Sair</button>

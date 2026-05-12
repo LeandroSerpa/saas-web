@@ -100,8 +100,8 @@ defineEmits(['salvar', 'cancelar'])
 
     <div class="secao-horario">
       <div class="titulo-card">
-        <h2>Horario de funcionamento</h2>
-        <p>Configure os horarios e dias de atendimento da empresa.</p>
+        <h2>Horário de funcionamento</h2>
+        <p>Configure os horários e dias de atendimento da empresa.</p>
       </div>
 
       <div class="campos">

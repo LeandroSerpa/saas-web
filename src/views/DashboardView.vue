@@ -84,11 +84,11 @@ const cardsBase = computed(() => [
     valor: clientes.value.length,
   },
   {
-    titulo: 'Servicos',
+    titulo: 'Serviços',
     valor: servicos.value.length,
   },
   {
-    titulo: 'Funcionarios',
+    titulo: 'Funcionários',
     valor: funcionarios.value.length,
   },
   {
@@ -131,7 +131,7 @@ const resumoPorFuncionario = computed(() => {
   const resumo = new Map()
 
   agendamentos.value.forEach((agendamento) => {
-    const funcionario = agendamento.funcionario || 'Sem funcionario'
+    const funcionario = agendamento.funcionario || 'Sem funcionário'
     const item = resumo.get(funcionario) || {
       funcionario,
       quantidade: 0,
@@ -171,7 +171,7 @@ async function carregarDados() {
     servicos.value = servicosApi
     funcionarios.value = funcionariosApi
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os dados do dashboard.'
+    erro.value = 'Não foi possível carregar os dados do dashboard.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -287,7 +287,7 @@ function formatarPeriodo(agendamento) {
     return inicio
   }
 
-  return `${inicio} as ${fim}`
+  return `${inicio} às ${fim}`
 }
 
 function exibirValor(valor) {
@@ -313,7 +313,7 @@ function statusClasse(status) {
 function statusTexto(status) {
   const statusFormatados = {
     agendado: 'Agendado',
-    concluido: 'Concluido',
+    concluido: 'Concluído',
     cancelado: 'Cancelado',
     faltou: 'Faltou',
   }
@@ -330,9 +330,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Visao geral</p>
+        <p class="subtitulo">Visão geral</p>
         <h1>Dashboard</h1>
-        <p class="descricao">Acompanhe os principais numeros da operacao.</p>
+        <p class="descricao">Acompanhe os principais números da operação.</p>
       </div>
 
       <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
@@ -363,8 +363,8 @@ onMounted(() => {
     <section class="secao-proximos">
       <div class="cabecalho-lista">
         <div>
-          <h2>Proximos agendamentos</h2>
-          <p>Os 5 proximos horarios ordenados por data e hora.</p>
+          <h2>Próximos agendamentos</h2>
+          <p>Os 5 próximos horários ordenados por data e hora.</p>
         </div>
       </div>
 
@@ -373,7 +373,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="proximosAgendamentos.length === 0" class="card">
-        <p>Nenhum proximo agendamento em aberto. A agenda esta tranquila por enquanao.</p>
+        <p>Nenhum próximo agendamento em aberto. A agenda está tranquila por enquanto.</p>
       </section>
 
       <section v-else class="lista-proximos">
@@ -394,10 +394,10 @@ onMounted(() => {
           </div>
 
           <div class="detalhes">
-            <p><strong>Funcionario:</strong> {{ exibirValor(agendamento.funcionario) }}</p>
+            <p><strong>Funcionário:</strong> {{ exibirValor(agendamento.funcionario) }}</p>
             <p><strong>Data:</strong> {{ formatarData(agendamento.dataHoraInicio) }}</p>
-            <p><strong>Horario:</strong> {{ formatarPeriodo(agendamento) }}</p>
-            <p><strong>Preco:</strong> {{ formatarMoeda(agendamento.preco) }}</p>
+            <p><strong>Horário:</strong> {{ formatarPeriodo(agendamento) }}</p>
+            <p><strong>Preço:</strong> {{ formatarMoeda(agendamento.preco) }}</p>
             <p><strong>Status:</strong> {{ statusTexto(agendamento.status) }}</p>
           </div>
         </article>
@@ -407,17 +407,17 @@ onMounted(() => {
     <section class="secao-resumo-funcionarios">
       <div class="cabecalho-lista">
         <div>
-          <h2>Resumo por funcionario</h2>
-          <p>Quantidade de agendamentos, concluidos e receita concluida por profissional.</p>
+          <h2>Resumo por funcionário</h2>
+          <p>Quantidade de agendamentos, concluídos e receita concluída por profissional.</p>
         </div>
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando resumo por funcionario...</p>
+        <p>Carregando resumo por funcionário...</p>
       </section>
 
       <section v-else-if="resumoPorFuncionario.length === 0" class="card">
-        <p>Nenhum agendamento enaontrado para montar o resumo por funcionario.</p>
+        <p>Nenhum agendamento encontrado para montar o resumo por funcionário.</p>
       </section>
 
       <section v-else class="card tabela-card">
@@ -425,10 +425,10 @@ onMounted(() => {
           <table>
             <thead>
               <tr>
-                <th>Funcionario</th>
+                <th>Funcionário</th>
                 <th>Agendamentos</th>
-                <th>Concluidos</th>
-                <th>Receita concluida</th>
+                <th>Concluídos</th>
+                <th>Receita concluída</th>
               </tr>
             </thead>
             <tbody>

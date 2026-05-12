@@ -71,7 +71,7 @@ async function carregarEmpresasFiltro() {
     const resposta = await buscarEmpresas()
     empresas.value = extrairLista(resposta)
   } catch (error) {
-    erroEmpresas.value = 'Nao foi possivel carregar a lista de empresas.'
+    erroEmpresas.value = 'Não foi possível carregar a lista de empresas.'
     console.error('Erro ao carregar empresas para filtro da auditoria:', error)
   } finally {
     carregandoEmpresas.value = false
@@ -110,7 +110,7 @@ async function abrirDetalhes(log) {
     detalhe.value = await buscarAuditoriaPorId(log.id)
   } catch (error) {
     erro.value =
-      obterMensagemErroPermissao(error) || limparMensagemBackend(error?.message) || 'Nao foi possivel carregar os detalhes do log.'
+      obterMensagemErroPermissao(error) || limparMensagemBackend(error?.message) || 'Não foi possível carregar os detalhes do log.'
     console.error('Erro ao carregar detalhes da auditoria:', error)
   } finally {
     carregandoDetalhe.value = false
@@ -140,9 +140,9 @@ function normalizarOpcaoFiltro(item) {
 function obterMensagemErroAuditoria(error) {
   return (
     obterMensagemErroPermissao(error) ||
-    obterMensagemErroInterno(error, 'Nao foi possivel carregar a auditoria. Tente novamente apos alguns instantes.') ||
+    obterMensagemErroInterno(error, 'Não foi possível carregar a auditoria. Tente novamente após alguns instantes.') ||
     limparMensagemBackend(error?.message) ||
-    'Nao foi possivel carregar a auditoria. Tente novamente apos alguns instantes.'
+    'Não foi possível carregar a auditoria. Tente novamente após alguns instantes.'
   )
 }
 
@@ -298,7 +298,7 @@ function formatarJson(valor) {
           <input v-else v-model="filtros.acao" type="text" placeholder="Ex: EXCLUIR" />
         </label>
         <label>
-          Usuario
+          Usuário
           <input v-model="filtros.usuario" type="text" placeholder="Nome, e-mail ou ID" />
         </label>
         <label>
@@ -327,7 +327,7 @@ function formatarJson(valor) {
 
     <section class="card">
       <p v-if="carregando">Carregando logs...</p>
-      <p v-else-if="!logs.length" class="vazio">Nenhum log enaontrado para os filtros informados.</p>
+      <p v-else-if="!logs.length" class="vazio">Nenhum log encontrado para os filtros informados.</p>
 
       <div v-else class="tabela-container">
         <table>
@@ -335,12 +335,12 @@ function formatarJson(valor) {
             <tr>
               <th>Data/hora</th>
               <th>Empresa</th>
-              <th>Usuario</th>
+              <th>Usuário</th>
               <th>Perfil</th>
               <th>Módulo</th>
               <th>Entidade</th>
               <th>Ação</th>
-              <th>Descricao</th>
+              <th>Descrição</th>
               <th></th>
             </tr>
           </thead>
@@ -376,12 +376,12 @@ function formatarJson(valor) {
           <p><strong>ID:</strong> {{ detalhe.id || '-' }}</p>
           <p><strong>Data/hora:</strong> {{ formatarDataHora(obterCampo(detalhe, 'dataHora', 'criadoEm', 'createdAt')) }}</p>
           <p><strong>Empresa:</strong> {{ obterCampo(detalhe, 'empresaNome', 'empresaId', 'empresa') }}</p>
-          <p><strong>Usuario:</strong> {{ obterCampo(detalhe, 'usuarioNome', 'usuarioEmail', 'usuario') }}</p>
+          <p><strong>Usuário:</strong> {{ obterCampo(detalhe, 'usuarioNome', 'usuarioEmail', 'usuario') }}</p>
           <p><strong>Perfil:</strong> {{ obterCampo(detalhe, 'perfil', 'usuarioPerfil') }}</p>
           <p><strong>Módulo:</strong> {{ obterCampo(detalhe, 'modulo') }}</p>
           <p><strong>Entidade:</strong> {{ obterCampo(detalhe, 'entidade', 'tipoEntidade') }}</p>
           <p><strong>Ação:</strong> {{ obterCampo(detalhe, 'acao') }}</p>
-          <p class="campo-largo"><strong>Descricao:</strong> {{ obterCampo(detalhe, 'descricao') }}</p>
+          <p class="campo-largo"><strong>Descrição:</strong> {{ obterCampo(detalhe, 'descricao') }}</p>
           <p><strong>IP:</strong> {{ obterCampo(detalhe, 'ip') }}</p>
           <p class="campo-largo"><strong>User agent:</strong> {{ obterCampo(detalhe, 'userAgent') }}</p>
         </div>
