@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
+  buscarDisponibilidadeDataPublica,
   buscarDisponibilidadePublica,
   buscarEmpresaPublica,
   buscarFuncionariosPublicos,
@@ -19,8 +20,10 @@ const servicos = ref([])
 const funcionarios = ref([])
 const funcionariosServico = ref([])
 const disponibilidade = ref(null)
+const disponibilidadeData = ref(null)
 const carregando = ref(true)
 const carregandoDisponibilidade = ref(false)
+const carregandoDisponibilidadeData = ref(false)
 const enviando = ref(false)
 const indisponivel = ref(false)
 const erro = ref('')
@@ -89,24 +92,45 @@ const inicioSelecionado = computed(() => {
 })
 
 const horariosDisponiveis = computed(() =>
-  normalizarListaHorarios(disponibilidade.value?.horariosDisponiveis).map((item) => ({
-    valor: item.valor,
-    label: item.label,
-    ocupado: false,
-  })),
+  dataBloqueada.value
+    ? []
+    : normalizarListaHorarios(disponibilidade.value?.horariosDisponiveis).map((item) => ({
+        valor: item.valor,
+        label: item.label,
+        ocupado: false,
+      })),
 )
 
 const horariosOcupados = computed(() =>
-  normalizarListaHorarios(disponibilidade.value?.horariosOcupados)
-    .filter((item) => !horariosDisponiveis.value.some((horario) => horario.valor === item.valor))
-    .map((item) => ({
-      valor: item.valor,
-      label: item.label,
-      ocupado: true,
-    })),
+  dataBloqueada.value
+    ? []
+    : normalizarListaHorarios(disponibilidade.value?.horariosOcupados)
+        .filter((item) => !horariosDisponiveis.value.some((horario) => horario.valor === item.valor))
+        .map((item) => ({
+          valor: item.valor,
+          label: item.label,
+          ocupado: true,
+        })),
 )
 
+const dataBloqueada = computed(() => disponibilidadeData.value?.bloqueado === true)
+
+const mensagemBloqueioData = computed(() => {
+  if (!dataBloqueada.value) {
+    return ''
+  }
+
+  return (
+    String(disponibilidadeData.value?.mensagem || '').trim() ||
+    'A empresa não realizará atendimentos nesta data. Escolha outro dia para continuar.'
+  )
+})
+
 const mensagemDisponibilidade = computed(() => {
+  if (mensagemBloqueioData.value) {
+    return mensagemBloqueioData.value
+  }
+
   if (!disponibilidade.value) {
     return ''
   }
@@ -132,6 +156,14 @@ const mensagemDisponibilidade = computed(() => {
 })
 
 const mensagemOrientacaoHorarios = computed(() => {
+  if (carregandoDisponibilidadeData.value) {
+    return 'Validando atendimento nesta data...'
+  }
+
+  if (mensagemBloqueioData.value) {
+    return mensagemBloqueioData.value
+  }
+
   if (!agendamento.value.servicoId) {
     return 'Escolha um servico para consultar os horarios.'
   }
@@ -177,8 +209,17 @@ const formularioCompleto = computed(() =>
       agendamento.value.servicoId &&
       agendamento.value.funcionarioId &&
       agendamento.value.dataAtendimento &&
-      agendamento.value.dataHoraInicio,
+      agendamento.value.dataHoraInicio &&
+      !dataBloqueada.value,
   ),
+)
+
+watch(
+  () => agendamento.value.dataAtendimento,
+  () => {
+    agendamento.value.dataHoraInicio = ''
+    consultarDisponibilidadeData()
+  },
 )
 
 watch(
@@ -189,6 +230,11 @@ watch(
   ],
   () => {
     agendamento.value.dataHoraInicio = ''
+    if (carregandoDisponibilidadeData.value || dataBloqueada.value) {
+      disponibilidade.value = null
+      return
+    }
+
     carregarDisponibilidade()
   },
 )
@@ -446,11 +492,57 @@ async function carregarFuncionariosDoServicoPublico() {
   }
 }
 
+async function consultarDisponibilidadeData() {
+  disponibilidadeData.value = null
+  disponibilidade.value = null
+
+  if (!slug.value || !agendamento.value.dataAtendimento) {
+    return
+  }
+
+  const dataConsultada = agendamento.value.dataAtendimento
+
+  try {
+    carregandoDisponibilidadeData.value = true
+    erro.value = ''
+
+    const resposta = await buscarDisponibilidadeDataPublica(slug.value, dataConsultada)
+
+    if (agendamento.value.dataAtendimento !== dataConsultada) {
+      return
+    }
+
+    disponibilidadeData.value = resposta
+
+    if (resposta?.bloqueado === true) {
+      agendamento.value.funcionarioId = ''
+      agendamento.value.dataHoraInicio = ''
+      disponibilidade.value = null
+      return
+    }
+
+    carregandoDisponibilidadeData.value = false
+    carregarDisponibilidade()
+  } catch (error) {
+    if (agendamento.value.dataAtendimento === dataConsultada) {
+      disponibilidadeData.value = null
+    }
+
+    console.error(error)
+  } finally {
+    if (agendamento.value.dataAtendimento === dataConsultada) {
+      carregandoDisponibilidadeData.value = false
+    }
+  }
+}
+
 async function carregarDisponibilidade() {
   disponibilidade.value = null
 
   if (
     !slug.value ||
+    carregandoDisponibilidadeData.value ||
+    dataBloqueada.value ||
     !agendamento.value.servicoId ||
     !agendamento.value.funcionarioId ||
     !agendamento.value.dataAtendimento
@@ -478,7 +570,7 @@ async function carregarDisponibilidade() {
 }
 
 function selecionarHorario(horario) {
-  if (horario.ocupado) {
+  if (horario.ocupado || dataBloqueada.value) {
     return
   }
 
@@ -514,6 +606,11 @@ async function enviarAgendamento() {
 
     if (!agendamento.value.dataAtendimento) {
       erro.value = 'Selecione uma data.'
+      return
+    }
+
+    if (dataBloqueada.value) {
+      erro.value = mensagemBloqueioData.value
       return
     }
 
@@ -908,7 +1005,7 @@ onMounted(() => {
 
           <label v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
             Funcionário *
-            <select v-model="agendamento.funcionarioId">
+            <select v-model="agendamento.funcionarioId" :disabled="dataBloqueada">
               <option value="">Selecione um funcionario</option>
               <option
                 v-for="funcionario in funcionariosDisponiveis"
@@ -924,6 +1021,11 @@ onMounted(() => {
             Data do atendimento *
             <input v-model="agendamento.dataAtendimento" type="date" />
           </label>
+
+          <section v-if="dataBloqueada" class="campo-grande bloqueio-data">
+            <strong>{{ mensagemBloqueioData }}</strong>
+            <span v-if="disponibilidadeData?.motivo">Motivo: {{ disponibilidadeData.motivo }}</span>
+          </section>
 
           <section class="campo-grande horarios">
             <div class="titulo-horarios">
@@ -942,6 +1044,12 @@ onMounted(() => {
               >
                 {{ horario.label }}
               </button>
+            </div>
+
+            <div v-if="dataBloqueada" class="estado-horarios bloqueado">
+              <strong>Não há atendimento nesta data.</strong>
+              <span>{{ mensagemBloqueioData }}</span>
+              <span v-if="disponibilidadeData?.motivo">Motivo: {{ disponibilidadeData.motivo }}</span>
             </div>
 
             <div
@@ -974,6 +1082,9 @@ onMounted(() => {
               <strong>Funcionário:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}
             </p>
             <p><strong>Data:</strong> {{ dataAtendimentoFormatada || 'A selecionar' }}</p>
+            <p v-if="dataBloqueada">
+              <strong>Atendimento:</strong> Não há atendimento nesta data.
+            </p>
             <p><strong>Início:</strong> {{ inicioSelecionado || 'Selecione um horario' }}</p>
             <p><strong>Término previsto:</strong> {{ terminoPrevisto || 'Selecione um horario' }}</p>
             <p v-if="personalizacao.mostrarPreco"><strong>Preço:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
@@ -998,7 +1109,7 @@ onMounted(() => {
             {{ enviando ? 'Enviando...' : 'Agendar' }}
           </button>
           <p v-if="!agendamento.dataHoraInicio" class="aviso-horario">
-            Selecione um horario disponivel para liberar o agendamento.
+            {{ dataBloqueada ? mensagemBloqueioData : 'Selecione um horario disponivel para liberar o agendamento.' }}
           </p>
         </div>
       </section>
@@ -1508,6 +1619,29 @@ textarea:focus {
 
 .estado-horarios strong {
   color: #111827;
+}
+
+.bloqueio-data,
+.estado-horarios.bloqueado {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 14px;
+}
+
+.bloqueio-data strong,
+.estado-horarios.bloqueado strong {
+  color: #7f1d1d;
+}
+
+.bloqueio-data span,
+.estado-horarios.bloqueado span {
+  color: #991b1b;
+  font-weight: 700;
 }
 
 .legenda-horarios {

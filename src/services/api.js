@@ -306,6 +306,15 @@ export async function buscarDisponibilidadePublica(slug, servicoId, funcionarioI
   return tratarRespostaPublica(response)
 }
 
+export async function buscarDisponibilidadeDataPublica(slug, data) {
+  const params = new URLSearchParams({ data })
+  const response = await fetch(`${API_URL}/publico/empresas/${slug}/disponibilidade-data?${params}`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
 export async function criarAgendamentoPublico(slug, dados) {
   const response = await fetch(`${API_URL}/publico/empresas/${slug}/agendamentos`, {
     method: 'POST',
