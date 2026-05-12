@@ -1,0 +1,1051 @@
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import {
+  atualizarFatura,
+  atualizarStatusFatura,
+  buscarEmpresas,
+  buscarFaturas,
+  buscarResumoFaturas,
+  cancelarFatura,
+  criarFatura,
+} from '@/services/api'
+import { ehSuperAdmin } from '@/utils/permissoes'
+
+const STATUS = [
+  { valor: '', rotulo: 'Todos' },
+  { valor: 'PENDENTE', rotulo: 'Pendente' },
+  { valor: 'PAGA', rotulo: 'Paga' },
+  { valor: 'VENCIDA', rotulo: 'Vencida' },
+  { valor: 'CANCELADA', rotulo: 'Cancelada' },
+]
+
+const FORMAS_PAGAMENTO = ['BOLETO', 'PIX', 'CARTAO', 'TRANSFERENCIA', 'DINHEIRO', 'PERMUTA']
+const GATEWAYS = ['MANUAL', 'ASAAS', 'MERCADO_PAGO', 'STRIPE']
+
+const usuarioLogado = ref(obterUsuarioLogado())
+const superAdmin = computed(() => ehSuperAdmin(usuarioLogado.value))
+const faturas = ref([])
+const resumo = ref({})
+const empresas = ref([])
+const filtros = ref(criarFiltrosIniciais())
+const formulario = ref(criarFormularioInicial())
+const pagamento = ref(criarPagamentoInicial())
+const faturaEditandoId = ref(null)
+const faturaPagamento = ref(null)
+const faturaDetalhe = ref(null)
+const mostrarFormulario = ref(false)
+const carregando = ref(true)
+const salvando = ref(false)
+const processandoId = ref(null)
+const erro = ref('')
+const erroEmpresas = ref('')
+const mensagemSucesso = ref('')
+
+const filtrosApi = computed(() => limparVazios(filtros.value))
+const subtituloPagina = computed(() =>
+  superAdmin.value
+    ? 'Gerencie as cobranças das empresas da plataforma.'
+    : 'Acompanhe as faturas da sua empresa.',
+)
+const cardsResumo = computed(() => [
+  { titulo: 'Total de faturas', valor: formatarNumero(numeroResumo('totalFaturas', 'total')) },
+  { titulo: 'Pendentes', valor: formatarNumero(numeroResumo('pendentes', 'totalPendentes', 'totalPendente')) },
+  { titulo: 'Pagas', valor: formatarNumero(numeroResumo('pagas', 'totalPagas', 'totalPaga')) },
+  { titulo: 'Vencidas', valor: formatarNumero(numeroResumo('vencidas', 'totalVencidas', 'totalVencida')) },
+  { titulo: 'Canceladas', valor: formatarNumero(numeroResumo('canceladas', 'totalCanceladas', 'totalCancelada')) },
+  { titulo: 'Valor pendente', valor: formatarMoeda(numeroResumo('valorPendente', 'totalValorPendente')) },
+  { titulo: 'Valor pago', valor: formatarMoeda(numeroResumo('valorPago', 'totalValorPago')) },
+  { titulo: 'Valor vencido', valor: formatarMoeda(numeroResumo('valorVencido', 'totalValorVencido')) },
+  {
+    titulo: 'Próximo vencimento',
+    valor: formatarData(obterCampo(resumo.value, 'proximoVencimento', 'dataProximoVencimento')),
+  },
+])
+
+async function carregarDados() {
+  try {
+    carregando.value = true
+    erro.value = ''
+    mensagemSucesso.value = ''
+
+    const [faturasApi, resumoApi] = await Promise.all([
+      buscarFaturas(filtrosApi.value),
+      buscarResumoFaturas(filtrosApi.value),
+    ])
+
+    faturas.value = normalizarLista(faturasApi)
+    resumo.value = normalizarObjeto(resumoApi)
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar as faturas.')
+    console.error(error)
+  } finally {
+    carregando.value = false
+  }
+}
+
+async function carregarEmpresasSeNecessario() {
+  if (!superAdmin.value) return
+
+  try {
+    erroEmpresas.value = ''
+    empresas.value = normalizarLista(await buscarEmpresas())
+  } catch (error) {
+    empresas.value = []
+    erroEmpresas.value = 'Não foi possível carregar a lista de empresas.'
+    console.error(error)
+  }
+}
+
+function aplicarFiltros() {
+  carregarDados()
+}
+
+function limparFiltros() {
+  filtros.value = criarFiltrosIniciais()
+  carregarDados()
+}
+
+function abrirNovaFatura() {
+  if (!superAdmin.value) return
+
+  faturaEditandoId.value = null
+  formulario.value = criarFormularioInicial()
+  mostrarFormulario.value = true
+  erro.value = ''
+  mensagemSucesso.value = ''
+}
+
+function editarFatura(item) {
+  if (!superAdmin.value) return
+
+  faturaEditandoId.value = item.id
+  formulario.value = {
+    empresaId: obterCampo(item, 'empresaId') || obterCampo(item.empresa, 'id') || '',
+    competencia: obterCampo(item, 'competencia') || '',
+    descricao: obterCampo(item, 'descricao') || '',
+    valor: obterCampo(item, 'valor') || '',
+    dataEmissao: obterCampo(item, 'dataEmissao') || '',
+    dataVencimento: obterCampo(item, 'dataVencimento') || '',
+    formaPagamento: obterCampo(item, 'formaPagamento') || 'PIX',
+    linkPagamento: obterCampo(item, 'linkPagamento') || '',
+    observacao: obterCampo(item, 'observacao') || '',
+    gateway: obterCampo(item, 'gateway') || 'MANUAL',
+    referenciaGateway: obterCampo(item, 'referenciaGateway', 'gatewayReferencia') || '',
+  }
+  mostrarFormulario.value = true
+  erro.value = ''
+  mensagemSucesso.value = ''
+}
+
+function cancelarEdicao() {
+  faturaEditandoId.value = null
+  formulario.value = criarFormularioInicial()
+  mostrarFormulario.value = false
+}
+
+async function salvarFatura() {
+  const erroValidacao = validarFormulario()
+
+  if (erroValidacao) {
+    erro.value = erroValidacao
+    mensagemSucesso.value = ''
+    return
+  }
+
+  try {
+    salvando.value = true
+    erro.value = ''
+    mensagemSucesso.value = ''
+
+    const payload = montarPayloadFatura()
+
+    if (faturaEditandoId.value) {
+      await atualizarFatura(faturaEditandoId.value, payload)
+      mensagemSucesso.value = 'Fatura atualizada com sucesso.'
+    } else {
+      await criarFatura(payload)
+      mensagemSucesso.value = 'Fatura criada com sucesso.'
+    }
+
+    cancelarEdicao()
+    await carregarDados()
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar a fatura.')
+    console.error(error)
+  } finally {
+    salvando.value = false
+  }
+}
+
+function abrirPagamento(item) {
+  if (!superAdmin.value) return
+
+  faturaPagamento.value = item
+  pagamento.value = criarPagamentoInicial()
+  erro.value = ''
+  mensagemSucesso.value = ''
+}
+
+function fecharPagamento() {
+  faturaPagamento.value = null
+  pagamento.value = criarPagamentoInicial()
+}
+
+async function confirmarPagamento() {
+  if (!faturaPagamento.value?.id) return
+
+  try {
+    processandoId.value = faturaPagamento.value.id
+    erro.value = ''
+    mensagemSucesso.value = ''
+    await atualizarStatusFatura(faturaPagamento.value.id, {
+      status: 'PAGA',
+      dataPagamento: pagamento.value.dataPagamento,
+      observacao: pagamento.value.observacao,
+    })
+    mensagemSucesso.value = 'Fatura marcada como paga.'
+    fecharPagamento()
+    await carregarDados()
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível marcar a fatura como paga.')
+    console.error(error)
+  } finally {
+    processandoId.value = null
+  }
+}
+
+async function cancelar(item) {
+  if (!superAdmin.value || !window.confirm('Tem certeza que deseja cancelar esta fatura?')) {
+    return
+  }
+
+  try {
+    processandoId.value = item.id
+    erro.value = ''
+    mensagemSucesso.value = ''
+    await cancelarFatura(item.id)
+    mensagemSucesso.value = 'Fatura cancelada com sucesso.'
+    await carregarDados()
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível cancelar a fatura.')
+    console.error(error)
+  } finally {
+    processandoId.value = null
+  }
+}
+
+function verDetalhes(item) {
+  faturaDetalhe.value = item
+}
+
+function fecharDetalhes() {
+  faturaDetalhe.value = null
+}
+
+function criarFiltrosIniciais() {
+  return {
+    status: '',
+    competencia: '',
+    dataVencimentoInicio: '',
+    dataVencimentoFim: '',
+    busca: '',
+    empresaId: '',
+  }
+}
+
+function criarFormularioInicial() {
+  return {
+    empresaId: '',
+    competencia: '',
+    descricao: '',
+    valor: '',
+    dataEmissao: new Date().toISOString().slice(0, 10),
+    dataVencimento: '',
+    formaPagamento: 'PIX',
+    linkPagamento: '',
+    observacao: '',
+    gateway: 'MANUAL',
+    referenciaGateway: '',
+  }
+}
+
+function criarPagamentoInicial() {
+  return {
+    dataPagamento: new Date().toISOString().slice(0, 10),
+    observacao: '',
+  }
+}
+
+function validarFormulario() {
+  if (superAdmin.value && !formulario.value.empresaId) {
+    return 'Selecione a empresa da fatura.'
+  }
+
+  if (!String(formulario.value.competencia || '').trim()) {
+    return 'Informe a competência da fatura.'
+  }
+
+  if (!String(formulario.value.descricao || '').trim()) {
+    return 'Informe a descrição da fatura.'
+  }
+
+  if (formulario.value.valor === '' || formulario.value.valor === null || formulario.value.valor === undefined) {
+    return 'Informe o valor da fatura.'
+  }
+
+  if (Number(formulario.value.valor) < 0) {
+    return 'O valor da fatura não pode ser negativo.'
+  }
+
+  if (!formulario.value.dataVencimento) {
+    return 'Informe a data de vencimento.'
+  }
+
+  return ''
+}
+
+function montarPayloadFatura() {
+  return limparVazios({
+    ...formulario.value,
+    empresaId: formulario.value.empresaId ? Number(formulario.value.empresaId) : '',
+    valor: Number(formulario.value.valor || 0),
+  })
+}
+
+function limparVazios(objeto) {
+  return Object.fromEntries(
+    Object.entries(objeto || {}).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()),
+  )
+}
+
+function normalizarLista(dados) {
+  if (Array.isArray(dados)) return dados
+  if (!dados || typeof dados !== 'object') return []
+  if (Array.isArray(dados.content)) return dados.content
+  if (Array.isArray(dados.data?.content)) return dados.data.content
+  if (Array.isArray(dados.data)) return dados.data
+  if (Array.isArray(dados.items)) return dados.items
+  if (Array.isArray(dados.itens)) return dados.itens
+  if (Array.isArray(dados.resultado)) return dados.resultado
+  if (Array.isArray(dados.value)) return dados.value
+
+  return []
+}
+
+function normalizarObjeto(dados) {
+  if (!dados || typeof dados !== 'object') return {}
+  if (dados.data && !Array.isArray(dados.data) && typeof dados.data === 'object') return dados.data
+  if (dados.resultado && !Array.isArray(dados.resultado) && typeof dados.resultado === 'object') return dados.resultado
+  return dados
+}
+
+function obterUsuarioLogado() {
+  try {
+    return JSON.parse(localStorage.getItem('usuario') || 'null')
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+function obterCampo(item, ...campos) {
+  if (!item || typeof item !== 'object') return ''
+
+  for (const campo of campos) {
+    if (item[campo] !== null && item[campo] !== undefined && item[campo] !== '') {
+      return item[campo]
+    }
+  }
+
+  return ''
+}
+
+function numeroResumo(...campos) {
+  return numeroValor(obterCampo(resumo.value, ...campos))
+}
+
+function numeroValor(valor) {
+  const numero = Number(valor)
+  return Number.isFinite(numero) ? numero : 0
+}
+
+function nomeEmpresa(item) {
+  return (
+    obterCampo(item, 'empresaNome', 'nomeEmpresa') ||
+    obterCampo(item.empresa, 'nome', 'razaoSocial') ||
+    empresas.value.find((empresa) => String(empresa.id) === String(obterCampo(item, 'empresaId')))?.nome ||
+    '-'
+  )
+}
+
+function statusTexto(status) {
+  const valor = String(status || '').toUpperCase()
+  return STATUS.find((item) => item.valor === valor)?.rotulo || valor || '-'
+}
+
+function statusClasse(status) {
+  return String(status || 'PENDENTE').toLowerCase()
+}
+
+function formatarMoeda(valor) {
+  return numeroValor(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function formatarNumero(valor) {
+  return numeroValor(valor).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
+
+function criarData(valor) {
+  if (!valor) return null
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(valor))) {
+    const [ano, mes, dia] = String(valor).split('-').map(Number)
+    return new Date(ano, mes - 1, dia)
+  }
+
+  const data = new Date(valor)
+  return Number.isNaN(data.getTime()) ? null : data
+}
+
+function formatarData(valor) {
+  const data = criarData(valor)
+  return data ? data.toLocaleDateString('pt-BR') : '-'
+}
+
+function formatarCompetencia(valor) {
+  if (!valor) return '-'
+
+  const texto = String(valor)
+  const match = texto.match(/^(\d{4})-(\d{2})/)
+
+  return match ? `${match[2]}/${match[1]}` : texto
+}
+
+function obterMensagemErro(error, fallback) {
+  const mensagem = String(error?.message || '').trim()
+  const normalizada = mensagem.toLowerCase()
+
+  if (normalizada === 'forbidden' || normalizada.includes('403') || normalizada.includes('permiss')) {
+    return 'Você não tem permissão para executar esta ação.'
+  }
+
+  return mensagem || fallback
+}
+
+onMounted(async () => {
+  await carregarEmpresasSeNecessario()
+  await carregarDados()
+})
+</script>
+
+<template>
+  <main class="pagina">
+    <header class="cabecalho-pagina">
+      <div>
+        <p class="subtitulo">{{ superAdmin ? 'ADMINISTRAÇÃO SAAS' : 'MINHA EMPRESA' }}</p>
+        <h1>Faturas</h1>
+        <p class="descricao">{{ subtituloPagina }}</p>
+      </div>
+
+      <div class="acoes-topo">
+        <button class="botao secundario" :disabled="carregando" @click="carregarDados">
+          {{ carregando ? 'Atualizando...' : 'Atualizar dados' }}
+        </button>
+        <button v-if="superAdmin" class="botao principal" @click="abrirNovaFatura">Nova fatura</button>
+      </div>
+    </header>
+
+    <section v-if="erro" class="card erro"><p>{{ erro }}</p></section>
+    <section v-if="erroEmpresas" class="card aviso"><p>{{ erroEmpresas }}</p></section>
+    <section v-if="mensagemSucesso" class="card sucesso"><p>{{ mensagemSucesso }}</p></section>
+
+    <section class="grade-resumo">
+      <article v-for="card in cardsResumo" :key="card.titulo" class="card indicador">
+        <span>{{ card.titulo }}</span>
+        <strong>{{ card.valor }}</strong>
+      </article>
+    </section>
+
+    <section class="card filtros">
+      <div class="titulo-card">
+        <h2>Filtros</h2>
+        <p>Refine a consulta por status, competência, vencimento ou empresa.</p>
+      </div>
+
+      <div class="campos">
+        <label>
+          Status
+          <select v-model="filtros.status">
+            <option v-for="status in STATUS" :key="status.valor" :value="status.valor">
+              {{ status.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Competência
+          <input v-model="filtros.competencia" type="month" />
+        </label>
+
+        <label>
+          Vencimento inicial
+          <input v-model="filtros.dataVencimentoInicio" type="date" />
+        </label>
+
+        <label>
+          Vencimento final
+          <input v-model="filtros.dataVencimentoFim" type="date" />
+        </label>
+
+        <label>
+          Busca textual
+          <input v-model="filtros.busca" type="text" placeholder="Descrição, forma, gateway..." />
+        </label>
+
+        <label v-if="superAdmin">
+          Empresa
+          <select v-model="filtros.empresaId">
+            <option value="">Todas</option>
+            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
+              {{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <div class="acoes">
+        <button class="botao principal" :disabled="carregando" @click="aplicarFiltros">Aplicar filtros</button>
+        <button class="botao secundario" :disabled="carregando" @click="limparFiltros">Limpar filtros</button>
+        <button v-if="superAdmin" class="botao sucesso-botao" @click="abrirNovaFatura">Nova fatura</button>
+      </div>
+    </section>
+
+    <form v-if="superAdmin && mostrarFormulario" class="card formulario" @submit.prevent="salvarFatura">
+      <div class="cabecalho-card">
+        <div>
+          <h2>{{ faturaEditandoId ? 'Editar fatura' : 'Nova fatura' }}</h2>
+          <p>Preencha os dados da cobrança manual. O status é alterado pelas ações da tabela.</p>
+        </div>
+        <button type="button" class="botao secundario" @click="cancelarEdicao">Fechar</button>
+      </div>
+
+      <div class="campos">
+        <label>
+          Empresa
+          <select v-model="formulario.empresaId">
+            <option value="">Selecione</option>
+            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
+              {{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Competência
+          <input v-model="formulario.competencia" type="month" />
+        </label>
+
+        <label>
+          Valor
+          <input v-model="formulario.valor" type="number" min="0" step="0.01" />
+        </label>
+
+        <label>
+          Data de emissão
+          <input v-model="formulario.dataEmissao" type="date" />
+        </label>
+
+        <label>
+          Data de vencimento
+          <input v-model="formulario.dataVencimento" type="date" />
+        </label>
+
+        <label>
+          Forma de pagamento
+          <select v-model="formulario.formaPagamento">
+            <option v-for="forma in FORMAS_PAGAMENTO" :key="forma" :value="forma">{{ forma }}</option>
+          </select>
+        </label>
+
+        <label>
+          Gateway
+          <select v-model="formulario.gateway">
+            <option v-for="gateway in GATEWAYS" :key="gateway" :value="gateway">{{ gateway }}</option>
+          </select>
+        </label>
+
+        <label>
+          Referência do gateway
+          <input v-model="formulario.referenciaGateway" type="text" />
+        </label>
+
+        <label class="campo-grande">
+          Descrição
+          <input v-model="formulario.descricao" type="text" />
+        </label>
+
+        <label class="campo-grande">
+          Link de pagamento
+          <input v-model="formulario.linkPagamento" type="url" />
+        </label>
+
+        <label class="campo-grande">
+          Observação
+          <textarea v-model="formulario.observacao" rows="3"></textarea>
+        </label>
+      </div>
+
+      <div class="acoes">
+        <button class="botao principal" :disabled="salvando">
+          {{ salvando ? 'Salvando...' : faturaEditandoId ? 'Salvar alterações' : 'Criar fatura' }}
+        </button>
+        <button type="button" class="botao secundario" :disabled="salvando" @click="cancelarEdicao">
+          Cancelar
+        </button>
+      </div>
+    </form>
+
+    <section v-if="superAdmin && faturaPagamento" class="card painel-acao">
+      <div class="cabecalho-card">
+        <div>
+          <h2>Confirmar pagamento</h2>
+          <p>{{ nomeEmpresa(faturaPagamento) }} - {{ formatarMoeda(obterCampo(faturaPagamento, 'valor')) }}</p>
+        </div>
+        <button class="botao secundario" @click="fecharPagamento">Fechar</button>
+      </div>
+
+      <div class="campos pagamento-campos">
+        <label>
+          Data de pagamento
+          <input v-model="pagamento.dataPagamento" type="date" />
+        </label>
+
+        <label class="campo-grande">
+          Observação
+          <textarea v-model="pagamento.observacao" rows="3"></textarea>
+        </label>
+      </div>
+
+      <button class="botao sucesso-botao" :disabled="processandoId === faturaPagamento.id" @click="confirmarPagamento">
+        {{ processandoId === faturaPagamento.id ? 'Confirmando...' : 'Confirmar pagamento' }}
+      </button>
+    </section>
+
+    <section v-if="faturaDetalhe" class="card detalhe">
+      <div class="cabecalho-card">
+        <div>
+          <h2>Detalhes da fatura</h2>
+          <p>{{ nomeEmpresa(faturaDetalhe) }} - {{ formatarCompetencia(obterCampo(faturaDetalhe, 'competencia')) }}</p>
+        </div>
+        <button class="botao secundario" @click="fecharDetalhes">Fechar</button>
+      </div>
+
+      <div class="detalhes-grid">
+        <p><strong>Descrição:</strong> {{ obterCampo(faturaDetalhe, 'descricao') || '-' }}</p>
+        <p><strong>Valor:</strong> {{ formatarMoeda(obterCampo(faturaDetalhe, 'valor')) }}</p>
+        <p><strong>Status:</strong> {{ statusTexto(obterCampo(faturaDetalhe, 'status')) }}</p>
+        <p><strong>Emissão:</strong> {{ formatarData(obterCampo(faturaDetalhe, 'dataEmissao')) }}</p>
+        <p><strong>Vencimento:</strong> {{ formatarData(obterCampo(faturaDetalhe, 'dataVencimento')) }}</p>
+        <p><strong>Pagamento:</strong> {{ formatarData(obterCampo(faturaDetalhe, 'dataPagamento')) }}</p>
+        <p><strong>Forma:</strong> {{ obterCampo(faturaDetalhe, 'formaPagamento') || '-' }}</p>
+        <p><strong>Gateway:</strong> {{ obterCampo(faturaDetalhe, 'gateway') || '-' }}</p>
+        <p class="campo-grande"><strong>Observação:</strong> {{ obterCampo(faturaDetalhe, 'observacao') || '-' }}</p>
+      </div>
+    </section>
+
+    <section class="secao-lista">
+      <div class="cabecalho-lista">
+        <div>
+          <h2>Faturas</h2>
+          <p>Lista de cobranças retornadas pela API para os filtros aplicados.</p>
+        </div>
+        <span class="contador">{{ faturas.length }} fatura(s)</span>
+      </div>
+
+      <section v-if="carregando" class="card"><p>Carregando faturas...</p></section>
+      <section v-else-if="!faturas.length" class="card">
+        <p>Nenhuma fatura encontrada para os filtros selecionados.</p>
+      </section>
+
+      <section v-else class="card tabela-card">
+        <div class="tabela-container">
+          <table>
+            <thead>
+              <tr>
+                <th v-if="superAdmin">Empresa</th>
+                <th>Competência</th>
+                <th>Descrição</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Emissão</th>
+                <th>Vencimento</th>
+                <th>Pagamento</th>
+                <th>Forma</th>
+                <th>Link</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in faturas" :key="item.id">
+                <td v-if="superAdmin">{{ nomeEmpresa(item) }}</td>
+                <td>{{ formatarCompetencia(obterCampo(item, 'competencia')) }}</td>
+                <td>{{ obterCampo(item, 'descricao') || '-' }}</td>
+                <td>{{ formatarMoeda(obterCampo(item, 'valor')) }}</td>
+                <td>
+                  <span :class="['status', statusClasse(obterCampo(item, 'status'))]">
+                    {{ statusTexto(obterCampo(item, 'status')) }}
+                  </span>
+                </td>
+                <td>{{ formatarData(obterCampo(item, 'dataEmissao')) }}</td>
+                <td>{{ formatarData(obterCampo(item, 'dataVencimento')) }}</td>
+                <td>{{ formatarData(obterCampo(item, 'dataPagamento')) }}</td>
+                <td>{{ obterCampo(item, 'formaPagamento') || '-' }}</td>
+                <td>
+                  <a
+                    v-if="obterCampo(item, 'linkPagamento')"
+                    :href="obterCampo(item, 'linkPagamento')"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir
+                  </a>
+                  <span v-else>-</span>
+                </td>
+                <td>
+                  <div class="acoes-tabela">
+                    <button v-if="!superAdmin" class="botao compacto secundario" @click="verDetalhes(item)">
+                      Ver detalhes
+                    </button>
+                    <template v-else>
+                      <button class="botao compacto secundario" @click="editarFatura(item)">Editar</button>
+                      <button
+                        class="botao compacto sucesso-botao"
+                        :disabled="processandoId === item.id || obterCampo(item, 'status') === 'PAGA'"
+                        @click="abrirPagamento(item)"
+                      >
+                        Marcar como paga
+                      </button>
+                      <button
+                        class="botao compacto perigo"
+                        :disabled="processandoId === item.id || obterCampo(item, 'status') === 'CANCELADA'"
+                        @click="cancelar(item)"
+                      >
+                        Cancelar
+                      </button>
+                    </template>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+</template>
+
+<style scoped>
+.pagina,
+.filtros,
+.formulario,
+.painel-acao,
+.detalhe,
+.secao-lista {
+  display: grid;
+  gap: 18px;
+  color: #111827;
+}
+
+.cabecalho-pagina,
+.cabecalho-card,
+.cabecalho-lista,
+.acoes,
+.acoes-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.subtitulo {
+  margin: 0 0 4px;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: 800;
+}
+
+h2 {
+  color: #111827;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.descricao,
+.titulo-card p,
+.cabecalho-card p,
+.cabecalho-lista p {
+  margin-top: 6px;
+  color: #64748b;
+}
+
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 22px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.grade-resumo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(170px, 1fr));
+  gap: 16px;
+}
+
+.indicador {
+  display: grid;
+  gap: 8px;
+}
+
+.indicador span {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.indicador strong {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.campos,
+.detalhes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.pagamento-campos {
+  grid-template-columns: minmax(180px, 260px) 1fr;
+}
+
+.campo-grande {
+  grid-column: 1 / -1;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: white;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.contador {
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tabela-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.tabela-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f8fafc;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+a {
+  color: #2563eb;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.status {
+  display: inline-flex;
+  width: fit-content;
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status.pendente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status.paga {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status.vencida {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.status.cancelada {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.acoes-tabela {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.botao {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: white;
+  cursor: pointer;
+  font-weight: 800;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.botao:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.botao:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.compacto {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.principal {
+  background: #2563eb;
+}
+
+.secundario {
+  background: #0f172a;
+}
+
+.sucesso-botao {
+  background: #15803d;
+}
+
+.perigo {
+  background: #dc2626;
+}
+
+.erro {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.aviso {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.sucesso {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+@media (max-width: 1100px) {
+  .grade-resumo,
+  .campos,
+  .detalhes-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .cabecalho-pagina,
+  .cabecalho-card,
+  .cabecalho-lista,
+  .acoes,
+  .acoes-topo {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .grade-resumo,
+  .campos,
+  .detalhes-grid,
+  .pagamento-campos {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

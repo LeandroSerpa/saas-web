@@ -739,7 +739,15 @@ export async function aprovarSolicitacaoCadastro(id, dados) {
 }
 
 export async function buscarFaturas(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas${montarQueryString(filtros)}`, {
+  const response = await fetch(`${API_URL}/faturas${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoFaturas(filtros = {}) {
+  const response = await fetch(`${API_URL}/faturas/resumo${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -747,7 +755,7 @@ export async function buscarFaturas(filtros = {}) {
 }
 
 export async function buscarFaturaPorId(id) {
-  const response = await fetch(`${API_URL}/admin/faturas/${id}`, {
+  const response = await fetch(`${API_URL}/faturas/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -755,7 +763,7 @@ export async function buscarFaturaPorId(id) {
 }
 
 export async function criarFatura(dados) {
-  const response = await fetch(`${API_URL}/admin/faturas`, {
+  const response = await fetch(`${API_URL}/faturas`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -764,8 +772,18 @@ export async function criarFatura(dados) {
   return tratarResposta(response)
 }
 
-export async function marcarFaturaPaga(id, dados = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas/${id}/marcar-paga`, {
+export async function atualizarFatura(id, dados) {
+  const response = await fetch(`${API_URL}/faturas/${id}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarStatusFatura(id, dados = {}) {
+  const response = await fetch(`${API_URL}/faturas/${id}/status`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -774,8 +792,12 @@ export async function marcarFaturaPaga(id, dados = {}) {
   return tratarResposta(response)
 }
 
+export async function marcarFaturaPaga(id, dados = {}) {
+  return atualizarStatusFatura(id, { status: 'PAGA', ...dados })
+}
+
 export async function cancelarFatura(id, dados = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas/${id}/cancelar`, {
+  const response = await fetch(`${API_URL}/faturas/${id}/cancelar`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),

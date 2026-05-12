@@ -22,7 +22,7 @@ import AdminDashboardView from '../views/AdminDashboardView.vue'
 import SegmentosView from '../views/SegmentosView.vue'
 import CadastroEmpresaPublicoView from '../views/CadastroEmpresaPublicoView.vue'
 import SolicitacoesCadastroView from '../views/SolicitacoesCadastroView.vue'
-import FaturasSaasView from '../views/FaturasSaasView.vue'
+import FaturasView from '../views/FaturasView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -170,10 +170,14 @@ const router = createRouter({
       meta: rotasSuperAdmin,
     },
     {
+      path: '/faturas',
+      name: 'faturas',
+      component: FaturasView,
+      meta: rotasAdmin,
+    },
+    {
       path: '/faturas-saas',
-      name: 'faturas-saas',
-      component: FaturasSaasView,
-      meta: rotasSuperAdmin,
+      redirect: '/faturas',
     },
     {
       path: '/auditoria',

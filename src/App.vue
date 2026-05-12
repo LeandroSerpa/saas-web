@@ -97,6 +97,7 @@ onBeforeUnmount(() => {
         <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa">Minha empresa</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao">Personalização</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano">Meu plano</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/faturas">Faturas</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios">Usuários</RouterLink>
 
         <section v-if="superAdmin" class="grupo-menu">
@@ -112,7 +113,6 @@ onBeforeUnmount(() => {
             <RouterLink to="/assinaturas">Assinaturas</RouterLink>
             <RouterLink to="/segmentos">Segmentos/Módulos</RouterLink>
             <RouterLink to="/solicitacoes-cadastro">Solicitações</RouterLink>
-            <RouterLink to="/faturas-saas">Faturas</RouterLink>
             <RouterLink to="/auditoria">Auditoria</RouterLink>
             <RouterLink to="/lixeira">Lixeira</RouterLink>
           </div>
