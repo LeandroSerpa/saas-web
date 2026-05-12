@@ -397,11 +397,29 @@ export async function excluirFuncionarioServico(id) {
 }
 
 export async function buscarFuncionariosVinculadosAoServico(servicoId) {
-  const response = await fetch(`${API_URL}/servicos/${servicoId}/funcionarios`, {
+  const urlPrincipal = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
+  const response = await fetch(urlPrincipal, {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  if (response.status === 404) {
+    const urlFallback = `${API_URL}/servicos/${servicoId}/funcionarios`
+    const fallback = await fetch(urlFallback, {
+      headers: montarHeaders(),
+    })
+
+    if (fallback.status === 404) {
+      return []
+    }
+
+    const dadosFallback = await tratarResposta(fallback)
+
+    return normalizarColecaoResposta(dadosFallback)
+  }
+
+  const dados = await tratarResposta(response)
+
+  return normalizarColecaoResposta(dados)
 }
 
 export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionarioIds) {
@@ -444,6 +462,58 @@ async function lerCorpoResposta(response) {
   } catch (error) {
     return texto
   }
+}
+
+function normalizarColecaoResposta(dados) {
+  if (Array.isArray(dados)) {
+    return dados
+  }
+
+  if (!dados || typeof dados !== 'object') {
+    return []
+  }
+
+  if (Array.isArray(dados.value)) {
+    return dados.value
+  }
+
+  if (Array.isArray(dados.Value)) {
+    return dados.Value
+  }
+
+  if (Array.isArray(dados.content)) {
+    return dados.content
+  }
+
+  if (Array.isArray(dados.data?.content)) {
+    return dados.data.content
+  }
+
+  if (Array.isArray(dados.data)) {
+    return dados.data
+  }
+
+  if (Array.isArray(dados.items)) {
+    return dados.items
+  }
+
+  if (Array.isArray(dados.itens)) {
+    return dados.itens
+  }
+
+  if (Array.isArray(dados.resultado)) {
+    return dados.resultado
+  }
+
+  if (Array.isArray(dados.funcionarioIds)) {
+    return dados.funcionarioIds
+  }
+
+  if (Array.isArray(dados.funcionarios)) {
+    return dados.funcionarios
+  }
+
+  return []
 }
 
 export async function buscarServicosVinculadosAoFuncionario(funcionarioId) {

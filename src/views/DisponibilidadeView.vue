@@ -72,6 +72,8 @@ watch(abaAtiva, (tipo) => {
 
   if (tipo !== 'VINCULOS') {
     carregarIndisponibilidades()
+  } else {
+    funcionariosSelecionados.value = []
   }
 })
 
@@ -296,8 +298,12 @@ function obterFimFormulario() {
   return `${formulario.value.dataFim}T${formulario.value.horaFim}:00`
 }
 
-async function carregarVinculosDoServico() {
+async function carregarVinculosDoServico({ limparSucesso = true } = {}) {
   funcionariosSelecionados.value = []
+  erro.value = ''
+  if (limparSucesso) {
+    mensagemSucesso.value = ''
+  }
   mensagemVinculos.value = ''
 
   if (!servicoVinculoId.value) {
@@ -308,7 +314,17 @@ async function carregarVinculosDoServico() {
     carregandoVinculos.value = true
     erro.value = ''
     const dados = await buscarFuncionariosVinculadosAoServico(servicoVinculoId.value)
-    funcionariosSelecionados.value = normalizarIds(dados)
+    const listaNormalizada = normalizarColecao(dados)
+    const idsExtraidos = extrairFuncionarioIds(listaNormalizada)
+    funcionariosSelecionados.value = idsExtraidos
+
+    console.debug('Vínculos do serviço carregados:', {
+      respostaBruta: dados,
+      listaNormalizada,
+      idsExtraidos,
+      funcionariosCarregados: funcionariosAtivos.value.map((funcionario) => Number(funcionario.id)),
+    })
+
     if (funcionariosSelecionados.value.length === 0) {
       mensagemVinculos.value =
         'Nenhum funcionário vinculado. Se nenhum vínculo for salvo, todos os funcionários ativos poderão executar este serviço.'
@@ -329,6 +345,7 @@ async function salvarVinculos() {
 
   if (!servicoVinculoId.value) {
     erro.value = 'Selecione um serviço.'
+    mensagemSucesso.value = ''
     return
   }
 
@@ -336,14 +353,18 @@ async function salvarVinculos() {
     erro.value = ''
     mensagemSucesso.value = ''
     salvando.value = true
+    const funcionarioIds = funcionariosSelecionados.value.map(Number)
+
     await salvarFuncionariosVinculadosAoServico(
       servicoVinculoId.value,
-      funcionariosSelecionados.value.map(Number),
+      funcionarioIds,
     )
+    await carregarVinculosDoServico({ limparSucesso: false })
+    erro.value = ''
     mensagemSucesso.value = 'Vínculos atualizados com sucesso.'
-    await carregarVinculosDoServico()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
+    mensagemSucesso.value = ''
+    erro.value = obterMensagemErro(error, 'Não foi possível salvar os vínculos.')
     console.error('Erro ao salvar vínculos de funcionários ao serviço:', error?.detalhes || error)
   } finally {
     salvando.value = false
@@ -351,13 +372,33 @@ async function salvarVinculos() {
 }
 
 function normalizarIds(dados) {
-  const lista = Array.isArray(dados)
-    ? dados
-    : dados?.funcionarioIds || dados?.funcionarios || dados?.content || dados?.data?.content || dados?.data || dados?.itens || []
+  return extrairFuncionarioIds(normalizarColecao(dados))
+}
 
+function extrairFuncionarioIds(lista) {
   return lista
-    .map((item) => Number(typeof item === 'object' ? item.id || item.funcionarioId : item))
+    .map((item) => Number(obterFuncionarioIdVinculo(item)))
     .filter((id) => Number.isFinite(id))
+}
+
+function obterFuncionarioIdVinculo(item) {
+  if (!item || typeof item !== 'object') {
+    return item
+  }
+
+  if (item.funcionarioId !== null && item.funcionarioId !== undefined) {
+    return item.funcionarioId
+  }
+
+  if (item.funcionario?.id !== null && item.funcionario?.id !== undefined) {
+    return item.funcionario.id
+  }
+
+  if (item.servicoId || item.servicoNome) {
+    return null
+  }
+
+  return item.id
 }
 
 function normalizarColecao(dados) {
@@ -367,6 +408,14 @@ function normalizarColecao(dados) {
 
   if (!dados || typeof dados !== 'object') {
     return []
+  }
+
+  if (Array.isArray(dados.value)) {
+    return dados.value
+  }
+
+  if (Array.isArray(dados.Value)) {
+    return dados.Value
   }
 
   if (Array.isArray(dados.content)) {
