@@ -24,14 +24,18 @@ const funcionarios = ref([])
 const servicos = ref([])
 const funcionariosSelecionados = ref([])
 const servicoVinculoId = ref('')
+const vinculosPorServico = ref([])
 const carregando = ref(true)
 const carregandoVinculos = ref(false)
+const carregandoVinculosCadastrados = ref(false)
 const salvando = ref(false)
+const removendoVinculosServicoId = ref(null)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const mensagemVinculos = ref('')
 const indisponibilidadeEditandoId = ref(null)
 const ignorarResetAba = ref(false)
+const formularioVinculosRef = ref(null)
 const formulario = ref(criarFormularioInicial('EMPRESA'))
 
 const indisponibilidadesDaAba = computed(() =>
@@ -80,6 +84,7 @@ watch(abaAtiva, (tipo) => {
     carregarIndisponibilidades()
   } else {
     funcionariosSelecionados.value = []
+    carregarVinculosCadastrados()
   }
 })
 
@@ -131,6 +136,10 @@ async function carregarDados() {
     atualizarIndisponibilidadesDaAba(indisponibilidadesApi)
     funcionarios.value = normalizarColecao(funcionariosApi)
     servicos.value = normalizarColecao(servicosApi)
+
+    if (abaAtiva.value === 'VINCULOS') {
+      await carregarVinculosCadastrados()
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar os dados de disponibilidade.')
     console.error(error)
@@ -335,6 +344,39 @@ async function carregarVinculosDoServico({ limparSucesso = true } = {}) {
   }
 }
 
+async function carregarVinculosCadastrados() {
+  if (servicosAtivos.value.length === 0) {
+    vinculosPorServico.value = []
+    return
+  }
+
+  try {
+    carregandoVinculosCadastrados.value = true
+
+    const vinculos = await Promise.all(
+      servicosAtivos.value.map(async (servico) => {
+        const dados = await buscarFuncionariosVinculadosAoServico(servico.id)
+        const listaNormalizada = normalizarColecao(dados)
+        const funcionarioIds = extrairFuncionarioIds(listaNormalizada)
+        const funcionariosVinculados = montarFuncionariosVinculados(listaNormalizada, funcionarioIds)
+
+        return {
+          servico,
+          funcionarioIds,
+          funcionarios: funcionariosVinculados,
+        }
+      }),
+    )
+
+    vinculosPorServico.value = vinculos
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os vínculos cadastrados.')
+    console.error(error)
+  } finally {
+    carregandoVinculosCadastrados.value = false
+  }
+}
+
 async function salvarVinculos() {
   if (salvando.value) {
     return
@@ -357,6 +399,7 @@ async function salvarVinculos() {
       funcionarioIds,
     )
     await carregarVinculosDoServico({ limparSucesso: false })
+    await carregarVinculosCadastrados()
     erro.value = ''
     mensagemSucesso.value = 'Vínculos atualizados com sucesso.'
   } catch (error) {
@@ -368,14 +411,111 @@ async function salvarVinculos() {
   }
 }
 
+async function editarVinculosServico(servicoId) {
+  erro.value = ''
+  mensagemSucesso.value = ''
+
+  const mesmoServico = Number(servicoVinculoId.value) === Number(servicoId)
+  servicoVinculoId.value = servicoId
+
+  if (mesmoServico) {
+    await carregarVinculosDoServico()
+  }
+
+  requestAnimationFrame(() => {
+    formularioVinculosRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
+async function removerVinculosServico(servico) {
+  const confirmou = window.confirm(`Remover todos os vínculos de ${servico.nome}?`)
+
+  if (!confirmou) {
+    return
+  }
+
+  try {
+    erro.value = ''
+    mensagemSucesso.value = ''
+    removendoVinculosServicoId.value = Number(servico.id)
+
+    await salvarFuncionariosVinculadosAoServico(servico.id, [])
+
+    if (Number(servicoVinculoId.value) === Number(servico.id)) {
+      await carregarVinculosDoServico({ limparSucesso: false })
+    }
+
+    await carregarVinculosCadastrados()
+    erro.value = ''
+    mensagemSucesso.value = 'Vínculos removidos com sucesso.'
+  } catch (error) {
+    mensagemSucesso.value = ''
+    erro.value = obterMensagemErro(error, 'Não foi possível remover os vínculos.')
+    console.error(error)
+  } finally {
+    removendoVinculosServicoId.value = null
+  }
+}
+
 function normalizarIds(dados) {
   return extrairFuncionarioIds(normalizarColecao(dados))
 }
 
 function extrairFuncionarioIds(lista) {
-  return lista
+  const ids = lista
     .map((item) => Number(obterFuncionarioIdVinculo(item)))
     .filter((id) => Number.isFinite(id))
+
+  return [...new Set(ids)]
+}
+
+function montarFuncionariosVinculados(lista, funcionarioIds) {
+  const funcionariosPorId = new Map()
+
+  lista.forEach((item) => {
+    const id = Number(obterFuncionarioIdVinculo(item))
+
+    if (!Number.isFinite(id)) {
+      return
+    }
+
+    funcionariosPorId.set(id, {
+      id,
+      nome: obterNomeFuncionarioVinculo(item, id),
+    })
+  })
+
+  funcionarioIds.forEach((id) => {
+    if (!funcionariosPorId.has(id)) {
+      funcionariosPorId.set(id, {
+        id,
+        nome: obterNomeFuncionarioPorId(id),
+      })
+    }
+  })
+
+  return [...funcionariosPorId.values()]
+}
+
+function obterNomeFuncionarioVinculo(item, id) {
+  if (item && typeof item === 'object') {
+    return (
+      item.funcionarioNome ||
+      item.funcionario?.nome ||
+      item.nome ||
+      obterNomeFuncionarioPorId(id)
+    )
+  }
+
+  return obterNomeFuncionarioPorId(id)
+}
+
+function obterNomeFuncionarioPorId(id) {
+  return funcionarios.value.find((funcionario) => Number(funcionario.id) === Number(id))?.nome || `Funcionário ${id}`
+}
+
+function formatarQuantidadeFuncionarios(quantidade) {
+  return quantidade === 1 ? '1 funcionário vinculado' : `${quantidade} funcionários vinculados`
 }
 
 function obterFuncionarioIdVinculo(item) {
@@ -805,35 +945,61 @@ onMounted(() => {
         </section>
       </section>
 
-      <section v-else class="card vinculos-card">
-        <div class="titulo-card">
-          <h2>Funcionários por serviço</h2>
-          <p>
-            Se nenhum funcionário for vinculado a este serviço, todos os funcionários ativos poderão
-            executá-lo. Quando houver pelo menos um vínculo, somente os funcionários selecionados
-            poderão atender este serviço.
-          </p>
-        </div>
-
-        <label class="servico-vinculo">
-          Serviço
-          <select v-model="servicoVinculoId">
-            <option value="">Selecione um serviço</option>
-            <option v-for="servico in servicosAtivos" :key="servico.id" :value="servico.id">
-              {{ servico.nome }}
-            </option>
-          </select>
-        </label>
-
-        <section v-if="servicoVinculoId" class="lista-funcionarios">
-          <div class="cabecalho-lista">
-            <div>
-              <h2>{{ servicoVinculoSelecionado?.nome || 'Serviço selecionado' }}</h2>
-              <p>{{ carregandoVinculos ? 'Carregando vínculos...' : 'Marque quem pode executar este serviço.' }}</p>
-            </div>
+      <section v-else class="vinculos-aba">
+        <section ref="formularioVinculosRef" class="card vinculos-card">
+          <div class="titulo-card">
+            <h2>Funcionários por serviço</h2>
+            <p>
+              Se nenhum funcionário for vinculado a este serviço, todos os funcionários ativos poderão
+              executá-lo. Quando houver pelo menos um vínculo, somente os funcionários selecionados
+              poderão atender este serviço.
+            </p>
           </div>
 
-          <section class="vinculos-atuais">
+          <label class="servico-vinculo">
+            Serviço
+            <select v-model="servicoVinculoId">
+              <option value="">Selecione um serviço</option>
+              <option v-for="servico in servicosAtivos" :key="servico.id" :value="servico.id">
+                {{ servico.nome }}
+              </option>
+            </select>
+          </label>
+
+          <section v-if="servicoVinculoId" class="lista-funcionarios">
+            <div class="cabecalho-lista">
+              <div>
+                <h2>{{ servicoVinculoSelecionado?.nome || 'Serviço selecionado' }}</h2>
+                <p>{{ carregandoVinculos ? 'Carregando vínculos...' : 'Marque quem pode executar este serviço.' }}</p>
+              </div>
+            </div>
+
+            <label
+              v-for="funcionario in funcionariosAtivos"
+              :key="funcionario.id"
+              class="funcionario-checkbox"
+            >
+              <input
+                type="checkbox"
+                :checked="funcionariosSelecionados.includes(Number(funcionario.id))"
+                @change="alternarFuncionario(funcionario.id)"
+              />
+              <span>{{ funcionario.nome }}</span>
+            </label>
+          </section>
+
+          <div class="acoes">
+            <button
+              class="botao principal"
+              type="button"
+              :disabled="salvando || carregandoVinculos"
+              @click="salvarVinculos"
+            >
+              {{ salvando ? 'Salvando...' : 'Salvar vínculos' }}
+            </button>
+          </div>
+
+          <section v-if="servicoVinculoId" class="vinculos-atuais">
             <h3>Funcionários vinculados atualmente</h3>
             <div v-if="funcionariosVinculadosAtuais.length" class="chips-vinculos">
               <span
@@ -847,31 +1013,76 @@ onMounted(() => {
               Nenhum funcionário vinculado. Enquanto não houver vínculo salvo, todos os funcionários ativos poderão executar este serviço.
             </p>
           </section>
-
-          <label
-            v-for="funcionario in funcionariosAtivos"
-            :key="funcionario.id"
-            class="funcionario-checkbox"
-          >
-            <input
-              type="checkbox"
-              :checked="funcionariosSelecionados.includes(Number(funcionario.id))"
-              @change="alternarFuncionario(funcionario.id)"
-            />
-            <span>{{ funcionario.nome }}</span>
-          </label>
         </section>
 
-        <div class="acoes">
-          <button
-            class="botao principal"
-            type="button"
-            :disabled="salvando || carregandoVinculos"
-            @click="salvarVinculos"
-          >
-            {{ salvando ? 'Salvando...' : 'Salvar vínculos' }}
-          </button>
-        </div>
+        <section class="vinculos-cadastrados">
+          <div class="topo-card">
+            <div>
+              <h2>Vínculos cadastrados</h2>
+              <p>Serviços com funcionários vinculados nesta empresa.</p>
+            </div>
+
+            <span class="contador">{{ vinculosPorServico.length }} serviço(s)</span>
+          </div>
+
+          <section v-if="carregandoVinculosCadastrados" class="card">
+            <p>Carregando vínculos cadastrados...</p>
+          </section>
+
+          <section v-else-if="vinculosPorServico.length === 0" class="card">
+            <p>Nenhum serviço cadastrado.</p>
+          </section>
+
+          <section v-else class="lista">
+            <article
+              v-for="item in vinculosPorServico"
+              :key="item.servico.id"
+              class="card item-card"
+            >
+              <div class="topo-card">
+                <div>
+                  <span class="badge servico vinculo">SERVIÇO</span>
+                  <h3>{{ item.servico.nome }}</h3>
+                </div>
+
+                <span class="contador">{{ formatarQuantidadeFuncionarios(item.funcionarioIds.length) }}</span>
+              </div>
+
+              <div class="detalhes">
+                <p><strong>Funcionários vinculados:</strong></p>
+                <div v-if="item.funcionarios.length" class="chips-vinculos">
+                  <span
+                    v-for="funcionario in item.funcionarios"
+                    :key="funcionario.id"
+                  >
+                    {{ funcionario.nome }}
+                  </span>
+                </div>
+                <span v-else class="badge-neutra">
+                  Nenhum funcionário vinculado. Todos os funcionários ativos podem executar este serviço.
+                </span>
+              </div>
+
+              <div class="acoes">
+                <button
+                  class="botao secundario"
+                  type="button"
+                  @click="editarVinculosServico(item.servico.id)"
+                >
+                  Editar vínculos
+                </button>
+                <button
+                  class="botao perigo"
+                  type="button"
+                  :disabled="removendoVinculosServicoId === Number(item.servico.id)"
+                  @click="removerVinculosServico(item.servico)"
+                >
+                  {{ removendoVinculosServicoId === Number(item.servico.id) ? 'Removendo...' : 'Remover vínculos' }}
+                </button>
+              </div>
+            </article>
+          </section>
+        </section>
       </section>
     </template>
   </main>
@@ -1100,6 +1311,22 @@ input[type='checkbox'] {
   color: #6d28d9;
 }
 
+.badge.servico.vinculo {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.badge-neutra {
+  display: inline-flex;
+  width: fit-content;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .status.ativo {
   background: #dcfce7;
   color: #15803d;
@@ -1180,9 +1407,35 @@ input[type='checkbox'] {
   max-width: 460px;
 }
 
+.vinculos-aba {
+  display: grid;
+  gap: 18px;
+}
+
 .lista-funcionarios {
   display: grid;
   gap: 12px;
+}
+
+.vinculos-cadastrados {
+  display: grid;
+  gap: 16px;
+  padding-top: 6px;
+}
+
+.vinculos-cadastrados > .topo-card {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 14px;
+}
+
+.vinculos-cadastrados > .topo-card h2,
+.vinculos-cadastrados > .topo-card p {
+  margin: 0;
+}
+
+.vinculos-cadastrados > .topo-card p {
+  margin-top: 4px;
+  color: #475569;
 }
 
 .funcionario-checkbox {
