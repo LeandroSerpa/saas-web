@@ -73,10 +73,21 @@ const opcoesServicos = computed(() =>
 
 const cardsPrincipais = computed(() => {
   const total = numeroResumo('totalAgendamentos', 'agendamentos', 'total')
-  const concluidos = numeroResumo('concluidos', 'totalConcluidos', 'agendamentosConcluidos')
-  const cancelados = numeroResumo('cancelados', 'totalCancelados', 'agendamentosCancelados')
-  const faltas = numeroResumo('faltas', 'faltou', 'totalFaltas', 'totalFaltou')
+  const concluidos = numeroResumo('totalConcluido', 'concluidos', 'totalConcluidos', 'agendamentosConcluidos')
+  const cancelados = numeroResumo('totalCancelado', 'cancelados', 'totalCancelados', 'agendamentosCancelados')
+  const faltas = numeroResumo('totalFaltou', 'faltas', 'faltou', 'totalFaltas')
   const receitaConcluida = numeroResumo('receitaConcluida', 'valorConcluido')
+  const ticketMedio =
+    numeroResumoOpcional('ticketMedioConcluido', 'ticketMedio') ??
+    (concluidos ? receitaConcluida / concluidos : 0)
+  const taxaConclusao =
+    numeroResumoOpcional('taxaConclusao') ?? calcularPercentual(concluidos, total)
+  const perdasCancelamentoFalta = numeroResumo(
+    'perdasPorCancelamentoFalta',
+    'perdasCancelamentoFalta',
+    'perdas',
+    'valorPerdido',
+  )
 
   return [
     { titulo: 'Total de agendamentos', valor: formatarNumero(total), destaque: true },
@@ -84,15 +95,15 @@ const cardsPrincipais = computed(() => {
     { titulo: 'Receita concluída', valor: formatarMoeda(receitaConcluida) },
     {
       titulo: 'Ticket médio',
-      valor: formatarMoeda(numeroResumo('ticketMedio') || (concluidos ? receitaConcluida / concluidos : 0)),
+      valor: formatarMoeda(ticketMedio),
     },
     {
       titulo: 'Taxa de conclusão',
-      valor: formatarPercentual(numeroResumo('taxaConclusao') || calcularPercentual(concluidos, total)),
+      valor: formatarPercentual(taxaConclusao),
     },
     {
       titulo: 'Perdas por cancelamento/falta',
-      valor: formatarMoeda(numeroResumo('perdasCancelamentoFalta', 'perdas', 'valorPerdido')),
+      valor: formatarMoeda(perdasCancelamentoFalta),
       alerta: cancelados + faltas > 0,
     },
   ]
@@ -100,18 +111,21 @@ const cardsPrincipais = computed(() => {
 
 const cardsSecundarios = computed(() => {
   const total = numeroResumo('totalAgendamentos', 'agendamentos', 'total')
-  const agendados = numeroResumo('agendados', 'totalAgendados')
-  const concluidos = numeroResumo('concluidos', 'totalConcluidos', 'agendamentosConcluidos')
-  const cancelados = numeroResumo('cancelados', 'totalCancelados', 'agendamentosCancelados')
-  const faltas = numeroResumo('faltas', 'faltou', 'totalFaltas', 'totalFaltou')
+  const agendados = numeroResumo('totalAgendado', 'agendados', 'totalAgendados')
+  const concluidos = numeroResumo('totalConcluido', 'concluidos', 'totalConcluidos', 'agendamentosConcluidos')
+  const cancelados = numeroResumo('totalCancelado', 'cancelados', 'totalCancelados', 'agendamentosCancelados')
+  const faltas = numeroResumo('totalFaltou', 'faltas', 'faltou', 'totalFaltas')
+  const taxaCancelamento =
+    numeroResumoOpcional('taxaCancelamento') ?? calcularPercentual(cancelados, total)
+  const taxaFalta = numeroResumoOpcional('taxaFalta') ?? calcularPercentual(faltas, total)
 
   return [
     { titulo: 'Agendados', valor: formatarNumero(agendados) },
     { titulo: 'Concluídos', valor: formatarNumero(concluidos) },
     { titulo: 'Cancelados', valor: formatarNumero(cancelados) },
     { titulo: 'Faltou', valor: formatarNumero(faltas) },
-    { titulo: 'Taxa de cancelamento', valor: formatarPercentual(calcularPercentual(cancelados, total)) },
-    { titulo: 'Taxa de falta', valor: formatarPercentual(calcularPercentual(faltas, total)) },
+    { titulo: 'Taxa de cancelamento', valor: formatarPercentual(taxaCancelamento) },
+    { titulo: 'Taxa de falta', valor: formatarPercentual(taxaFalta) },
   ]
 })
 
@@ -297,6 +311,16 @@ function ordenarOpcoes(lista) {
 
 function numeroResumo(...campos) {
   return numeroValor(obterCampo(resumo.value, ...campos))
+}
+
+function numeroResumoOpcional(...campos) {
+  const valor = obterCampo(resumo.value, ...campos)
+
+  if (valor === '') {
+    return null
+  }
+
+  return numeroValor(valor)
 }
 
 function numeroItem(item, ...campos) {
