@@ -83,7 +83,13 @@ watch(
   () => formulario.value.diaInteiro,
   (diaInteiro) => {
     if (diaInteiro) {
-      formulario.value.fim = ''
+      formulario.value.dataFim = ''
+      formulario.value.horaFim = ''
+      return
+    }
+
+    if (!formulario.value.dataFim) {
+      formulario.value.dataFim = formulario.value.dataInicio
     }
   },
 )
@@ -93,8 +99,10 @@ function criarFormularioInicial(tipo) {
     tipo,
     funcionarioId: '',
     servicoId: '',
-    inicio: '',
-    fim: '',
+    dataInicio: '',
+    horaInicio: '',
+    dataFim: '',
+    horaFim: '',
     diaInteiro: false,
     motivo: '',
     ativo: true,
@@ -199,8 +207,7 @@ function editarIndisponibilidade(item) {
     tipo,
     funcionarioId: item.funcionarioId || item.funcionario?.id || '',
     servicoId: item.servicoId || item.servico?.id || '',
-    inicio: formatarParaInput(item.inicio || item.dataHoraInicio),
-    fim: formatarParaInput(item.fim || item.dataHoraFim),
+    ...formatarPeriodoParaFormulario(item.inicio || item.dataHoraInicio, item.fim || item.dataHoraFim),
     diaInteiro: Boolean(item.diaInteiro),
     motivo: item.motivo || '',
     ativo: item.ativo !== false,
@@ -225,12 +232,24 @@ function validarFormulario() {
     return 'Selecione um serviço.'
   }
 
-  if (!formulario.value.inicio) {
+  if (!formulario.value.dataInicio) {
     return formulario.value.diaInteiro ? 'Informe a data.' : 'Informe a data inicial.'
   }
 
-  if (!formulario.value.diaInteiro && !formulario.value.fim) {
+  if (formulario.value.diaInteiro) {
+    return ''
+  }
+
+  if (!horaValida(formulario.value.horaInicio)) {
+    return 'Informe a hora inicial no formato HH:mm.'
+  }
+
+  if (!formulario.value.dataFim) {
     return 'Informe a data final.'
+  }
+
+  if (!horaValida(formulario.value.horaFim)) {
+    return 'Informe a hora final no formato HH:mm.'
   }
 
   const inicio = criarData(obterInicioFormulario())
@@ -264,19 +283,17 @@ function montarPayloadIndisponibilidade() {
 }
 
 function obterInicioFormulario() {
-  if (!formulario.value.diaInteiro) {
-    return formatarDataHoraApi(formulario.value.inicio)
-  }
-
-  return `${String(formulario.value.inicio).slice(0, 10)}T00:00:00`
+  return formulario.value.diaInteiro
+    ? `${formulario.value.dataInicio}T00:00:00`
+    : `${formulario.value.dataInicio}T${formulario.value.horaInicio}:00`
 }
 
 function obterFimFormulario() {
-  if (!formulario.value.diaInteiro) {
-    return formatarDataHoraApi(formulario.value.fim)
+  if (formulario.value.diaInteiro) {
+    return null
   }
 
-  return `${String(formulario.value.inicio).slice(0, 10)}T23:59:00`
+  return `${formulario.value.dataFim}T${formulario.value.horaFim}:00`
 }
 
 async function carregarVinculosDoServico() {
@@ -327,7 +344,7 @@ async function salvarVinculos() {
     await carregarVinculosDoServico()
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
-    console.error(error)
+    console.error('Erro ao salvar vínculos de funcionários ao serviço:', error?.detalhes || error)
   } finally {
     salvando.value = false
   }
@@ -412,9 +429,28 @@ function obterNomeServico(item) {
 }
 
 function formatarPeriodo(item) {
-  return `${formatarDataHora(item.inicio || item.dataHoraInicio)} até ${formatarDataHora(
-    item.fim || item.dataHoraFim,
-  )}`
+  const inicio = item.inicio || item.dataHoraInicio
+  const fim = item.fim || item.dataHoraFim
+
+  if (item.diaInteiro) {
+    return `${formatarData(inicio)} - Dia inteiro`
+  }
+
+  return `${formatarDataHora(inicio)} até ${formatarDataHora(fim)}`
+}
+
+function formatarData(valor) {
+  const data = criarData(valor)
+
+  if (!data) {
+    return '-'
+  }
+
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
 }
 
 function formatarDataHora(valor) {
@@ -433,6 +469,49 @@ function formatarDataHora(valor) {
   })
 }
 
+function formatarPeriodoParaFormulario(inicio, fim) {
+  const dataInicio = criarData(inicio)
+  const dataFim = criarData(fim)
+
+  return {
+    dataInicio: formatarDataInput(dataInicio),
+    horaInicio: formatarHoraInput(dataInicio),
+    dataFim: formatarDataInput(dataFim),
+    horaFim: formatarHoraInput(dataFim),
+  }
+}
+
+function formatarDataInput(data) {
+  if (!data) {
+    return ''
+  }
+
+  return [
+    data.getFullYear(),
+    String(data.getMonth() + 1).padStart(2, '0'),
+    String(data.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+function formatarHoraInput(data) {
+  if (!data) {
+    return ''
+  }
+
+  return `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`
+}
+
+function aplicarMascaraHora(campo, valor) {
+  const numeros = String(valor || '').replace(/\D/g, '').slice(0, 4)
+  const hora = numeros.length > 2 ? `${numeros.slice(0, 2)}:${numeros.slice(2)}` : numeros
+
+  formulario.value[campo] = hora
+}
+
+function horaValida(valor) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(valor || '').trim())
+}
+
 function criarData(valor) {
   if (!valor) {
     return null
@@ -441,16 +520,6 @@ function criarData(valor) {
   const data = new Date(valor)
 
   return Number.isNaN(data.getTime()) ? null : data
-}
-
-function formatarParaInput(valor) {
-  return valor ? String(valor).slice(0, 16) : ''
-}
-
-function formatarDataHoraApi(valor) {
-  const texto = String(valor || '').trim()
-
-  return texto.length === 16 ? `${texto}:00` : texto
 }
 
 function obterMensagemErro(error, fallback) {
@@ -544,19 +613,36 @@ onMounted(() => {
             </label>
 
             <label>
-              {{ formulario.diaInteiro ? 'Data *' : 'Data/hora inicial *' }}
+              {{ formulario.diaInteiro ? 'Data *' : 'Data inicial *' }}
+              <input v-model="formulario.dataInicio" type="date" />
+            </label>
+
+            <label v-if="!formulario.diaInteiro">
+              Hora inicial *
               <input
-                v-model="formulario.inicio"
-                :type="formulario.diaInteiro ? 'date' : 'datetime-local'"
+                :value="formulario.horaInicio"
+                type="text"
+                inputmode="numeric"
+                maxlength="5"
+                placeholder="HH:mm"
+                @input="aplicarMascaraHora('horaInicio', $event.target.value)"
               />
             </label>
 
-            <label>
-              Data/hora final *
+            <label v-if="!formulario.diaInteiro">
+              Data final *
+              <input v-model="formulario.dataFim" type="date" />
+            </label>
+
+            <label v-if="!formulario.diaInteiro">
+              Hora final *
               <input
-                v-model="formulario.fim"
-                type="datetime-local"
-                :disabled="formulario.diaInteiro"
+                :value="formulario.horaFim"
+                type="text"
+                inputmode="numeric"
+                maxlength="5"
+                placeholder="HH:mm"
+                @input="aplicarMascaraHora('horaFim', $event.target.value)"
               />
             </label>
 

@@ -41,6 +41,41 @@ defineProps({
 
 defineEmits(['salvar', 'cancelar'])
 
+function obterDataAgendamento() {
+  return String(agendamento.value.dataHoraInicio || '').slice(0, 10)
+}
+
+function obterHoraAgendamento() {
+  const texto = String(agendamento.value.dataHoraInicio || '')
+  const horario = texto.includes('T') ? texto.split('T')[1] : ''
+
+  return horario.slice(0, 5)
+}
+
+function atualizarDataAgendamento(data) {
+  agendamento.value.dataHoraInicio = montarDataHora(data, obterHoraAgendamento())
+}
+
+function atualizarHoraAgendamento(valor) {
+  const hora = aplicarMascaraHora(valor)
+
+  agendamento.value.dataHoraInicio = montarDataHora(obterDataAgendamento(), hora)
+}
+
+function montarDataHora(data, hora) {
+  if (!data && !hora) {
+    return ''
+  }
+
+  return `${data || ''}${data || hora ? 'T' : ''}${hora || ''}`
+}
+
+function aplicarMascaraHora(valor) {
+  const numeros = String(valor || '').replace(/\D/g, '').slice(0, 4)
+
+  return numeros.length > 2 ? `${numeros.slice(0, 2)}:${numeros.slice(2)}` : numeros
+}
+
 function formatarPreco(preco) {
   if (preco === null || preco === undefined) {
     return 'R$ 0,00'
@@ -60,8 +95,8 @@ function formatarPreco(preco) {
       <p>
         {{
           modoEdicao
-            ? 'Atualize cliente, servico, funcionario e horario.'
-            : 'Escolha cliente, servico, funcionario e horario.'
+            ? 'Atualize cliente, serviço, funcionário e horário.'
+            : 'Escolha cliente, serviço, funcionário e horário.'
         }}
       </p>
     </div>
@@ -98,8 +133,20 @@ function formatarPreco(preco) {
       </label>
 
       <label>
-        Data e hora *
-        <input v-model="agendamento.dataHoraInicio" type="datetime-local" />
+        Data *
+        <input :value="obterDataAgendamento()" type="date" @input="atualizarDataAgendamento($event.target.value)" />
+      </label>
+
+      <label>
+        Hora *
+        <input
+          :value="obterHoraAgendamento()"
+          type="text"
+          inputmode="numeric"
+          maxlength="5"
+          placeholder="HH:mm"
+          @input="atualizarHoraAgendamento($event.target.value)"
+        />
       </label>
 
       <div v-if="duracaoMinutos || terminoPrevisto" class="campo-grande previa-agendamento">

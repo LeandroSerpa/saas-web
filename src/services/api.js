@@ -405,13 +405,45 @@ export async function buscarFuncionariosVinculadosAoServico(servicoId) {
 }
 
 export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionarioIds) {
-  const response = await fetch(`${API_URL}/servicos/${servicoId}/funcionarios-vinculados`, {
+  const url = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
+  const payload = { funcionarioIds }
+  const response = await fetch(url, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify({ funcionarioIds }),
+    body: JSON.stringify(payload),
   })
 
+  if (!response.ok) {
+    const respostaBackend = await lerCorpoResposta(response)
+    const mensagem = extrairMensagemJson(respostaBackend) || 'Não foi possível concluir a operação.'
+    const erro = new Error(mensagem)
+
+    erro.detalhes = {
+      status: response.status,
+      statusText: response.statusText,
+      url,
+      payload,
+      respostaBackend,
+    }
+
+    throw erro
+  }
+
   return tratarResposta(response)
+}
+
+async function lerCorpoResposta(response) {
+  const texto = await lerTextoErro(response)
+
+  if (!texto) {
+    return ''
+  }
+
+  try {
+    return JSON.parse(texto)
+  } catch (error) {
+    return texto
+  }
 }
 
 export async function buscarServicosVinculadosAoFuncionario(funcionarioId) {

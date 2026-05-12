@@ -25,6 +25,13 @@ function obterLinkPublico() {
   return slug ? `${window.location.origin}/agendar/${slug}` : ''
 }
 
+function aplicarMascaraHorario(campo, valor) {
+  const numeros = String(valor || '').replace(/\D/g, '').slice(0, 4)
+  const horario = numeros.length > 2 ? `${numeros.slice(0, 2)}:${numeros.slice(2)}` : numeros
+
+  empresa.value[campo] = horario
+}
+
 defineProps({
   mensagemSucesso: {
     type: String,
@@ -107,12 +114,26 @@ defineEmits(['salvar', 'cancelar'])
       <div class="campos">
         <label>
           Hora de abertura
-          <input v-model="empresa.horaAbertura" type="time" />
+          <input
+            :value="empresa.horaAbertura"
+            type="text"
+            inputmode="numeric"
+            maxlength="5"
+            placeholder="HH:mm"
+            @input="aplicarMascaraHorario('horaAbertura', $event.target.value)"
+          />
         </label>
 
         <label>
           Hora de fechamento
-          <input v-model="empresa.horaFechamento" type="time" />
+          <input
+            :value="empresa.horaFechamento"
+            type="text"
+            inputmode="numeric"
+            maxlength="5"
+            placeholder="HH:mm"
+            @input="aplicarMascaraHorario('horaFechamento', $event.target.value)"
+          />
         </label>
 
         <label>
