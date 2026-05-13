@@ -273,8 +273,24 @@ function ehUrlPagamento(valor) {
   return /^https?:\/\//i.test(String(valor || '').trim())
 }
 
+function normalizarStatus(status) {
+  const valor = String(status || 'PENDENTE')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+
+  const equivalencias = {
+    CANCELADO: 'CANCELADA',
+    PAGO: 'PAGA',
+    VENCIDO: 'VENCIDA',
+  }
+
+  return equivalencias[valor] || valor || 'PENDENTE'
+}
+
 function statusValor(item) {
-  return String(obterCampo(item, 'status') || 'PENDENTE').toUpperCase()
+  return normalizarStatus(obterCampo(item, 'status'))
 }
 
 function podeMarcarComoPaga(item) {
@@ -435,8 +451,10 @@ function validarFormulario() {
 }
 
 function montarPayloadFatura() {
+  const { status, ...camposEditaveis } = formulario.value
+
   return limparVazios({
-    ...formulario.value,
+    ...camposEditaveis,
     empresaId: formulario.value.empresaId ? Number(formulario.value.empresaId) : '',
     valor: converterValorFormulario(formulario.value.valor),
   })
@@ -556,12 +574,12 @@ function nomeEmpresa(item) {
 }
 
 function statusTexto(status) {
-  const valor = String(status || '').toUpperCase()
+  const valor = normalizarStatus(status)
   return STATUS.find((item) => item.valor === valor)?.rotulo || valor || '-'
 }
 
 function statusClasse(status) {
-  return String(status || 'PENDENTE').toLowerCase()
+  return normalizarStatus(status).toLowerCase()
 }
 
 function formatarMoeda(valor) {
@@ -1214,8 +1232,10 @@ a {
 
 .acoes-tabela {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
-  flex-wrap: wrap;
+  min-width: 132px;
 }
 
 .botao {
