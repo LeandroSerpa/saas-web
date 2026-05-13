@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
   atualizarFatura,
   atualizarStatusFatura,
@@ -40,6 +40,7 @@ const processandoId = ref(null)
 const erro = ref('')
 const erroEmpresas = ref('')
 const mensagemSucesso = ref('')
+const temporizadorFeedback = ref(null)
 
 const filtrosApi = computed(() => limparVazios(filtros.value))
 const subtituloPagina = computed(() =>
@@ -58,15 +59,20 @@ const cardsResumo = computed(() => [
   { titulo: 'Valor vencido', valor: formatarMoeda(numeroResumo('valorVencido', 'totalValorVencido')) },
   {
     titulo: 'Próximo vencimento',
-    valor: formatarData(obterCampo(resumo.value, 'proximoVencimento', 'dataProximoVencimento')),
+    valor: formatarData(obterProximoVencimento()),
   },
 ])
 
-async function carregarDados() {
+async function carregarDados(opcoes = {}) {
+  const { limparFeedback = true } = opcoes
+
   try {
     carregando.value = true
-    erro.value = ''
-    mensagemSucesso.value = ''
+    if (limparFeedback) {
+      limparMensagens()
+    } else {
+      erro.value = ''
+    }
 
     const [faturasApi, resumoApi] = await Promise.all([
       buscarFaturas(filtrosApi.value),
@@ -123,7 +129,7 @@ function editarFatura(item) {
     empresaId: obterCampo(item, 'empresaId') || obterCampo(item.empresa, 'id') || '',
     competencia: obterCampo(item, 'competencia') || '',
     descricao: obterCampo(item, 'descricao') || '',
-    valor: obterCampo(item, 'valor') || '',
+    valor: formatarValorFormulario(obterCampo(item, 'valor')),
     dataEmissao: obterCampo(item, 'dataEmissao') || '',
     dataVencimento: obterCampo(item, 'dataVencimento') || '',
     formaPagamento: obterCampo(item, 'formaPagamento') || 'PIX',
@@ -158,19 +164,19 @@ async function salvarFatura() {
     mensagemSucesso.value = ''
 
     const payload = montarPayloadFatura()
+    const mensagem = faturaEditandoId.value ? 'Fatura atualizada com sucesso.' : 'Fatura criada com sucesso.'
 
     if (faturaEditandoId.value) {
       await atualizarFatura(faturaEditandoId.value, payload)
-      mensagemSucesso.value = 'Fatura atualizada com sucesso.'
     } else {
       await criarFatura(payload)
-      mensagemSucesso.value = 'Fatura criada com sucesso.'
     }
 
     cancelarEdicao()
-    await carregarDados()
+    await carregarDados({ limparFeedback: false })
+    exibirSucesso(mensagem)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível salvar a fatura.')
+    erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
     console.error(error)
   } finally {
     salvando.value = false
@@ -203,11 +209,11 @@ async function confirmarPagamento() {
       dataPagamento: pagamento.value.dataPagamento,
       observacao: pagamento.value.observacao,
     })
-    mensagemSucesso.value = 'Fatura marcada como paga.'
     fecharPagamento()
-    await carregarDados()
+    await carregarDados({ limparFeedback: false })
+    exibirSucesso('Pagamento confirmado com sucesso.')
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível marcar a fatura como paga.')
+    erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
     console.error(error)
   } finally {
     processandoId.value = null
@@ -224,10 +230,10 @@ async function cancelar(item) {
     erro.value = ''
     mensagemSucesso.value = ''
     await cancelarFatura(item.id)
-    mensagemSucesso.value = 'Fatura cancelada com sucesso.'
-    await carregarDados()
+    await carregarDados({ limparFeedback: false })
+    exibirSucesso('Fatura cancelada com sucesso.')
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível cancelar a fatura.')
+    erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
     console.error(error)
   } finally {
     processandoId.value = null
@@ -246,6 +252,22 @@ function ehUrlPagamento(valor) {
   return /^https?:\/\//i.test(String(valor || '').trim())
 }
 
+function statusValor(item) {
+  return String(obterCampo(item, 'status') || 'PENDENTE').toUpperCase()
+}
+
+function podeMarcarComoPaga(item) {
+  return superAdmin.value && ['PENDENTE', 'VENCIDA'].includes(statusValor(item))
+}
+
+function podeCancelarFatura(item) {
+  return superAdmin.value && ['PENDENTE', 'VENCIDA', 'PAGA'].includes(statusValor(item))
+}
+
+function textoCancelarFatura(item) {
+  return statusValor(item) === 'PAGA' ? 'Cancelar admin.' : 'Cancelar'
+}
+
 async function copiarPagamento(valor) {
   const texto = String(valor || '').trim()
 
@@ -258,8 +280,7 @@ async function copiarPagamento(valor) {
       copiarComFallback(texto)
     }
 
-    mensagemSucesso.value = 'Informação de pagamento copiada.'
-    erro.value = ''
+    exibirSucesso('Informação de pagamento copiada.')
   } catch (error) {
     console.error(error)
     erro.value = 'Não foi possível copiar. Selecione o texto e copie manualmente.'
@@ -281,6 +302,42 @@ function copiarComFallback(texto) {
 
   if (!copiado) {
     throw new Error('Clipboard indisponível')
+  }
+}
+
+function exibirSucesso(mensagem) {
+  if (temporizadorFeedback.value) {
+    window.clearTimeout(temporizadorFeedback.value)
+  }
+
+  mensagemSucesso.value = mensagem
+  erro.value = ''
+  temporizadorFeedback.value = window.setTimeout(() => {
+    mensagemSucesso.value = ''
+    temporizadorFeedback.value = null
+  }, 5000)
+}
+
+function limparMensagens() {
+  erro.value = ''
+  mensagemSucesso.value = ''
+
+  if (temporizadorFeedback.value) {
+    window.clearTimeout(temporizadorFeedback.value)
+    temporizadorFeedback.value = null
+  }
+}
+
+function fecharFeedback(tipo) {
+  if (tipo === 'erro') {
+    erro.value = ''
+    return
+  }
+
+  mensagemSucesso.value = ''
+  if (temporizadorFeedback.value) {
+    window.clearTimeout(temporizadorFeedback.value)
+    temporizadorFeedback.value = null
   }
 }
 
@@ -331,11 +388,17 @@ function validarFormulario() {
     return 'Informe a descrição da fatura.'
   }
 
+  const valor = converterValorFormulario(formulario.value.valor)
+
   if (formulario.value.valor === '' || formulario.value.valor === null || formulario.value.valor === undefined) {
     return 'Informe o valor da fatura.'
   }
 
-  if (Number(formulario.value.valor) < 0) {
+  if (!Number.isFinite(valor)) {
+    return 'Informe um valor valido para a fatura.'
+  }
+
+  if (valor < 0) {
     return 'O valor da fatura não pode ser negativo.'
   }
 
@@ -350,7 +413,7 @@ function montarPayloadFatura() {
   return limparVazios({
     ...formulario.value,
     empresaId: formulario.value.empresaId ? Number(formulario.value.empresaId) : '',
-    valor: Number(formulario.value.valor || 0),
+    valor: converterValorFormulario(formulario.value.valor),
   })
 }
 
@@ -406,9 +469,56 @@ function numeroResumo(...campos) {
   return numeroValor(obterCampo(resumo.value, ...campos))
 }
 
+function obterProximoVencimento() {
+  const vencimento = obterCampo(resumo.value, 'proximaFaturaVencimento', 'proximoVencimento')
+
+  if (vencimento) return vencimento
+
+  const proximaFatura = obterCampo(resumo.value, 'proximaFatura')
+  return typeof proximaFatura === 'object'
+    ? obterCampo(proximaFatura, 'dataVencimento', 'vencimento', 'proximaFaturaVencimento')
+    : proximaFatura
+}
+
 function numeroValor(valor) {
   const numero = Number(valor)
   return Number.isFinite(numero) ? numero : 0
+}
+
+function converterValorFormulario(valor) {
+  const texto = String(valor ?? '').trim()
+
+  if (!texto) return NaN
+
+  const semEspacos = texto.replace(/\s/g, '')
+  const ultimaVirgula = semEspacos.lastIndexOf(',')
+  const ultimoPonto = semEspacos.lastIndexOf('.')
+  const indiceDecimal = Math.max(ultimaVirgula, ultimoPonto)
+
+  if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+    const inteiros = semEspacos.slice(0, indiceDecimal).replace(/[.,]/g, '')
+    const decimais = semEspacos.slice(indiceDecimal + 1).replace(/[.,]/g, '')
+    return Number(`${inteiros}.${decimais}`)
+  }
+
+  if (ultimaVirgula >= 0) {
+    return Number(semEspacos.replace(/\./g, '').replace(',', '.'))
+  }
+
+  return Number(semEspacos.replace(/,/g, '.'))
+}
+
+function formatarValorFormulario(valor) {
+  if (valor === '' || valor === null || valor === undefined) return ''
+
+  const numero = typeof valor === 'number' ? valor : converterValorFormulario(valor)
+  return Number.isFinite(numero)
+    ? numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : String(valor)
+}
+
+function formatarValorFormularioAoSair() {
+  formulario.value.valor = formatarValorFormulario(formulario.value.valor)
 }
 
 function nomeEmpresa(item) {
@@ -471,12 +581,18 @@ function obterMensagemErro(error, fallback) {
     return 'Você não tem permissão para executar esta ação.'
   }
 
-  return mensagem || fallback
+  return mensagem || fallback || 'Não foi possível concluir a operação.'
 }
 
 onMounted(async () => {
   await carregarEmpresasSeNecessario()
   await carregarDados()
+})
+
+onUnmounted(() => {
+  if (temporizadorFeedback.value) {
+    window.clearTimeout(temporizadorFeedback.value)
+  }
 })
 </script>
 
@@ -497,9 +613,21 @@ onMounted(async () => {
       </div>
     </header>
 
-    <section v-if="erro" class="card erro"><p>{{ erro }}</p></section>
-    <section v-if="erroEmpresas" class="card aviso"><p>{{ erroEmpresas }}</p></section>
-    <section v-if="mensagemSucesso" class="card sucesso"><p>{{ mensagemSucesso }}</p></section>
+    <section v-if="erro" class="card feedback erro">
+      <p>{{ erro }}</p>
+      <button type="button" class="fechar-feedback" aria-label="Fechar mensagem" @click="fecharFeedback('erro')">
+        x
+      </button>
+    </section>
+    <section v-if="erroEmpresas" class="card feedback aviso">
+      <p>{{ erroEmpresas }}</p>
+    </section>
+    <section v-if="mensagemSucesso" class="card feedback sucesso">
+      <p>{{ mensagemSucesso }}</p>
+      <button type="button" class="fechar-feedback" aria-label="Fechar mensagem" @click="fecharFeedback('sucesso')">
+        x
+      </button>
+    </section>
 
     <section class="grade-resumo">
       <article v-for="card in cardsResumo" :key="card.titulo" class="card indicador">
@@ -589,7 +717,7 @@ onMounted(async () => {
 
         <label>
           Valor
-          <input v-model="formulario.valor" type="number" min="0" step="0.01" />
+          <input v-model="formulario.valor" type="text" inputmode="decimal" @blur="formatarValorFormularioAoSair" />
         </label>
 
         <label>
@@ -793,18 +921,20 @@ onMounted(async () => {
                     <template v-else>
                       <button class="botao compacto secundario" @click="editarFatura(item)">Editar</button>
                       <button
+                        v-if="podeMarcarComoPaga(item)"
                         class="botao compacto sucesso-botao"
-                        :disabled="processandoId === item.id || obterCampo(item, 'status') === 'PAGA'"
+                        :disabled="processandoId === item.id"
                         @click="abrirPagamento(item)"
                       >
                         Marcar como paga
                       </button>
                       <button
+                        v-if="podeCancelarFatura(item)"
                         class="botao compacto perigo"
-                        :disabled="processandoId === item.id || obterCampo(item, 'status') === 'CANCELADA'"
+                        :disabled="processandoId === item.id"
                         @click="cancelar(item)"
                       >
-                        Cancelar
+                        {{ textoCancelarFatura(item) }}
                       </button>
                     </template>
                   </div>
@@ -881,6 +1011,25 @@ h2 {
   border-radius: 8px;
   padding: 22px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.feedback {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.fechar-feedback {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+  cursor: pointer;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .grade-resumo {
