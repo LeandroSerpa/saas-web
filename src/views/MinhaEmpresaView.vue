@@ -1,6 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { atualizarMinhaEmpresa, buscarMinhaEmpresa } from '@/services/api'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  atualizarEtapaOnboarding,
+  atualizarMinhaEmpresa,
+  buscarMinhaEmpresa,
+  recalcularOnboarding,
+} from '@/services/api'
 
 const carregando = ref(true)
 const salvando = ref(false)
@@ -8,6 +14,8 @@ const erro = ref('')
 const mensagemSucesso = ref('')
 const mensagemLinkCopiado = ref('')
 const empresa = ref(criarEmpresaInicial())
+const route = useRoute()
+const router = useRouter()
 const diasAtendimento = [
   { campo: 'atendeDominao', rotulo: 'Dominao' },
   { campo: 'atendeSegunda', rotulo: 'Segunda' },
@@ -129,13 +137,29 @@ async function salvarEmpresa() {
     const nomeAtualizado = resposta?.nome || empresa.value.nome
 
     atualizarEmpresaNoUsuarioLogado(nomeAtualizado)
-    mensagemSucesso.value = 'Empresa atualizada com sucesso.'
+    mensagemSucesso.value = 'Dados da empresa salvos com sucesso.'
+
+    await retornarParaOnboardingSeNecessario()
   } catch (error) {
     erro.value = 'Não foi possível atualizar a empresa.'
     console.error(error)
   } finally {
     salvando.value = false
   }
+}
+
+async function retornarParaOnboardingSeNecessario() {
+  if (route.query.origem !== 'onboarding') return
+
+  const etapa = String(route.query.etapa || 'DADOS_EMPRESA')
+
+  await recalcularOnboarding().catch((error) => console.error(error))
+
+  if (['DADOS_EMPRESA', 'HORARIOS'].includes(etapa)) {
+    await atualizarEtapaOnboarding(etapa, { concluido: true, ignorado: false }).catch((error) => console.error(error))
+  }
+
+  router.push({ path: '/onboarding', query: { atualizado: '1' } })
 }
 
 function normalizarIntervaloAgenda(valor) {

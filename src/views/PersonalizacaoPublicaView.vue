@@ -1,6 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { buscarMinhaPersonalizacao, salvarMinhaPersonalizacao } from '@/services/api'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  atualizarEtapaOnboarding,
+  buscarMinhaPersonalizacao,
+  recalcularOnboarding,
+  salvarMinhaPersonalizacao,
+} from '@/services/api'
 
 const temas = ['PADRAO', 'MODERNO', 'ESCURO', 'SUAVE']
 const carregando = ref(true)
@@ -8,6 +14,8 @@ const salvando = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const personalizacao = ref(criarPersonalizacaoInicial())
+const route = useRoute()
+const router = useRouter()
 
 const estilosPreview = computed(() => ({
   '--cor-principal': personalizacao.value.corPrincipal || '#2563eb',
@@ -71,6 +79,7 @@ async function salvarPersonalizacao() {
 
     salvando.value = true
     await salvarMinhaPersonalizacao({ ...personalizacao.value })
+    await retornarParaOnboardingSeNecessario('PERSONALIZACAO')
     mensagemSucesso.value = 'Personalização salva com sucesso.'
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível salvar a personalização.')
@@ -95,6 +104,15 @@ function normalizarPersonalizacao(dados) {
     mostrarEndereco: origem.mostrarEndereco !== false,
     mostrarTelefone: origem.mostrarTelefone !== false,
   }
+}
+
+async function retornarParaOnboardingSeNecessario(etapaEsperada) {
+  if (route.query.origem !== 'onboarding') return
+
+  const etapa = String(route.query.etapa || etapaEsperada)
+  await recalcularOnboarding().catch((error) => console.error(error))
+  await atualizarEtapaOnboarding(etapa, { concluido: true, ignorado: false }).catch((error) => console.error(error))
+  router.push({ path: '/onboarding', query: { atualizado: '1' } })
 }
 
 function corHexValida(cor) {

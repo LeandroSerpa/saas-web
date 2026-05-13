@@ -21,11 +21,11 @@ const carregando = ref(true)
 const erro = ref('')
 const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
 const onboardingPercentual = computed(() => {
-  const valor = Number(obterCampo(onboarding.value, 'percentualConcluido', 'percentual', 'progresso'))
+  const valor = Number(obterCampo(onboarding.value, 'percentualConclusao', 'percentualConcluido', 'percentual', 'progresso'))
   return Number.isFinite(valor) ? Math.max(0, Math.min(100, Math.round(valor))) : 0
 })
 const onboardingConcluido = computed(() =>
-  Boolean(obterCampo(onboarding.value, 'concluido', 'finalizado')) || onboardingPercentual.value >= 100,
+  Boolean(obterCampo(onboarding.value, 'onboardingConcluido', 'concluido', 'finalizado')) || onboardingPercentual.value >= 100,
 )
 const mostrarCardOnboarding = computed(() => adminEmpresa.value && onboarding.value && !onboardingConcluido.value)
 const empresaSemDados = computed(

@@ -1,9 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import FuncionarioForm from '@/components/FuncionarioForm.vue'
 import {
+  atualizarEtapaOnboarding,
   buscarFuncionarios,
   cadastrarFuncionario,
+  recalcularOnboarding,
   atualizarFuncionario,
   atualizarAtivoFuncionario,
 } from '@/services/api'
@@ -15,6 +18,8 @@ const mensagemSucessoFuncionario = ref('')
 const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
 const funcionarioEditandoId = ref(null)
+const route = useRoute()
+const router = useRouter()
 const filtros = ref({
   status: '',
   busca: '',
@@ -131,6 +136,8 @@ async function salvarFuncionario() {
       atendeSabado: Boolean(funcionario.value.atendeSabado),
     }
 
+    const criandoFuncionario = !funcionarioEditandoId.value
+
     if (funcionarioEditandoId.value) {
       await atualizarFuncionario(funcionarioEditandoId.value, dadosFuncionario)
       mensagemSucessoFuncionario.value = 'Funcionário atualizado com sucesso.'
@@ -142,6 +149,9 @@ async function salvarFuncionario() {
     cancelarEdicaoFuncionario(false)
 
     await carregarFuncionarios()
+    if (criandoFuncionario) {
+      await retornarParaOnboardingSeNecessario('FUNCIONARIO')
+    }
   } catch (error) {
     erro.value = obterMensagemErro(
       error,
@@ -151,6 +161,15 @@ async function salvarFuncionario() {
     )
     console.error(error)
   }
+}
+
+async function retornarParaOnboardingSeNecessario(etapaEsperada) {
+  if (route.query.origem !== 'onboarding') return
+
+  const etapa = String(route.query.etapa || etapaEsperada)
+  await recalcularOnboarding().catch((error) => console.error(error))
+  await atualizarEtapaOnboarding(etapa, { concluido: true, ignorado: false }).catch((error) => console.error(error))
+  router.push({ path: '/onboarding', query: { atualizado: '1' } })
 }
 
 function editarFuncionario(funcionarioItem) {

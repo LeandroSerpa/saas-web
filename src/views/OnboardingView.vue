@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import {
   atualizarEtapaOnboarding,
   buscarOnboarding,
@@ -73,17 +73,20 @@ const carregando = ref(true)
 const processandoEtapa = ref('')
 const erro = ref('')
 const mensagemSucesso = ref('')
+const route = useRoute()
 
 const empresaNome = computed(() => obterCampo(onboarding.value, 'empresaNome', 'nomeEmpresa') || 'Sua empresa')
 const percentual = computed(() => {
-  const valor = Number(obterCampo(onboarding.value, 'percentualConcluido', 'percentual', 'progresso'))
+  const valor = Number(obterCampo(onboarding.value, 'percentualConclusao', 'percentualConcluido', 'percentual', 'progresso'))
   if (Number.isFinite(valor)) return Math.max(0, Math.min(100, Math.round(valor)))
 
   const total = etapas.value.length || 1
   const concluidas = etapas.value.filter((etapa) => etapa.status === 'CONCLUIDO').length
   return Math.round((concluidas / total) * 100)
 })
-const concluido = computed(() => percentual.value >= 100 || Boolean(obterCampo(onboarding.value, 'concluido', 'finalizado')))
+const concluido = computed(() =>
+  percentual.value >= 100 || Boolean(obterCampo(onboarding.value, 'onboardingConcluido', 'concluido', 'finalizado')),
+)
 const linkPublico = computed(() => obterCampo(onboarding.value, 'linkPublicoAgendamento', 'linkPublico', 'urlAgendamento'))
 const etapas = computed(() =>
   ETAPAS.map((configuracao, indice) => ({
@@ -97,6 +100,10 @@ async function carregarOnboarding() {
   try {
     carregando.value = true
     erro.value = ''
+    if (route.query.atualizado || route.query.recalcular) {
+      await recalcularOnboarding()
+      mensagemSucesso.value = 'Progresso atualizado com sucesso.'
+    }
     onboarding.value = normalizarObjeto(await buscarOnboarding())
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar os primeiros passos.')
@@ -113,7 +120,7 @@ async function atualizarProgresso() {
     mensagemSucesso.value = ''
     await recalcularOnboarding()
     onboarding.value = normalizarObjeto(await buscarOnboarding())
-    mensagemSucesso.value = 'Progresso atualizado.'
+    mensagemSucesso.value = 'Progresso atualizado com sucesso.'
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar os primeiros passos.')
     console.error(error)
@@ -127,7 +134,10 @@ async function marcarEtapa(etapa, status) {
     processandoEtapa.value = etapa.chave
     erro.value = ''
     mensagemSucesso.value = ''
-    await atualizarEtapaOnboarding(etapa.chave, { status })
+    await atualizarEtapaOnboarding(etapa.chave, {
+      concluido: status === 'CONCLUIDO',
+      ignorado: status === 'IGNORADO',
+    })
     await carregarOnboarding()
     mensagemSucesso.value = status === 'CONCLUIDO' ? 'Etapa marcada como concluída.' : 'Etapa ignorada por enquanto.'
   } catch (error) {
@@ -163,11 +173,15 @@ async function copiarLinkPublico() {
 }
 
 function statusEtapa(chave) {
+  const etapaEncontrada = encontrarEtapa(chave)
   const bruto =
     obterCampo(onboarding.value, chave) ||
     obterCampo(onboarding.value?.etapas, chave) ||
-    encontrarEtapa(chave)?.status ||
-    encontrarEtapa(chave)?.situacao
+    etapaEncontrada?.status ||
+    etapaEncontrada?.situacao
+
+  if (etapaEncontrada?.concluido === true || etapaEncontrada?.concluida === true) return 'CONCLUIDO'
+  if (etapaEncontrada?.ignorado === true || etapaEncontrada?.ignorada === true) return 'IGNORADO'
 
   const valorStatus = typeof bruto === 'object' ? obterCampo(bruto, 'status', 'situacao') : bruto
   const status = String(valorStatus || 'PENDENTE').trim().toUpperCase()
@@ -183,6 +197,16 @@ function encontrarEtapa(chave) {
 
 function statusTexto(status) {
   return { CONCLUIDO: 'Concluído', IGNORADO: 'Ignorado', PENDENTE: 'Pendente' }[status] || status
+}
+
+function destinoEtapa(etapa) {
+  return {
+    path: etapa.rota,
+    query: {
+      origem: 'onboarding',
+      etapa: etapa.chave,
+    },
+  }
 }
 
 function normalizarObjeto(dados) {
@@ -270,7 +294,7 @@ onMounted(carregarOnboarding)
               >
                 {{ processandoEtapa === etapa.chave ? 'Copiando...' : etapa.acao }}
               </button>
-              <RouterLink v-else class="botao principal link-botao" :to="etapa.rota">{{ etapa.acao }}</RouterLink>
+              <RouterLink v-else class="botao principal link-botao" :to="destinoEtapa(etapa)">{{ etapa.acao }}</RouterLink>
               <button
                 v-if="etapa.permiteManual && etapa.status !== 'CONCLUIDO'"
                 class="botao secundario"
