@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   atualizarEtapaOnboarding,
   buscarOnboarding,
@@ -74,6 +74,7 @@ const processandoEtapa = ref('')
 const erro = ref('')
 const mensagemSucesso = ref('')
 const route = useRoute()
+const router = useRouter()
 
 const empresaNome = computed(() => obterCampo(onboarding.value, 'empresaNome', 'nomeEmpresa') || 'Sua empresa')
 const percentual = computed(() => {
@@ -101,7 +102,10 @@ async function carregarOnboarding() {
     carregando.value = true
     erro.value = ''
     if (route.query.atualizado || route.query.recalcular) {
-      await recalcularOnboarding()
+      const recalculado = await recalcularOnboarding()
+      if (recalculado && typeof recalculado === 'object') {
+        onboarding.value = normalizarObjeto(recalculado)
+      }
       mensagemSucesso.value = 'Progresso atualizado com sucesso.'
     }
     onboarding.value = normalizarObjeto(await buscarOnboarding())
@@ -199,14 +203,16 @@ function statusTexto(status) {
   return { CONCLUIDO: 'Concluído', IGNORADO: 'Ignorado', PENDENTE: 'Pendente' }[status] || status
 }
 
-function destinoEtapa(etapa) {
-  return {
+function navegarParaEtapa(etapa) {
+  sessionStorage.setItem('origemOnboarding', 'true')
+  sessionStorage.setItem('etapaOnboarding', etapa.chave)
+  router.push({
     path: etapa.rota,
     query: {
       origem: 'onboarding',
       etapa: etapa.chave,
     },
-  }
+  })
 }
 
 function normalizarObjeto(dados) {
@@ -294,7 +300,9 @@ onMounted(carregarOnboarding)
               >
                 {{ processandoEtapa === etapa.chave ? 'Copiando...' : etapa.acao }}
               </button>
-              <RouterLink v-else class="botao principal link-botao" :to="destinoEtapa(etapa)">{{ etapa.acao }}</RouterLink>
+              <button v-else class="botao principal" type="button" @click="navegarParaEtapa(etapa)">
+                {{ etapa.acao }}
+              </button>
               <button
                 v-if="etapa.permiteManual && etapa.status !== 'CONCLUIDO'"
                 class="botao secundario"

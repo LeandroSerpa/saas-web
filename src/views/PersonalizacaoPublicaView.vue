@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  atualizarEtapaOnboarding,
   buscarMinhaPersonalizacao,
   recalcularOnboarding,
   salvarMinhaPersonalizacao,
@@ -107,12 +106,20 @@ function normalizarPersonalizacao(dados) {
 }
 
 async function retornarParaOnboardingSeNecessario(etapaEsperada) {
-  if (route.query.origem !== 'onboarding') return
+  if (!veioDoOnboarding()) return
 
-  const etapa = String(route.query.etapa || etapaEsperada)
   await recalcularOnboarding().catch((error) => console.error(error))
-  await atualizarEtapaOnboarding(etapa, { concluido: true, ignorado: false }).catch((error) => console.error(error))
-  router.push({ path: '/onboarding', query: { atualizado: '1' } })
+  limparOrigemOnboarding()
+  router.push({ path: '/onboarding', query: { atualizado: 'true' } })
+}
+
+function veioDoOnboarding() {
+  return route.query.origem === 'onboarding' || sessionStorage.getItem('origemOnboarding') === 'true'
+}
+
+function limparOrigemOnboarding() {
+  sessionStorage.removeItem('origemOnboarding')
+  sessionStorage.removeItem('etapaOnboarding')
 }
 
 function corHexValida(cor) {

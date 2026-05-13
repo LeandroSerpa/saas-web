@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  atualizarEtapaOnboarding,
   atualizarMinhaEmpresa,
   buscarMinhaEmpresa,
   recalcularOnboarding,
@@ -149,17 +148,20 @@ async function salvarEmpresa() {
 }
 
 async function retornarParaOnboardingSeNecessario() {
-  if (route.query.origem !== 'onboarding') return
-
-  const etapa = String(route.query.etapa || 'DADOS_EMPRESA')
+  if (!veioDoOnboarding()) return
 
   await recalcularOnboarding().catch((error) => console.error(error))
+  limparOrigemOnboarding()
+  router.push({ path: '/onboarding', query: { atualizado: 'true' } })
+}
 
-  if (['DADOS_EMPRESA', 'HORARIOS'].includes(etapa)) {
-    await atualizarEtapaOnboarding(etapa, { concluido: true, ignorado: false }).catch((error) => console.error(error))
-  }
+function veioDoOnboarding() {
+  return route.query.origem === 'onboarding' || sessionStorage.getItem('origemOnboarding') === 'true'
+}
 
-  router.push({ path: '/onboarding', query: { atualizado: '1' } })
+function limparOrigemOnboarding() {
+  sessionStorage.removeItem('origemOnboarding')
+  sessionStorage.removeItem('etapaOnboarding')
 }
 
 function normalizarIntervaloAgenda(valor) {
