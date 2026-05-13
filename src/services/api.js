@@ -806,6 +806,15 @@ export async function cancelarFatura(id, dados = {}) {
   return tratarResposta(response)
 }
 
+export async function reativarFatura(id) {
+  const response = await fetch(`${API_URL}/faturas/${id}/reativar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarRelatorioOperacaonal(filtros = {}) {
   const response = await fetch(`${API_URL}/relatorios/operacaonal${montarQueryString(filtros)}`, {
     headers: montarHeaders(),

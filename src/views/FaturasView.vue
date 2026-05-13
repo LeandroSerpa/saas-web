@@ -8,6 +8,7 @@ import {
   buscarResumoFaturas,
   cancelarFatura,
   criarFatura,
+  reativarFatura,
 } from '@/services/api'
 import { ehSuperAdmin } from '@/utils/permissoes'
 
@@ -50,10 +51,10 @@ const subtituloPagina = computed(() =>
 )
 const cardsResumo = computed(() => [
   { titulo: 'Total de faturas', valor: formatarNumero(numeroResumo('totalFaturas', 'total')) },
-  { titulo: 'Pendentes', valor: formatarNumero(numeroResumo('pendentes', 'totalPendentes', 'totalPendente')) },
-  { titulo: 'Pagas', valor: formatarNumero(numeroResumo('pagas', 'totalPagas', 'totalPaga')) },
-  { titulo: 'Vencidas', valor: formatarNumero(numeroResumo('vencidas', 'totalVencidas', 'totalVencida')) },
-  { titulo: 'Canceladas', valor: formatarNumero(numeroResumo('canceladas', 'totalCanceladas', 'totalCancelada')) },
+  { titulo: 'Pendentes', valor: formatarNumero(numeroResumo('totalPendente', 'totalPendentes', 'pendentes')) },
+  { titulo: 'Pagas', valor: formatarNumero(numeroResumo('totalPago', 'totalPagas', 'pagas', 'totalPaga')) },
+  { titulo: 'Vencidas', valor: formatarNumero(numeroResumo('totalVencido', 'totalVencidas', 'vencidas', 'totalVencida')) },
+  { titulo: 'Canceladas', valor: formatarNumero(numeroResumo('totalCancelado', 'totalCanceladas', 'canceladas', 'totalCancelada')) },
   { titulo: 'Valor pendente', valor: formatarMoeda(numeroResumo('valorPendente', 'totalValorPendente')) },
   { titulo: 'Valor pago', valor: formatarMoeda(numeroResumo('valorPago', 'totalValorPago')) },
   { titulo: 'Valor vencido', valor: formatarMoeda(numeroResumo('valorVencido', 'totalValorVencido')) },
@@ -240,6 +241,26 @@ async function cancelar(item) {
   }
 }
 
+async function reativar(item) {
+  if (!superAdmin.value || !window.confirm('Tem certeza que deseja reativar esta fatura?')) {
+    return
+  }
+
+  try {
+    processandoId.value = item.id
+    erro.value = ''
+    mensagemSucesso.value = ''
+    await reativarFatura(item.id)
+    await carregarDados({ limparFeedback: false })
+    exibirSucesso('Fatura reativada com sucesso.')
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível reativar a fatura.')
+    console.error(error)
+  } finally {
+    processandoId.value = null
+  }
+}
+
 function verDetalhes(item) {
   faturaDetalhe.value = item
 }
@@ -266,6 +287,10 @@ function podeCancelarFatura(item) {
 
 function textoCancelarFatura(item) {
   return statusValor(item) === 'PAGA' ? 'Cancelar admin.' : 'Cancelar'
+}
+
+function podeReativarFatura(item) {
+  return superAdmin.value && statusValor(item) === 'CANCELADA'
 }
 
 async function copiarPagamento(valor) {
@@ -935,6 +960,14 @@ onUnmounted(() => {
                         @click="cancelar(item)"
                       >
                         {{ textoCancelarFatura(item) }}
+                      </button>
+                      <button
+                        v-if="podeReativarFatura(item)"
+                        class="botao compacto sucesso-botao"
+                        :disabled="processandoId === item.id"
+                        @click="reativar(item)"
+                      >
+                        Reativar
                       </button>
                     </template>
                   </div>
