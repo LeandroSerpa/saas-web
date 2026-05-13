@@ -35,7 +35,7 @@ const aprovando = ref(null)
 const rejeitando = ref(null)
 const resultadoAprovacao = ref(null)
 const aprovacao = ref(criarAprovacaoInicial())
-const rejeicao = ref({ motivo: '', observacaoInterna: '' })
+const rejeicao = ref({ motivoRejeicao: '', observacaoInterna: '' })
 
 const cardsResumo = computed(() => [
   { titulo: 'Total', valor: formatarNumero(numeroResumo('total', 'totalSolicitacoes', 'totalSolicitacoesCadastro')) },
@@ -112,13 +112,15 @@ async function aprovar() {
 
 function abrirRejeicao(item) {
   rejeitando.value = item
-  rejeicao.value = { motivo: '', observacaoInterna: '' }
+  rejeicao.value = { motivoRejeicao: '', observacaoInterna: '' }
 }
 
 async function rejeitar() {
   if (!rejeitando.value?.id) return
 
-  if (!rejeicao.value.motivo.trim()) {
+  const motivoRejeicao = rejeicao.value.motivoRejeicao.trim()
+
+  if (!motivoRejeicao) {
     erro.value = 'Informe o motivo da rejeição.'
     return
   }
@@ -127,7 +129,13 @@ async function rejeitar() {
     processando.value = true
     erro.value = ''
     mensagemSucesso.value = ''
-    await rejeitarSolicitacaoCadastro(rejeitando.value.id, limparVazios({ ...rejeicao.value }))
+    await rejeitarSolicitacaoCadastro(
+      rejeitando.value.id,
+      limparVazios({
+        motivoRejeicao,
+        observacaoInterna: rejeicao.value.observacaoInterna,
+      }),
+    )
     rejeitando.value = null
     mensagemSucesso.value = 'Solicitação rejeitada com sucesso.'
     await carregarDados({ manterMensagem: true })
@@ -433,7 +441,7 @@ onMounted(carregarDados)
           <div><h2>Rejeitar solicitação</h2><p>{{ nomeEmpresa(rejeitando) }}</p></div>
           <button type="button" class="botao secundario" @click="rejeitando = null">Fechar</button>
         </div>
-        <label>Motivo da rejeição <textarea v-model="rejeicao.motivo" rows="3"></textarea></label>
+        <label>Motivo da rejeição <textarea v-model="rejeicao.motivoRejeicao" rows="3"></textarea></label>
         <label>Observação interna, opcional <textarea v-model="rejeicao.observacaoInterna" rows="3"></textarea></label>
         <button class="botao perigo" :disabled="processando">{{ processando ? 'Rejeitando...' : 'Confirmar rejeição' }}</button>
       </form>
