@@ -24,6 +24,7 @@ const empresaLogada = computed(() => {
 })
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
+const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
 const menuAdminAberto = ref(true)
 
 function carregarUsuario() {
@@ -93,6 +94,7 @@ onBeforeUnmount(() => {
         <RouterLink to="/servicos">Serviços</RouterLink>
         <RouterLink to="/funcionarios">Funcionários</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade">Disponibilidade</RouterLink>
+        <RouterLink v-if="adminEmpresa" to="/onboarding">Primeiros passos</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios">Relatórios</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa">Minha empresa</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao">Personalização</RouterLink>

@@ -1,19 +1,36 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import {
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
+  buscarOnboarding,
   buscarServicos,
 } from '@/services/api'
+import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const agendamentos = ref([])
 const clientes = ref([])
 const servicos = ref([])
 const funcionarios = ref([])
+const onboarding = ref(null)
+const usuarioLogado = ref(obterUsuarioLogado())
 
 const carregando = ref(true)
 const erro = ref('')
+const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
+const onboardingPercentual = computed(() => {
+  const valor = Number(obterCampo(onboarding.value, 'percentualConcluido', 'percentual', 'progresso'))
+  return Number.isFinite(valor) ? Math.max(0, Math.min(100, Math.round(valor))) : 0
+})
+const onboardingConcluido = computed(() =>
+  Boolean(obterCampo(onboarding.value, 'concluido', 'finalizado')) || onboardingPercentual.value >= 100,
+)
+const mostrarCardOnboarding = computed(() => adminEmpresa.value && onboarding.value && !onboardingConcluido.value)
+const empresaSemDados = computed(
+  () => !carregando.value && !clientes.value.length && !servicos.value.length && !funcionarios.value.length && !agendamentos.value.length,
+)
 
 const cardsResumo = computed(() => [
   {
@@ -178,6 +195,17 @@ async function carregarDados() {
   }
 }
 
+async function carregarOnboardingDashboard() {
+  if (!adminEmpresa.value) return
+
+  try {
+    onboarding.value = normalizarObjeto(await buscarOnboarding())
+  } catch (error) {
+    onboarding.value = null
+    console.error(error)
+  }
+}
+
 function contarPorStatus(status, lista = agendamentos.value) {
   return lista.filter((agendamento) => agendamento.status === status).length
 }
@@ -321,8 +349,32 @@ function statusTexto(status) {
   return statusFormatados[status] || status || '-'
 }
 
+function obterUsuarioLogado() {
+  try {
+    return JSON.parse(localStorage.getItem('usuario') || 'null')
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+function normalizarObjeto(dados) {
+  if (!dados || typeof dados !== 'object') return {}
+  if (dados.data && !Array.isArray(dados.data) && typeof dados.data === 'object') return dados.data
+  return dados
+}
+
+function obterCampo(item, ...campos) {
+  if (!item || typeof item !== 'object') return ''
+  for (const campo of campos) {
+    if (item[campo] !== null && item[campo] !== undefined && item[campo] !== '') return item[campo]
+  }
+  return ''
+}
+
 onMounted(() => {
   carregarDados()
+  carregarOnboardingDashboard()
 })
 </script>
 
@@ -340,6 +392,19 @@ onMounted(() => {
 
     <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
+    </section>
+
+    <section v-if="mostrarCardOnboarding" class="card onboarding-card">
+      <div>
+        <p class="subtitulo">Configure sua empresa</p>
+        <h2>Seu onboarding está {{ onboardingPercentual }}% concluído.</h2>
+        <p>Finalize os primeiros passos para começar a receber agendamentos com mais segurança.</p>
+      </div>
+      <RouterLink class="botao principal link-botao" to="/onboarding">Continuar configuração</RouterLink>
+    </section>
+
+    <section v-if="empresaSemDados" class="card estado-vazio">
+      <p>Sua empresa ainda não possui dados cadastrados. Comece configurando seus serviços e funcionários.</p>
     </section>
 
     <section class="grade-resumo">
@@ -517,6 +582,25 @@ onMounted(() => {
   border-radius: 8px;
   padding: 22px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.onboarding-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-left: 5px solid #2563eb;
+}
+
+.onboarding-card h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.onboarding-card p:last-child,
+.estado-vazio p {
+  margin: 6px 0 0;
+  color: #64748b;
 }
 
 .resumo-card {
@@ -707,6 +791,16 @@ tbody tr:last-child td {
   min-width: 140px;
 }
 
+.principal {
+  background: #2563eb;
+}
+
+.link-botao {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .secundario:hover {
   background: #1e293b;
 }
@@ -726,7 +820,8 @@ tbody tr:last-child td {
 
 @media (max-width: 900px) {
   .cabecalho-pagina,
-  .cabecalho-lista {
+  .cabecalho-lista,
+  .onboarding-card {
     flex-direction: column;
     align-items: flex-start;
   }

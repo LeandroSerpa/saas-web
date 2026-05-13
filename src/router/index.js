@@ -23,6 +23,7 @@ import SegmentosView from '../views/SegmentosView.vue'
 import ComeceAgoraView from '../views/ComeceAgoraView.vue'
 import SolicitacoesCadastroView from '../views/SolicitacoesCadastroView.vue'
 import FaturasView from '../views/FaturasView.vue'
+import OnboardingView from '../views/OnboardingView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -131,6 +132,12 @@ const router = createRouter({
       path: '/meu-plano',
       name: 'meu-plano',
       component: MeuPlanoView,
+      meta: rotasAdmin,
+    },
+    {
+      path: '/onboarding',
+      name: 'onboarding',
+      component: OnboardingView,
       meta: rotasAdmin,
     },
     {

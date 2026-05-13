@@ -635,6 +635,42 @@ export async function buscarDashboardSaas() {
   return tratarResposta(response)
 }
 
+export async function buscarOnboarding() {
+  const response = await fetch(`${API_URL}/onboarding`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function recalcularOnboarding() {
+  const response = await fetch(`${API_URL}/onboarding/recalcular`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarEtapaOnboarding(etapa, dados = {}) {
+  const response = await fetch(`${API_URL}/onboarding/etapas/${etapa}`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarLinkPublicoVisualizado() {
+  const response = await fetch(`${API_URL}/onboarding/link-publico/visualizado`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarAcoesAuditoria() {
   const response = await fetch(`${API_URL}/admin/auditoria/acoes`, {
     headers: montarHeaders(),
