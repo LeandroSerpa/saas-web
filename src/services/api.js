@@ -266,6 +266,14 @@ export async function buscarSegmentosPublicos() {
   return tratarRespostaPublica(response)
 }
 
+export async function buscarSegmentosCadastroPublico() {
+  const response = await fetch(`${API_URL}/publico/segmentos-cadastro`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
 export async function buscarPlanosPublicos() {
   const response = await fetch(`${API_URL}/publico/planos`, {
     headers: montarHeadersPublicos(),
@@ -274,7 +282,19 @@ export async function buscarPlanosPublicos() {
   return tratarRespostaPublica(response)
 }
 
+export async function buscarPlanosCadastroPublico() {
+  const response = await fetch(`${API_URL}/publico/planos-cadastro`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
 export async function enviarSolicitacaoCadastro(dados) {
+  return criarSolicitacaoCadastroEmpresa(dados)
+}
+
+export async function criarSolicitacaoCadastroEmpresa(dados) {
   const response = await fetch(`${API_URL}/publico/solicitacoes-cadastro`, {
     method: 'POST',
     headers: montarHeadersPublicos(true),
@@ -701,6 +721,14 @@ export async function buscarSolicitacoesCadastro(filtros = {}) {
   return tratarResposta(response)
 }
 
+export async function buscarResumoSolicitacoesCadastro() {
+  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarSolicitacaoCadastroPorId(id) {
   const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}`, {
     headers: montarHeaders(),
@@ -730,7 +758,7 @@ export async function rejeitarSolicitacaoCadastro(id, dados) {
 
 export async function aprovarSolicitacaoCadastro(id, dados) {
   const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/aprovar`, {
-    method: 'POST',
+    method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
   })

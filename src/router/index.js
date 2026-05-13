@@ -20,7 +20,7 @@ import AssinaturasView from '../views/AssinaturasView.vue'
 import MeuPlanoView from '../views/MeuPlanoView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
 import SegmentosView from '../views/SegmentosView.vue'
-import CadastroEmpresaPublicoView from '../views/CadastroEmpresaPublicoView.vue'
+import ComeceAgoraView from '../views/ComeceAgoraView.vue'
 import SolicitacoesCadastroView from '../views/SolicitacoesCadastroView.vue'
 import FaturasView from '../views/FaturasView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
@@ -164,6 +164,12 @@ const router = createRouter({
       meta: rotasSuperAdmin,
     },
     {
+      path: '/solicitacoes',
+      name: 'solicitacoes',
+      component: SolicitacoesCadastroView,
+      meta: rotasSuperAdmin,
+    },
+    {
       path: '/solicitacoes-cadastro',
       name: 'solicitacoes-cadastro',
       component: SolicitacoesCadastroView,
@@ -199,7 +205,7 @@ const router = createRouter({
     {
       path: '/comece-agora',
       name: 'cadastro-empresa-publico',
-      component: CadastroEmpresaPublicoView,
+      component: ComeceAgoraView,
     },
     {
       path: '/login',

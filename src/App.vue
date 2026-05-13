@@ -112,7 +112,7 @@ onBeforeUnmount(() => {
             <RouterLink to="/planos">Planos</RouterLink>
             <RouterLink to="/assinaturas">Assinaturas</RouterLink>
             <RouterLink to="/segmentos">Segmentos/Módulos</RouterLink>
-            <RouterLink to="/solicitacoes-cadastro">Solicitações</RouterLink>
+            <RouterLink to="/solicitacoes">Solicitações</RouterLink>
             <RouterLink to="/auditoria">Auditoria</RouterLink>
             <RouterLink to="/lixeira">Lixeira</RouterLink>
           </div>
