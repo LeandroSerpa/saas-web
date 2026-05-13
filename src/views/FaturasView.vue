@@ -242,6 +242,48 @@ function fecharDetalhes() {
   faturaDetalhe.value = null
 }
 
+function ehUrlPagamento(valor) {
+  return /^https?:\/\//i.test(String(valor || '').trim())
+}
+
+async function copiarPagamento(valor) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) return
+
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(texto)
+    } else {
+      copiarComFallback(texto)
+    }
+
+    mensagemSucesso.value = 'Informação de pagamento copiada.'
+    erro.value = ''
+  } catch (error) {
+    console.error(error)
+    erro.value = 'Não foi possível copiar. Selecione o texto e copie manualmente.'
+    mensagemSucesso.value = ''
+  }
+}
+
+function copiarComFallback(texto) {
+  const campo = document.createElement('textarea')
+  campo.value = texto
+  campo.setAttribute('readonly', '')
+  campo.style.position = 'fixed'
+  campo.style.left = '-9999px'
+  document.body.appendChild(campo)
+  campo.select()
+
+  const copiado = document.execCommand('copy')
+  document.body.removeChild(campo)
+
+  if (!copiado) {
+    throw new Error('Clipboard indisponível')
+  }
+}
+
 function criarFiltrosIniciais() {
   return {
     status: '',
@@ -585,8 +627,12 @@ onMounted(async () => {
         </label>
 
         <label class="campo-grande">
-          Link de pagamento
-          <input v-model="formulario.linkPagamento" type="url" />
+          Link, código Pix ou referência de pagamento
+          <textarea
+            v-model="formulario.linkPagamento"
+            rows="2"
+            placeholder="Ex: https://..., código Pix, linha digitável ou referência manual"
+          ></textarea>
         </label>
 
         <label class="campo-grande">
@@ -649,6 +695,27 @@ onMounted(async () => {
         <p><strong>Pagamento:</strong> {{ formatarData(obterCampo(faturaDetalhe, 'dataPagamento')) }}</p>
         <p><strong>Forma:</strong> {{ obterCampo(faturaDetalhe, 'formaPagamento') || '-' }}</p>
         <p><strong>Gateway:</strong> {{ obterCampo(faturaDetalhe, 'gateway') || '-' }}</p>
+        <p class="campo-grande pagamento-detalhe">
+          <strong>Link, código Pix ou referência:</strong>
+          <template v-if="obterCampo(faturaDetalhe, 'linkPagamento')">
+            <a
+              v-if="ehUrlPagamento(obterCampo(faturaDetalhe, 'linkPagamento'))"
+              :href="obterCampo(faturaDetalhe, 'linkPagamento')"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Abrir
+            </a>
+            <button
+              v-else
+              class="botao compacto secundario"
+              @click="copiarPagamento(obterCampo(faturaDetalhe, 'linkPagamento'))"
+            >
+              Copiar
+            </button>
+          </template>
+          <span v-else>-</span>
+        </p>
         <p class="campo-grande"><strong>Observação:</strong> {{ obterCampo(faturaDetalhe, 'observacao') || '-' }}</p>
       </div>
     </section>
@@ -702,13 +769,20 @@ onMounted(async () => {
                 <td>{{ obterCampo(item, 'formaPagamento') || '-' }}</td>
                 <td>
                   <a
-                    v-if="obterCampo(item, 'linkPagamento')"
+                    v-if="obterCampo(item, 'linkPagamento') && ehUrlPagamento(obterCampo(item, 'linkPagamento'))"
                     :href="obterCampo(item, 'linkPagamento')"
                     target="_blank"
                     rel="noreferrer"
                   >
                     Abrir
                   </a>
+                  <button
+                    v-else-if="obterCampo(item, 'linkPagamento')"
+                    class="botao compacto secundario"
+                    @click="copiarPagamento(obterCampo(item, 'linkPagamento'))"
+                  >
+                    Copiar
+                  </button>
                   <span v-else>-</span>
                 </td>
                 <td>
