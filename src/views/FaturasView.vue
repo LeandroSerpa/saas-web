@@ -3,14 +3,19 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
   atualizarFatura,
   atualizarStatusFatura,
+  aprovarComprovanteFatura,
   buscarEmpresas,
   buscarFaturas,
+  buscarMetodosPagamentoAtivos,
   buscarResumoFaturas,
+  buscarStatusFinanceiroMinhaEmpresa,
   cancelarFatura,
   criarFatura,
+  enviarComprovanteFatura,
+  rejeitarComprovanteFatura,
   reativarFatura,
 } from '@/services/api'
-import { ehSuperAdmin } from '@/utils/permissoes'
+import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const STATUS = [
   { valor: '', rotulo: 'Todos' },
@@ -25,14 +30,19 @@ const GATEWAYS = ['MANUAL', 'ASAAS', 'MERCADO_PAGO', 'STRIPE']
 
 const usuarioLogado = ref(obterUsuarioLogado())
 const superAdmin = computed(() => ehSuperAdmin(usuarioLogado.value))
+const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
 const faturas = ref([])
 const resumo = ref({})
 const empresas = ref([])
+const statusFinanceiro = ref(null)
+const metodosPagamento = ref([])
 const filtros = ref(criarFiltrosIniciais())
 const formulario = ref(criarFormularioInicial())
 const pagamento = ref(criarPagamentoInicial())
+const comprovante = ref(criarComprovanteInicial())
 const faturaEditandoId = ref(null)
 const faturaPagamento = ref(null)
+const faturaComprovante = ref(null)
 const faturaDetalhe = ref(null)
 const mostrarFormulario = ref(false)
 const carregando = ref(true)
@@ -42,6 +52,33 @@ const erro = ref('')
 const erroEmpresas = ref('')
 const mensagemSucesso = ref('')
 const temporizadorFeedback = ref(null)
+const statusFinanceiroNormalizado = computed(() =>
+  normalizarStatusFinanceiro(obterCampo(statusFinanceiro.value, 'statusFinanceiro', 'status', 'situacao')),
+)
+const alertaFinanceiro = computed(() => {
+  if (statusFinanceiroNormalizado.value === 'BLOQUEADA_FINANCEIRO') {
+    return {
+      classe: 'erro',
+      texto: 'Sua empresa está temporariamente bloqueada por pendência financeira. Acesse Faturas para regularizar.',
+    }
+  }
+
+  if (statusFinanceiroNormalizado.value === 'EM_ATRASO') {
+    return {
+      classe: 'aviso',
+      texto: 'Atenção: existem faturas em atraso. Regularize para evitar bloqueio.',
+    }
+  }
+
+  return null
+})
+const formasPagamentoDisponiveis = computed(() => {
+  const lista = metodosPagamento.value.length ? metodosPagamento.value : [{ codigo: 'PIX', rotulo: 'PIX' }]
+  return lista.map((item) => ({
+    codigo: String(item.codigo || item.metodo || item.nome || item).toUpperCase(),
+    rotulo: item.rotulo || item.nome || String(item.codigo || item.metodo || item),
+  }))
+})
 
 const filtrosApi = computed(() => limparVazios(filtros.value))
 const subtituloPagina = computed(() =>
@@ -75,18 +112,37 @@ async function carregarDados(opcoes = {}) {
       erro.value = ''
     }
 
-    const [faturasApi, resumoApi] = await Promise.all([
+    const promessas = [
       buscarFaturas(filtrosApi.value),
       buscarResumoFaturas(filtrosApi.value),
-    ])
+    ]
+
+    if (adminEmpresa.value) {
+      promessas.push(buscarStatusFinanceiroMinhaEmpresa())
+    }
+
+    const [faturasApi, resumoApi, statusApi] = await Promise.all(promessas)
 
     faturas.value = normalizarLista(faturasApi)
     resumo.value = normalizarObjeto(resumoApi)
+    statusFinanceiro.value = statusApi ? normalizarObjeto(statusApi) : statusFinanceiro.value
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar as faturas.')
     console.error(error)
   } finally {
     carregando.value = false
+  }
+}
+
+async function carregarMetodosPagamento() {
+  try {
+    metodosPagamento.value = normalizarMetodos(await buscarMetodosPagamentoAtivos())
+    if (!formasPagamentoDisponiveis.value.some((item) => item.codigo === formulario.value.formaPagamento)) {
+      formulario.value.formaPagamento = formasPagamentoDisponiveis.value[0]?.codigo || 'PIX'
+    }
+  } catch (error) {
+    metodosPagamento.value = [{ codigo: 'PIX', rotulo: 'PIX' }]
+    console.error(error)
   }
 }
 
@@ -117,6 +173,7 @@ function abrirNovaFatura() {
 
   faturaEditandoId.value = null
   formulario.value = criarFormularioInicial()
+  formulario.value.formaPagamento = formasPagamentoDisponiveis.value[0]?.codigo || 'PIX'
   mostrarFormulario.value = true
   erro.value = ''
   mensagemSucesso.value = ''
@@ -196,6 +253,85 @@ function abrirPagamento(item) {
 function fecharPagamento() {
   faturaPagamento.value = null
   pagamento.value = criarPagamentoInicial()
+}
+
+function abrirComprovante(item) {
+  if (!adminEmpresa.value || !podeEnviarComprovante(item)) return
+
+  faturaComprovante.value = item
+  comprovante.value = criarComprovanteInicial()
+  erro.value = ''
+  mensagemSucesso.value = ''
+}
+
+function fecharComprovante() {
+  faturaComprovante.value = null
+  comprovante.value = criarComprovanteInicial()
+}
+
+async function confirmarEnvioComprovante() {
+  if (!faturaComprovante.value?.id) return
+
+  if (!String(comprovante.value.linkComprovante || comprovante.value.codigoTransacao || comprovante.value.observacao || '').trim()) {
+    erro.value = 'Informe o link, código/ID de transação ou observação do comprovante.'
+    return
+  }
+
+  try {
+    processandoId.value = faturaComprovante.value.id
+    erro.value = ''
+    mensagemSucesso.value = ''
+    await enviarComprovanteFatura(faturaComprovante.value.id, limparVazios(comprovante.value))
+    fecharComprovante()
+    await carregarDados({ limparFeedback: false })
+    exibirSucesso('Comprovante enviado para análise.')
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível enviar o comprovante.')
+    console.error(error)
+  } finally {
+    processandoId.value = null
+  }
+}
+
+async function aprovarComprovante(item) {
+  if (!superAdmin.value || !window.confirm('Aprovar comprovante e marcar fatura como paga?')) return
+
+  try {
+    processandoId.value = item.id
+    erro.value = ''
+    mensagemSucesso.value = ''
+    await aprovarComprovanteFatura(item.id, {})
+    await carregarDados({ limparFeedback: false })
+    exibirSucesso('Comprovante aprovado e fatura marcada como paga.')
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível aprovar o comprovante.')
+    console.error(error)
+  } finally {
+    processandoId.value = null
+  }
+}
+
+async function rejeitarComprovante(item) {
+  if (!superAdmin.value) return
+  const motivo = window.prompt('Informe o motivo da rejeição:')
+  if (!motivo?.trim()) {
+    erro.value = 'Informe o motivo da rejeição.'
+    return
+  }
+
+  try {
+    processandoId.value = item.id
+    erro.value = ''
+    mensagemSucesso.value = ''
+    await rejeitarComprovanteFatura(item.id, { motivoRejeicao: motivo.trim(), observacao: motivo.trim() })
+    await carregarDados({ limparFeedback: false })
+    exibirSucesso('Comprovante rejeitado.')
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível rejeitar o comprovante.')
+    console.error(error)
+  } finally {
+    processandoId.value = null
+  }
 }
 
 async function confirmarPagamento() {
@@ -309,6 +445,44 @@ function podeReativarFatura(item) {
   return superAdmin.value && statusValor(item) === 'CANCELADA'
 }
 
+function podeEnviarComprovante(item) {
+  return adminEmpresa.value && ['PENDENTE', 'VENCIDA'].includes(statusValor(item))
+}
+
+function podeAprovarOuRejeitarComprovante(item) {
+  return superAdmin.value && normalizarComprovanteStatus(obterCampo(item, 'comprovanteStatus', 'statusComprovante')) === 'ENVIADO'
+}
+
+function normalizarComprovanteStatus(status) {
+  return String(status || 'NAO_ENVIADO')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+}
+
+function comprovanteTexto(status) {
+  const valor = normalizarComprovanteStatus(status)
+  return {
+    NAO_ENVIADO: 'Não enviado',
+    ENVIADO: 'Em análise',
+    APROVADO: 'Aprovado',
+    REJEITADO: 'Rejeitado',
+  }[valor] || 'Não enviado'
+}
+
+function comprovanteClasse(status) {
+  return normalizarComprovanteStatus(status).toLowerCase()
+}
+
+function normalizarStatusFinanceiro(status) {
+  return String(status || 'ADIMPLENTE').trim().toUpperCase()
+}
+
+function faturaVencida(item) {
+  return statusValor(item) === 'VENCIDA'
+}
+
 async function copiarPagamento(valor) {
   const texto = String(valor || '').trim()
 
@@ -416,6 +590,14 @@ function criarPagamentoInicial() {
   }
 }
 
+function criarComprovanteInicial() {
+  return {
+    linkComprovante: '',
+    codigoTransacao: '',
+    observacao: '',
+  }
+}
+
 function validarFormulario() {
   if (superAdmin.value && !formulario.value.empresaId) {
     return 'Selecione a empresa da fatura.'
@@ -485,6 +667,19 @@ function normalizarObjeto(dados) {
   if (dados.data && !Array.isArray(dados.data) && typeof dados.data === 'object') return dados.data
   if (dados.resultado && !Array.isArray(dados.resultado) && typeof dados.resultado === 'object') return dados.resultado
   return dados
+}
+
+function normalizarMetodos(dados) {
+  const lista = normalizarLista(dados?.metodos || dados?.metodosAtivos || dados)
+  const ativos = lista
+    .filter((item) => (typeof item === 'object' ? item.ativo !== false : true))
+    .map((item) => ({
+      codigo: String(typeof item === 'object' ? item.codigo || item.metodo || item.nome : item).toUpperCase(),
+      rotulo: typeof item === 'object' ? item.rotulo || item.nome || item.codigo || item.metodo : String(item),
+    }))
+    .filter((item) => item.codigo)
+
+  return ativos.length ? ativos : [{ codigo: 'PIX', rotulo: 'PIX' }]
 }
 
 function obterUsuarioLogado() {
@@ -629,6 +824,7 @@ function obterMensagemErro(error, fallback) {
 
 onMounted(async () => {
   await carregarEmpresasSeNecessario()
+  await carregarMetodosPagamento()
   await carregarDados()
 })
 
@@ -670,6 +866,9 @@ onUnmounted(() => {
       <button type="button" class="fechar-feedback" aria-label="Fechar mensagem" @click="fecharFeedback('sucesso')">
         x
       </button>
+    </section>
+    <section v-if="alertaFinanceiro" :class="['card', 'feedback', alertaFinanceiro.classe]">
+      <p>{{ alertaFinanceiro.texto }}</p>
     </section>
 
     <section class="grade-resumo">
@@ -738,6 +937,7 @@ onUnmounted(() => {
         <div>
           <h2>{{ faturaEditandoId ? 'Editar fatura' : 'Nova fatura' }}</h2>
           <p>Preencha os dados da cobrança manual. O status é alterado pelas ações da tabela.</p>
+          <p class="nota-pix">Faturas automáticas usam PIX por padrão.</p>
         </div>
         <button type="button" class="botao secundario" @click="cancelarEdicao">Fechar</button>
       </div>
@@ -776,7 +976,9 @@ onUnmounted(() => {
         <label>
           Forma de pagamento
           <select v-model="formulario.formaPagamento">
-            <option v-for="forma in FORMAS_PAGAMENTO" :key="forma" :value="forma">{{ forma }}</option>
+            <option v-for="forma in formasPagamentoDisponiveis" :key="forma.codigo" :value="forma.codigo">
+              {{ forma.rotulo }}
+            </option>
           </select>
         </label>
 
@@ -845,6 +1047,37 @@ onUnmounted(() => {
 
       <button class="botao sucesso-botao" :disabled="processandoId === faturaPagamento.id" @click="confirmarPagamento">
         {{ processandoId === faturaPagamento.id ? 'Confirmando...' : 'Confirmar pagamento' }}
+      </button>
+    </section>
+
+    <section v-if="adminEmpresa && faturaComprovante" class="card painel-acao">
+      <div class="cabecalho-card">
+        <div>
+          <h2>Enviar comprovante</h2>
+          <p>{{ nomeEmpresa(faturaComprovante) }} - {{ formatarMoeda(obterCampo(faturaComprovante, 'valor')) }}</p>
+        </div>
+        <button class="botao secundario" @click="fecharComprovante">Fechar</button>
+      </div>
+
+      <div class="campos">
+        <label>
+          Link do comprovante
+          <input v-model="comprovante.linkComprovante" type="text" placeholder="https://..." />
+        </label>
+
+        <label>
+          Código/ID de transação
+          <input v-model="comprovante.codigoTransacao" type="text" />
+        </label>
+
+        <label class="campo-grande">
+          Observação
+          <textarea v-model="comprovante.observacao" rows="3"></textarea>
+        </label>
+      </div>
+
+      <button class="botao principal" :disabled="processandoId === faturaComprovante.id" @click="confirmarEnvioComprovante">
+        {{ processandoId === faturaComprovante.id ? 'Enviando...' : 'Enviar comprovante' }}
       </button>
     </section>
 
@@ -919,12 +1152,13 @@ onUnmounted(() => {
                 <th>Vencimento</th>
                 <th>Pagamento</th>
                 <th>Forma</th>
+                <th>Comprovante</th>
                 <th>Link</th>
                 <th>Ações</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in faturas" :key="item.id">
+              <tr v-for="item in faturas" :key="item.id" :class="{ 'linha-vencida': faturaVencida(item) }">
                 <td v-if="superAdmin">{{ nomeEmpresa(item) }}</td>
                 <td>{{ formatarCompetencia(obterCampo(item, 'competencia')) }}</td>
                 <td>{{ obterCampo(item, 'descricao') || '-' }}</td>
@@ -938,6 +1172,11 @@ onUnmounted(() => {
                 <td>{{ formatarData(obterCampo(item, 'dataVencimento')) }}</td>
                 <td>{{ formatarData(obterCampo(item, 'dataPagamento')) }}</td>
                 <td>{{ obterCampo(item, 'formaPagamento') || '-' }}</td>
+                <td>
+                  <span :class="['comprovante', comprovanteClasse(obterCampo(item, 'comprovanteStatus', 'statusComprovante'))]">
+                    {{ comprovanteTexto(obterCampo(item, 'comprovanteStatus', 'statusComprovante')) }}
+                  </span>
+                </td>
                 <td>
                   <a
                     v-if="obterCampo(item, 'linkPagamento') && ehUrlPagamento(obterCampo(item, 'linkPagamento'))"
@@ -958,9 +1197,19 @@ onUnmounted(() => {
                 </td>
                 <td>
                   <div class="acoes-tabela">
-                    <button v-if="!superAdmin" class="botao compacto secundario" @click="verDetalhes(item)">
-                      Ver detalhes
-                    </button>
+                    <template v-if="!superAdmin">
+                      <button class="botao compacto secundario" @click="verDetalhes(item)">
+                        Ver detalhes
+                      </button>
+                      <button
+                        v-if="podeEnviarComprovante(item)"
+                        class="botao compacto principal"
+                        :disabled="processandoId === item.id"
+                        @click="abrirComprovante(item)"
+                      >
+                        Enviar comprovante
+                      </button>
+                    </template>
                     <template v-else>
                       <button class="botao compacto secundario" @click="editarFatura(item)">Editar</button>
                       <button
@@ -986,6 +1235,22 @@ onUnmounted(() => {
                         @click="reativar(item)"
                       >
                         Reativar
+                      </button>
+                      <button
+                        v-if="podeAprovarOuRejeitarComprovante(item)"
+                        class="botao compacto sucesso-botao"
+                        :disabled="processandoId === item.id"
+                        @click="aprovarComprovante(item)"
+                      >
+                        Aprovar comprovante
+                      </button>
+                      <button
+                        v-if="podeAprovarOuRejeitarComprovante(item)"
+                        class="botao compacto perigo"
+                        :disabled="processandoId === item.id"
+                        @click="rejeitarComprovante(item)"
+                      >
+                        Rejeitar comprovante
                       </button>
                     </template>
                   </div>
@@ -1172,7 +1437,7 @@ textarea:focus {
 
 table {
   width: 100%;
-  min-width: 1180px;
+  min-width: 1320px;
   border-collapse: collapse;
 }
 
@@ -1228,6 +1493,46 @@ a {
 .status.cancelada {
   background: #e5e7eb;
   color: #4b5563;
+}
+
+.linha-vencida {
+  background: #fff7ed;
+}
+
+.nota-pix {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.comprovante {
+  display: inline-flex;
+  width: fit-content;
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.comprovante.nao_enviado {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.comprovante.enviado {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.comprovante.aprovado {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.comprovante.rejeitado {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .acoes-tabela {

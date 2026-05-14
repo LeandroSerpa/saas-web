@@ -12,6 +12,7 @@ import {
   atualizarAgendamento,
   cadastrarAgendamento,
   excluirAgendamento,
+  buscarStatusFinanceiroMinhaEmpresa,
 } from '@/services/api'
 
 const agendamentos = ref([])
@@ -19,6 +20,7 @@ const clientes = ref([])
 const servicos = ref([])
 const funcionarios = ref([])
 const funcionariosVinculadosAoServico = ref([])
+const statusFinanceiro = ref(null)
 const carregandoFuncionariosServico = ref(false)
 
 const carregando = ref(true)
@@ -35,6 +37,11 @@ const filtros = ref({
 })
 
 const novoAgendamento = ref(criarAgendamentoInicial())
+const empresaBloqueadaFinanceiro = computed(() =>
+  String(statusFinanceiro.value?.statusFinanceiro || statusFinanceiro.value?.status || '')
+    .trim()
+    .toUpperCase() === 'BLOQUEADA_FINANCEIRO',
+)
 
 function criarAgendamentoInicial() {
   return {
@@ -276,6 +283,11 @@ async function salvarAgendamento() {
     erro.value = ''
     mensagemSucessoAgendamento.value = ''
 
+    if (!agendamentoEditandoId.value && empresaBloqueadaFinanceiro.value) {
+      erro.value = 'Sua empresa está temporariamente bloqueada por pendência financeira. Acesse Faturas para regularizar.'
+      return
+    }
+
     if (!novoAgendamento.value.clienteId) {
       erro.value = 'Selecione um cliente.'
       return
@@ -345,6 +357,15 @@ async function salvarAgendamento() {
     await carregarAgendamentos()
   } catch (error) {
     erro.value = obterMensagemAgendamento(error)
+    console.error(error)
+  }
+}
+
+async function carregarStatusFinanceiro() {
+  try {
+    statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
+  } catch (error) {
+    statusFinanceiro.value = null
     console.error(error)
   }
 }
@@ -562,6 +583,7 @@ function obterMensagemAgendamento(error) {
 
 onMounted(() => {
   carregarDados()
+  carregarStatusFinanceiro()
 })
 </script>
 

@@ -1,13 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import ClienteForm from '@/components/ClienteForm.vue'
-import { buscarClientes, cadastrarCliente, atualizarCliente } from '@/services/api'
+import { buscarClientes, cadastrarCliente, atualizarCliente, buscarStatusFinanceiroMinhaEmpresa } from '@/services/api'
 
 const clientes = ref([])
 const carregando = ref(true)
 const erro = ref('')
 const mensagemSucessoCliente = ref('')
 const clienteEditandoId = ref(null)
+const statusFinanceiro = ref(null)
 
 const cliente = ref(criarClienteInicial())
 
@@ -38,6 +39,11 @@ async function salvarCliente() {
   try {
     erro.value = ''
     mensagemSucessoCliente.value = ''
+
+    if (!clienteEditandoId.value && empresaBloqueadaFinanceiro()) {
+      erro.value = 'Sua empresa está temporariamente bloqueada por pendência financeira. Acesse Faturas para regularizar.'
+      return
+    }
 
     if (!cliente.value.nome.trim()) {
       erro.value = 'Informe o nome do cliente.'
@@ -74,6 +80,21 @@ async function salvarCliente() {
   }
 }
 
+async function carregarStatusFinanceiro() {
+  try {
+    statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
+  } catch (error) {
+    statusFinanceiro.value = null
+    console.error(error)
+  }
+}
+
+function empresaBloqueadaFinanceiro() {
+  return String(statusFinanceiro.value?.statusFinanceiro || statusFinanceiro.value?.status || '')
+    .trim()
+    .toUpperCase() === 'BLOQUEADA_FINANCEIRO'
+}
+
 function editarCliente(clienteItem) {
   erro.value = ''
   mensagemSucessoCliente.value = ''
@@ -107,6 +128,7 @@ function obterMensagemErro(error, fallback) {
 
 onMounted(() => {
   carregarClientes()
+  carregarStatusFinanceiro()
 })
 </script>
 

@@ -879,6 +879,177 @@ export async function reativarFatura(id) {
   return tratarResposta(response)
 }
 
+export async function buscarStatusFinanceiroMinhaEmpresa() {
+  const response = await fetch(`${API_URL}/minha-empresa/status-financeiro`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoFinanceiroSaas() {
+  const response = await fetch(`${API_URL}/admin/financeiro/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarEmpresasFinanceiro(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/financeiro/empresas${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function alterarBloqueioFinanceiroEmpresa(empresaId, dados = {}) {
+  const response = await fetch(`${API_URL}/admin/financeiro/empresas/${empresaId}/bloqueio`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMetodosPagamentoAdmin() {
+  const response = await fetch(`${API_URL}/admin/financeiro/metodos-pagamento`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMetodosPagamentoAdmin(dados = {}) {
+  const response = await fetch(`${API_URL}/admin/financeiro/metodos-pagamento`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMetodosPagamentoAtivos() {
+  const response = await fetch(`${API_URL}/financeiro/metodos-pagamento-ativos`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarFaturasRecorrentes(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarFaturaRecorrentePorId(id) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarFaturaRecorrente(dados = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarFaturaRecorrente(id, dados = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function ativarFaturaRecorrente(id) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}/ativar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function desativarFaturaRecorrente(id) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}/desativar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function gerarFaturasRecorrentes(dados = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/gerar`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function gerarProximaFaturaRecorrente(id) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}/gerar-proxima`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function enviarComprovanteFatura(id, dados = {}) {
+  const response = await fetch(`${API_URL}/faturas/${id}/comprovante`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarComprovantesFaturas(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas/comprovantes${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function aprovarComprovanteFatura(id, dados = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas/${id}/comprovante/aprovar`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function rejeitarComprovanteFatura(id, dados = {}) {
+  const response = await fetch(`${API_URL}/admin/faturas/${id}/comprovante/rejeitar`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(dados),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarRelatorioOperacaonal(filtros = {}) {
   const response = await fetch(`${API_URL}/relatorios/operacaonal${montarQueryString(filtros)}`, {
     headers: montarHeaders(),

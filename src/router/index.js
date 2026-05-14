@@ -24,6 +24,9 @@ import ComeceAgoraView from '../views/ComeceAgoraView.vue'
 import SolicitacoesCadastroView from '../views/SolicitacoesCadastroView.vue'
 import FaturasView from '../views/FaturasView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
+import InadimplenciaView from '../views/InadimplenciaView.vue'
+import FaturasRecorrentesView from '../views/FaturasRecorrentesView.vue'
+import ConfiguracoesPagamentoView from '../views/ConfiguracoesPagamentoView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -191,6 +194,30 @@ const router = createRouter({
     {
       path: '/faturas-saas',
       redirect: '/faturas',
+    },
+    {
+      path: '/admin/financeiro',
+      name: 'admin-financeiro',
+      component: InadimplenciaView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/inadimplencia',
+      name: 'inadimplencia',
+      component: InadimplenciaView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/faturas-recorrentes',
+      name: 'faturas-recorrentes',
+      component: FaturasRecorrentesView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/configuracoes-pagamento',
+      name: 'configuracoes-pagamento',
+      component: ConfiguracoesPagamentoView,
+      meta: rotasSuperAdmin,
     },
     {
       path: '/auditoria',

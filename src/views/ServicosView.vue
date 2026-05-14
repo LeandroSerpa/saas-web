@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import ServicoForm from '@/components/ServicoForm.vue'
 import {
   buscarServicos,
+  buscarStatusFinanceiroMinhaEmpresa,
   cadastrarServico,
   recalcularOnboarding,
   atualizarServico,
@@ -17,6 +18,7 @@ const mensagemSucessoServico = ref('')
 const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
 const servicoEmEdicaoId = ref(null)
+const statusFinanceiro = ref(null)
 const route = useRoute()
 const router = useRouter()
 const filtros = ref({
@@ -86,6 +88,11 @@ async function salvarServico() {
     mensagemSucessoServico.value = ''
     mensagemSucessoStatus.value = ''
 
+    if (!servicoEmEdicaoId.value && empresaBloqueadaFinanceiro()) {
+      erro.value = 'Sua empresa está temporariamente bloqueada por pendência financeira. Acesse Faturas para regularizar.'
+      return
+    }
+
     if (!servico.value.nome.trim()) {
       erro.value = 'Informe o nome do serviço.'
       return
@@ -126,6 +133,21 @@ async function salvarServico() {
     )
     console.error(error)
   }
+}
+
+async function carregarStatusFinanceiro() {
+  try {
+    statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
+  } catch (error) {
+    statusFinanceiro.value = null
+    console.error(error)
+  }
+}
+
+function empresaBloqueadaFinanceiro() {
+  return String(statusFinanceiro.value?.statusFinanceiro || statusFinanceiro.value?.status || '')
+    .trim()
+    .toUpperCase() === 'BLOQUEADA_FINANCEIRO'
 }
 
 async function retornarParaOnboardingSeNecessario(etapaEsperada) {
@@ -241,6 +263,7 @@ function limparFiltros() {
 
 onMounted(() => {
   carregarServicos()
+  carregarStatusFinanceiro()
 })
 </script>
 

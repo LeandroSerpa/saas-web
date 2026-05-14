@@ -7,6 +7,7 @@ import {
   buscarFuncionarios,
   buscarOnboarding,
   buscarServicos,
+  buscarStatusFinanceiroMinhaEmpresa,
 } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
@@ -15,6 +16,7 @@ const clientes = ref([])
 const servicos = ref([])
 const funcionarios = ref([])
 const onboarding = ref(null)
+const statusFinanceiro = ref(null)
 const usuarioLogado = ref(obterUsuarioLogado())
 
 const carregando = ref(true)
@@ -28,6 +30,34 @@ const onboardingConcluido = computed(() =>
   Boolean(obterCampo(onboarding.value, 'onboardingConcluido', 'concluido', 'finalizado')) || onboardingPercentual.value >= 100,
 )
 const mostrarCardOnboarding = computed(() => adminEmpresa.value && onboarding.value && !onboardingConcluido.value)
+const statusFinanceiroNormalizado = computed(() =>
+  String(obterCampo(statusFinanceiro.value, 'statusFinanceiro', 'status', 'situacao') || 'ADIMPLENTE')
+    .trim()
+    .toUpperCase(),
+)
+const cardFinanceiro = computed(() => {
+  if (!adminEmpresa.value) return null
+  const status = statusFinanceiroNormalizado.value
+  if (status === 'BLOQUEADA_FINANCEIRO') {
+    return {
+      classe: 'bloqueado',
+      titulo: 'Empresa bloqueada por pendência financeira.',
+      texto: 'Regularize as faturas para retomar as ações operacionais.',
+    }
+  }
+  if (status === 'EM_ATRASO') {
+    return {
+      classe: 'atraso',
+      titulo: 'Existem faturas em atraso.',
+      texto: 'Regularize para evitar bloqueio.',
+    }
+  }
+  return {
+    classe: 'adimplente',
+    titulo: 'Sua empresa está em dia.',
+    texto: 'Não há pendências financeiras no momento.',
+  }
+})
 const empresaSemDados = computed(
   () => !carregando.value && !clientes.value.length && !servicos.value.length && !funcionarios.value.length && !agendamentos.value.length,
 )
@@ -206,6 +236,17 @@ async function carregarOnboardingDashboard() {
   }
 }
 
+async function carregarStatusFinanceiroDashboard() {
+  if (!adminEmpresa.value) return
+
+  try {
+    statusFinanceiro.value = normalizarObjeto(await buscarStatusFinanceiroMinhaEmpresa())
+  } catch (error) {
+    statusFinanceiro.value = null
+    console.error(error)
+  }
+}
+
 function contarPorStatus(status, lista = agendamentos.value) {
   return lista.filter((agendamento) => agendamento.status === status).length
 }
@@ -375,6 +416,7 @@ function obterCampo(item, ...campos) {
 onMounted(() => {
   carregarDados()
   carregarOnboardingDashboard()
+  carregarStatusFinanceiroDashboard()
 })
 </script>
 
@@ -392,6 +434,27 @@ onMounted(() => {
 
     <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
+    </section>
+
+    <section v-if="cardFinanceiro" :class="['card', 'financeiro-card', cardFinanceiro.classe]">
+      <div>
+        <p class="subtitulo">Status financeiro</p>
+        <h2>{{ cardFinanceiro.titulo }}</h2>
+        <p>{{ cardFinanceiro.texto }}</p>
+        <dl v-if="statusFinanceiroNormalizado !== 'ADIMPLENTE'">
+          <div>
+            <dt>Valor vencido</dt>
+            <dd>{{ formatarMoeda(obterCampo(statusFinanceiro, 'valorVencido', 'valorTotalVencido')) }}</dd>
+          </div>
+          <div>
+            <dt>Maior atraso</dt>
+            <dd>{{ obterCampo(statusFinanceiro, 'diasMaiorAtraso', 'maiorAtrasoDias', 'diasAtraso') || 0 }} dia(s)</dd>
+          </div>
+        </dl>
+      </div>
+      <RouterLink v-if="statusFinanceiroNormalizado !== 'ADIMPLENTE'" class="botao principal link-botao" to="/faturas">
+        Ver faturas
+      </RouterLink>
     </section>
 
     <section v-if="mostrarCardOnboarding" class="card onboarding-card">
@@ -590,6 +653,51 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   border-left: 5px solid #2563eb;
+}
+
+.financeiro-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-left: 5px solid #16a34a;
+}
+
+.financeiro-card.atraso {
+  border-left-color: #d97706;
+}
+
+.financeiro-card.bloqueado {
+  border-left-color: #dc2626;
+}
+
+.financeiro-card h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.financeiro-card dl {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 12px 0 0;
+}
+
+.financeiro-card dt,
+.financeiro-card dd {
+  margin: 0;
+}
+
+.financeiro-card dt {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.financeiro-card dd {
+  margin-top: 3px;
+  font-weight: 800;
 }
 
 .onboarding-card h2 {
@@ -821,7 +929,8 @@ tbody tr:last-child td {
 @media (max-width: 900px) {
   .cabecalho-pagina,
   .cabecalho-lista,
-  .onboarding-card {
+  .onboarding-card,
+  .financeiro-card {
     flex-direction: column;
     align-items: flex-start;
   }

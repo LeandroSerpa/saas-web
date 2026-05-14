@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
+import { buscarStatusFinanceiroMinhaEmpresa } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const route = useRoute()
@@ -26,6 +28,9 @@ const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
 const menuAdminAberto = ref(true)
+const statusFinanceiro = ref(null)
+const carregandoStatusFinanceiro = ref(false)
+const ultimaConsultaFinanceira = ref(0)
 
 function carregarUsuario() {
   const usuarioSalvo = localStorage.getItem('usuario')
@@ -45,16 +50,46 @@ function carregarUsuario() {
 function sair() {
   localStorage.removeItem('token')
   localStorage.removeItem('usuario')
+  statusFinanceiro.value = null
   router.push('/login')
 }
 
 function atualizarUsuarioLogado() {
   if (rotaAgendamentoPublico.value) {
     usuario.value = null
+    statusFinanceiro.value = null
     return
   }
 
   usuario.value = carregarUsuario()
+  carregarStatusFinanceiro()
+}
+
+async function carregarStatusFinanceiro({ forcar = false } = {}) {
+  if (!adminEmpresa.value || rotaSemLayout.value || carregandoStatusFinanceiro.value) {
+    statusFinanceiro.value = null
+    return
+  }
+
+  const agora = Date.now()
+  if (!forcar && statusFinanceiro.value && agora - ultimaConsultaFinanceira.value < 60000) {
+    return
+  }
+
+  try {
+    carregandoStatusFinanceiro.value = true
+    statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
+    ultimaConsultaFinanceira.value = agora
+  } catch (error) {
+    statusFinanceiro.value = null
+    console.error(error)
+  } finally {
+    carregandoStatusFinanceiro.value = false
+  }
+}
+
+function atualizarStatusFinanceiroGlobal() {
+  carregarStatusFinanceiro({ forcar: true })
 }
 
 watch(
@@ -67,10 +102,12 @@ watch(
 
 onMounted(() => {
   window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
+  window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('usuario-atualizado', atualizarUsuarioLogado)
+  window.removeEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
 })
 </script>
 
@@ -113,6 +150,9 @@ onBeforeUnmount(() => {
             <RouterLink to="/empresas">Empresas</RouterLink>
             <RouterLink to="/planos">Planos</RouterLink>
             <RouterLink to="/assinaturas">Assinaturas</RouterLink>
+            <RouterLink to="/admin/financeiro">Inadimplência</RouterLink>
+            <RouterLink to="/faturas-recorrentes">Faturas recorrentes</RouterLink>
+            <RouterLink to="/configuracoes-pagamento">Config. pagamento</RouterLink>
             <RouterLink to="/segmentos">Segmentos/Módulos</RouterLink>
             <RouterLink to="/solicitacoes">Solicitações</RouterLink>
             <RouterLink to="/auditoria">Auditoria</RouterLink>
@@ -141,6 +181,8 @@ onBeforeUnmount(() => {
           <button class="botao-sair" @click="sair">Sair</button>
         </div>
       </header>
+
+      <FinanceiroStatusBanner v-if="adminEmpresa" :status="statusFinanceiro" />
 
       <RouterView />
     </div>
