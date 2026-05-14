@@ -27,6 +27,8 @@ import OnboardingView from '../views/OnboardingView.vue'
 import InadimplenciaView from '../views/InadimplenciaView.vue'
 import FaturasRecorrentesView from '../views/FaturasRecorrentesView.vue'
 import ConfiguracoesPagamentoView from '../views/ConfiguracoesPagamentoView.vue'
+import NotificacoesView from '../views/NotificacoesView.vue'
+import AdminNotificacoesView from '../views/AdminNotificacoesView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -192,6 +194,12 @@ const router = createRouter({
       meta: rotasAdmin,
     },
     {
+      path: '/notificacoes',
+      name: 'notificacoes',
+      component: NotificacoesView,
+      meta: rotasAdmin,
+    },
+    {
       path: '/faturas-saas',
       redirect: '/faturas',
     },
@@ -199,6 +207,12 @@ const router = createRouter({
       path: '/admin/financeiro',
       name: 'admin-financeiro',
       component: InadimplenciaView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/notificacoes',
+      name: 'admin-notificacoes',
+      component: AdminNotificacoesView,
       meta: rotasSuperAdmin,
     },
     {

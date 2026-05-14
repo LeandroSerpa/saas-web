@@ -78,6 +78,7 @@ async function alterarBloqueio(item, payload, mensagem) {
     await alterarBloqueioFinanceiroEmpresa(item.empresaId || item.id, payload)
     sucesso.value = mensagem
     await carregarDados()
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível alterar o bloqueio financeiro.')
     console.error(error)

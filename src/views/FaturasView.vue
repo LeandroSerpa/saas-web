@@ -232,6 +232,7 @@ async function salvarFatura() {
 
     cancelarEdicao()
     await carregarDados({ limparFeedback: false })
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
     exibirSucesso(mensagem)
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
@@ -303,6 +304,7 @@ async function confirmarEnvioComprovante() {
         : item,
     )
     window.dispatchEvent(new Event('financeiro-status-atualizado'))
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
     exibirSucesso('Comprovante enviado para análise.')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível enviar o comprovante.')
@@ -322,6 +324,7 @@ async function aprovarComprovante(item) {
     await aprovarComprovanteFatura(item.id, {})
     await carregarDados({ limparFeedback: false })
     window.dispatchEvent(new Event('financeiro-status-atualizado'))
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
     exibirSucesso('Pagamento confirmado com sucesso.')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível aprovar o comprovante.')
@@ -346,6 +349,7 @@ async function rejeitarComprovante(item) {
     await rejeitarComprovanteFatura(item.id, { motivoRejeicao: motivo.trim(), observacao: motivo.trim() })
     await carregarDados({ limparFeedback: false })
     window.dispatchEvent(new Event('financeiro-status-atualizado'))
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
     exibirSucesso('Comprovante rejeitado.')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível rejeitar o comprovante.')
@@ -370,6 +374,7 @@ async function confirmarPagamento() {
     fecharPagamento()
     await carregarDados({ limparFeedback: false })
     window.dispatchEvent(new Event('financeiro-status-atualizado'))
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
     exibirSucesso('Pagamento confirmado com sucesso.')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')

@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
+import NotificacoesBell from '@/components/NotificacoesBell.vue'
 import { buscarStatusFinanceiroMinhaEmpresa } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
@@ -150,6 +151,7 @@ onBeforeUnmount(() => {
             <RouterLink to="/empresas">Empresas</RouterLink>
             <RouterLink to="/planos">Planos</RouterLink>
             <RouterLink to="/assinaturas">Assinaturas</RouterLink>
+            <RouterLink to="/admin/notificacoes">NotificaÃ§Ãµes</RouterLink>
             <RouterLink to="/admin/financeiro">Inadimplência</RouterLink>
             <RouterLink to="/faturas-recorrentes">Faturas recorrentes</RouterLink>
             <RouterLink to="/configuracoes-pagamento">Config. pagamento</RouterLink>
@@ -172,6 +174,8 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="usuario-logado">
+          <NotificacoesBell />
+
           <div>
             <strong>{{ empresaLogada }}</strong>
             <span>Usuário: {{ usuario?.nome || 'Usuário' }}</span>

@@ -1252,6 +1252,102 @@ export async function restaurarAgendamento(id) {
   return tratarResposta(response)
 }
 
+export async function buscarNotificacoes(filtros = {}) {
+  const response = await fetch(`${API_URL}/notificacoes${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoNotificacoes() {
+  const response = await fetch(`${API_URL}/notificacoes/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarNotificacaoComoLida(id) {
+  const response = await fetch(`${API_URL}/notificacoes/${id}/lida`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarTodasNotificacoesComoLidas() {
+  const response = await fetch(`${API_URL}/notificacoes/marcar-todas-lidas`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function arquivarNotificacao(id) {
+  const response = await fetch(`${API_URL}/notificacoes/${id}/arquivar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarNotificacoesAdmin(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/notificacoes${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarTemplatesNotificacao() {
+  const response = await fetch(`${API_URL}/admin/notificacoes/templates`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarTemplateNotificacao(id, payload) {
+  const response = await fetch(`${API_URL}/admin/notificacoes/templates/${id}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function enviarNotificacaoManual(payload) {
+  const response = await fetch(`${API_URL}/admin/notificacoes/manual`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarLogsNotificacao(filtros = {}) {
+  const response = await fetch(`${API_URL}/admin/notificacoes/logs${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function executarLembretesFinanceiros() {
+  const response = await fetch(`${API_URL}/admin/notificacoes/lembretes-financeiros/executar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function login(email, senha) {
   const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',

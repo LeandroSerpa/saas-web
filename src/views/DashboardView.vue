@@ -5,6 +5,7 @@ import {
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
+  buscarResumoNotificacoes,
   buscarOnboarding,
   buscarServicos,
   buscarStatusFinanceiroMinhaEmpresa,
@@ -16,6 +17,7 @@ const clientes = ref([])
 const servicos = ref([])
 const funcionarios = ref([])
 const onboarding = ref(null)
+const resumoNotificacoes = ref(null)
 const statusFinanceiro = ref(null)
 const usuarioLogado = ref(obterUsuarioLogado())
 
@@ -60,6 +62,9 @@ const cardFinanceiro = computed(() => {
 })
 const empresaSemDados = computed(
   () => !carregando.value && !clientes.value.length && !servicos.value.length && !funcionarios.value.length && !agendamentos.value.length,
+)
+const notificacoesNaoLidas = computed(() =>
+  Number(obterCampo(resumoNotificacoes.value, 'naoLidas', 'totalNaoLidas', 'totalNaoLida') || 0),
 )
 
 const cardsResumo = computed(() => [
@@ -247,6 +252,15 @@ async function carregarStatusFinanceiroDashboard() {
   }
 }
 
+async function carregarResumoNotificacoesDashboard() {
+  try {
+    resumoNotificacoes.value = normalizarObjeto(await buscarResumoNotificacoes())
+  } catch (error) {
+    resumoNotificacoes.value = null
+    console.error(error)
+  }
+}
+
 function contarPorStatus(status, lista = agendamentos.value) {
   return lista.filter((agendamento) => agendamento.status === status).length
 }
@@ -417,6 +431,7 @@ onMounted(() => {
   carregarDados()
   carregarOnboardingDashboard()
   carregarStatusFinanceiroDashboard()
+  carregarResumoNotificacoesDashboard()
 })
 </script>
 
@@ -468,6 +483,14 @@ onMounted(() => {
 
     <section v-if="empresaSemDados" class="card estado-vazio">
       <p>Sua empresa ainda não possui dados cadastrados. Comece configurando seus serviços e funcionários.</p>
+    </section>
+
+    <section v-if="resumoNotificacoes" class="card notificacoes-card">
+      <div>
+        <p class="subtitulo">Notificações</p>
+        <h2>{{ notificacoesNaoLidas }} notificação(ões) não lida(s)</h2>
+      </div>
+      <RouterLink class="botao principal link-botao" to="/notificacoes">Ver notificações</RouterLink>
     </section>
 
     <section class="grade-resumo">
@@ -661,6 +684,14 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   border-left: 5px solid #16a34a;
+}
+
+.notificacoes-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-left: 5px solid #2563eb;
 }
 
 .financeiro-card.atraso {
@@ -930,7 +961,8 @@ tbody tr:last-child td {
   .cabecalho-pagina,
   .cabecalho-lista,
   .onboarding-card,
-  .financeiro-card {
+  .financeiro-card,
+  .notificacoes-card {
     flex-direction: column;
     align-items: flex-start;
   }
