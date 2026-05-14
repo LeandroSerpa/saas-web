@@ -272,18 +272,37 @@ function fecharComprovante() {
 async function confirmarEnvioComprovante() {
   if (!faturaComprovante.value?.id) return
 
-  if (!String(comprovante.value.linkComprovante || comprovante.value.codigoTransacao || comprovante.value.observacao || '').trim()) {
-    erro.value = 'Informe o link, código/ID de transação ou observação do comprovante.'
+  const linkComprovante = String(comprovante.value.linkComprovante || '').trim()
+  const codigoTransacao = String(comprovante.value.codigoTransacao || '').trim()
+  const observacao = String(comprovante.value.observacao || '').trim()
+
+  if (!linkComprovante && !codigoTransacao && !observacao) {
+    erro.value = 'Informe o link, código da transação ou observação do comprovante.'
     return
   }
 
   try {
-    processandoId.value = faturaComprovante.value.id
+    const faturaId = faturaComprovante.value.id
+    processandoId.value = faturaId
     erro.value = ''
     mensagemSucesso.value = ''
-    await enviarComprovanteFatura(faturaComprovante.value.id, limparVazios(comprovante.value))
+    await enviarComprovanteFatura(
+      faturaId,
+      limparVazios({
+        comprovanteUrl: linkComprovante,
+        comprovanteTexto: codigoTransacao,
+        codigoTransacao,
+        observacao,
+      }),
+    )
     fecharComprovante()
     await carregarDados({ limparFeedback: false })
+    faturas.value = faturas.value.map((item) =>
+      item.id === faturaId && !obterCampo(item, 'comprovanteStatus', 'statusComprovante')
+        ? { ...item, comprovanteStatus: 'ENVIADO' }
+        : item,
+    )
+    window.dispatchEvent(new Event('financeiro-status-atualizado'))
     exibirSucesso('Comprovante enviado para análise.')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível enviar o comprovante.')
@@ -302,7 +321,8 @@ async function aprovarComprovante(item) {
     mensagemSucesso.value = ''
     await aprovarComprovanteFatura(item.id, {})
     await carregarDados({ limparFeedback: false })
-    exibirSucesso('Comprovante aprovado e fatura marcada como paga.')
+    window.dispatchEvent(new Event('financeiro-status-atualizado'))
+    exibirSucesso('Pagamento confirmado com sucesso.')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível aprovar o comprovante.')
     console.error(error)
@@ -325,6 +345,7 @@ async function rejeitarComprovante(item) {
     mensagemSucesso.value = ''
     await rejeitarComprovanteFatura(item.id, { motivoRejeicao: motivo.trim(), observacao: motivo.trim() })
     await carregarDados({ limparFeedback: false })
+    window.dispatchEvent(new Event('financeiro-status-atualizado'))
     exibirSucesso('Comprovante rejeitado.')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível rejeitar o comprovante.')
@@ -348,6 +369,7 @@ async function confirmarPagamento() {
     })
     fecharPagamento()
     await carregarDados({ limparFeedback: false })
+    window.dispatchEvent(new Event('financeiro-status-atualizado'))
     exibirSucesso('Pagamento confirmado com sucesso.')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
@@ -446,7 +468,12 @@ function podeReativarFatura(item) {
 }
 
 function podeEnviarComprovante(item) {
-  return adminEmpresa.value && ['PENDENTE', 'VENCIDA'].includes(statusValor(item))
+  const statusComprovante = normalizarComprovanteStatus(obterCampo(item, 'comprovanteStatus', 'statusComprovante'))
+  return (
+    adminEmpresa.value &&
+    ['PENDENTE', 'VENCIDA'].includes(statusValor(item)) &&
+    !['ENVIADO', 'APROVADO'].includes(statusComprovante)
+  )
 }
 
 function podeAprovarOuRejeitarComprovante(item) {
@@ -1055,18 +1082,21 @@ onUnmounted(() => {
         <div>
           <h2>Enviar comprovante</h2>
           <p>{{ nomeEmpresa(faturaComprovante) }} - {{ formatarMoeda(obterCampo(faturaComprovante, 'valor')) }}</p>
+          <p class="texto-ajuda">
+            Não é necessário anexar imagem. Informe um link, código Pix, ID de transação ou observação para conferência manual.
+          </p>
         </div>
         <button class="botao secundario" @click="fecharComprovante">Fechar</button>
       </div>
 
       <div class="campos">
         <label>
-          Link do comprovante
+          Link do comprovante, se houver
           <input v-model="comprovante.linkComprovante" type="text" placeholder="https://..." />
         </label>
 
         <label>
-          Código/ID de transação
+          Código Pix ou ID da transação
           <input v-model="comprovante.codigoTransacao" type="text" />
         </label>
 
@@ -1099,6 +1129,38 @@ onUnmounted(() => {
         <p><strong>Pagamento:</strong> {{ formatarData(obterCampo(faturaDetalhe, 'dataPagamento')) }}</p>
         <p><strong>Forma:</strong> {{ obterCampo(faturaDetalhe, 'formaPagamento') || '-' }}</p>
         <p><strong>Gateway:</strong> {{ obterCampo(faturaDetalhe, 'gateway') || '-' }}</p>
+        <p>
+          <strong>Status do comprovante:</strong>
+          {{ comprovanteTexto(obterCampo(faturaDetalhe, 'comprovanteStatus', 'statusComprovante')) }}
+        </p>
+        <p
+          v-if="obterCampo(faturaDetalhe, 'comprovanteUrl', 'linkComprovante', 'comprovanteLink')"
+          class="campo-grande"
+        >
+          <strong>Link do comprovante:</strong>
+          <a
+            :href="obterCampo(faturaDetalhe, 'comprovanteUrl', 'linkComprovante', 'comprovanteLink')"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Abrir
+          </a>
+        </p>
+        <p v-if="obterCampo(faturaDetalhe, 'codigoTransacao', 'comprovanteTexto', 'codigoPix')" class="campo-grande">
+          <strong>Código/ID da transação:</strong>
+          {{ obterCampo(faturaDetalhe, 'codigoTransacao', 'comprovanteTexto', 'codigoPix') }}
+        </p>
+        <p v-if="obterCampo(faturaDetalhe, 'comprovanteObservacao', 'observacaoComprovante')" class="campo-grande">
+          <strong>Observação do comprovante:</strong>
+          {{ obterCampo(faturaDetalhe, 'comprovanteObservacao', 'observacaoComprovante') }}
+        </p>
+        <p
+          v-if="obterCampo(faturaDetalhe, 'motivoRejeicaoComprovante', 'comprovanteMotivoRejeicao')"
+          class="campo-grande"
+        >
+          <strong>Motivo de rejeição:</strong>
+          {{ obterCampo(faturaDetalhe, 'motivoRejeicaoComprovante', 'comprovanteMotivoRejeicao') }}
+        </p>
         <p class="campo-grande pagamento-detalhe">
           <strong>Link, código Pix ou referência:</strong>
           <template v-if="obterCampo(faturaDetalhe, 'linkPagamento')">
