@@ -2,17 +2,17 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  arquivarNotificacao,
+  arquivarNotificacaoAdmin,
   atualizarTemplateNotificacao,
   buscarEmpresas,
   buscarLogsNotificacao,
   buscarNotificacoesAdmin,
   buscarTemplatesNotificacao,
-  desarquivarNotificacao,
+  desarquivarNotificacaoAdmin,
   editarNotificacaoAdmin,
   enviarNotificacaoManual,
   executarLembretesFinanceiros,
-  excluirNotificacao,
+  excluirNotificacaoAdmin,
   listarNotificacoesLixeiraAdmin,
   marcarNotificacaoComoLida,
   restaurarNotificacao,
@@ -108,15 +108,15 @@ async function marcarComoLida(item) {
 }
 
 async function arquivar(item) {
-  await acaoNotificacao(item, () => arquivarNotificacao(item.id), 'Notificação arquivada.')
+  await acaoNotificacao(item, () => arquivarNotificacaoAdmin(item.id), 'Notificação arquivada.')
 }
 
 async function desarquivar(item) {
-  await acaoNotificacao(item, () => desarquivarNotificacao(item.id), 'Notificação desarquivada.')
+  await acaoNotificacao(item, () => desarquivarNotificacaoAdmin(item.id), 'Notificação desarquivada.')
 }
 
 async function excluir(item) {
-  await acaoNotificacao(item, () => excluirNotificacao(item.id), 'Notificação movida para a lixeira.')
+  await acaoNotificacao(item, () => excluirNotificacaoAdmin(item.id), 'Notificação movida para a lixeira.')
 }
 
 async function restaurar(item) {
@@ -412,13 +412,23 @@ function normalizar(valor) {
     .toUpperCase()
 }
 
+function normalizarStatus(status) {
+  return normalizar(status)
+}
+
 function obterMensagemErro(error, fallback) {
   return String(error?.message || '').trim() || fallback
 }
 
 function statusValor(item) {
-  const status = normalizar(obterCampo(item, 'status', 'situacao') || (item.lida ? 'LIDA' : 'CRIADA'))
+  const status = normalizarStatus(
+    obterCampo(item, 'status', 'statusNotificacao', 'situacao', 'estado') || (item.lida ? 'LIDA' : 'CRIADA'),
+  )
   if (status === 'NOVA' || status === 'NOVO' || status === 'NAO_LIDA') return 'CRIADA'
+  if (status === 'CRIADO') return 'CRIADA'
+  if (status === 'LIDO') return 'LIDA'
+  if (status === 'ARQUIVADO') return 'ARQUIVADA'
+  if (status === 'EXCLUIDO') return 'EXCLUIDA'
   return status || 'CRIADA'
 }
 

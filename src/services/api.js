@@ -1322,6 +1322,33 @@ export async function restaurarNotificacao(id) {
   return tratarResposta(response)
 }
 
+export async function arquivarNotificacaoAdmin(id) {
+  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/arquivar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function desarquivarNotificacaoAdmin(id) {
+  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/desarquivar`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function excluirNotificacaoAdmin(id) {
+  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/excluir`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarNotificacoesAdmin(filtros = {}) {
   const response = await fetch(`${API_URL}/admin/notificacoes${montarQueryString(filtros)}`, {
     headers: montarHeaders(),

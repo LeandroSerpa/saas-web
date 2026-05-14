@@ -156,8 +156,14 @@ function statusNaoLida(item) {
 }
 
 function statusValor(item) {
-  const status = normalizar(obterCampo(item, 'status', 'situacao') || (item.lida ? 'LIDA' : 'CRIADA'))
+  const status = normalizarStatus(
+    obterCampo(item, 'status', 'statusNotificacao', 'situacao', 'estado') || (item.lida ? 'LIDA' : 'CRIADA'),
+  )
   if (status === 'NOVA' || status === 'NOVO' || status === 'NAO_LIDA') return 'CRIADA'
+  if (status === 'CRIADO') return 'CRIADA'
+  if (status === 'LIDO') return 'LIDA'
+  if (status === 'ARQUIVADO') return 'ARQUIVADA'
+  if (status === 'EXCLUIDO') return 'EXCLUIDA'
   return status || 'CRIADA'
 }
 
@@ -262,6 +268,10 @@ function normalizar(valor) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
+}
+
+function normalizarStatus(status) {
+  return normalizar(status)
 }
 
 function numeroResumo(...campos) {
