@@ -564,21 +564,26 @@ select:focus {
 }
 
 .tabela-container {
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
+  min-width: 0;
+  table-layout: auto;
 }
 
 th,
 td {
   border-bottom: 1px solid #e5e7eb;
-  padding: 12px 10px;
+  padding: 10px 8px;
   text-align: left;
   vertical-align: top;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
 }
 
 th {
@@ -632,6 +637,14 @@ pre {
 }
 
 @media (max-width: 900px) {
+  .tabela-container {
+    overflow-x: auto;
+  }
+
+  table {
+    min-width: 920px;
+  }
+
   .campos,
   .detalhes-grid,
   .blocos-json {

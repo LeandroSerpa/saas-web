@@ -296,7 +296,7 @@ onBeforeUnmount(() => {
 
 .area-principal {
   min-width: 0;
-  max-width: 1230px;
+  max-width: none;
   width: 100%;
   padding: 24px;
 }

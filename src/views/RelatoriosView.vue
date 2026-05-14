@@ -1046,32 +1046,37 @@ onMounted(async () => {
 
 .tabela-container {
   width: 100%;
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 table {
   width: 100%;
-  min-width: 820px;
+  min-width: 0;
   border-collapse: collapse;
+  table-layout: auto;
 }
 
 .tabela-detalhada table {
-  min-width: 1100px;
+  min-width: 0;
 }
 
 th,
 td {
-  padding: 14px 16px;
+  padding: 10px 8px;
   border-bottom: 1px solid #e5e7eb;
   color: #374151;
   text-align: left;
   vertical-align: top;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
 }
 
 th {
   background: #f8fafc;
   color: #111827;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -1173,6 +1178,18 @@ th {
 }
 
 @media (max-width: 1100px) {
+  .tabela-container {
+    overflow-x: auto;
+  }
+
+  table {
+    min-width: 820px;
+  }
+
+  .tabela-detalhada table {
+    min-width: 1050px;
+  }
+
   .grade-indicadores.principais,
   .grade-indicadores.secundarios,
   .grade-graficos,

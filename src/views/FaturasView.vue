@@ -1202,7 +1202,7 @@ onUnmounted(() => {
 
       <section v-else class="card tabela-card">
         <div class="tabela-container">
-          <table>
+          <table class="tabela-faturas">
             <thead>
               <tr>
                 <th v-if="superAdmin">Empresa</th>
@@ -1494,30 +1494,63 @@ textarea:focus {
 
 .tabela-container {
   width: 100%;
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 table {
   width: 100%;
-  min-width: 1320px;
+  min-width: 0;
   border-collapse: collapse;
+  table-layout: auto;
 }
 
 th,
 td {
-  padding: 14px 16px;
+  padding: 10px 8px;
   border-bottom: 1px solid #e5e7eb;
   color: #374151;
   text-align: left;
   vertical-align: top;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
 }
 
 th {
   background: #f8fafc;
   color: #111827;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.tabela-faturas th:last-child,
+.tabela-faturas td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  width: 150px;
+  min-width: 150px;
+  background: white;
+  box-shadow: -8px 0 14px rgba(15, 23, 42, 0.06);
+}
+
+.tabela-faturas th:last-child {
+  z-index: 3;
+  background: #f8fafc;
+}
+
+.linha-vencida td:last-child {
+  background: #fff7ed;
+}
+
+.tabela-faturas td:first-child {
+  max-width: 170px;
+}
+
+.tabela-faturas td:nth-child(3) {
+  max-width: 190px;
 }
 
 a {
@@ -1601,8 +1634,8 @@ a {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  min-width: 132px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .botao {
@@ -1628,8 +1661,11 @@ a {
 }
 
 .compacto {
-  padding: 8px 10px;
-  font-size: 12px;
+  width: 100%;
+  padding: 7px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: normal;
 }
 
 .principal {
@@ -1667,6 +1703,14 @@ a {
 }
 
 @media (max-width: 1100px) {
+  .tabela-container {
+    overflow-x: auto;
+  }
+
+  table {
+    min-width: 1100px;
+  }
+
   .grade-resumo,
   .campos,
   .detalhes-grid {
