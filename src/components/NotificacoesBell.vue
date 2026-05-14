@@ -38,7 +38,7 @@ async function carregarNotificacoes() {
     carregando.value = true
     erro.value = ''
     const dados = await buscarNotificacoes({ limite: 5, status: 'CRIADA' })
-    notificacoes.value = normalizarLista(dados)
+    notificacoes.value = normalizarLista(dados).filter((item) => statusValor(item) === 'CRIADA')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar notificações.')
     console.error(error)
@@ -128,6 +128,7 @@ function statusTexto(item) {
     CRIADA: 'NOVA',
     LIDA: 'LIDA',
     ARQUIVADA: 'ARQUIVADA',
+    EXCLUIDA: 'LIXEIRA',
     ENVIADA: 'ENVIADA',
     FALHA: 'FALHA',
     CANCELADA: 'CANCELADA',
@@ -455,7 +456,8 @@ onBeforeUnmount(() => {
 }
 
 .status.falha,
-.status.cancelada {
+.status.cancelada,
+.status.excluida {
   background: #fee2e2;
   color: #b91c1c;
 }

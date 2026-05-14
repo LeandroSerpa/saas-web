@@ -1,10 +1,12 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   arquivarNotificacao,
   buscarNotificacoes,
   buscarResumoNotificacoes,
+  desarquivarNotificacao,
+  excluirNotificacao,
   marcarNotificacaoComoLida,
 } from '@/services/api'
 
@@ -44,7 +46,7 @@ async function carregarDados() {
       buscarNotificacoes(limparVazios(filtros.value)),
       buscarResumoNotificacoes(),
     ])
-    notificacoes.value = normalizarLista(listaApi)
+    notificacoes.value = normalizarLista(listaApi).filter((item) => statusValor(item) !== 'EXCLUIDA')
     resumo.value = normalizarObjeto(resumoApi)
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar as notificações.')
@@ -90,6 +92,42 @@ async function arquivar(item) {
   }
 }
 
+async function desarquivar(item) {
+  if (!item?.id) return
+
+  try {
+    processandoId.value = item.id
+    erro.value = ''
+    await desarquivarNotificacao(item.id)
+    sucesso.value = 'Notificação desarquivada.'
+    await carregarDados()
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível desarquivar a notificação.')
+    console.error(error)
+  } finally {
+    processandoId.value = null
+  }
+}
+
+async function excluir(item) {
+  if (!item?.id) return
+
+  try {
+    processandoId.value = item.id
+    erro.value = ''
+    await excluirNotificacao(item.id)
+    sucesso.value = 'Notificação movida para a lixeira.'
+    await carregarDados()
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível mover a notificação para a lixeira.')
+    console.error(error)
+  } finally {
+    processandoId.value = null
+  }
+}
+
 function abrir(item) {
   const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url'))
   if (!link) return
@@ -128,6 +166,7 @@ function statusTexto(item) {
     CRIADA: 'NOVA',
     LIDA: 'LIDA',
     ARQUIVADA: 'ARQUIVADA',
+    EXCLUIDA: 'LIXEIRA',
     ENVIADA: 'ENVIADA',
     FALHA: 'FALHA',
     CANCELADA: 'CANCELADA',
@@ -143,7 +182,15 @@ function podeMarcarComoLida(item) {
 }
 
 function podeArquivar(item) {
-  return statusValor(item) !== 'ARQUIVADA'
+  return !['ARQUIVADA', 'EXCLUIDA'].includes(statusValor(item))
+}
+
+function podeDesarquivar(item) {
+  return statusValor(item) === 'ARQUIVADA'
+}
+
+function podeExcluir(item) {
+  return statusValor(item) !== 'EXCLUIDA'
 }
 
 function prioridadeTexto(valor) {
@@ -325,7 +372,22 @@ onMounted(carregarDados)
                   >
                     Arquivar
                   </button>
-                  <small v-if="statusValor(item) === 'ARQUIVADA'" class="texto-acao">Arquivada</small>
+                  <button
+                    v-if="podeDesarquivar(item)"
+                    class="botao compacto sucesso-botao"
+                    :disabled="processandoId === item.id"
+                    @click="desarquivar(item)"
+                  >
+                    Desarquivar
+                  </button>
+                  <button
+                    v-if="podeExcluir(item)"
+                    class="botao compacto perigo"
+                    :disabled="processandoId === item.id"
+                    @click="excluir(item)"
+                  >
+                    Lixeira
+                  </button>
                 </div>
               </td>
             </tr>
@@ -449,6 +511,10 @@ select {
 
 .perigo {
   background: #dc2626;
+}
+
+.sucesso-botao {
+  background: #15803d;
 }
 
 .compacto {
@@ -577,7 +643,8 @@ th:last-child {
 }
 
 .status.falha,
-.status.cancelada {
+.status.cancelada,
+.status.excluida {
   background: #fee2e2;
   color: #b91c1c;
 }
