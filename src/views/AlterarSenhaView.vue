@@ -79,7 +79,7 @@ async function salvarSenha() {
       <div>
         <p class="subtitulo">Seguranca</p>
         <h1>Alterar senha</h1>
-        <p class="descricao">Atualize a senha do usuario logado.</p>
+        <p class="descricao">Atualize a senha do usuário logado.</p>
       </div>
     </header>
 

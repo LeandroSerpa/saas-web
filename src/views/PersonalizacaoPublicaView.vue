@@ -152,7 +152,7 @@ function obterMensagemErro(error, fallback) {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Agendamento publico</p>
+        <p class="subtitulo">Agendamento público</p>
         <h1>Personalização da página pública</h1>
         <p class="descricao">
           Configure a aparência e os textos exibidos na página publica de agendamento da sua
@@ -277,7 +277,7 @@ function obterMensagemErro(error, fallback) {
             </label>
             <label class="campo-checkbox">
               <input v-model="personalizacao.mostrarFuncionario" type="checkbox" />
-              Mostrar funcionario
+              Mostrar funcionário
             </label>
             <label class="campo-checkbox">
               <input v-model="personalizacao.mostrarEndereco" type="checkbox" />

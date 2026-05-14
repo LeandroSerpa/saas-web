@@ -86,22 +86,22 @@ async function salvarUsuario() {
     mensagemSucessoStatus.value = ''
 
     if (!usuario.value.nome.trim()) {
-      erro.value = 'Informe o nome do usuario.'
+      erro.value = 'Informe o nome do usuário.'
       return
     }
 
     if (!usuario.value.email.trim()) {
-      erro.value = 'Informe o e-mail do usuario.'
+      erro.value = 'Informe o e-mail do usuário.'
       return
     }
 
     if (!usuarioEditandoId.value && !usuario.value.senha) {
-      erro.value = 'Informe a senha do usuario.'
+      erro.value = 'Informe a senha do usuário.'
       return
     }
 
     if (usuarioEditandoId.value && !podeEditarUsuario({ id: usuarioEditandoId.value, perfil: perfilOriginalEdicao.value })) {
-      erro.value = 'Voce nao tem permissao para editar este usuario.'
+      erro.value = 'Você não tem permissão para editar este usuário.'
       return
     }
 
@@ -111,7 +111,7 @@ async function salvarUsuario() {
     }
 
     if (superAdminLogado.value && !usuario.value.empresaId) {
-      erro.value = 'Selecione a empresa do usuario.'
+      erro.value = 'Selecione a empresa do usuário.'
       return
     }
 

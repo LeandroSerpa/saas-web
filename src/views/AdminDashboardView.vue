@@ -165,7 +165,7 @@ onMounted(() => {
         <article v-for="secao in secoes" :key="secao.titulo" class="card secao">
           <h2>{{ secao.titulo }}</h2>
 
-          <p v-if="!secao.itens.length" class="vazio">Nenhum dado disponivel.</p>
+          <p v-if="!secao.itens.length" class="vazio">Nenhum dado disponível.</p>
 
           <ul v-else>
             <li v-for="(item, indice) in secao.itens" :key="`${secao.titulo}-${indice}`">

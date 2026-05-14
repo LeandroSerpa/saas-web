@@ -78,7 +78,7 @@ const subtituloPublico = computed(
 const mensagemConfirmacaoPublica = computed(
   () =>
     personalizacao.value.mensagemConfirmacao ||
-    'Guarde essas informações. A empresa poderá entrar em contato para confirmacao atendimento.',
+    'Guarde essas informações. A empresa poderá entrar em contato para confirmação do atendimento.',
 )
 
 const dataAtendimentoFormatada = computed(() =>
@@ -138,17 +138,17 @@ const mensagemDisponibilidade = computed(() => {
   const mensagem = String(disponibilidade.value.mensagem || '').trim()
 
   if (disponibilidade.value.empresaAtendeNoDia === false) {
-    return mensagem || `A empresa ${empresa.value?.nome || ''} nao atende neste dia.`
+    return mensagem || `A empresa ${empresa.value?.nome || ''} não atende neste dia.`
   }
 
   if (disponibilidade.value.funcionarioAtendeNoDia === false) {
-    return mensagem || `O funcionario ${funcionarioSelecionado.value?.nome || ''} nao atende neste dia.`
+    return mensagem || `O funcionário ${funcionarioSelecionado.value?.nome || ''} não atende neste dia.`
   }
 
   if (horariosDisponiveis.value.length === 0) {
     return (
       mensagem ||
-      'Nenhum horario disponivel para esta data. Escolha outro dia, servico ou funcionario.'
+      'Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.'
     )
   }
 
@@ -165,15 +165,15 @@ const mensagemOrientacaoHorarios = computed(() => {
   }
 
   if (!agendamento.value.servicoId) {
-    return 'Escolha um servico para consultar os horarios.'
+    return 'Escolha um serviço para consultar os horários.'
   }
 
   if (!agendamento.value.funcionarioId) {
-    return 'Escolha um funcionario para consultar os horarios.'
+    return 'Escolha um funcionário para consultar os horários.'
   }
 
   if (!agendamento.value.dataAtendimento) {
-    return 'Escolha uma data para consultar os horarios.'
+    return 'Escolha uma data para consultar os horários.'
   }
 
   if (carregandoDisponibilidade.value) {
@@ -190,7 +190,7 @@ const mensagemOrientacaoHorarios = computed(() => {
       : 'Escolha um dos horários disponíveis abaixo.'
   }
 
-  return 'Nenhum horario disponivel para esta data. Escolha outro dia, servico ou funcionario.'
+  return 'Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.'
 })
 
 const resumoVisivel = computed(() =>
@@ -387,7 +387,7 @@ async function copiarResumoConfirmacao() {
 
   try {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-      throw new Error('Clipboard indisponivel')
+      throw new Error('Clipboard indisponível')
     }
 
     await navigator.clipboard.writeText(montarTextoConfirmacao(confirmacaoAgendamento.value))
@@ -595,12 +595,12 @@ async function enviarAgendamento() {
     }
 
     if (!agendamento.value.servicoId) {
-      erro.value = 'Selecione um servico.'
+      erro.value = 'Selecione um serviço.'
       return
     }
 
     if (!agendamento.value.funcionarioId) {
-      erro.value = 'Selecione um funcionario.'
+      erro.value = 'Selecione um funcionário.'
       return
     }
 
@@ -615,7 +615,7 @@ async function enviarAgendamento() {
     }
 
     if (!agendamento.value.dataHoraInicio) {
-      erro.value = 'Selecione um horario disponivel.'
+      erro.value = 'Selecione um horário disponível.'
       return
     }
 
@@ -845,7 +845,7 @@ onMounted(() => {
           </p>
           <p v-if="empresa?.email"><strong>E-mail:</strong> {{ empresa.email }}</p>
           <p v-if="personalizacao.mostrarEndereco && empresa?.endereco">
-            <strong>Endereco:</strong> {{ empresa.endereco }}
+            <strong>Endereço:</strong> {{ empresa.endereco }}
           </p>
         </div>
       </header>
@@ -888,7 +888,7 @@ onMounted(() => {
       <section v-if="confirmacaoAgendamento" class="card confirmacao-card">
         <div class="confirmacao-topo">
           <div>
-            <p class="subtitulo">Confirmacao</p>
+            <p class="subtitulo">Confirmação</p>
             <h2>Agendamento solicitado com sucesso!</h2>
             <p>
               {{ mensagemConfirmacaoPublica }}
@@ -903,12 +903,12 @@ onMounted(() => {
         <dl class="resumo-confirmacao">
           <div>
             <dt>Empresa</dt>
-            <dd>{{ confirmacaoAgendamento.empresaNome || 'Nao informado' }}</dd>
+            <dd>{{ confirmacaoAgendamento.empresaNome || 'Não informado' }}</dd>
           </div>
           <div>
             <dt>Cliente</dt>
             <dd>
-              {{ confirmacaoAgendamento.clienteNome || 'Nao informado' }}
+              {{ confirmacaoAgendamento.clienteNome || 'Não informado' }}
               <span v-if="confirmacaoAgendamento.clienteTelefone">
                 {{ confirmacaoAgendamento.clienteTelefone }}
               </span>
@@ -919,23 +919,23 @@ onMounted(() => {
           </div>
           <div>
             <dt>Serviço</dt>
-            <dd>{{ confirmacaoAgendamento.servicoNome || 'Nao informado' }}</dd>
+            <dd>{{ confirmacaoAgendamento.servicoNome || 'Não informado' }}</dd>
           </div>
           <div>
             <dt>Funcionário</dt>
-            <dd>{{ confirmacaoAgendamento.funcionarioNome || 'Nao informado' }}</dd>
+            <dd>{{ confirmacaoAgendamento.funcionarioNome || 'Não informado' }}</dd>
           </div>
           <div>
             <dt>Data</dt>
-            <dd>{{ confirmacaoAgendamento.dataAtendimento || 'Nao informado' }}</dd>
+            <dd>{{ confirmacaoAgendamento.dataAtendimento || 'Não informado' }}</dd>
           </div>
           <div>
             <dt>Início</dt>
-            <dd>{{ confirmacaoAgendamento.horarioInicio || 'Nao informado' }}</dd>
+            <dd>{{ confirmacaoAgendamento.horarioInicio || 'Não informado' }}</dd>
           </div>
           <div>
             <dt>Término previsto</dt>
-            <dd>{{ confirmacaoAgendamento.horarioTermino || 'Nao informado' }}</dd>
+            <dd>{{ confirmacaoAgendamento.horarioTermino || 'Não informado' }}</dd>
           </div>
           <div>
             <dt>Duração</dt>
@@ -996,7 +996,7 @@ onMounted(() => {
           <label>
             Serviço *
             <select v-model="agendamento.servicoId">
-              <option value="">Selecione um servico</option>
+              <option value="">Selecione um serviço</option>
               <option v-for="servico in servicos" :key="servico.id" :value="servico.id">
                 {{ montarLabelServico(servico) }}
               </option>
@@ -1006,7 +1006,7 @@ onMounted(() => {
           <label v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
             Funcionário *
             <select v-model="agendamento.funcionarioId" :disabled="dataBloqueada">
-              <option value="">Selecione um funcionario</option>
+              <option value="">Selecione um funcionário</option>
               <option
                 v-for="funcionario in funcionariosDisponiveis"
                 :key="funcionario.id"
@@ -1061,8 +1061,8 @@ onMounted(() => {
               "
               class="estado-horarios"
             >
-              <strong>Nenhum horario livre nesta data.</strong>
-              <span>Nenhum horario disponivel para esta data. Escolha outro dia, servico ou funcionario.</span>
+              <strong>Nenhum horário livre nesta data.</strong>
+              <span>Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.</span>
             </div>
 
             <div v-if="horariosOcupados.length" class="legenda-horarios">
@@ -1085,8 +1085,8 @@ onMounted(() => {
             <p v-if="dataBloqueada">
               <strong>Atendimento:</strong> Não há atendimento nesta data.
             </p>
-            <p><strong>Início:</strong> {{ inicioSelecionado || 'Selecione um horario' }}</p>
-            <p><strong>Término previsto:</strong> {{ terminoPrevisto || 'Selecione um horario' }}</p>
+            <p><strong>Início:</strong> {{ inicioSelecionado || 'Selecione um horário' }}</p>
+            <p><strong>Término previsto:</strong> {{ terminoPrevisto || 'Selecione um horário' }}</p>
             <p v-if="personalizacao.mostrarPreco"><strong>Preço:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
           </div>
 
@@ -1095,7 +1095,7 @@ onMounted(() => {
             <textarea
               v-model="agendamento.observacao"
               rows="4"
-              placeholder="Ex: Preferência por horario pontual"
+              placeholder="Ex: Preferência por horário pontual"
             ></textarea>
           </label>
         </div>
@@ -1109,7 +1109,7 @@ onMounted(() => {
             {{ enviando ? 'Enviando...' : 'Agendar' }}
           </button>
           <p v-if="!agendamento.dataHoraInicio" class="aviso-horario">
-            {{ dataBloqueada ? mensagemBloqueioData : 'Selecione um horario disponivel para liberar o agendamento.' }}
+            {{ dataBloqueada ? mensagemBloqueioData : 'Selecione um horário disponível para liberar o agendamento.' }}
           </p>
         </div>
       </section>

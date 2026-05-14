@@ -41,12 +41,12 @@ function horarioPreenchidoInvalido(valor) {
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar funcionario' : 'Novo funcionario' }}</h2>
+      <h2>{{ modoEdicao ? 'Editar funcionário' : 'Novo funcionário' }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do funcionario selecionado.'
-            : 'Cadastre um funcionario para atender os agendamentos.'
+            ? 'Atualize os dados do funcionário selecionado.'
+            : 'Cadastre um funcionário para atender os agendamentos.'
         }}
       </p>
     </div>
@@ -64,7 +64,7 @@ function horarioPreenchidoInvalido(valor) {
 
       <label>
         E-mail
-        <input v-model="funcionario.email" type="email" placeholder="Ex: funcionario@email.com" />
+        <input v-model="funcionario.email" type="email" placeholder="Ex: funcionario@empresa.com" />
       </label>
 
       <label>
@@ -79,7 +79,7 @@ function horarioPreenchidoInvalido(valor) {
 
       <div class="secao-disponibilidade">
         <div class="titulo-card">
-          <h3>Disponibilidade do funcionario</h3>
+          <h3>Disponibilidade do funcionário</h3>
         </div>
 
         <div class="campos-disponibilidade">
@@ -94,7 +94,7 @@ function horarioPreenchidoInvalido(valor) {
               @input="aplicarMascaraHorario('horaInicioAtendimento', $event.target.value)"
             />
             <span v-if="horarioInicioInvalido" class="mensagem-campo">
-              Informe um horario válido entre 00:00 e 23:59.
+              Informe um horário válido entre 00:00 e 23:59.
             </span>
           </label>
 
@@ -109,7 +109,7 @@ function horarioPreenchidoInvalido(valor) {
               @input="aplicarMascaraHorario('horaFimAtendimento', $event.target.value)"
             />
             <span v-if="horarioFimInvalido" class="mensagem-campo">
-              Informe um horario válido entre 00:00 e 23:59.
+              Informe um horário válido entre 00:00 e 23:59.
             </span>
           </label>
         </div>
@@ -117,7 +117,7 @@ function horarioPreenchidoInvalido(valor) {
         <div class="dias-semana">
           <label class="campo-checkbox">
             <input v-model="funcionario.atendeDominao" type="checkbox" />
-            Dominao
+            Domingo
           </label>
 
           <label class="campo-checkbox">
@@ -127,7 +127,7 @@ function horarioPreenchidoInvalido(valor) {
 
           <label class="campo-checkbox">
             <input v-model="funcionario.atendeTerca" type="checkbox" />
-            Terca
+            Terça
           </label>
 
           <label class="campo-checkbox">
@@ -147,7 +147,7 @@ function horarioPreenchidoInvalido(valor) {
 
           <label class="campo-checkbox">
             <input v-model="funcionario.atendeSabado" type="checkbox" />
-            Sabado
+            Sábado
           </label>
         </div>
       </div>
@@ -155,7 +155,7 @@ function horarioPreenchidoInvalido(valor) {
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="$emit('salvar')">
-        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar funcionario' }}
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar funcionário' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">

@@ -192,7 +192,7 @@ onMounted(() => {
         <h1>Segmentos/Módulos</h1>
         <p class="descricao">
           Segmentos permitem adaptar o SaaS para nichos diferentes, como Barbearia, PetShop,
-          Conaomínao, Clínica e outros.
+          Condomínio, Clínica e outros.
         </p>
       </div>
 
@@ -205,7 +205,7 @@ onMounted(() => {
     <form class="card formulario" @submit.prevent="salvarSegmento">
       <div class="titulo-card">
         <h2>{{ segmentoEditandoId ? 'Editar segmento' : 'Novo segmento' }}</h2>
-        <p>Exemplos: Barbearia, PetShop, Conaomínao, Salão de Beleza, Clínica, Cursos, Oficina Mecânica, Lava Jato, Personal Trainer e Psicologia/Terapia.</p>
+        <p>Exemplos: Barbearia, PetShop, Condomínio, Salão de Beleza, Clínica, Cursos, Oficina Mecânica, Lava Jato, Personal Trainer e Psicologia/Terapia.</p>
       </div>
 
       <div class="campos">
@@ -257,7 +257,7 @@ onMounted(() => {
           <div class="detalhes">
             <p><strong>Ícone:</strong> {{ item.icone || '-' }}</p>
             <p><strong>Cor:</strong> <span class="amostra" :style="{ background: item.cor || '#2563eb' }"></span> {{ item.cor || '-' }}</p>
-            <p><strong>Permite campos específicos:</strong> {{ item.permiteCamposEspecificos ? 'Sim' : 'Nao' }}</p>
+            <p><strong>Permite campos específicos:</strong> {{ item.permiteCamposEspecificos ? 'Sim' : 'Não' }}</p>
           </div>
 
           <div class="acoes">

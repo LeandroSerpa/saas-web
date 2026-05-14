@@ -265,7 +265,7 @@ function exibirSegmento(empresaItem) {
     empresaItem.segmentoNome ||
     empresaItem.segmentoNegocio?.nome ||
     segmentos.value.find((segmento) => String(segmento.id) === String(empresaItem.segmentoNegocioId))?.nome ||
-    'Nao definido'
+    'Não definido'
   )
 }
 
@@ -279,13 +279,13 @@ function exibirHorario(empresaItem) {
 
 function exibirDiasAtendimento(empresaItem) {
   const dias = [
-    { campo: 'atendeDominao', rotulo: 'Dom' },
+    { campo: 'atendeDominao', rotulo: 'Domingo' },
     { campo: 'atendeSegunda', rotulo: 'Seg' },
-    { campo: 'atendeTerca', rotulo: 'Ter' },
+    { campo: 'atendeTerca', rotulo: 'Terça' },
     { campo: 'atendeQuarta', rotulo: 'Qua' },
     { campo: 'atendeQuinta', rotulo: 'Qui' },
     { campo: 'atendeSexta', rotulo: 'Sex' },
-    { campo: 'atendeSabado', rotulo: 'Sab' },
+    { campo: 'atendeSabado', rotulo: 'Sábado' },
   ]
     .filter((dia) => empresaItem[dia.campo])
     .map((dia) => dia.rotulo)
@@ -375,11 +375,11 @@ onMounted(() => {
       </section>
 
       <section v-else-if="empresas.length === 0" class="card">
-        <p>Nenhuma empresa enaontrada.</p>
+        <p>Nenhuma empresa encontrada.</p>
       </section>
 
       <section v-else-if="empresasFiltradas.length === 0" class="card">
-        <p>Nenhuma empresa enaontrada para os filtros selecionados.</p>
+        <p>Nenhuma empresa encontrada para os filtros selecionados.</p>
       </section>
 
       <section v-else class="lista-empresas">
@@ -400,23 +400,23 @@ onMounted(() => {
             <p><strong>Telefone:</strong> {{ exibirValor(empresaItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(empresaItem.email) }}</p>
             <p><strong>Segmento:</strong> {{ exibirSegmento(empresaItem) }}</p>
-            <p><strong>Endereco:</strong> {{ exibirValor(empresaItem.endereco) }}</p>
+            <p><strong>Endereço:</strong> {{ exibirValor(empresaItem.endereco) }}</p>
             <p><strong>Horário:</strong> {{ exibirHorario(empresaItem) }}</p>
             <p><strong>Dias:</strong> {{ exibirDiasAtendimento(empresaItem) }}</p>
             <p><strong>Intervalo:</strong> {{ normalizarIntervaloAgenda(empresaItem.intervaloAgendaMinutos) }} minutos</p>
             <p>
-              <strong>Agendamento publico:</strong>
+              <strong>Agendamento público:</strong>
               {{
                 empresaItem.permitirAgendamentoPublico || empresaItem.agendamentoPublicoAtivo
                   ? 'Ativo'
                   : 'Inativo'
               }}
             </p>
-            <p><strong>Slug publico:</strong> {{ exibirValor(empresaItem.slugPublico || empresaItem.slug) }}</p>
+            <p><strong>Slug público:</strong> {{ exibirValor(empresaItem.slugPublico || empresaItem.slug) }}</p>
             <p v-if="exibirLinkPublico(empresaItem)">
-              <strong>Link publico:</strong> {{ exibirLinkPublico(empresaItem) }}
+              <strong>Link público:</strong> {{ exibirLinkPublico(empresaItem) }}
             </p>
-            <p v-else><strong>Link publico:</strong> cadastre um slug publico para gerar o link.</p>
+            <p v-else><strong>Link público:</strong> cadastre um slug público para gerar o link.</p>
           </div>
 
           <div class="acoes">
@@ -432,7 +432,7 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === empresaItem.id" class="atualizando">
-            Atualizanao empresa...
+            Atualizando empresa...
           </p>
         </article>
       </section>

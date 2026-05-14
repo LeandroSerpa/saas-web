@@ -300,12 +300,12 @@ watch(
           <textarea
             v-model="plano.observacaoInterna"
             rows="3"
-            placeholder="Ex: Permuta por banao e tosa mensal."
+            placeholder="Ex: Permuta por banho e tosa mensal."
           ></textarea>
           <small>Visível apenas para o SUPER_ADMIN. Use para registrar detalhes comerciais, permutas ou acordos internos.</small>
         </label>
         <label>
-          Limite de usuarios
+          Limite de usuários
           <input v-model="plano.limiteUsuarios" type="number" min="0" placeholder="Ilimitado" />
         </label>
         <label>
@@ -334,12 +334,12 @@ watch(
         <label class="campo-checkbox ajuda-checkbox">
           <input v-model="plano.visivelParaEmpresa" type="checkbox" />
           Visível para a empresa
-          <small>Quanao desmarcado, a empresa verá o nome Plano especial na tela Meu plano.</small>
+          <small>Quando desmarcado, a empresa verá o nome Plano especial na tela Meu plano.</small>
         </label>
         <label class="campo-checkbox ajuda-checkbox">
           <input v-model="plano.exibirNoCadastroPublico" type="checkbox" />
-          Exibir no cadastro publico
-          <small>Quanao marcado, este plano aparece para empresas externas na página Comece agora.</small>
+          Exibir no cadastro público
+          <small>Quando marcado, este plano aparece para empresas externas na página Comece agora.</small>
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permitePersonalizacao" type="checkbox" />
@@ -351,7 +351,7 @@ watch(
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permiteAgendamentoPublico" type="checkbox" />
-          Permite agendamento publico
+          Permite agendamento público
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permiteSuportePrioritario" type="checkbox" />
@@ -418,13 +418,13 @@ watch(
           <div class="permissoes">
             <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalização</span>
             <span :class="{ ligado: planoItem.permiteRelatorios }">Relatórios</span>
-            <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento publico</span>
+            <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento público</span>
             <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritário</span>
             <span :class="{ ligado: planoVisivelParaEmpresa(planoItem) }">
-              Visível para empresa: {{ planoVisivelParaEmpresa(planoItem) ? 'Sim' : 'Nao' }}
+              Visível para empresa: {{ planoVisivelParaEmpresa(planoItem) ? 'Sim' : 'Não' }}
             </span>
             <span :class="{ ligado: planoExibidoNoCadastroPublico(planoItem) }">
-              Cadastro publico: {{ planoExibidoNoCadastroPublico(planoItem) ? 'Sim' : 'Nao' }}
+              Cadastro público: {{ planoExibidoNoCadastroPublico(planoItem) ? 'Sim' : 'Não' }}
             </span>
           </div>
 

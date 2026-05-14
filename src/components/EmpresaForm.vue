@@ -5,13 +5,13 @@ const empresa = defineModel({
 })
 
 const diasAtendimento = [
-  { campo: 'atendeDominao', rotulo: 'Dominao' },
+  { campo: 'atendeDominao', rotulo: 'Domingo' },
   { campo: 'atendeSegunda', rotulo: 'Segunda' },
-  { campo: 'atendeTerca', rotulo: 'Terca' },
+  { campo: 'atendeTerca', rotulo: 'Terça' },
   { campo: 'atendeQuarta', rotulo: 'Quarta' },
   { campo: 'atendeQuinta', rotulo: 'Quinta' },
   { campo: 'atendeSexta', rotulo: 'Sexta' },
-  { campo: 'atendeSabado', rotulo: 'Sabado' },
+  { campo: 'atendeSabado', rotulo: 'Sábado' },
 ]
 const intervalosAgenda = [15, 30, 60]
 
@@ -58,7 +58,7 @@ defineEmits(['salvar', 'cancelar'])
         {{
           modoEdicao
             ? 'Atualize os dados da empresa selecionada.'
-            : 'Cadastre uma empresa para organizar os usuarios.'
+            : 'Cadastre uma empresa para organizar os usuários.'
         }}
       </p>
     </div>
@@ -85,7 +85,7 @@ defineEmits(['salvar', 'cancelar'])
       </label>
 
       <label class="campo-grande">
-        Endereco
+        Endereço
         <input v-model="empresa.endereco" type="text" placeholder="Ex: Rua Principal, 100" />
       </label>
 
@@ -156,19 +156,19 @@ defineEmits(['salvar', 'cancelar'])
 
     <div class="secao-publica">
       <div class="titulo-card">
-        <h2>Agendamento publico</h2>
-        <p>Configure como os clientes acessam a agenda publica desta empresa.</p>
+        <h2>Agendamento público</h2>
+        <p>Configure como os clientes acessam a agenda pública desta empresa.</p>
       </div>
 
       <div class="campos">
         <label>
-          Slug publico
+          Slug público
           <input v-model="empresa.slugPublico" type="text" placeholder="petshop-rodrigo" />
         </label>
 
         <label class="campo-checkbox">
           <input v-model="empresa.permitirAgendamentoPublico" type="checkbox" />
-          Permitir agendamento publico
+          Permitir agendamento público
         </label>
 
         <label class="campo-grande">
@@ -176,23 +176,23 @@ defineEmits(['salvar', 'cancelar'])
           <textarea
             v-model="empresa.mensagemPublica"
             rows="4"
-            placeholder="Ex: Agende seu atendimento de forma rapida e simples."
+            placeholder="Ex: Agende seu atendimento de forma rápida e simples."
           ></textarea>
         </label>
       </div>
 
       <div class="link-publico">
         <p v-if="obterLinkPublico()">
-          <strong>Link publico:</strong>
+          <strong>Link público:</strong>
           <span>{{ obterLinkPublico() }}</span>
         </p>
-        <p v-else>Cadastre um slug publico para gerar o link de agendamento.</p>
+        <p v-else>Cadastre um slug público para gerar o link de agendamento.</p>
       </div>
     </div>
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="$emit('salvar')">
-        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar empresa' }}
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar empresa' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">

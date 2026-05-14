@@ -130,11 +130,11 @@ const agendamentosFiltrados = computed(() => {
 })
 const textoFiltroStatus = computed(() => {
   const textos = {
-    agendado: 'Exibinao apenas agendamentos em aberto.',
-    concluido: 'Exibinao agendamentos concluídos.',
-    cancelado: 'Exibinao agendamentos cancelados.',
-    faltou: 'Exibinao agendamentos marcados como falta.',
-    todos: 'Exibinao todos os agendamentos, incluinao cancelados e faltas.',
+    agendado: 'Exibindo apenas agendamentos em aberto.',
+    concluido: 'Exibindo agendamentos concluídos.',
+    cancelado: 'Exibindo agendamentos cancelados.',
+    faltou: 'Exibindo agendamentos marcados como falta.',
+    todos: 'Exibindo todos os agendamentos, incluindo cancelados e faltas.',
   }
 
   return textos[filtros.value.status || 'todos']
@@ -282,12 +282,12 @@ async function salvarAgendamento() {
     }
 
     if (!novoAgendamento.value.servicoId) {
-      erro.value = 'Selecione um servico.'
+      erro.value = 'Selecione um serviço.'
       return
     }
 
     if (!novoAgendamento.value.funcionarioId) {
-      erro.value = 'Selecione um funcionario.'
+      erro.value = 'Selecione um funcionário.'
       return
     }
 
@@ -297,7 +297,7 @@ async function salvarAgendamento() {
         .map(Number)
         .includes(Number(novoAgendamento.value.funcionarioId))
     ) {
-      erro.value = 'Este funcionario nao esta vinculado ao servico selecionado.'
+      erro.value = 'Este funcionário não está vinculado ao serviço selecionado.'
       return
     }
 
@@ -309,7 +309,7 @@ async function salvarAgendamento() {
     const duracaoMinutos = duracaoAgendamentoMinutos.value
 
     if (!duracaoMinutos) {
-      erro.value = 'O servico selecionado nao possui duracao valida.'
+      erro.value = 'O serviço selecionado não possui duração válida.'
       return
     }
 
@@ -509,9 +509,9 @@ function formatarDataParaApi(data) {
   const dia = String(data.getDate()).padStart(2, '0')
   const hora = String(data.getHours()).padStart(2, '0')
   const minuto = String(data.getMinutes()).padStart(2, '0')
-  const segunao = '00'
+  const segundo = '00'
 
-  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segunao}`
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`
 }
 
 function formatarDataHoraPreview(data) {
@@ -631,7 +631,7 @@ onMounted(() => {
             <input
               v-model="filtros.busca"
               type="search"
-              placeholder="Cliente, servico, funcionario ou observacao"
+              placeholder="Cliente, serviço, funcionário ou observação"
             />
           </label>
 
@@ -646,7 +646,7 @@ onMounted(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Agendamentos</h2>
-          <p>Lista de horarios cadastrados na API publicada no EasyPanel.</p>
+          <p>Lista de horários cadastrados na API publicada no EasyPanel.</p>
         </div>
 
         <span class="contador">{{ agendamentosFiltrados.length }} agendamento(s)</span>

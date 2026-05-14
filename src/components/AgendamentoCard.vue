@@ -177,6 +177,6 @@ function podeExcluir(status) {
       </button>
     </div>
 
-    <p v-if="atualizando" class="atualizando">Atualizanao status...</p>
+    <p v-if="atualizando" class="atualizando">Atualizando status...</p>
   </article>
 </template>

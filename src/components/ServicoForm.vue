@@ -21,12 +21,12 @@ defineEmits(['salvar', 'cancelar'])
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar servico' : 'Novo servico' }}</h2>
+      <h2>{{ modoEdicao ? 'Editar serviço' : 'Novo serviço' }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do servico selecionado.'
-            : 'Cadastre um servico para disponibilizar nos agendamentos.'
+            ? 'Atualize os dados do serviço selecionado.'
+            : 'Cadastre um serviço para disponibilizar nos agendamentos.'
         }}
       </p>
     </div>
@@ -64,7 +64,7 @@ defineEmits(['salvar', 'cancelar'])
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="$emit('salvar')">
-        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar servico' }}
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar serviço' }}
       </button>
 
       <button v-if="modoEdicao" class="botao neutro" @click="$emit('cancelar')">

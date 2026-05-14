@@ -16,13 +16,13 @@ const empresa = ref(criarEmpresaInicial())
 const route = useRoute()
 const router = useRouter()
 const diasAtendimento = [
-  { campo: 'atendeDominao', rotulo: 'Dominao' },
+  { campo: 'atendeDominao', rotulo: 'Domingo' },
   { campo: 'atendeSegunda', rotulo: 'Segunda' },
-  { campo: 'atendeTerca', rotulo: 'Terca' },
+  { campo: 'atendeTerca', rotulo: 'Terça' },
   { campo: 'atendeQuarta', rotulo: 'Quarta' },
   { campo: 'atendeQuinta', rotulo: 'Quinta' },
   { campo: 'atendeSexta', rotulo: 'Sexta' },
-  { campo: 'atendeSabado', rotulo: 'Sabado' },
+  { campo: 'atendeSabado', rotulo: 'Sábado' },
 ]
 const intervalosAgenda = [15, 30, 60]
 const linkPublico = computed(() => {
@@ -246,7 +246,7 @@ onMounted(() => {
     <section v-else class="card formulario">
       <div class="titulo-card">
         <h2>Dados da empresa</h2>
-        <p>Edite as informa??es que identificam sua empresa no sistema.</p>
+        <p>Edite as informações que identificam sua empresa no sistema.</p>
       </div>
 
       <div class="campos">
@@ -271,7 +271,7 @@ onMounted(() => {
         </label>
 
         <label class="campo-grande">
-          Endereco
+          Endereço
           <input v-model="empresa.endereco" type="text" placeholder="Ex: Rua Principal, 100" />
         </label>
       </div>
@@ -279,7 +279,7 @@ onMounted(() => {
       <div class="secao-horario">
         <div class="titulo-card">
           <h2>Horário de funcionamento</h2>
-          <p>Configure os horarios e dias de atendimento da empresa.</p>
+          <p>Configure os horários e dias de atendimento da empresa.</p>
         </div>
 
         <div class="campos">
@@ -313,22 +313,22 @@ onMounted(() => {
 
       <div class="secao-agendamento-publico">
         <div class="titulo-card">
-          <h2>Agendamento publico</h2>
+          <h2>Agendamento público</h2>
           <p>
-            Configure o link publico para clientes realizarem agendamentos sem precisar acessar o
+            Configure o link público para clientes realizarem agendamentos sem precisar acessar o
             sistema.
           </p>
         </div>
 
         <div class="campos">
           <label>
-            Slug publico
+            Slug público
             <input v-model="empresa.slug" type="text" placeholder="petshop-rodrigo" />
           </label>
 
           <label class="campo-checkbox">
             <input v-model="empresa.agendamentoPublicoAtivo" type="checkbox" />
-            Permitir agendamento publico
+            Permitir agendamento público
           </label>
 
           <label class="campo-grande">
@@ -343,11 +343,11 @@ onMounted(() => {
 
         <div class="link-publico">
           <p v-if="linkPublico">
-            <strong>Link publico:</strong>
+            <strong>Link público:</strong>
             <span>{{ linkPublico }}</span>
           </p>
 
-          <p v-else>Preencha o slug para gerar o link publico.</p>
+          <p v-else>Preencha o slug para gerar o link público.</p>
 
           <button class="botao secundario" :disabled="!linkPublico" @click="copiarLinkPublico">
             Copiar link
@@ -357,7 +357,7 @@ onMounted(() => {
         <p v-if="mensagemLinkCopiado" class="sucesso-texto">{{ mensagemLinkCopiado }}</p>
 
         <p v-if="!empresa.agendamentoPublicoAtivo" class="aviso-publico">
-          O agendamento publico está desativado.
+          O agendamento público está desativado.
         </p>
       </div>
 

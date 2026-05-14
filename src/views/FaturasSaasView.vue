@@ -96,7 +96,7 @@ async function marcarPaga(item) {
 }
 
 async function cancelar(item) {
-  const observacao = window.prompt('Informe a observacao do cancelamento:') || ''
+  const observacao = window.prompt('Informe a observação do cancelamento:') || ''
   try {
     await cancelarFatura(item.id, { observacao })
     mensagemSucesso.value = 'Fatura cancelada com sucesso.'
@@ -185,7 +185,7 @@ onMounted(() => {
     </form>
 
     <section v-if="carregando" class="card"><p>Carregando faturas...</p></section>
-    <section v-else-if="!faturas.length" class="card"><p>Nenhuma fatura enaontrada.</p></section>
+    <section v-else-if="!faturas.length" class="card"><p>Nenhuma fatura encontrada.</p></section>
     <section v-else class="lista">
       <article v-for="item in faturas" :key="item.id" class="card item-card">
         <div class="topo-card"><div><h2>{{ nomeEmpresa(item) }}</h2><p>{{ nomePlano(item) }}</p></div><span class="badge">{{ item.status || 'ABERTA' }}</span></div>

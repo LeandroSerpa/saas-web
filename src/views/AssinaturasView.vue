@@ -386,7 +386,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="assinaturasOrdenadas.length === 0" class="card">
-        <p>Nenhuma assinatura enaontrada.</p>
+        <p>Nenhuma assinatura encontrada.</p>
       </section>
 
       <section v-else class="lista">
@@ -407,7 +407,7 @@ onMounted(() => {
 
           <div class="detalhes">
             <p><strong>Tipo do plano:</strong> {{ rotuloTipoPlano(tipoPlano(item)) }}</p>
-            <p><strong>Visível para empresa:</strong> {{ planoVisivelParaEmpresa(item) ? 'Sim' : 'Nao' }}</p>
+            <p><strong>Visível para empresa:</strong> {{ planoVisivelParaEmpresa(item) ? 'Sim' : 'Não' }}</p>
             <p><strong>Data início:</strong> {{ formatarData(item.dataInicio) }}</p>
             <p><strong>Data vencimento:</strong> {{ formatarData(item.dataVencimento) }}</p>
             <p><strong>Limites:</strong> {{ limitesResumo(item) }}</p>

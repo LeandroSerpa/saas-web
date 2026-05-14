@@ -21,11 +21,11 @@ const tipoPlano = computed(() =>
 )
 const avisoTipoPlano = computed(() => {
   if (tipoPlano.value === 'PARCERIA') {
-    return 'Voce está em um plano especial de parceria.'
+    return 'Você está em um plano especial de parceria.'
   }
 
   if (tipoPlano.value === 'INTERNO') {
-    return 'Voce está em um plano interno/cortesia.'
+    return 'Você está em um plano interno/cortesia.'
   }
 
   return ''

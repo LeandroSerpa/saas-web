@@ -270,13 +270,13 @@ function exibirDisponibilidade(funcionarioItem) {
 
 function exibirDiasAtendimento(funcionarioItem) {
   const dias = [
-    { campo: 'atendeDominao', rotulo: 'Dom', padrao: false },
+    { campo: 'atendeDominao', rotulo: 'Domingo', padrao: false },
     { campo: 'atendeSegunda', rotulo: 'Seg', padrao: true },
-    { campo: 'atendeTerca', rotulo: 'Ter', padrao: true },
+    { campo: 'atendeTerca', rotulo: 'Terça', padrao: true },
     { campo: 'atendeQuarta', rotulo: 'Qua', padrao: true },
     { campo: 'atendeQuinta', rotulo: 'Qui', padrao: true },
     { campo: 'atendeSexta', rotulo: 'Sex', padrao: true },
-    { campo: 'atendeSabado', rotulo: 'Sab', padrao: true },
+    { campo: 'atendeSabado', rotulo: 'Sábado', padrao: true },
   ]
     .filter((dia) => obterDiaAtendimento(funcionarioItem[dia.campo], dia.padrao))
     .map((dia) => dia.rotulo)

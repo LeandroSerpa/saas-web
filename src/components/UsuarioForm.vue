@@ -41,12 +41,12 @@ defineEmits(['salvar', 'cancelar'])
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar usuario' : 'Novo usuario' }}</h2>
+      <h2>{{ modoEdicao ? 'Editar usuário' : 'Novo usuário' }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do usuario selecionado.'
-            : 'Cadastre um usuario para acessar o sistema.'
+            ? 'Atualize os dados do usuário selecionado.'
+            : 'Cadastre um usuário para acessar o sistema.'
         }}
       </p>
     </div>
@@ -59,7 +59,7 @@ defineEmits(['salvar', 'cancelar'])
 
       <label>
         E-mail *
-        <input v-model="usuario.email" type="email" placeholder="Ex: usuario@email.com" />
+        <input v-model="usuario.email" type="email" placeholder="Ex: usuario@empresa.com" />
       </label>
 
       <label>
@@ -98,7 +98,7 @@ defineEmits(['salvar', 'cancelar'])
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="$emit('salvar')">
-        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar usuario' }}
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar usuário' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">

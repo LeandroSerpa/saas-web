@@ -153,7 +153,7 @@ function obterMensagemErroPermissao(error) {
     mensagem.includes('permiss') ||
     mensagem.includes('403') ||
     mensagem.includes('unauthorized')
-    ? 'Voce nao tem permissao para acessar a auditoria.'
+    ? 'Você não tem permissão para acessar a auditoria.'
     : ''
 }
 
@@ -239,7 +239,7 @@ function formatarJson(valor) {
       <div>
         <p class="subtitulo">Super admin</p>
         <h1>Auditoria do sistema</h1>
-        <p class="descricao">Acompanhe ações realizadas por usuarios, empresas e clientes publicos.</p>
+        <p class="descricao">Acompanhe ações realizadas por usuários, empresas e clientes públicos.</p>
       </div>
     </header>
 
@@ -253,7 +253,7 @@ function formatarJson(valor) {
 
     <section class="card filtros">
       <p class="observacao-super-admin">
-        Como SUPER_ADMIN, voce pode consultar logs de todas as empresas ou filtrar uma empresa
+        Como SUPER_ADMIN, você pode consultar logs de todas as empresas ou filtrar uma empresa
         específica.
       </p>
 
@@ -311,7 +311,7 @@ function formatarJson(valor) {
         </label>
         <label>
           Texto livre
-          <input v-model="filtros.texto" type="text" placeholder="Buscar na descricao" />
+          <input v-model="filtros.texto" type="text" placeholder="Buscar na descrição" />
         </label>
       </div>
 
@@ -365,7 +365,7 @@ function formatarJson(valor) {
       </div>
     </section>
 
-    <section v-if="detalhe" class="modal-funao" @click.self="fecharDetalhes">
+    <section v-if="detalhe" class="modal-fundo" @click.self="fecharDetalhes">
       <div class="modal card">
         <div class="modal-topo">
           <h2>Detalhes do log</h2>
@@ -587,7 +587,7 @@ th {
   text-transform: uppercase;
 }
 
-.modal-funao {
+.modal-fundo {
   position: fixed;
   inset: 0;
   display: grid;
