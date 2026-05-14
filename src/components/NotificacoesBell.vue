@@ -90,16 +90,21 @@ async function marcarTodasComoLidas() {
 }
 
 function abrirNotificacao(item) {
-  const link = obterCampo(item, 'linkAcao', 'link', 'url')
+  const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url'))
   if (!link) return
 
-  aberto.value = false
-
-  if (/^https?:\/\//i.test(link)) {
+  if (ehLinkExterno(link)) {
+    aberto.value = false
     window.open(link, '_blank', 'noopener,noreferrer')
     return
   }
 
+  if (!rotaInternaExiste(link)) {
+    erro.value = 'Link de ação inválido ou indisponível.'
+    return
+  }
+
+  aberto.value = false
   router.push(link)
 }
 
@@ -109,8 +114,28 @@ function fecharAoClicarFora(event) {
 }
 
 function statusNaoLida(item) {
-  const status = String(obterCampo(item, 'status', 'situacao') || '').toUpperCase()
-  return !item.lida && !item.dataLeitura && !['LIDA', 'ARQUIVADA'].includes(status)
+  return statusValor(item) === 'CRIADA'
+}
+
+function statusValor(item) {
+  const status = normalizar(obterCampo(item, 'status', 'situacao') || (item.lida ? 'LIDA' : 'CRIADA'))
+  if (status === 'NOVA' || status === 'NOVO' || status === 'NAO_LIDA') return 'CRIADA'
+  return status || 'CRIADA'
+}
+
+function statusTexto(item) {
+  return {
+    CRIADA: 'NOVA',
+    LIDA: 'LIDA',
+    ARQUIVADA: 'ARQUIVADA',
+    ENVIADA: 'ENVIADA',
+    FALHA: 'FALHA',
+    CANCELADA: 'CANCELADA',
+  }[statusValor(item)] || statusValor(item)
+}
+
+function statusClasse(item) {
+  return statusValor(item).toLowerCase()
 }
 
 function prioridadeClasse(item) {
@@ -120,6 +145,29 @@ function prioridadeClasse(item) {
 function prioridadeTexto(item) {
   const prioridade = normalizar(obterCampo(item, 'prioridade') || 'NORMAL')
   return prioridade === 'CRITICA' ? 'Crítica' : prioridade.charAt(0) + prioridade.slice(1).toLowerCase()
+}
+
+function normalizarLinkAcao(valor) {
+  const link = String(valor || '').trim()
+  if (!link) return ''
+  if (/^https?:\/\//i.test(link)) return link
+  if (/^wa\.me\//i.test(link)) return `https://${link}`
+
+  const interno = link.startsWith('/') ? link : `/${link}`
+
+  if (['/admin/fatura', '/admin/faturas'].includes(interno)) {
+    return '/faturas'
+  }
+
+  return interno
+}
+
+function ehLinkExterno(link) {
+  return /^https?:\/\//i.test(link)
+}
+
+function rotaInternaExiste(link) {
+  return router.resolve(link).matched.length > 0
 }
 
 function formatarData(valor) {
@@ -176,7 +224,11 @@ onBeforeUnmount(() => {
 <template>
   <div ref="painelRef" class="notificacoes">
     <button class="botao-sino" type="button" aria-label="Notificações" @click.stop="alternarPainel">
-      <span class="icone" aria-hidden="true">!</span>
+      <span class="icone" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M12 22a2.4 2.4 0 0 0 2.3-1.7H9.7A2.4 2.4 0 0 0 12 22Zm7-5-1.8-2.1V10a5.2 5.2 0 0 0-4-5.1V3a1.2 1.2 0 0 0-2.4 0v1.9a5.2 5.2 0 0 0-4 5.1v4.9L5 17v1.2h14V17Z" />
+        </svg>
+      </span>
       <span class="texto">Notificações</span>
       <span v-if="totalNaoLidas > 0" class="badge">{{ totalNaoLidas > 99 ? '99+' : totalNaoLidas }}</span>
     </button>
@@ -194,7 +246,7 @@ onBeforeUnmount(() => {
 
       <p v-if="erro" class="erro">{{ erro }}</p>
       <p v-else-if="carregando" class="estado">Carregando notificações...</p>
-      <p v-else-if="!notificacoesRecentes.length" class="estado">Nenhuma notificação no momento.</p>
+      <p v-else-if="!notificacoesRecentes.length" class="estado">Nenhuma notificação não lida.</p>
 
       <div v-else class="lista">
         <article
@@ -206,6 +258,7 @@ onBeforeUnmount(() => {
             <strong>{{ obterCampo(item, 'titulo', 'title') || 'Notificação' }}</strong>
             <span :class="['prioridade', prioridadeClasse(item)]">{{ prioridadeTexto(item) }}</span>
           </div>
+          <span :class="['status', statusClasse(item)]">{{ statusTexto(item) }}</span>
           <p>{{ obterCampo(item, 'mensagemCurta', 'mensagem', 'descricao') || '-' }}</p>
           <small>{{ formatarData(obterCampo(item, 'criadoEm', 'dataCriacao', 'data', 'createdAt')) }}</small>
           <div class="acoes">
@@ -246,14 +299,20 @@ onBeforeUnmount(() => {
 }
 
 .icone {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   background: #2563eb;
   color: white;
   display: grid;
   place-items: center;
   line-height: 1;
+}
+
+.icone svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 
 .badge {
@@ -368,6 +427,37 @@ onBeforeUnmount(() => {
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.status {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.status.criada {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status.lida,
+.status.enviada {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status.arquivada {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.status.falha,
+.status.cancelada {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .prioridade.critica {

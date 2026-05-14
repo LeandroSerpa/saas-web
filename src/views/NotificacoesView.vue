@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   arquivarNotificacao,
   buscarNotificacoes,
@@ -9,11 +10,12 @@ import {
 
 const STATUS = [
   { valor: '', rotulo: 'Todas' },
-  { valor: 'CRIADA', rotulo: 'Criada/não lida' },
-  { valor: 'LIDA', rotulo: 'Lida' },
-  { valor: 'ARQUIVADA', rotulo: 'Arquivada' },
+  { valor: 'CRIADA', rotulo: 'Novas' },
+  { valor: 'LIDA', rotulo: 'Lidas' },
+  { valor: 'ARQUIVADA', rotulo: 'Arquivadas' },
 ]
 
+const router = useRouter()
 const filtros = ref({
   status: '',
   tipo: '',
@@ -89,15 +91,21 @@ async function arquivar(item) {
 }
 
 function abrir(item) {
-  const link = obterCampo(item, 'linkAcao', 'link', 'url')
+  const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url'))
   if (!link) return
 
-  if (/^https?:\/\//i.test(link)) {
+  if (ehLinkExterno(link)) {
     window.open(link, '_blank', 'noopener,noreferrer')
     return
   }
 
-  window.location.href = link
+  if (!rotaInternaExiste(link)) {
+    erro.value = 'Link de ação inválido ou indisponível.'
+    sucesso.value = ''
+    return
+  }
+
+  router.push(link)
 }
 
 function limparFiltros() {
@@ -106,17 +114,36 @@ function limparFiltros() {
 }
 
 function statusNaoLida(item) {
-  const status = normalizar(obterCampo(item, 'status', 'situacao'))
-  return !item.lida && !item.dataLeitura && !['LIDA', 'ARQUIVADA'].includes(status)
+  return statusValor(item) === 'CRIADA'
+}
+
+function statusValor(item) {
+  const status = normalizar(obterCampo(item, 'status', 'situacao') || (item.lida ? 'LIDA' : 'CRIADA'))
+  if (status === 'NOVA' || status === 'NOVO' || status === 'NAO_LIDA') return 'CRIADA'
+  return status || 'CRIADA'
 }
 
 function statusTexto(item) {
-  const status = normalizar(obterCampo(item, 'status', 'situacao') || (item.lida ? 'LIDA' : 'CRIADA'))
   return {
-    CRIADA: 'Não lida',
-    LIDA: 'Lida',
-    ARQUIVADA: 'Arquivada',
-  }[status] || status || '-'
+    CRIADA: 'NOVA',
+    LIDA: 'LIDA',
+    ARQUIVADA: 'ARQUIVADA',
+    ENVIADA: 'ENVIADA',
+    FALHA: 'FALHA',
+    CANCELADA: 'CANCELADA',
+  }[statusValor(item)] || statusValor(item)
+}
+
+function statusClasse(item) {
+  return statusValor(item).toLowerCase()
+}
+
+function podeMarcarComoLida(item) {
+  return statusValor(item) === 'CRIADA'
+}
+
+function podeArquivar(item) {
+  return statusValor(item) !== 'ARQUIVADA'
 }
 
 function prioridadeTexto(valor) {
@@ -126,6 +153,29 @@ function prioridadeTexto(valor) {
 
 function prioridadeClasse(valor) {
   return normalizar(valor || 'NORMAL').toLowerCase()
+}
+
+function normalizarLinkAcao(valor) {
+  const link = String(valor || '').trim()
+  if (!link) return ''
+  if (/^https?:\/\//i.test(link)) return link
+  if (/^wa\.me\//i.test(link)) return `https://${link}`
+
+  const interno = link.startsWith('/') ? link : `/${link}`
+
+  if (['/admin/fatura', '/admin/faturas'].includes(interno)) {
+    return '/faturas'
+  }
+
+  return interno
+}
+
+function ehLinkExterno(link) {
+  return /^https?:\/\//i.test(link)
+}
+
+function rotaInternaExiste(link) {
+  return router.resolve(link).matched.length > 0
 }
 
 function formatarData(valor) {
@@ -249,7 +299,7 @@ onMounted(carregarDados)
               <td><strong>{{ obterCampo(item, 'titulo', 'title') || 'Notificação' }}</strong></td>
               <td>{{ obterCampo(item, 'mensagem', 'mensagemCurta', 'descricao') || '-' }}</td>
               <td>{{ formatarData(obterCampo(item, 'criadoEm', 'dataCriacao', 'data', 'createdAt')) }}</td>
-              <td><span class="status">{{ statusTexto(item) }}</span></td>
+              <td><span :class="['status', statusClasse(item)]">{{ statusTexto(item) }}</span></td>
               <td>
                 <div class="acoes-tabela">
                   <button
@@ -260,7 +310,7 @@ onMounted(carregarDados)
                     Abrir
                   </button>
                   <button
-                    v-if="statusNaoLida(item)"
+                    v-if="podeMarcarComoLida(item)"
                     class="botao compacto principal"
                     :disabled="processandoId === item.id"
                     @click="marcarComoLida(item)"
@@ -268,12 +318,14 @@ onMounted(carregarDados)
                     Marcar como lida
                   </button>
                   <button
+                    v-if="podeArquivar(item)"
                     class="botao compacto perigo"
                     :disabled="processandoId === item.id"
                     @click="arquivar(item)"
                   >
                     Arquivar
                   </button>
+                  <small v-if="statusValor(item) === 'ARQUIVADA'" class="texto-acao">Arquivada</small>
                 </div>
               </td>
             </tr>
@@ -503,16 +555,42 @@ th:last-child {
   color: #1d4ed8;
 }
 
-.prioridade.baixa,
-.status {
+.prioridade.baixa {
   background: #e5e7eb;
   color: #4b5563;
+}
+
+.status.criada {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status.lida,
+.status.enviada {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status.arquivada {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.status.falha,
+.status.cancelada {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .acoes-tabela {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.texto-acao {
+  color: #64748b;
+  font-weight: 800;
 }
 
 @media (max-width: 900px) {

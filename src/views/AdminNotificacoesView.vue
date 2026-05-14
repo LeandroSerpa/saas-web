@@ -1,5 +1,6 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   arquivarNotificacao,
   atualizarTemplateNotificacao,
@@ -20,6 +21,7 @@ const abas = [
   { id: 'lembretes', rotulo: 'Lembretes financeiros' },
 ]
 
+const router = useRouter()
 const prioridades = ['BAIXA', 'NORMAL', 'ALTA', 'CRITICA']
 const perfisDestino = ['ADMIN', 'SUPER_ADMIN']
 const abaAtiva = ref('notificacoes')
@@ -153,6 +155,7 @@ async function enviarManual() {
     erro.value = ''
     sucesso.value = ''
     whatsappUrl.value = ''
+    manual.value.linkAcao = normalizarLinkAcao(manual.value.linkAcao)
     const resposta = normalizarObjeto(await enviarNotificacaoManual(limparVazios(manual.value)))
     whatsappUrl.value = obterCampo(resposta, 'whatsappUrl', 'urlWhatsapp', 'linkWhatsapp')
     sucesso.value = 'Notificação criada com sucesso.'
@@ -184,15 +187,21 @@ async function executarLembretes() {
 }
 
 function abrir(item) {
-  const link = obterCampo(item, 'linkAcao', 'link', 'url')
+  const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url'))
   if (!link) return
 
-  if (/^https?:\/\//i.test(link)) {
+  if (ehLinkExterno(link)) {
     window.open(link, '_blank', 'noopener,noreferrer')
     return
   }
 
-  window.location.href = link
+  if (!rotaInternaExiste(link)) {
+    erro.value = 'Link de ação inválido ou indisponível.'
+    sucesso.value = ''
+    return
+  }
+
+  router.push(link)
 }
 
 function abrirWhatsapp() {
@@ -292,6 +301,58 @@ function obterMensagemErro(error, fallback) {
   return String(error?.message || '').trim() || fallback
 }
 
+function statusValor(item) {
+  const status = normalizar(obterCampo(item, 'status', 'situacao') || (item.lida ? 'LIDA' : 'CRIADA'))
+  if (status === 'NOVA' || status === 'NOVO' || status === 'NAO_LIDA') return 'CRIADA'
+  return status || 'CRIADA'
+}
+
+function statusTextoFormatado(item) {
+  return {
+    CRIADA: 'NOVA',
+    LIDA: 'LIDA',
+    ARQUIVADA: 'ARQUIVADA',
+    ENVIADA: 'ENVIADA',
+    FALHA: 'FALHA',
+    CANCELADA: 'CANCELADA',
+  }[statusValor(item)] || statusValor(item)
+}
+
+function statusClasse(item) {
+  return statusValor(item).toLowerCase()
+}
+
+function podeMarcarComoLida(item) {
+  return statusValor(item) === 'CRIADA'
+}
+
+function podeArquivar(item) {
+  return statusValor(item) !== 'ARQUIVADA'
+}
+
+function normalizarLinkAcao(valor) {
+  const link = String(valor || '').trim()
+  if (!link) return ''
+  if (/^https?:\/\//i.test(link)) return link
+  if (/^wa\.me\//i.test(link)) return `https://${link}`
+
+  const interno = link.startsWith('/') ? link : `/${link}`
+
+  if (['/admin/fatura', '/admin/faturas'].includes(interno)) {
+    return '/faturas'
+  }
+
+  return interno
+}
+
+function ehLinkExterno(link) {
+  return /^https?:\/\//i.test(link)
+}
+
+function rotaInternaExiste(link) {
+  return router.resolve(link).matched.length > 0
+}
+
 watch(abaAtiva, carregarAba)
 
 onMounted(() => {
@@ -338,9 +399,9 @@ onMounted(() => {
           <label>Status
             <select v-model="filtrosNotificacoes.status">
               <option value="">Todos</option>
-              <option value="CRIADA">Criada/não lida</option>
-              <option value="LIDA">Lida</option>
-              <option value="ARQUIVADA">Arquivada</option>
+              <option value="CRIADA">Novas</option>
+              <option value="LIDA">Lidas</option>
+              <option value="ARQUIVADA">Arquivadas</option>
             </select>
           </label>
           <label>Tipo <input v-model="filtrosNotificacoes.tipo" type="text" /></label>
@@ -379,12 +440,13 @@ onMounted(() => {
                 <td>{{ obterCampo(item, 'tipo') || '-' }}</td>
                 <td><span :class="['prioridade', prioridadeClasse(obterCampo(item, 'prioridade'))]">{{ obterCampo(item, 'prioridade') || 'NORMAL' }}</span></td>
                 <td>{{ obterCampo(item, 'titulo', 'title') || '-' }}</td>
-                <td><span class="status">{{ statusTexto(item) }}</span></td>
+                <td><span :class="['status', statusClasse(item)]">{{ statusTextoFormatado(item) }}</span></td>
                 <td>
                   <div class="acoes-tabela">
                     <button v-if="obterCampo(item, 'linkAcao', 'link', 'url')" class="botao compacto secundario" @click="abrir(item)">Abrir</button>
-                    <button class="botao compacto principal" :disabled="processandoId === item.id" @click="marcarComoLida(item)">Marcar como lida</button>
-                    <button class="botao compacto perigo" :disabled="processandoId === item.id" @click="arquivar(item)">Arquivar</button>
+                    <button v-if="podeMarcarComoLida(item)" class="botao compacto principal" :disabled="processandoId === item.id" @click="marcarComoLida(item)">Marcar como lida</button>
+                    <button v-if="podeArquivar(item)" class="botao compacto perigo" :disabled="processandoId === item.id" @click="arquivar(item)">Arquivar</button>
+                    <small v-if="statusValor(item) === 'ARQUIVADA'" class="texto-acao">Arquivada</small>
                   </div>
                 </td>
               </tr>
@@ -455,7 +517,15 @@ onMounted(() => {
         <label>Telefone destino opcional <input v-model="manual.telefoneDestino" type="text" /></label>
         <label class="campo-grande">Título <input v-model="manual.titulo" type="text" /></label>
         <label class="campo-grande">Mensagem <textarea v-model="manual.mensagem" rows="4"></textarea></label>
-        <label class="campo-grande">Link de ação <input v-model="manual.linkAcao" type="text" placeholder="/faturas ou https://..." /></label>
+        <label class="campo-grande">Link de ação
+          <input
+            v-model="manual.linkAcao"
+            type="text"
+            placeholder="/faturas ou https://..."
+            @blur="manual.linkAcao = normalizarLinkAcao(manual.linkAcao)"
+          />
+          <small class="ajuda">Exemplos: /faturas, /notificacoes, /dashboard, https://site.com. Se usar /admin/fatura, o sistema ajusta para /faturas.</small>
+        </label>
         <label class="checkbox campo-grande"><input v-model="manual.gerarLinkWhatsapp" type="checkbox" /> Gerar link WhatsApp manual?</label>
       </div>
       <div class="acoes">
@@ -516,5 +586,5 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.pagina,.secao,.filtros,.formulario,.lembretes{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:22px}.descricao,.cabecalho-card p,.ajuda{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.abas{display:flex;gap:8px;flex-wrap:wrap}.abas button{border:1px solid #cbd5e1;border-radius:8px;background:white;color:#334155;padding:10px 14px;cursor:pointer;font-weight:800}.abas button.ativa{background:#0f172a;color:white;border-color:#0f172a}.campos{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:14px}.campos.dois{grid-template-columns:1fr 180px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}.checkbox{display:flex;align-items:center;gap:8px}input,select,textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{opacity:.55;cursor:not-allowed}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.sucesso-botao{background:#15803d}.compacto{width:100%;padding:7px 8px;font-size:11px;line-height:1.2}.tabela-card{padding:0;overflow:hidden}.tabela-container{overflow-x:auto}table{width:100%;min-width:900px;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:left;vertical-align:top;font-size:13px;word-break:break-word}th{background:#f8fafc;color:#111827;font-size:11px;font-weight:800;text-transform:uppercase}.acoes-tabela{display:flex;flex-direction:column;gap:6px;min-width:130px}.prioridade,.status{display:inline-flex;width:fit-content;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.prioridade.critica{background:#fee2e2;color:#b91c1c}.prioridade.alta{background:#ffedd5;color:#c2410c}.prioridade.normal{background:#dbeafe;color:#1d4ed8}.prioridade.baixa,.status{background:#e5e7eb;color:#4b5563}.resultado{color:#166534;font-weight:800}@media(max-width:900px){.cabecalho-pagina,.cabecalho-card,.acoes{align-items:flex-start;flex-direction:column}.campos,.campos.dois{grid-template-columns:1fr}}
+.pagina,.secao,.filtros,.formulario,.lembretes{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:22px}.descricao,.cabecalho-card p,.ajuda{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.abas{display:flex;gap:8px;flex-wrap:wrap}.abas button{border:1px solid #cbd5e1;border-radius:8px;background:white;color:#334155;padding:10px 14px;cursor:pointer;font-weight:800}.abas button.ativa{background:#0f172a;color:white;border-color:#0f172a}.campos{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:14px}.campos.dois{grid-template-columns:1fr 180px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}.checkbox{display:flex;align-items:center;gap:8px}input,select,textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{opacity:.55;cursor:not-allowed}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.sucesso-botao{background:#15803d}.compacto{width:100%;padding:7px 8px;font-size:11px;line-height:1.2}.tabela-card{padding:0;overflow:hidden}.tabela-container{overflow-x:auto}table{width:100%;min-width:900px;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:left;vertical-align:top;font-size:13px;word-break:break-word}th{background:#f8fafc;color:#111827;font-size:11px;font-weight:800;text-transform:uppercase}.acoes-tabela{display:flex;flex-direction:column;gap:6px;min-width:130px}.prioridade,.status{display:inline-flex;width:fit-content;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.prioridade.critica{background:#fee2e2;color:#b91c1c}.prioridade.alta{background:#ffedd5;color:#c2410c}.prioridade.normal{background:#dbeafe;color:#1d4ed8}.prioridade.baixa{background:#e5e7eb;color:#4b5563}.status.criada{background:#fef3c7;color:#92400e}.status.lida,.status.enviada{background:#dbeafe;color:#1d4ed8}.status.arquivada{background:#e5e7eb;color:#374151}.status.falha,.status.cancelada{background:#fee2e2;color:#b91c1c}.texto-acao{color:#64748b;font-weight:800}.resultado{color:#166534;font-weight:800}@media(max-width:900px){.cabecalho-pagina,.cabecalho-card,.acoes{align-items:flex-start;flex-direction:column}.campos,.campos.dois{grid-template-columns:1fr}}
 </style>
