@@ -135,6 +135,7 @@ onBeforeUnmount(() => {
         <RouterLink v-if="adminEmpresa" to="/onboarding">Primeiros passos</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios">Relatórios</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa">Minha empresa</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes">Notificações da empresa</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao">Personalização</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano">Meu plano</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/faturas">Faturas</RouterLink>

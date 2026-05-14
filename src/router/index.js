@@ -29,6 +29,7 @@ import FaturasRecorrentesView from '../views/FaturasRecorrentesView.vue'
 import ConfiguracoesPagamentoView from '../views/ConfiguracoesPagamentoView.vue'
 import NotificacoesView from '../views/NotificacoesView.vue'
 import AdminNotificacoesView from '../views/AdminNotificacoesView.vue'
+import ConfiguracoesNotificacoesView from '../views/ConfiguracoesNotificacoesView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -197,6 +198,12 @@ const router = createRouter({
       path: '/notificacoes',
       name: 'notificacoes',
       component: NotificacoesView,
+      meta: rotasAdmin,
+    },
+    {
+      path: '/minha-empresa/notificacoes',
+      name: 'configuracoes-notificacoes',
+      component: ConfiguracoesNotificacoesView,
       meta: rotasAdmin,
     },
     {

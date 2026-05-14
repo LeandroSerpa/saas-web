@@ -1,22 +1,29 @@
 ﻿<script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import ConfiguracoesNotificacoesForm from '@/components/ConfiguracoesNotificacoesForm.vue'
 import {
   arquivarNotificacaoAdmin,
+  buscarLembretesAgendamentos,
   atualizarTemplateNotificacao,
+  buscarConfiguracoesNotificacoesEmpresa,
   buscarEmpresas,
   buscarLogsNotificacao,
   buscarNotificacoesAdmin,
+  buscarResumoLembretesAgendamentos,
   buscarTemplatesNotificacao,
   desarquivarNotificacaoAdmin,
   editarNotificacaoAdmin,
   enviarNotificacaoManual,
+  executarLembretesAgendamentos,
   executarLembretesFinanceiros,
   excluirNotificacaoAdmin,
   listarNotificacoesLixeiraAdmin,
   marcarNotificacaoComoLida,
   restaurarNotificacao,
+  salvarConfiguracoesNotificacoesEmpresa,
 } from '@/services/api'
+import { ehSuperAdmin } from '@/utils/permissoes'
 
 const abas = [
   { id: 'notificacoes', rotulo: 'Notificações' },
@@ -24,11 +31,15 @@ const abas = [
   { id: 'manual', rotulo: 'Envio manual' },
   { id: 'logs', rotulo: 'Logs' },
   { id: 'lembretes', rotulo: 'Lembretes financeiros' },
+  { id: 'configuracoes', rotulo: 'Configurações' },
   { id: 'lixeira', rotulo: 'Lixeira' },
 ]
 
 const router = useRouter()
+const usuarioLogado = ref(obterUsuarioLogado())
+const superAdmin = computed(() => ehSuperAdmin(usuarioLogado.value))
 const prioridades = ['BAIXA', 'NORMAL', 'ALTA', 'CRITICA']
+const tiposLembreteAgendamento = ['', 'AGENDAMENTO_24H', 'AGENDAMENTO_2H', 'AGENDAMENTO_30MIN']
 const perfisDestino = ['ADMIN', 'SUPER_ADMIN']
 const abaAtiva = ref('notificacoes')
 const notificacoes = ref([])
@@ -40,9 +51,19 @@ const templateEditando = ref(null)
 const notificacaoEditando = ref(null)
 const whatsappUrl = ref('')
 const resultadoLembretes = ref(null)
+const resultadoLembretesAgendamentos = ref(null)
+const resumoLembretesAgendamentos = ref(null)
+const historicoLembretesAgendamentos = ref([])
+const executandoLembretesAgendamentos = ref(false)
+const carregandoLembretesAgendamentos = ref(false)
+const configuracaoEmpresaId = ref('')
+const configuracaoNotificacoes = ref(criarConfiguracaoNotificacoesPadrao())
+const carregandoConfiguracaoNotificacoes = ref(false)
+const salvandoConfiguracaoNotificacoes = ref(false)
 const filtrosNotificacoes = ref({ empresaId: '', status: '', tipo: '', busca: '', dataInicial: '', dataFinal: '' })
 const filtrosLixeira = ref({ empresaId: '', tipo: '', busca: '', dataInicial: '', dataFinal: '' })
 const filtrosLogs = ref({ tipo: '', canal: '', destino: '', dataInicial: '', dataFinal: '' })
+const filtrosLembretesAgendamentos = ref({ empresaId: '', tipoLembrete: '' })
 const manual = ref(criarManualInicial())
 const carregando = ref(false)
 const processandoId = ref(null)
@@ -64,6 +85,8 @@ async function carregarAba() {
   if (abaAtiva.value === 'templates') await carregarTemplates()
   if (abaAtiva.value === 'logs') await carregarLogs()
   if (abaAtiva.value === 'lixeira') await carregarLixeira()
+  if (abaAtiva.value === 'lembretes') await carregarLembretesAgendamentos()
+  if (abaAtiva.value === 'configuracoes' && configuracaoEmpresaId.value) await carregarConfiguracaoNotificacoesEmpresa()
 }
 
 async function carregarNotificacoes() {
@@ -94,12 +117,90 @@ async function carregarLogs() {
   }, 'Não foi possível carregar os logs.')
 }
 
+async function carregarLembretesAgendamentos() {
+  if (!superAdmin.value) return
+
+  try {
+    carregandoLembretesAgendamentos.value = true
+    erro.value = ''
+    const filtros = limparVazios(filtrosLembretesAgendamentos.value)
+    const [resumoApi, historicoApi] = await Promise.all([
+      buscarResumoLembretesAgendamentos(limparVazios({ empresaId: filtros.empresaId })),
+      buscarLembretesAgendamentos(filtros),
+    ])
+    resumoLembretesAgendamentos.value = normalizarObjeto(resumoApi)
+    historicoLembretesAgendamentos.value = normalizarLista(historicoApi)
+  } catch (error) {
+    erro.value = obterStatusErro(error) === 403
+      ? 'Você não tem permissão para executar lembretes de agendamentos.'
+      : 'Não foi possível carregar os lembretes de agendamentos agora.'
+    console.error(error)
+  } finally {
+    carregandoLembretesAgendamentos.value = false
+  }
+}
+
 async function carregarEmpresas() {
   try {
     empresas.value = normalizarLista(await buscarEmpresas())
+    if (!configuracaoEmpresaId.value && empresas.value.length) {
+      configuracaoEmpresaId.value = obterCampo(empresas.value[0], 'id', 'empresaId')
+    }
   } catch (error) {
     empresas.value = []
     console.error(error)
+  }
+}
+
+async function carregarConfiguracaoNotificacoesEmpresa() {
+  if (!configuracaoEmpresaId.value) {
+    erro.value = 'Selecione uma empresa para carregar as configurações.'
+    return
+  }
+
+  try {
+    carregandoConfiguracaoNotificacoes.value = true
+    erro.value = ''
+    sucesso.value = ''
+    configuracaoNotificacoes.value = normalizarConfiguracaoNotificacoes(
+      await buscarConfiguracoesNotificacoesEmpresa(configuracaoEmpresaId.value),
+    )
+  } catch (error) {
+    erro.value =
+      obterStatusErro(error) === 403
+        ? 'Você não tem permissão para alterar estas configurações.'
+        : 'Não foi possível carregar as configurações de notificações agora.'
+    console.error(error)
+  } finally {
+    carregandoConfiguracaoNotificacoes.value = false
+  }
+}
+
+async function salvarConfiguracaoNotificacoesEmpresa() {
+  if (!configuracaoEmpresaId.value) {
+    erro.value = 'Selecione uma empresa para salvar as configurações.'
+    return
+  }
+
+  try {
+    salvandoConfiguracaoNotificacoes.value = true
+    erro.value = ''
+    sucesso.value = ''
+    configuracaoNotificacoes.value = normalizarConfiguracaoNotificacoes(
+      await salvarConfiguracoesNotificacoesEmpresa(
+        configuracaoEmpresaId.value,
+        montarPayloadConfiguracaoNotificacoes(configuracaoNotificacoes.value),
+      ),
+    )
+    sucesso.value = 'Configurações de notificações salvas com sucesso.'
+  } catch (error) {
+    erro.value =
+      obterStatusErro(error) === 403
+        ? 'Você não tem permissão para alterar estas configurações.'
+        : 'Não foi possível salvar as configurações de notificações agora.'
+    console.error(error)
+  } finally {
+    salvandoConfiguracaoNotificacoes.value = false
   }
 }
 
@@ -296,6 +397,27 @@ async function executarLembretes() {
   }
 }
 
+async function executarLembretesAgendamentosAgora() {
+  try {
+    executandoLembretesAgendamentos.value = true
+    erro.value = ''
+    sucesso.value = ''
+    resultadoLembretesAgendamentos.value = null
+    resultadoLembretesAgendamentos.value = normalizarObjeto(await executarLembretesAgendamentos())
+    sucesso.value = 'Lembretes de agendamentos executados com sucesso.'
+    await carregarLembretesAgendamentos()
+    window.dispatchEvent(new Event('notificacoes-atualizadas'))
+  } catch (error) {
+    erro.value =
+      obterStatusErro(error) === 403
+        ? 'Você não tem permissão para executar lembretes de agendamentos.'
+        : 'Não foi possível executar os lembretes de agendamentos agora.'
+    console.error(error)
+  } finally {
+    executandoLembretesAgendamentos.value = false
+  }
+}
+
 function abrir(item) {
   const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url'))
   if (!link) return
@@ -317,6 +439,15 @@ function abrir(item) {
 function abrirWhatsapp() {
   if (whatsappUrl.value) {
     window.open(whatsappUrl.value, '_blank', 'noopener,noreferrer')
+  }
+}
+
+function obterUsuarioLogado() {
+  try {
+    return JSON.parse(localStorage.getItem('usuario') || 'null')
+  } catch (error) {
+    console.error(error)
+    return null
   }
 }
 
@@ -343,6 +474,60 @@ function criarManualInicial() {
     telefoneDestino: '',
     gerarLinkWhatsapp: false,
   }
+}
+
+function criarConfiguracaoNotificacoesPadrao() {
+  return {
+    id: null,
+    empresaId: null,
+    empresaNome: '',
+    lembretesAgendamentoAtivo: true,
+    lembreteAgendamento24h: true,
+    lembreteAgendamento2h: true,
+    lembreteAgendamento30min: true,
+    notificacoesFinanceirasAtivo: true,
+    notificacoesSistemaAtivo: true,
+    canalInternoAtivo: true,
+    canalEmailAtivo: false,
+    canalWhatsappAtivo: false,
+  }
+}
+
+function normalizarConfiguracaoNotificacoes(dados) {
+  const origem = normalizarObjeto(dados)
+  const padrao = criarConfiguracaoNotificacoesPadrao()
+
+  return {
+    ...padrao,
+    ...origem,
+    lembretesAgendamentoAtivo: booleanoComPadrao(origem.lembretesAgendamentoAtivo, true),
+    lembreteAgendamento24h: booleanoComPadrao(origem.lembreteAgendamento24h, true),
+    lembreteAgendamento2h: booleanoComPadrao(origem.lembreteAgendamento2h, true),
+    lembreteAgendamento30min: booleanoComPadrao(origem.lembreteAgendamento30min, true),
+    notificacoesFinanceirasAtivo: booleanoComPadrao(origem.notificacoesFinanceirasAtivo, true),
+    notificacoesSistemaAtivo: booleanoComPadrao(origem.notificacoesSistemaAtivo, true),
+    canalInternoAtivo: booleanoComPadrao(origem.canalInternoAtivo, true),
+    canalEmailAtivo: booleanoComPadrao(origem.canalEmailAtivo, false),
+    canalWhatsappAtivo: booleanoComPadrao(origem.canalWhatsappAtivo, false),
+  }
+}
+
+function montarPayloadConfiguracaoNotificacoes(dados) {
+  return {
+    lembretesAgendamentoAtivo: dados.lembretesAgendamentoAtivo,
+    lembreteAgendamento24h: dados.lembreteAgendamento24h,
+    lembreteAgendamento2h: dados.lembreteAgendamento2h,
+    lembreteAgendamento30min: dados.lembreteAgendamento30min,
+    notificacoesFinanceirasAtivo: dados.notificacoesFinanceirasAtivo,
+    notificacoesSistemaAtivo: dados.notificacoesSistemaAtivo,
+    canalInternoAtivo: dados.canalInternoAtivo,
+    canalEmailAtivo: dados.canalEmailAtivo,
+    canalWhatsappAtivo: dados.canalWhatsappAtivo,
+  }
+}
+
+function booleanoComPadrao(valor, padrao) {
+  return valor === null || valor === undefined ? padrao : Boolean(valor)
 }
 
 function limparFiltrosNotificacoes() {
@@ -404,6 +589,17 @@ function numeroCampo(objeto, ...campos) {
   return Number(obterCampo(objeto, ...campos) || 0)
 }
 
+function formatarDataHora(valor) {
+  if (!valor) return 'Nenhum lembrete criado ainda.'
+  const data = new Date(valor)
+
+  return Number.isNaN(data.getTime()) ? '-' : data.toLocaleString('pt-BR')
+}
+
+function formatarTipoLembrete(tipo) {
+  return String(tipo || '-').replace('AGENDAMENTO_', '').toLowerCase()
+}
+
 function normalizar(valor) {
   return String(valor || '')
     .trim()
@@ -418,6 +614,10 @@ function normalizarStatus(status) {
 
 function obterMensagemErro(error, fallback) {
   return String(error?.message || '').trim() || fallback
+}
+
+function obterStatusErro(error) {
+  return Number(error?.status || error?.response?.status || error?.detalhes?.status || 0)
 }
 
 function statusValor(item) {
@@ -775,6 +975,30 @@ onMounted(() => {
       <p v-if="whatsappUrl" class="ajuda">O envio pelo WhatsApp é manual nesta fase.</p>
     </section>
 
+    <section v-if="abaAtiva === 'configuracoes'" class="secao">
+      <section class="card filtros">
+        <div class="campos">
+          <label>Empresa
+            <select v-model="configuracaoEmpresaId" @change="carregarConfiguracaoNotificacoesEmpresa">
+              <option value="">Selecione</option>
+              <option v-for="empresa in empresasOptions" :key="empresa.id" :value="empresa.id">{{ empresa.nome }}</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section v-if="!configuracaoEmpresaId" class="card">Selecione uma empresa para editar as configurações de notificações.</section>
+      <ConfiguracoesNotificacoesForm
+        v-else
+        v-model="configuracaoNotificacoes"
+        modo-admin
+        :carregando="carregandoConfiguracaoNotificacoes"
+        :salvando="salvandoConfiguracaoNotificacoes"
+        @salvar="salvarConfiguracaoNotificacoesEmpresa"
+        @recarregar="carregarConfiguracaoNotificacoesEmpresa"
+      />
+    </section>
+
     <section v-if="abaAtiva === 'logs'" class="secao">
       <section class="card filtros">
         <div class="campos">
@@ -810,21 +1034,131 @@ onMounted(() => {
       </section>
     </section>
 
-    <section v-if="abaAtiva === 'lembretes'" class="card lembretes">
-      <div>
-        <h2>Lembretes financeiros</h2>
-        <p>Este processo gera notificações internas para faturas próximas do vencimento e faturas vencidas.</p>
-      </div>
-      <button class="botao principal" :disabled="carregando" @click="executarLembretes">
-        Executar lembretes financeiros agora
-      </button>
-      <p v-if="resultadoLembretes" class="resultado">
-        {{ numeroCampo(resultadoLembretes, 'notificacoesCriadas', 'criadas', 'totalCriadas') }} notificações criadas.
-      </p>
+    <section v-if="abaAtiva === 'lembretes'" class="secao">
+      <section class="card lembretes">
+        <div>
+          <h2>Lembretes financeiros</h2>
+          <p>Este processo gera notificações internas para faturas próximas do vencimento e faturas vencidas.</p>
+        </div>
+        <button class="botao principal" :disabled="carregando" @click="executarLembretes">
+          Executar lembretes financeiros agora
+        </button>
+        <p v-if="resultadoLembretes" class="resultado">
+          {{ numeroCampo(resultadoLembretes, 'notificacoesCriadas', 'criadas', 'totalCriadas') }} notificações criadas.
+        </p>
+      </section>
+
+      <section v-if="superAdmin" class="card lembretes">
+        <div>
+          <h2>Lembretes de agendamentos próximos</h2>
+          <p>Execute manualmente a verificação de agendamentos próximos para gerar notificações internas para os administradores das empresas.</p>
+        </div>
+
+        <div class="campos">
+          <label>Empresa
+            <select v-model="filtrosLembretesAgendamentos.empresaId" @change="carregarLembretesAgendamentos">
+              <option value="">Todas</option>
+              <option v-for="empresa in empresasOptions" :key="empresa.id" :value="empresa.id">{{ empresa.nome }}</option>
+            </select>
+          </label>
+          <label>Tipo de lembrete
+            <select v-model="filtrosLembretesAgendamentos.tipoLembrete" @change="carregarLembretesAgendamentos">
+              <option v-for="tipo in tiposLembreteAgendamento" :key="tipo || 'TODOS'" :value="tipo">
+                {{ tipo || 'Todos' }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <button class="botao principal" :disabled="executandoLembretesAgendamentos" @click="executarLembretesAgendamentosAgora">
+          {{ executandoLembretesAgendamentos ? 'Executando...' : 'Executar lembretes de agendamentos' }}
+        </button>
+
+        <div class="grade-resultado">
+          <article class="mini-card">
+            <span>Total de lembretes</span>
+            <strong>{{ numeroCampo(resumoLembretesAgendamentos, 'totalLembretes') }}</strong>
+          </article>
+          <article class="mini-card">
+            <span>Total 24h</span>
+            <strong>{{ numeroCampo(resumoLembretesAgendamentos, 'total24h') }}</strong>
+          </article>
+          <article class="mini-card">
+            <span>Total 2h</span>
+            <strong>{{ numeroCampo(resumoLembretesAgendamentos, 'total2h') }}</strong>
+          </article>
+          <article class="mini-card">
+            <span>Total 30min</span>
+            <strong>{{ numeroCampo(resumoLembretesAgendamentos, 'total30min') }}</strong>
+          </article>
+          <article class="mini-card ultimo-lembrete">
+            <span>Último lembrete criado em</span>
+            <strong>{{ formatarDataHora(obterCampo(resumoLembretesAgendamentos, 'ultimoLembreteCriadoEm')) }}</strong>
+          </article>
+        </div>
+
+        <div v-if="resultadoLembretesAgendamentos" class="grade-resultado">
+          <article class="mini-card">
+            <span>Agendamentos verificados</span>
+            <strong>{{ numeroCampo(resultadoLembretesAgendamentos, 'agendamentosVerificados') }}</strong>
+          </article>
+          <article class="mini-card">
+            <span>Notificações criadas</span>
+            <strong>{{ numeroCampo(resultadoLembretesAgendamentos, 'notificacoesCriadas') }}</strong>
+          </article>
+          <article class="mini-card">
+            <span>Ignorados</span>
+            <strong>{{ numeroCampo(resultadoLembretesAgendamentos, 'ignorados') }}</strong>
+          </article>
+          <article class="mini-card">
+            <span>Lembretes 24h</span>
+            <strong>{{ numeroCampo(resultadoLembretesAgendamentos, 'lembretes24h') }}</strong>
+          </article>
+          <article class="mini-card">
+            <span>Lembretes 2h</span>
+            <strong>{{ numeroCampo(resultadoLembretesAgendamentos, 'lembretes2h') }}</strong>
+          </article>
+          <article class="mini-card">
+            <span>Lembretes 30min</span>
+            <strong>{{ numeroCampo(resultadoLembretesAgendamentos, 'lembretes30min') }}</strong>
+          </article>
+        </div>
+
+        <section v-if="carregandoLembretesAgendamentos" class="estado-inline">Carregando lembretes de agendamentos...</section>
+        <section v-else-if="!historicoLembretesAgendamentos.length" class="estado-inline">Nenhum lembrete de agendamento foi criado ainda.</section>
+        <section v-else class="tabela-card tabela-card-interna">
+          <div class="tabela-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Criação</th>
+                  <th>Empresa</th>
+                  <th>Tipo</th>
+                  <th>Cliente</th>
+                  <th>Serviço</th>
+                  <th>Funcionário</th>
+                  <th>Agendamento</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in historicoLembretesAgendamentos" :key="item.id">
+                  <td>{{ formatarData(obterCampo(item, 'criadoEm')) }}</td>
+                  <td>{{ obterCampo(item, 'empresaNome') || obterCampo(item, 'empresaId') || '-' }}</td>
+                  <td>{{ formatarTipoLembrete(obterCampo(item, 'tipoLembrete')) }}</td>
+                  <td>{{ obterCampo(item, 'clienteNome') || '-' }}</td>
+                  <td>{{ obterCampo(item, 'servicoNome') || '-' }}</td>
+                  <td>{{ obterCampo(item, 'funcionarioNome') || '-' }}</td>
+                  <td>{{ formatarData(obterCampo(item, 'dataHoraInicio')) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
     </section>
   </main>
 </template>
 
 <style scoped>
-.pagina,.secao,.filtros,.formulario,.lembretes{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:22px}.descricao,.cabecalho-card p,.ajuda{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.abas{display:flex;gap:8px;flex-wrap:wrap}.abas button{border:1px solid #cbd5e1;border-radius:8px;background:white;color:#334155;padding:10px 14px;cursor:pointer;font-weight:800}.abas button.ativa{background:#0f172a;color:white;border-color:#0f172a}.campos{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:14px}.campos.dois{grid-template-columns:1fr 180px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}.checkbox{display:flex;align-items:center;gap:8px}input,select,textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{opacity:.55;cursor:not-allowed}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.sucesso-botao{background:#15803d}.compacto{width:100%;padding:7px 8px;font-size:11px;line-height:1.2}.tabela-card{padding:0;overflow:hidden}.tabela-container{overflow-x:auto}table{width:100%;min-width:900px;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:left;vertical-align:top;font-size:13px;word-break:break-word}th{background:#f8fafc;color:#111827;font-size:11px;font-weight:800;text-transform:uppercase}.acoes-tabela{display:flex;flex-direction:column;gap:6px;min-width:130px}.prioridade,.status{display:inline-flex;width:fit-content;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.prioridade.critica{background:#fee2e2;color:#b91c1c}.prioridade.alta{background:#ffedd5;color:#c2410c}.prioridade.normal{background:#dbeafe;color:#1d4ed8}.prioridade.baixa{background:#e5e7eb;color:#4b5563}.status.criada{background:#fef3c7;color:#92400e}.status.lida,.status.enviada{background:#dbeafe;color:#1d4ed8}.status.arquivada{background:#e5e7eb;color:#374151}.status.falha,.status.cancelada,.status.excluida{background:#fee2e2;color:#b91c1c}.texto-acao{color:#64748b;font-weight:800}.resultado{color:#166534;font-weight:800}@media(max-width:900px){.cabecalho-pagina,.cabecalho-card,.acoes{align-items:flex-start;flex-direction:column}.campos,.campos.dois{grid-template-columns:1fr}}
+.pagina,.secao,.filtros,.formulario,.lembretes{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:22px}.descricao,.cabecalho-card p,.ajuda{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.abas{display:flex;gap:8px;flex-wrap:wrap}.abas button{border:1px solid #cbd5e1;border-radius:8px;background:white;color:#334155;padding:10px 14px;cursor:pointer;font-weight:800}.abas button.ativa{background:#0f172a;color:white;border-color:#0f172a}.campos{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:14px}.campos.dois{grid-template-columns:1fr 180px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}.checkbox{display:flex;align-items:center;gap:8px}input,select,textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{opacity:.55;cursor:not-allowed}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.sucesso-botao{background:#15803d}.compacto{width:100%;padding:7px 8px;font-size:11px;line-height:1.2}.tabela-card{padding:0;overflow:hidden}.tabela-container{overflow-x:auto}table{width:100%;min-width:900px;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:left;vertical-align:top;font-size:13px;word-break:break-word}th{background:#f8fafc;color:#111827;font-size:11px;font-weight:800;text-transform:uppercase}.acoes-tabela{display:flex;flex-direction:column;gap:6px;min-width:130px}.prioridade,.status{display:inline-flex;width:fit-content;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.prioridade.critica{background:#fee2e2;color:#b91c1c}.prioridade.alta{background:#ffedd5;color:#c2410c}.prioridade.normal{background:#dbeafe;color:#1d4ed8}.prioridade.baixa{background:#e5e7eb;color:#4b5563}.status.criada{background:#fef3c7;color:#92400e}.status.lida,.status.enviada{background:#dbeafe;color:#1d4ed8}.status.arquivada{background:#e5e7eb;color:#374151}.status.falha,.status.cancelada,.status.excluida{background:#fee2e2;color:#b91c1c}.texto-acao{color:#64748b;font-weight:800}.resultado{color:#166534;font-weight:800}.estado-inline{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:16px;color:#64748b;font-weight:800}.tabela-card-interna{border:1px solid #e5e7eb;border-radius:8px;background:white}.grade-resultado{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px}.mini-card{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:14px;display:grid;gap:6px}.mini-card span{color:#64748b;font-size:13px;font-weight:800}.mini-card strong{font-size:24px;font-weight:800;color:#111827}@media(max-width:900px){.cabecalho-pagina,.cabecalho-card,.acoes{align-items:flex-start;flex-direction:column}.campos,.campos.dois,.grade-resultado{grid-template-columns:1fr}}
 </style>

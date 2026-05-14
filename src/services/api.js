@@ -169,12 +169,14 @@ async function extrairMensagemResposta(response) {
 async function tratarResposta(response) {
   if (!response.ok) {
     const mensagem = await extrairMensagemResposta(response)
+    const erro = new Error(mensagem)
+    erro.status = response.status
 
     if (response.status === 401) {
       encerrarSessao()
     }
 
-    throw new Error(mensagem)
+    throw erro
   }
 
   if (response.status === 204) {
@@ -1232,6 +1234,42 @@ export async function buscarUsoPlano() {
   return tratarResposta(response)
 }
 
+export async function buscarMinhasConfiguracoesNotificacoes() {
+  const response = await fetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMinhasConfiguracoesNotificacoes(payload) {
+  const response = await fetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarConfiguracoesNotificacoesEmpresa(empresaId) {
+  const response = await fetch(`${API_URL}/admin/empresas/${empresaId}/notificacoes/configuracoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarConfiguracoesNotificacoesEmpresa(empresaId, payload) {
+  const response = await fetch(`${API_URL}/admin/empresas/${empresaId}/notificacoes/configuracoes`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarAgendamentosExcluidos(filtros = {}) {
   const response = await fetch(
     `${API_URL}/admin/lixeira/agendamentos${montarQueryString(filtros)}`,
@@ -1414,6 +1452,34 @@ export async function buscarLogsNotificacao(filtros = {}) {
 export async function executarLembretesFinanceiros() {
   const response = await fetch(`${API_URL}/admin/notificacoes/lembretes-financeiros/executar`, {
     method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function executarLembretesAgendamentos() {
+  const response = await fetch(`${API_URL}/admin/notificacoes/lembretes-agendamentos/executar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoLembretesAgendamentos(params = {}) {
+  const response = await fetch(
+    `${API_URL}/admin/notificacoes/lembretes-agendamentos/resumo${montarQueryString(params)}`,
+    {
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function buscarLembretesAgendamentos(params = {}) {
+  const response = await fetch(`${API_URL}/admin/notificacoes/lembretes-agendamentos${montarQueryString(params)}`, {
     headers: montarHeaders(),
   })
 
