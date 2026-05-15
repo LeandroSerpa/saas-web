@@ -13,7 +13,7 @@ import {
 
 const recorrencias = ref([])
 const empresas = ref([])
-const filtros = ref({ empresaId: '', ativo: '', busca: '' })
+const filtros = ref({ empresaId: '', status: '', busca: '' })
 const formulario = ref(criarFormulario())
 const editandoId = ref(null)
 const mostrarFormulario = ref(false)
@@ -24,7 +24,13 @@ const erro = ref('')
 const sucesso = ref('')
 const resumoGeracao = ref(null)
 
-const recorrenciasFiltradas = computed(() => recorrencias.value)
+const recorrenciasFiltradas = computed(() =>
+  recorrencias.value.filter((item) => {
+    if (filtros.value.status === 'ATIVA') return estaAtiva(item)
+    if (filtros.value.status === 'INATIVA') return !estaAtiva(item)
+    return true
+  }),
+)
 const cards = computed(() => {
   const total = recorrencias.value.length
   const ativas = recorrencias.value.filter((item) => estaAtiva(item)).length
@@ -45,7 +51,7 @@ async function carregarDados() {
     carregando.value = true
     erro.value = ''
     const [recorrenciasApi, empresasApi] = await Promise.all([
-      buscarFaturasRecorrentes(limparVazios(filtros.value)),
+      buscarFaturasRecorrentes(montarFiltrosApi()),
       buscarEmpresas(),
     ])
     recorrencias.value = normalizarLista(recorrenciasApi)
@@ -56,6 +62,22 @@ async function carregarDados() {
   } finally {
     carregando.value = false
   }
+}
+
+function montarFiltrosApi() {
+  const status = String(filtros.value.status || '').trim().toUpperCase()
+
+  return limparVazios({
+    empresaId: filtros.value.empresaId,
+    busca: filtros.value.busca,
+    status,
+    ativo: status === 'ATIVA' ? true : status === 'INATIVA' ? false : '',
+  })
+}
+
+function limparFiltros() {
+  filtros.value = { empresaId: '', status: '', busca: '' }
+  carregarDados()
 }
 
 function abrirNova() {
@@ -213,7 +235,20 @@ function montarPayload() {
 }
 
 function estaAtiva(item) {
-  return obterCampo(item, 'ativo', 'ativa') !== false
+  const ativo = obterCampo(item, 'ativo', 'ativa')
+  if (ativo !== '') return ativo !== false && String(ativo).toLowerCase() !== 'false'
+
+  const status = normalizarStatusRecorrencia(obterCampo(item, 'status', 'situacao'))
+  if (status) return status === 'ATIVA'
+
+  return true
+}
+
+function normalizarStatusRecorrencia(status) {
+  const valor = String(status || '').trim().toUpperCase()
+  if (['ATIVA', 'ATIVAS', 'ATIVO', 'ATIVOS'].includes(valor)) return 'ATIVA'
+  if (['INATIVA', 'INATIVAS', 'INATIVO', 'INATIVOS'].includes(valor)) return 'INATIVA'
+  return valor
 }
 
 function nomeEmpresa(item) {
@@ -329,10 +364,10 @@ onMounted(carregarDados)
           </select>
         </label>
         <label>Status
-          <select v-model="filtros.ativo">
+          <select v-model="filtros.status">
             <option value="">Todas</option>
-            <option value="true">Ativas</option>
-            <option value="false">Inativas</option>
+            <option value="ATIVA">Ativas</option>
+            <option value="INATIVA">Inativas</option>
           </select>
         </label>
         <label>Busca
@@ -341,6 +376,7 @@ onMounted(carregarDados)
       </div>
       <div class="acoes">
         <button class="botao principal" @click="carregarDados">Aplicar filtros</button>
+        <button class="botao secundario" @click="limparFiltros">Limpar filtros</button>
       </div>
     </section>
 
