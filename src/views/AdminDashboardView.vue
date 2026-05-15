@@ -4,38 +4,39 @@ import { useRouter } from 'vue-router'
 import { buscarDashboardSaasResumo } from '@/services/api'
 
 const router = useRouter()
-const dados = ref({})
+const dados = ref(criarDashboardPadrao())
+const dadosCarregados = ref(false)
 const carregando = ref(true)
 const atualizando = ref(false)
 const erro = ref('')
 const sucesso = ref('')
 
 const cardsEmpresas = computed(() => [
-  criarCard('Total de empresas', 'totalEmpresas'),
-  criarCard('Empresas ativas', 'empresasAtivas'),
-  criarCard('Empresas bloqueadas', 'empresasBloqueadas'),
-  criarCard('Agendamento público ativo', 'agendamentoPublicoAtivo', 'empresasComAgendamentoPublicoAtivo'),
+  criarCard('Total de empresas', 'empresas', 'total'),
+  criarCard('Empresas ativas', 'empresas', 'ativas'),
+  criarCard('Empresas bloqueadas', 'empresas', 'bloqueadas'),
+  criarCard('Agendamento público ativo', 'empresas', 'agendamentoPublicoAtivo'),
 ])
 
 const cardsAssinaturas = computed(() => [
-  criarCard('Assinaturas ativas', 'assinaturasAtivas'),
-  criarCard('Assinaturas vencidas', 'assinaturasVencidas', 'assinaturasAtrasadas'),
-  criarCard('Vencendo em 7 dias', 'assinaturasVencendo7Dias', 'vencendoEm7Dias'),
-  criarCard('Parceria / Permuta', 'assinaturasParceriaPermuta', 'parceriaPermuta'),
+  criarCard('Assinaturas ativas', 'assinaturas', 'ativas'),
+  criarCard('Assinaturas vencidas', 'assinaturas', 'vencidas'),
+  criarCard('Vencendo em 7 dias', 'assinaturas', 'vencendoEm7Dias'),
+  criarCard('Parceria / Permuta', 'assinaturas', 'parceriaPermuta'),
 ])
 
 const cardsFaturamento = computed(() => [
-  criarCard('Receita prevista do mês', 'receitaPrevistaMes', 'receitaMensalPrevista', true),
-  criarCard('Valor pago no mês', 'valorPagoMes', 'valorPagoNoMes', true),
-  criarCard('Valor pendente', 'valorPendente', 'valorAberto', true),
-  criarCard('Valor vencido', 'valorVencido', '', true),
+  criarCard('Receita prevista do mês', 'faturamento', 'receitaPrevistaMes', true),
+  criarCard('Valor pago no mês', 'faturamento', 'valorPagoMes', true),
+  criarCard('Valor pendente', 'faturamento', 'valorPendente', true),
+  criarCard('Valor vencido', 'faturamento', 'valorVencido', true),
 ])
 
 const cardsAutomacoes = computed(() => [
-  criarCard('Notificações novas', 'notificacoesNovas', 'notificacoesNaoLidas'),
-  criarCard('Total de execuções', 'totalExecucoes', 'totalExecucoesAutomacoes'),
-  criarCard('Sucessos', 'sucessos', 'execucoesSucesso'),
-  criarCard('Erros', 'erros', 'execucoesErro'),
+  criarCard('Notificações novas', 'notificacoes', 'novas'),
+  criarCard('Total de execuções', 'automacoes', 'totalExecucoes'),
+  criarCard('Sucessos', 'automacoes', 'sucessos'),
+  criarCard('Erros', 'automacoes', 'erros'),
 ])
 
 const alertas = computed(() => lista('alertas', 'alertasPlataforma', 'alertasAdministrativos'))
@@ -45,11 +46,12 @@ const ultimasAutomacoes = computed(() => lista('ultimasAutomacoes', 'ultimasExec
 
 async function carregarDashboard(mostrarSucesso = false) {
   try {
-    carregando.value = !dados.value || !Object.keys(dados.value).length
+    carregando.value = !dadosCarregados.value
     atualizando.value = true
     erro.value = ''
     sucesso.value = ''
-    dados.value = normalizarObjeto(await buscarDashboardSaasResumo())
+    dados.value = normalizarDashboard(await buscarDashboardSaasResumo())
+    dadosCarregados.value = true
 
     if (mostrarSucesso) {
       sucesso.value = 'Dashboard SaaS atualizado com sucesso.'
@@ -68,8 +70,8 @@ async function carregarDashboard(mostrarSucesso = false) {
   }
 }
 
-function criarCard(rotulo, campo, alternativo = '', dinheiro = false) {
-  const valor = obterCampo(dados.value, campo, alternativo)
+function criarCard(rotulo, secao, campo, dinheiro = false) {
+  const valor = obterCampo(dados.value?.[secao], campo)
 
   return {
     rotulo,
@@ -212,6 +214,75 @@ function obterCampo(objeto, ...campos) {
 function normalizarObjeto(valor) {
   if (!valor || typeof valor !== 'object') return {}
   return valor.data && !Array.isArray(valor.data) ? valor.data : valor
+}
+
+function criarDashboardPadrao() {
+  return {
+    periodo: {},
+    empresas: {
+      total: 0,
+      ativas: 0,
+      bloqueadas: 0,
+      inativas: 0,
+      agendamentoPublicoAtivo: 0,
+    },
+    assinaturas: {
+      total: 0,
+      ativas: 0,
+      vencidas: 0,
+      vencendoEm7Dias: 0,
+      parceriaPermuta: 0,
+    },
+    faturamento: {
+      totalFaturas: 0,
+      pendentes: 0,
+      pagas: 0,
+      vencidas: 0,
+      canceladas: 0,
+      valorPendente: 0,
+      valorPagoMes: 0,
+      valorVencido: 0,
+      receitaPrevistaMes: 0,
+    },
+    notificacoes: {
+      total: 0,
+      novas: 0,
+      lidas: 0,
+      arquivadas: 0,
+      lixeira: 0,
+    },
+    automacoes: {
+      totalExecucoes: 0,
+      sucessos: 0,
+      erros: 0,
+      emExecucao: 0,
+      ultimaExecucao: null,
+    },
+    alertas: [],
+    ultimasEmpresas: [],
+    ultimasFaturas: [],
+    ultimasAutomacoes: [],
+  }
+}
+
+function normalizarDashboard(resposta) {
+  const origem = normalizarObjeto(resposta)
+  const padrao = criarDashboardPadrao()
+
+  return {
+    ...padrao,
+    ...origem,
+    periodo: { ...padrao.periodo, ...(origem.periodo || {}) },
+    empresas: { ...padrao.empresas, ...(origem.empresas || {}) },
+    assinaturas: { ...padrao.assinaturas, ...(origem.assinaturas || {}) },
+    faturamento: { ...padrao.faturamento, ...(origem.faturamento || {}) },
+    notificacoes: { ...padrao.notificacoes, ...(origem.notificacoes || {}) },
+    automacoes: { ...padrao.automacoes, ...(origem.automacoes || {}) },
+    alertas: normalizarLista(origem.alertas),
+    ultimasEmpresas: normalizarLista(origem.ultimasEmpresas),
+    ultimasFaturas: normalizarLista(origem.ultimasFaturas),
+    ultimasAutomacoes: normalizarLista(origem.ultimasAutomacoes),
+  }
 }
 
 function normalizarLista(valor) {
