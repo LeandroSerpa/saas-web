@@ -1486,6 +1486,65 @@ export async function buscarLembretesAgendamentos(params = {}) {
   return tratarResposta(response)
 }
 
+export async function buscarAutomacoesDisponiveis() {
+  const response = await fetch(`${API_URL}/admin/automacoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoAutomacoes() {
+  const response = await fetch(`${API_URL}/admin/automacoes/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarExecucoesAutomacoes(params = {}) {
+  const response = await fetch(`${API_URL}/admin/automacoes/execucoes${montarQueryString(params)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarExecucaoAutomacaoPorId(id) {
+  const response = await fetch(`${API_URL}/admin/automacoes/execucoes/${id}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function executarAutomacaoLembretesAgendamentos() {
+  const response = await fetch(`${API_URL}/admin/automacoes/lembretes-agendamentos/executar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function executarAutomacaoLembretesFinanceiros() {
+  const response = await fetch(`${API_URL}/admin/automacoes/lembretes-financeiros/executar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function executarAutomacaoFaturasRecorrentes() {
+  const response = await fetch(`${API_URL}/admin/automacoes/faturas-recorrentes/gerar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function login(email, senha) {
   const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',

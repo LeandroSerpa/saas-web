@@ -1037,6 +1037,14 @@ onMounted(() => {
     <section v-if="abaAtiva === 'lembretes'" class="secao">
       <section class="card lembretes">
         <div>
+          <h2>Central de automações</h2>
+          <p>As execuções manuais e o histórico completo das rotinas internas agora ficam na Central de Automações.</p>
+        </div>
+        <RouterLink class="botao principal link-botao" to="/admin/automacoes">Abrir Central de Automações</RouterLink>
+      </section>
+
+      <section class="card lembretes">
+        <div>
           <h2>Lembretes financeiros</h2>
           <p>Este processo gera notificações internas para faturas próximas do vencimento e faturas vencidas.</p>
         </div>

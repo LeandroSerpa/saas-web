@@ -30,6 +30,7 @@ import ConfiguracoesPagamentoView from '../views/ConfiguracoesPagamentoView.vue'
 import NotificacoesView from '../views/NotificacoesView.vue'
 import AdminNotificacoesView from '../views/AdminNotificacoesView.vue'
 import ConfiguracoesNotificacoesView from '../views/ConfiguracoesNotificacoesView.vue'
+import AdminAutomacoesView from '../views/AdminAutomacoesView.vue'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -220,6 +221,12 @@ const router = createRouter({
       path: '/admin/notificacoes',
       name: 'admin-notificacoes',
       component: AdminNotificacoesView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/automacoes',
+      name: 'admin-automacoes',
+      component: AdminAutomacoesView,
       meta: rotasSuperAdmin,
     },
     {
