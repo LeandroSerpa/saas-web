@@ -19,7 +19,7 @@ import {
   executarLembretesFinanceiros,
   excluirNotificacaoAdmin,
   listarNotificacoesLixeiraAdmin,
-  marcarNotificacaoComoLida,
+  marcarNotificacaoComoLidaAdmin,
   restaurarNotificacao,
   salvarConfiguracoesNotificacoesEmpresa,
 } from '@/services/api'
@@ -40,6 +40,8 @@ const usuarioLogado = ref(obterUsuarioLogado())
 const superAdmin = computed(() => ehSuperAdmin(usuarioLogado.value))
 const prioridades = ['BAIXA', 'NORMAL', 'ALTA', 'CRITICA']
 const tiposLembreteAgendamento = ['', 'AGENDAMENTO_24H', 'AGENDAMENTO_2H', 'AGENDAMENTO_30MIN']
+const tiposLogs = ['', 'SISTEMA', 'FINANCEIRO', 'AGENDAMENTO', 'FATURA', 'COMPROVANTE', 'NOTIFICACAO']
+const canaisLogs = ['', 'INTERNA', 'EMAIL', 'WHATSAPP']
 const perfisDestino = ['ADMIN', 'SUPER_ADMIN']
 const abaAtiva = ref('notificacoes')
 const notificacoes = ref([])
@@ -71,11 +73,26 @@ const erro = ref('')
 const sucesso = ref('')
 
 const empresasOptions = computed(() =>
-  empresas.value.map((empresa) => ({
-    id: obterCampo(empresa, 'id', 'empresaId'),
-    nome: obterCampo(empresa, 'nome', 'empresaNome', 'razaoSocial') || `Empresa ${obterCampo(empresa, 'id', 'empresaId')}`,
-  })),
+  empresas.value
+    .map((empresa) => {
+      const id = obterCampo(empresa, 'id', 'empresaId')
+
+      return {
+        id,
+        nome: obterCampo(empresa, 'nome', 'empresaNome', 'razaoSocial') || `Empresa ${id}`,
+      }
+    })
+    .filter((empresa) => empresa.id !== ''),
 )
+
+const destinosLogs = computed(() => [
+  { valor: '', rotulo: 'Todos' },
+  { valor: 'ADMIN', rotulo: 'ADMIN' },
+  ...empresasOptions.value.map((empresa) => ({
+    valor: `empresa:${empresa.id}`,
+    rotulo: empresa.nome,
+  })),
+])
 
 async function carregarAba() {
   erro.value = ''
@@ -205,7 +222,7 @@ async function salvarConfiguracaoNotificacoesEmpresa() {
 }
 
 async function marcarComoLida(item) {
-  await acaoNotificacao(item, () => marcarNotificacaoComoLida(item.id), 'Notificação marcada como lida.')
+  await acaoNotificacao(item, () => marcarNotificacaoComoLidaAdmin(item.id), 'Notificação marcada como lida com sucesso.')
 }
 
 async function arquivar(item) {
@@ -543,6 +560,22 @@ function limparFiltrosLixeira() {
 function limparFiltrosLogs() {
   filtrosLogs.value = { tipo: '', canal: '', destino: '', dataInicial: '', dataFinal: '' }
   carregarLogs()
+}
+
+function destinoLogTexto(item) {
+  const descricao = obterCampo(item, 'destinoDescricao', 'destinoNome', 'descricaoDestino')
+  if (descricao) return descricao
+
+  const destino = obterCampo(item, 'destino', 'usuarioDestino', 'perfilDestino', 'emailDestino')
+  const texto = String(destino || '').trim()
+  if (!texto) return '-'
+  if (normalizar(texto) === 'ADMIN') return 'ADMIN'
+
+  const match = texto.match(/^empresa:(.+)$/i)
+  if (!match) return texto
+
+  const empresa = empresasOptions.value.find((opcao) => String(opcao.id) === String(match[1]))
+  return empresa?.nome || texto
 }
 
 function prioridadeClasse(valor) {
@@ -1002,9 +1035,23 @@ onMounted(() => {
     <section v-if="abaAtiva === 'logs'" class="secao">
       <section class="card filtros">
         <div class="campos">
-          <label>Tipo <input v-model="filtrosLogs.tipo" type="text" /></label>
-          <label>Canal <input v-model="filtrosLogs.canal" type="text" /></label>
-          <label>Destino <input v-model="filtrosLogs.destino" type="text" /></label>
+          <label>Tipo
+            <select v-model="filtrosLogs.tipo">
+              <option v-for="tipo in tiposLogs" :key="tipo || 'TODOS'" :value="tipo">{{ tipo || 'Todos' }}</option>
+            </select>
+          </label>
+          <label>Canal
+            <select v-model="filtrosLogs.canal">
+              <option v-for="canal in canaisLogs" :key="canal || 'TODOS'" :value="canal">{{ canal || 'Todos' }}</option>
+            </select>
+          </label>
+          <label>Destino
+            <select v-model="filtrosLogs.destino">
+              <option v-for="destino in destinosLogs" :key="destino.valor || 'TODOS'" :value="destino.valor">
+                {{ destino.rotulo }}
+              </option>
+            </select>
+          </label>
           <label>Data inicial <input v-model="filtrosLogs.dataInicial" type="date" /></label>
           <label>Data final <input v-model="filtrosLogs.dataFinal" type="date" /></label>
         </div>
@@ -1024,7 +1071,7 @@ onMounted(() => {
                 <td>{{ formatarData(obterCampo(item, 'criadoEm', 'dataCriacao', 'data', 'createdAt')) }}</td>
                 <td>{{ obterCampo(item, 'tipo') || '-' }}</td>
                 <td>{{ obterCampo(item, 'canal') || '-' }}</td>
-                <td>{{ obterCampo(item, 'destino') || '-' }}</td>
+                <td>{{ destinoLogTexto(item) }}</td>
                 <td>{{ obterCampo(item, 'sucesso') === false ? 'Não' : 'Sim' }}</td>
                 <td>{{ obterCampo(item, 'erro', 'mensagemErro') || '-' }}</td>
               </tr>

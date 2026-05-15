@@ -39,6 +39,7 @@ async function carregarDados() {
     carregando.value = true
     erro.value = ''
     sucesso.value = ''
+    detalhe.value = null
     const [automacoesApi, resumoApi, execucoesApi] = await Promise.all([
       buscarAutomacoesDisponiveis(),
       buscarResumoAutomacoes(),
@@ -88,8 +89,8 @@ async function executarAutomacao(item) {
     executandoTipo.value = tipo
     erro.value = ''
     sucesso.value = ''
-    await acao()
-    sucesso.value = 'Automação executada com sucesso.'
+    const resposta = await acao()
+    sucesso.value = mensagemSucessoAutomacao(tipo, resposta)
     await carregarResumoEHistorico()
   } catch (error) {
     erro.value = mensagemErroExecucao(error)
@@ -116,6 +117,12 @@ async function abrirDetalhes(item) {
 
 function limparFiltros() {
   filtros.value = { tipoAutomacao: '', status: '', dataInicio: '', dataFim: '' }
+  detalhe.value = null
+  carregarResumoEHistorico()
+}
+
+function aplicarFiltros() {
+  detalhe.value = null
   carregarResumoEHistorico()
 }
 
@@ -125,6 +132,25 @@ function obterAcaoExecucao(tipo) {
     LEMBRETES_FINANCEIROS: executarAutomacaoLembretesFinanceiros,
     FATURAS_RECORRENTES: executarAutomacaoFaturasRecorrentes,
   }[tipo]
+}
+
+function mensagemSucessoAutomacao(tipo, resposta) {
+  if (typeof resposta === 'string' && resposta.trim()) {
+    return resposta.trim()
+  }
+
+  const dados = normalizarObjeto(resposta)
+  const mensagemBackend = obterCampo(dados, 'mensagemResultado', 'mensagem', 'message', 'detail')
+
+  if (mensagemBackend) {
+    return mensagemBackend
+  }
+
+  return {
+    LEMBRETES_AGENDAMENTOS: 'Lembretes de agendamentos executados com sucesso.',
+    LEMBRETES_FINANCEIROS: 'Lembretes financeiros executados com sucesso.',
+    FATURAS_RECORRENTES: 'Faturas recorrentes geradas com sucesso.',
+  }[tipo] || 'Automação executada com sucesso.'
 }
 
 function mensagemErroExecucao(error) {
@@ -294,9 +320,9 @@ onMounted(carregarDados)
         <label>Data final <input v-model="filtros.dataFim" type="date" /></label>
       </div>
       <div class="acoes">
-        <button class="botao principal" @click="carregarResumoEHistorico">Filtrar</button>
+        <button class="botao principal" @click="aplicarFiltros">Filtrar</button>
         <button class="botao secundario" @click="limparFiltros">Limpar filtros</button>
-        <button class="botao secundario" @click="carregarResumoEHistorico">Atualizar</button>
+        <button class="botao secundario" @click="aplicarFiltros">Atualizar</button>
       </div>
     </section>
 

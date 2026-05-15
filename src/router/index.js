@@ -230,6 +230,66 @@ const router = createRouter({
       meta: rotasSuperAdmin,
     },
     {
+      path: '/admin/empresas',
+      name: 'admin-empresas',
+      component: EmpresasView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/planos',
+      name: 'admin-planos',
+      component: PlanosView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/assinaturas',
+      name: 'admin-assinaturas',
+      component: AssinaturasView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/inadimplencia',
+      name: 'admin-inadimplencia',
+      component: InadimplenciaView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/faturas-recorrentes',
+      name: 'admin-faturas-recorrentes',
+      component: FaturasRecorrentesView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/config-pagamento',
+      name: 'admin-config-pagamento',
+      component: ConfiguracoesPagamentoView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/segmentos-modulos',
+      name: 'admin-segmentos-modulos',
+      component: SegmentosView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/solicitacoes',
+      name: 'admin-solicitacoes',
+      component: SolicitacoesCadastroView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/auditoria',
+      name: 'admin-auditoria',
+      component: AuditoriaView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/lixeira',
+      name: 'admin-lixeira',
+      component: LixeiraView,
+      meta: rotasSuperAdmin,
+    },
+    {
       path: '/inadimplencia',
       name: 'inadimplencia',
       component: InadimplenciaView,
@@ -258,6 +318,11 @@ const router = createRouter({
       name: 'lixeira',
       component: LixeiraView,
       meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/:pathMatch(.*)*',
+      name: 'admin-nao-encontrado',
+      redirect: '/dashboard',
     },
     {
       path: '/agendar/:slug',

@@ -1315,6 +1315,15 @@ export async function marcarNotificacaoComoLida(id) {
   return tratarResposta(response)
 }
 
+export async function marcarNotificacaoComoLidaAdmin(id) {
+  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/lida`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function marcarTodasNotificacoesComoLidas() {
   const response = await fetch(`${API_URL}/notificacoes/marcar-todas-lidas`, {
     method: 'PATCH',
