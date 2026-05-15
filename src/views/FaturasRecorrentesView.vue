@@ -32,9 +32,10 @@ const recorrenciasFiltradas = computed(() =>
   }),
 )
 const cards = computed(() => {
-  const total = recorrencias.value.length
-  const ativas = recorrencias.value.filter((item) => estaAtiva(item)).length
-  const valorMensal = recorrencias.value
+  const base = recorrenciasFiltradas.value
+  const total = base.length
+  const ativas = base.filter((item) => estaAtiva(item)).length
+  const valorMensal = base
     .filter((item) => estaAtiva(item))
     .reduce((totalValor, item) => totalValor + numero(obterCampo(item, 'valor')), 0)
   return [
@@ -70,7 +71,6 @@ function montarFiltrosApi() {
   return limparVazios({
     empresaId: filtros.value.empresaId,
     busca: filtros.value.busca,
-    status,
     ativo: status === 'ATIVA' ? true : status === 'INATIVA' ? false : '',
   })
 }
@@ -172,10 +172,15 @@ async function gerarProxima(item) {
 }
 
 async function gerarMes() {
-  const competencia = window.prompt('Informe a competência no formato YYYY-MM:')
-  if (!competencia?.trim()) return
+  const competencia = window.prompt('Informe a competência no formato AAAA-MM. Exemplo: 2026-05:')
+  if (!competencia?.trim()) {
+    erro.value = 'Informe a competência no formato correto: AAAA-MM. Exemplo: 2026-05.'
+    sucesso.value = ''
+    return
+  }
   if (!/^\d{4}-\d{2}$/.test(competencia.trim())) {
-    erro.value = 'Informe a competência no formato YYYY-MM.'
+    erro.value = 'Informe a competência no formato correto: AAAA-MM. Exemplo: 2026-05.'
+    sucesso.value = ''
     return
   }
 
@@ -187,12 +192,22 @@ async function gerarMes() {
     resumoGeracao.value = normalizarObjeto(resposta)
     const criadas = obterCampo(resumoGeracao.value, 'criadas', 'faturasCriadas', 'totalCriadas') || 0
     const ignoradas = obterCampo(resumoGeracao.value, 'ignoradas', 'faturasIgnoradas', 'totalIgnoradas') || 0
-    sucesso.value = `Geração concluída. ${criadas} faturas criadas, ${ignoradas} ignoradas.`
+    sucesso.value = obterMensagemSucessoGeracao(resumoGeracao.value, criadas, ignoradas)
     await carregarDados()
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível gerar as faturas recorrentes.')
     console.error(error)
   }
+}
+
+function obterMensagemSucessoGeracao(resumo, criadas, ignoradas) {
+  const mensagemApi = obterCampo(resumo, 'mensagem', 'message', 'mensagemResultado', 'descricao')
+
+  if (mensagemApi) {
+    return mensagemApi
+  }
+
+  return `Geração concluída. ${criadas} faturas criadas, ${ignoradas} ignoradas.`
 }
 
 function fecharFormulario() {
@@ -261,7 +276,7 @@ function nomeEmpresa(item) {
 }
 
 function obterProximaCompetencia() {
-  const valores = recorrencias.value.map((item) => obterCampo(item, 'proximaCompetencia')).filter(Boolean).sort()
+  const valores = recorrenciasFiltradas.value.map((item) => obterCampo(item, 'proximaCompetencia')).filter(Boolean).sort()
   return valores[0] ? formatarCompetencia(valores[0]) : '-'
 }
 
