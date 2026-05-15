@@ -1458,6 +1458,14 @@ export async function buscarLogsNotificacao(filtros = {}) {
   return tratarResposta(response)
 }
 
+export async function buscarOpcoesLogsNotificacao() {
+  const response = await fetch(`${API_URL}/admin/notificacoes/logs/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function executarLembretesFinanceiros() {
   const response = await fetch(`${API_URL}/admin/notificacoes/lembretes-financeiros/executar`, {
     method: 'POST',

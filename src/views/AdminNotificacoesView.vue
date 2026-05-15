@@ -10,6 +10,7 @@ import {
   buscarEmpresas,
   buscarLogsNotificacao,
   buscarNotificacoesAdmin,
+  buscarOpcoesLogsNotificacao,
   buscarResumoLembretesAgendamentos,
   buscarTemplatesNotificacao,
   desarquivarNotificacaoAdmin,
@@ -40,8 +41,8 @@ const usuarioLogado = ref(obterUsuarioLogado())
 const superAdmin = computed(() => ehSuperAdmin(usuarioLogado.value))
 const prioridades = ['BAIXA', 'NORMAL', 'ALTA', 'CRITICA']
 const tiposLembreteAgendamento = ['', 'AGENDAMENTO_24H', 'AGENDAMENTO_2H', 'AGENDAMENTO_30MIN']
-const tiposLogs = ['', 'SISTEMA', 'FINANCEIRO', 'AGENDAMENTO', 'FATURA', 'COMPROVANTE', 'NOTIFICACAO']
-const canaisLogs = ['', 'INTERNA', 'EMAIL', 'WHATSAPP']
+const tiposLogsFallback = ['SISTEMA', 'FINANCEIRO', 'AGENDAMENTO', 'FATURA', 'COMPROVANTE', 'NOTIFICACAO']
+const canaisLogsFallback = ['INTERNA', 'EMAIL', 'WHATSAPP']
 const perfisDestino = ['ADMIN', 'SUPER_ADMIN']
 const abaAtiva = ref('notificacoes')
 const notificacoes = ref([])
@@ -49,6 +50,7 @@ const notificacoesLixeira = ref([])
 const templates = ref([])
 const logs = ref([])
 const empresas = ref([])
+const opcoesLogs = ref({ tipos: [], canais: [], destinos: [] })
 const templateEditando = ref(null)
 const notificacaoEditando = ref(null)
 const whatsappUrl = ref('')
@@ -85,13 +87,11 @@ const empresasOptions = computed(() =>
     .filter((empresa) => empresa.id !== ''),
 )
 
+const tiposLogs = computed(() => ['', ...(opcoesLogs.value.tipos.length ? opcoesLogs.value.tipos : tiposLogsFallback)])
+const canaisLogs = computed(() => ['', ...(opcoesLogs.value.canais.length ? opcoesLogs.value.canais : canaisLogsFallback)])
 const destinosLogs = computed(() => [
   { valor: '', rotulo: 'Todos' },
-  { valor: 'ADMIN', rotulo: 'ADMIN' },
-  ...empresasOptions.value.map((empresa) => ({
-    valor: `empresa:${empresa.id}`,
-    rotulo: empresa.nome,
-  })),
+  ...(opcoesLogs.value.destinos.length ? opcoesLogs.value.destinos : destinosLogsFallback()),
 ])
 
 async function carregarAba() {
@@ -132,6 +132,15 @@ async function carregarLogs() {
   await executarComCarregamento(async () => {
     logs.value = normalizarLista(await buscarLogsNotificacao(limparVazios(filtrosLogs.value)))
   }, 'Não foi possível carregar os logs.')
+}
+
+async function carregarOpcoesLogs() {
+  try {
+    opcoesLogs.value = normalizarOpcoesLogs(await buscarOpcoesLogsNotificacao())
+  } catch (error) {
+    opcoesLogs.value = { tipos: [], canais: [], destinos: [] }
+    console.error(error)
+  }
 }
 
 async function carregarLembretesAgendamentos() {
@@ -562,6 +571,17 @@ function limparFiltrosLogs() {
   carregarLogs()
 }
 
+function destinosLogsFallback() {
+  return [
+    { valor: 'ADMIN', rotulo: 'ADMIN' },
+    { valor: 'SUPER_ADMIN', rotulo: 'SUPER_ADMIN' },
+    ...empresasOptions.value.map((empresa) => ({
+      valor: `empresa:${empresa.id}`,
+      rotulo: empresa.nome,
+    })),
+  ]
+}
+
 function destinoLogTexto(item) {
   const descricao = obterCampo(item, 'destinoDescricao', 'destinoNome', 'descricaoDestino')
   if (descricao) return descricao
@@ -570,12 +590,42 @@ function destinoLogTexto(item) {
   const texto = String(destino || '').trim()
   if (!texto) return '-'
   if (normalizar(texto) === 'ADMIN') return 'ADMIN'
+  if (normalizar(texto) === 'SUPER_ADMIN') return 'SUPER_ADMIN'
+
+  const opcao = destinosLogs.value.find((destinoOpcao) => destinoOpcao.valor === texto)
+  if (opcao?.rotulo) return opcao.rotulo
 
   const match = texto.match(/^empresa:(.+)$/i)
   if (!match) return texto
-
   const empresa = empresasOptions.value.find((opcao) => String(opcao.id) === String(match[1]))
   return empresa?.nome || texto
+}
+
+function normalizarOpcoesLogs(dados) {
+  const origem = normalizarObjeto(dados)
+
+  return {
+    tipos: normalizarLista(origem.tipos).map((tipo) => String(tipo).trim()).filter(Boolean),
+    canais: normalizarLista(origem.canais).map((canal) => String(canal).trim()).filter(Boolean),
+    destinos: normalizarLista(origem.destinos)
+      .map(normalizarOpcaoDestinoLog)
+      .filter((destino) => destino.valor && destino.rotulo),
+  }
+}
+
+function normalizarOpcaoDestinoLog(item) {
+  if (typeof item === 'string') {
+    return { valor: item, rotulo: item }
+  }
+
+  if (!item || typeof item !== 'object') {
+    return { valor: '', rotulo: '' }
+  }
+
+  const valor = obterCampo(item, 'valor', 'value', 'destino', 'codigo')
+  const rotulo = obterCampo(item, 'label', 'rotulo', 'descricao', 'nome', 'texto', 'destinoDescricao') || valor
+
+  return { valor, rotulo }
 }
 
 function prioridadeClasse(valor) {
@@ -724,6 +774,7 @@ watch(abaAtiva, carregarAba)
 
 onMounted(() => {
   carregarEmpresas()
+  carregarOpcoesLogs()
   carregarAba()
 })
 </script>
