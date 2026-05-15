@@ -637,6 +637,14 @@ export async function buscarDashboardSaas() {
   return tratarResposta(response)
 }
 
+export async function buscarDashboardSaasResumo() {
+  const response = await fetch(`${API_URL}/admin/dashboard-saas/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarOnboarding() {
   const response = await fetch(`${API_URL}/onboarding`, {
     headers: montarHeaders(),

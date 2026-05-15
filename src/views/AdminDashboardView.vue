@@ -1,124 +1,171 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { buscarDashboardSaas } from '@/services/api'
+import { useRouter } from 'vue-router'
+import { buscarDashboardSaasResumo } from '@/services/api'
 
+const router = useRouter()
 const dados = ref({})
 const carregando = ref(true)
+const atualizando = ref(false)
 const erro = ref('')
+const sucesso = ref('')
 
-const cards = computed(() => [
+const cardsEmpresas = computed(() => [
   criarCard('Total de empresas', 'totalEmpresas'),
   criarCard('Empresas ativas', 'empresasAtivas'),
-  criarCard('Empresas inativas', 'empresasInativas'),
-  criarCard('Total de usuários', 'totalUsuarios'),
-  criarCard('Total de clientes', 'totalClientes'),
-  criarCard('Total de serviços', 'totalServicos'),
-  criarCard('Total de funcionários', 'totalFuncionarios'),
-  criarCard('Total de agendamentos', 'totalAgendamentos'),
-  criarCard('Agendamentos do mês', 'agendamentosMes', 'agendamentosDoMes'),
-  criarCard('Agendamentos hoje', 'agendamentosHoje'),
-  criarCard('Total de planos', 'totalPlanos'),
-  criarCard('Planos ativos', 'planosAtivos'),
-  criarCard('Total de assinaturas', 'totalAssinaturas'),
+  criarCard('Empresas bloqueadas', 'empresasBloqueadas'),
+  criarCard('Agendamento público ativo', 'agendamentoPublicoAtivo', 'empresasComAgendamentoPublicoAtivo'),
+])
+
+const cardsAssinaturas = computed(() => [
   criarCard('Assinaturas ativas', 'assinaturasAtivas'),
-  criarCard('Assinaturas em teste', 'assinaturasTeste'),
-  criarCard('Assinaturas atrasadas', 'assinaturasAtrasadas'),
-  criarCard('Assinaturas bloqueadas', 'assinaturasBloqueadas'),
-  criarCard('Assinaturas canceladas', 'assinaturasCanceladas'),
-  criarCard('Receita mensal prevista', 'receitaMensalPrevista', 'receitaPrevistaMensal', true),
-  criarCard('Faturas abertas', 'faturasAbertas'),
-  criarCard('Faturas pagas', 'faturasPagas'),
-  criarCard('Faturas vencidas', 'faturasVencidas'),
-  criarCard('Valor aberto', 'valorAberto', '', true),
+  criarCard('Assinaturas vencidas', 'assinaturasVencidas', 'assinaturasAtrasadas'),
+  criarCard('Vencendo em 7 dias', 'assinaturasVencendo7Dias', 'vencendoEm7Dias'),
+  criarCard('Parceria / Permuta', 'assinaturasParceriaPermuta', 'parceriaPermuta'),
+])
+
+const cardsFaturamento = computed(() => [
+  criarCard('Receita prevista do mês', 'receitaPrevistaMes', 'receitaMensalPrevista', true),
   criarCard('Valor pago no mês', 'valorPagoMes', 'valorPagoNoMes', true),
+  criarCard('Valor pendente', 'valorPendente', 'valorAberto', true),
   criarCard('Valor vencido', 'valorVencido', '', true),
 ])
 
-const secoes = computed(() => [
-  { titulo: 'Empresas por plano', itens: lista('empresasPorPlano') },
-  { titulo: 'Empresas por status da assinatura', itens: lista('empresasPorStatusAssinatura') },
-  { titulo: 'Agendamentos por status', itens: lista('agendamentosPorStatus') },
-  { titulo: 'Top empresas por agendamentos', itens: lista('topEmpresasPorAgendamentos') },
-  { titulo: 'Últimas empresas cadastradas', itens: lista('ultimasEmpresas') },
-  { titulo: 'Últimas assinaturas', itens: lista('ultimasAssinaturas') },
-  { titulo: 'Últimos logs de auditoria', itens: lista('ultimosLogsAuditoria') },
-  { titulo: 'Alertas administrativos', itens: lista('alertasAdministrativos') },
+const cardsAutomacoes = computed(() => [
+  criarCard('Notificações novas', 'notificacoesNovas', 'notificacoesNaoLidas'),
+  criarCard('Total de execuções', 'totalExecucoes', 'totalExecucoesAutomacoes'),
+  criarCard('Sucessos', 'sucessos', 'execucoesSucesso'),
+  criarCard('Erros', 'erros', 'execucoesErro'),
 ])
 
-async function carregarDashboard() {
+const alertas = computed(() => lista('alertas', 'alertasPlataforma', 'alertasAdministrativos'))
+const ultimasEmpresas = computed(() => lista('ultimasEmpresas', 'empresasRecentes'))
+const ultimasFaturas = computed(() => lista('ultimasFaturas', 'faturasRecentes'))
+const ultimasAutomacoes = computed(() => lista('ultimasAutomacoes', 'ultimasExecucoesAutomacoes', 'execucoesRecentes'))
+
+async function carregarDashboard(mostrarSucesso = false) {
   try {
-    carregando.value = true
+    carregando.value = !dados.value || !Object.keys(dados.value).length
+    atualizando.value = true
     erro.value = ''
-    dados.value = await buscarDashboardSaas()
+    sucesso.value = ''
+    dados.value = normalizarObjeto(await buscarDashboardSaasResumo())
+
+    if (mostrarSucesso) {
+      sucesso.value = 'Dashboard SaaS atualizado com sucesso.'
+    }
   } catch (error) {
-    erro.value = 'Não foi possível carregar o Dashboard SaaS.'
+    if (obterStatusErro(error) === 403) {
+      router.push('/dashboard')
+      return
+    }
+
+    erro.value = 'Não foi possível carregar o Dashboard SaaS no momento.'
     console.error(error)
   } finally {
     carregando.value = false
+    atualizando.value = false
   }
 }
 
 function criarCard(rotulo, campo, alternativo = '', dinheiro = false) {
-  const valor = obterValor(dados.value, campo, alternativo)
+  const valor = obterCampo(dados.value, campo, alternativo)
 
   return {
     rotulo,
-    valor: dinheiro ? formatarMoeda(valor) : exibirValor(valor),
+    valor: dinheiro ? formatarMoeda(valor) : formatarNumero(valor),
   }
 }
 
-function obterValor(objeto, campo, alternativo = '') {
-  return objeto?.[campo] ?? objeto?.[alternativo] ?? 0
-}
+function lista(...campos) {
+  for (const campo of campos) {
+    const valor = obterCampo(dados.value, campo)
+    const itens = normalizarLista(valor)
 
-function lista(campo) {
-  const valor = dados.value?.[campo]
-
-  if (Array.isArray(valor)) {
-    return valor
-  }
-
-  if (valor && typeof valor === 'object') {
-    return Object.entries(valor).map(([nome, total]) => ({ nome, total }))
+    if (itens.length) return itens
   }
 
   return []
 }
 
 function tituloItem(item) {
-  if (typeof item === 'string') {
-    return item
-  }
+  if (typeof item === 'string') return item
 
-  return (
-    item.nome ||
-    item.planoNome ||
-    item.empresaNome ||
-    item.status ||
-    item.acao ||
-    item.titulo ||
-    item.descricao ||
-    '-'
-  )
+  return obterCampo(
+    item,
+    'titulo',
+    'nome',
+    'empresaNome',
+    'clienteNome',
+    'tipoAutomacao',
+    'numero',
+    'descricao',
+  ) || '-'
 }
 
-function detalheItem(item) {
-  if (!item || typeof item === 'string') {
-    return ''
-  }
-
-  const partes = [
-    item.total ?? item.quantidade ?? item.valor,
-    item.planoNome,
-    item.statusAssinatura,
-    item.dataCadastro || item.criadoEm || item.dataHora,
-  ].filter((valor) => valor !== null && valor !== undefined && String(valor).trim())
-
-  return partes.join(' · ')
+function detalheEmpresa(item) {
+  return juntarDetalhes([
+    obterCampo(item, 'planoNome', 'plano'),
+    obterCampo(item, 'status', 'statusAssinatura'),
+    formatarData(obterCampo(item, 'criadoEm', 'dataCadastro')),
+  ])
 }
 
-function exibirValor(valor) {
-  return valor === null || valor === undefined || valor === '' ? 0 : valor
+function detalheFatura(item) {
+  return juntarDetalhes([
+    obterCampo(item, 'empresaNome'),
+    obterCampo(item, 'status'),
+    formatarMoeda(obterCampo(item, 'valor', 'valorTotal')),
+    formatarData(obterCampo(item, 'vencimento', 'dataVencimento')),
+  ])
+}
+
+function detalheAutomacao(item) {
+  return juntarDetalhes([
+    obterCampo(item, 'status'),
+    obterCampo(item, 'executadoPorUsuarioNome', 'executadoPor'),
+    formatarDataHora(obterCampo(item, 'iniciadoEm', 'criadoEm')),
+  ])
+}
+
+function linkAlerta(item) {
+  return obterCampo(item, 'link', 'linkAcao', 'url', 'rota')
+}
+
+function textoAlerta(item) {
+  return obterCampo(item, 'mensagem', 'descricao', 'texto') || ''
+}
+
+function severidadeAlerta(item) {
+  return normalizar(obterCampo(item, 'severidade', 'prioridade', 'nivel') || 'BAIXA')
+}
+
+function classeSeveridade(item) {
+  return severidadeAlerta(item).toLowerCase()
+}
+
+function textoSeveridade(item) {
+  return severidadeAlerta(item).replace(/_/g, ' ')
+}
+
+function abrirAlerta(item) {
+  const link = linkAlerta(item)
+  if (!link) return
+
+  if (/^https?:\/\//i.test(link)) {
+    window.open(link, '_blank', 'noopener,noreferrer')
+    return
+  }
+
+  router.push(link.startsWith('/') ? link : `/${link}`)
+}
+
+function juntarDetalhes(partes) {
+  return partes.filter((valor) => valor !== null && valor !== undefined && String(valor).trim() && valor !== '-').join(' · ')
+}
+
+function formatarNumero(valor) {
+  return Number(valor || 0).toLocaleString('pt-BR')
 }
 
 function formatarMoeda(valor) {
@@ -126,6 +173,63 @@ function formatarMoeda(valor) {
     style: 'currency',
     currency: 'BRL',
   })
+}
+
+function formatarData(valor) {
+  if (!valor) return ''
+  const data = new Date(valor)
+  if (Number.isNaN(data.getTime())) return ''
+
+  return data.toLocaleDateString('pt-BR')
+}
+
+function formatarDataHora(valor) {
+  if (!valor) return ''
+  const data = new Date(valor)
+  if (Number.isNaN(data.getTime())) return ''
+
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function obterCampo(objeto, ...campos) {
+  if (!objeto || typeof objeto !== 'object') return ''
+
+  for (const campo of campos) {
+    if (objeto[campo] !== null && objeto[campo] !== undefined && objeto[campo] !== '') {
+      return objeto[campo]
+    }
+  }
+
+  return ''
+}
+
+function normalizarObjeto(valor) {
+  if (!valor || typeof valor !== 'object') return {}
+  return valor.data && !Array.isArray(valor.data) ? valor.data : valor
+}
+
+function normalizarLista(valor) {
+  if (Array.isArray(valor)) return valor
+  if (!valor || typeof valor !== 'object') return []
+  return valor.content || valor.data?.content || valor.data || valor.items || valor.itens || valor.resultado || []
+}
+
+function normalizar(valor) {
+  return String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+}
+
+function obterStatusErro(error) {
+  return Number(error?.status || error?.response?.status || error?.detalhes?.status || 0)
 }
 
 onMounted(() => {
@@ -137,40 +241,110 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
+        <p class="subtitulo">Administração SaaS</p>
         <h1>Dashboard SaaS</h1>
-        <p class="descricao">Visão geral operacional, comercial e administrativa da plataforma.</p>
+        <p class="descricao">Acompanhe a saúde geral da plataforma.</p>
       </div>
 
-      <button class="botao secundario" @click="carregarDashboard">Atualizar dados</button>
+      <button class="botao secundario" :disabled="atualizando" @click="carregarDashboard(true)">
+        {{ atualizando ? 'Atualizando...' : 'Atualizar dados' }}
+      </button>
     </header>
 
-    <section v-if="erro" class="card erro">
-      <p>{{ erro }}</p>
-    </section>
-
-    <section v-if="carregando" class="card">
-      <p>Carregando Dashboard SaaS...</p>
-    </section>
+    <section v-if="erro" class="card feedback erro">{{ erro }}</section>
+    <section v-if="sucesso" class="card feedback sucesso">{{ sucesso }}</section>
+    <section v-if="carregando" class="card">Carregando Dashboard SaaS...</section>
 
     <template v-else>
-      <section class="cards">
-        <article v-for="card in cards" :key="card.rotulo" class="card metrica">
-          <span>{{ card.rotulo }}</span>
-          <strong>{{ card.valor }}</strong>
-        </article>
+      <section class="grupo">
+        <h2>Empresas</h2>
+        <div class="cards">
+          <article v-for="card in cardsEmpresas" :key="card.rotulo" class="card metrica">
+            <span>{{ card.rotulo }}</span>
+            <strong>{{ card.valor }}</strong>
+          </article>
+        </div>
       </section>
 
-      <section class="secoes">
-        <article v-for="secao in secoes" :key="secao.titulo" class="card secao">
-          <h2>{{ secao.titulo }}</h2>
+      <section class="grupo">
+        <h2>Assinaturas</h2>
+        <div class="cards">
+          <article v-for="card in cardsAssinaturas" :key="card.rotulo" class="card metrica">
+            <span>{{ card.rotulo }}</span>
+            <strong>{{ card.valor }}</strong>
+          </article>
+        </div>
+      </section>
 
-          <p v-if="!secao.itens.length" class="vazio">Nenhum dado disponível.</p>
+      <section class="grupo">
+        <h2>Faturamento</h2>
+        <div class="cards">
+          <article v-for="card in cardsFaturamento" :key="card.rotulo" class="card metrica">
+            <span>{{ card.rotulo }}</span>
+            <strong>{{ card.valor }}</strong>
+          </article>
+        </div>
+      </section>
 
+      <section class="grupo">
+        <h2>Notificações e automações</h2>
+        <div class="cards">
+          <article v-for="card in cardsAutomacoes" :key="card.rotulo" class="card metrica">
+            <span>{{ card.rotulo }}</span>
+            <strong>{{ card.valor }}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="card alertas">
+        <div class="cabecalho-card">
+          <h2>Alertas da plataforma</h2>
+        </div>
+
+        <p v-if="!alertas.length" class="vazio">Não há alertas importantes no momento.</p>
+
+        <div v-else class="lista-alertas">
+          <article v-for="(alerta, indice) in alertas" :key="alerta.id || indice" class="alerta">
+            <span :class="['badge', classeSeveridade(alerta)]">{{ textoSeveridade(alerta) }}</span>
+            <div>
+              <h3>{{ tituloItem(alerta) }}</h3>
+              <p>{{ textoAlerta(alerta) }}</p>
+            </div>
+            <button v-if="linkAlerta(alerta)" class="botao compacto secundario" @click="abrirAlerta(alerta)">Abrir</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="listas">
+        <article class="card lista">
+          <h2>Últimas empresas</h2>
+          <p v-if="!ultimasEmpresas.length" class="vazio">Nenhuma empresa recente.</p>
           <ul v-else>
-            <li v-for="(item, indice) in secao.itens" :key="`${secao.titulo}-${indice}`">
+            <li v-for="(item, indice) in ultimasEmpresas" :key="item.id || indice">
               <span>{{ tituloItem(item) }}</span>
-              <strong v-if="detalheItem(item)">{{ detalheItem(item) }}</strong>
+              <strong>{{ detalheEmpresa(item) || '-' }}</strong>
+            </li>
+          </ul>
+        </article>
+
+        <article class="card lista">
+          <h2>Últimas faturas</h2>
+          <p v-if="!ultimasFaturas.length" class="vazio">Nenhuma fatura recente.</p>
+          <ul v-else>
+            <li v-for="(item, indice) in ultimasFaturas" :key="item.id || indice">
+              <span>{{ tituloItem(item) }}</span>
+              <strong>{{ detalheFatura(item) || '-' }}</strong>
+            </li>
+          </ul>
+        </article>
+
+        <article class="card lista">
+          <h2>Últimas automações</h2>
+          <p v-if="!ultimasAutomacoes.length" class="vazio">Nenhuma automação executada recentemente.</p>
+          <ul v-else>
+            <li v-for="(item, indice) in ultimasAutomacoes" :key="item.id || indice">
+              <span>{{ tituloItem(item) }}</span>
+              <strong>{{ detalheAutomacao(item) || '-' }}</strong>
             </li>
           </ul>
         </article>
@@ -180,150 +354,5 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.pagina {
-  display: grid;
-  gap: 24px;
-  color: #111827;
-}
-
-.cabecalho-pagina {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-.subtitulo {
-  margin: 0 0 4px;
-  color: #2563eb;
-  font-size: 14px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-h1,
-h2 {
-  margin: 0;
-  font-weight: 800;
-}
-
-h1 {
-  font-size: 32px;
-}
-
-.descricao {
-  margin: 6px 0 0;
-  color: #64748b;
-}
-
-.card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 22px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(170px, 1fr));
-  gap: 16px;
-}
-
-.metrica {
-  display: grid;
-  gap: 8px;
-}
-
-.metrica span {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.metrica strong {
-  color: #111827;
-  font-size: 24px;
-  font-weight: 800;
-}
-
-.secoes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
-  gap: 18px;
-}
-
-.secao {
-  display: grid;
-  gap: 14px;
-}
-
-ul {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 10px;
-}
-
-li span {
-  color: #334155;
-  font-weight: 800;
-}
-
-li strong {
-  color: #2563eb;
-  text-align: right;
-}
-
-.vazio {
-  margin: 0;
-  color: #64748b;
-}
-
-.erro {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.botao {
-  border: none;
-  color: white;
-  padding: 10px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.secundario {
-  background: #0f172a;
-}
-
-@media (max-width: 1100px) {
-  .cards {
-    grid-template-columns: repeat(2, minmax(170px, 1fr));
-  }
-}
-
-@media (max-width: 900px) {
-  .cabecalho-pagina {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .cards,
-  .secoes {
-    grid-template-columns: 1fr;
-  }
-}
+.pagina,.grupo{display:grid;gap:22px;color:#111827}.cabecalho-pagina,.cabecalho-card{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-size:14px;font-weight:800;text-transform:uppercase}h1,h2,h3,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:22px;font-weight:800}h3{font-size:16px;font-weight:800}.descricao,.vazio,.alerta p{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.cards{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:16px}.metrica{display:grid;gap:8px}.metrica span{color:#64748b;font-size:13px;font-weight:800;text-transform:uppercase}.metrica strong{color:#111827;font-size:24px;font-weight:800}.alertas,.lista{display:grid;gap:14px}.lista-alertas{display:grid;gap:12px}.alerta{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;border:1px solid #e5e7eb;border-radius:8px;padding:14px;background:#f8fafc}.badge{display:inline-flex;width:fit-content;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.badge.alta{background:#ffedd5;color:#c2410c}.badge.media{background:#fef3c7;color:#92400e}.badge.baixa{background:#dbeafe;color:#1d4ed8}.listas{display:grid;grid-template-columns:repeat(3,minmax(240px,1fr));gap:18px}ul{display:grid;gap:10px;margin:0;padding:0;list-style:none}li{display:grid;gap:4px;border-bottom:1px solid #e5e7eb;padding-bottom:10px}li span{color:#334155;font-weight:800}li strong{color:#2563eb;font-size:13px}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{opacity:.55;cursor:not-allowed}.secundario{background:#0f172a}.compacto{padding:8px 12px;font-size:12px}@media(max-width:1100px){.cards{grid-template-columns:repeat(2,minmax(170px,1fr))}.listas{grid-template-columns:1fr}}@media(max-width:900px){.cabecalho-pagina,.cabecalho-card{align-items:flex-start;flex-direction:column}.cards{grid-template-columns:1fr}.alerta{grid-template-columns:1fr}}
 </style>
