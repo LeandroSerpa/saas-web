@@ -135,21 +135,10 @@ function obterAcaoExecucao(tipo) {
 }
 
 function mensagemSucessoAutomacao(tipo, resposta) {
-  if (typeof resposta === 'string' && resposta.trim()) {
-    return resposta.trim()
-  }
-
-  const dados = normalizarObjeto(resposta)
-  const mensagemBackend = obterCampo(dados, 'mensagemResultado', 'mensagem', 'message', 'detail')
-
-  if (mensagemBackend) {
-    return mensagemBackend
-  }
-
   return {
-    LEMBRETES_AGENDAMENTOS: 'Lembretes de agendamentos executados com sucesso.',
-    LEMBRETES_FINANCEIROS: 'Lembretes financeiros executados com sucesso.',
-    FATURAS_RECORRENTES: 'Faturas recorrentes geradas com sucesso.',
+    LEMBRETES_AGENDAMENTOS: 'Lembretes de agendamentos processados com sucesso. O sistema verificou os próximos horários da agenda e gerou os avisos internos necessários para os administradores das empresas.',
+    LEMBRETES_FINANCEIROS: 'Lembretes financeiros processados com sucesso. O sistema verificou faturas próximas do vencimento e faturas vencidas, gerando os avisos internos necessários para acompanhamento.',
+    FATURAS_RECORRENTES: 'Faturas recorrentes processadas com sucesso. O sistema verificou as recorrências cadastradas e gerou as faturas do período conforme as regras configuradas.',
   }[tipo] || 'Automação executada com sucesso.'
 }
 
