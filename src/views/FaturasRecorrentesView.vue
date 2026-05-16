@@ -71,12 +71,35 @@ const mensagemListaVazia = computed(() =>
 )
 
 const temAssinaturaAtiva = computed(() => {
-  if (!sugestaoConsultada.value || !sugestaoRecorrencia.value) return true
-  return valorBooleano(obterCampo(sugestaoRecorrencia.value, 'assinaturaAtiva', 'temAssinaturaAtiva', 'ativa', 'ativo'))
+  if (!sugestaoConsultada.value) return true
+  if (!sugestaoRecorrencia.value) return false
+
+  const indicador = obterCampoProfundo(
+    sugestaoRecorrencia.value,
+    'assinaturaAtiva',
+    'temAssinaturaAtiva',
+    'ativa',
+    'ativo',
+    'statusAssinatura',
+    'situacaoAssinatura',
+  )
+
+  if (indicador !== '') return valorBooleano(indicador)
+
+  const assinatura = obterCampo(sugestaoRecorrencia.value, 'assinatura', 'assinaturaAtual')
+  if (assinatura && typeof assinatura === 'object') {
+    const status = obterCampoProfundo(assinatura, 'status', 'situacao', 'ativa', 'ativo')
+    return status !== '' ? valorBooleano(status) : true
+  }
+
+  return Boolean(obterValorSugestao(sugestaoRecorrencia.value))
 })
 
 const podeSalvarRecorrencia = computed(() =>
-  !salvando.value && !carregandoSugestao.value && (editandoId.value || !formulario.value.empresaId || temAssinaturaAtiva.value),
+  !salvando.value &&
+  !carregandoSugestao.value &&
+  !erroSugestao.value &&
+  (editandoId.value || !formulario.value.empresaId || temAssinaturaAtiva.value),
 )
 
 async function carregarDados() {
@@ -158,10 +181,15 @@ async function carregarSugestaoEmpresa() {
     sugestaoConsultada.value = true
     const resposta = await buscarSugestaoFaturaRecorrente(empresaId)
     const sugestao = normalizarObjeto(resposta)
-    sugestaoRecorrencia.value = sugestao
+    sugestaoRecorrencia.value = Object.keys(sugestao).length ? sugestao : null
+
+    if (!sugestaoRecorrencia.value) {
+      erroSugestao.value = 'Não foi possível obter a sugestão da assinatura desta empresa.'
+      return
+    }
 
     if (!temAssinaturaAtiva.value) {
-      erroSugestao.value = 'Esta empresa não possui assinatura ativa. Cadastre uma assinatura antes de criar recorrência.'
+      erroSugestao.value = 'Esta empresa não possui assinatura ativa. Vincule um plano antes de criar recorrência.'
       return
     }
 
@@ -175,11 +203,16 @@ async function carregarSugestaoEmpresa() {
 }
 
 function aplicarSugestaoRecorrencia(sugestao) {
-  const valor = obterCampo(sugestao, 'valorMensal', 'valorPlano', 'valor', 'mensalidade')
-  const descricao = obterCampo(sugestao, 'descricaoSugerida', 'descricao', 'descricaoRecorrencia')
-  const dia = obterCampo(sugestao, 'diaVencimentoSugerido', 'diaVencimento', 'vencimentoDia')
+  const valor = obterValorSugestao(sugestao)
+  const descricao = obterCampoProfundo(sugestao, 'descricaoSugerida', 'descricao', 'descricaoRecorrencia')
+  const dia = obterCampoProfundo(sugestao, 'diaVencimentoSugerido', 'diaVencimento', 'vencimentoDia')
 
-  formulario.value.valor = valor !== '' ? formatarValorFormulario(valor) : formulario.value.valor
+  if (valor === '') {
+    erroSugestao.value = 'Não foi possível obter o valor mensal do plano desta empresa.'
+    return
+  }
+
+  formulario.value.valor = formatarValorFormulario(valor)
   formulario.value.descricao = descricao || formulario.value.descricao
   formulario.value.diaVencimento = dia || formulario.value.diaVencimento
   formulario.value.usarValorPersonalizado = false
@@ -277,6 +310,8 @@ async function gerarProxima(item) {
     erro.value = ''
     sucesso.value = ''
     const resposta = await gerarProximaFaturaRecorrente(item.id)
+    resumoGeracao.value = null
+    detalhesGeracao.value = normalizarDetalhesGerarProxima(resposta, item)
     sucesso.value = obterMensagemGerarProxima(resposta)
     await carregarDados()
   } catch (error) {
@@ -353,12 +388,11 @@ function obterMensagemSucessoGeracao(resumo, competencia) {
     return `Geração concluída com sucesso. ${criadas} ${criadas === 1 ? 'fatura foi criada' : 'faturas foram criadas'} para a competência ${competenciaFormatada}.`
   }
 
-  if (ignoradasPorInatividade && criadas === 0) {
-    return 'Geração concluída. Recorrência ignorada porque está inativa.'
-  }
-
   if (ignoradas > 0) {
-    return 'Geração concluída. Nenhuma nova fatura foi criada porque as cobranças dessa competência já haviam sido processadas.'
+    const criadasTexto = `${criadas} ${criadas === 1 ? 'fatura criada' : 'faturas criadas'}`
+    const ignoradasTexto = `${ignoradas} ${ignoradas === 1 ? 'recorrência ignorada' : 'recorrências ignoradas'}`
+    const complemento = ignoradasPorInatividade ? ' Confira os detalhes para ver as recorrências inativas.' : ''
+    return `Geração concluída. ${criadasTexto}, ${ignoradasTexto}.${complemento}`
   }
 
   return 'Geração concluída. Nenhuma fatura foi criada porque não foram encontradas recorrências ativas elegíveis para essa competência.'
@@ -510,6 +544,36 @@ function normalizarDetalhesGeracao(resumo) {
   }))
 }
 
+function normalizarDetalhesGerarProxima(resposta, recorrencia) {
+  const dados = normalizarObjeto(resposta)
+  const detalhes = normalizarDetalhesGeracao(dados)
+
+  if (detalhes.length) return detalhes
+
+  return [
+    {
+      empresa: nomeEmpresa(recorrencia),
+      descricao: obterCampo(recorrencia, 'descricao') || obterCampo(dados, 'descricao', 'descricaoFatura') || '-',
+      resultado: obterResultadoGerarProxima(dados),
+      motivo: obterMotivoGerarProxima(dados),
+    },
+  ]
+}
+
+function obterResultadoGerarProxima(dados) {
+  const status = String(obterCampo(dados, 'status', 'resultado', 'situacao') || '').toUpperCase()
+  const criada = obterCampo(dados, 'criada', 'faturaCriada', 'gerada', 'sucesso')
+
+  if (criada === true || ['CRIADA', 'GERADA', 'SUCESSO'].includes(status)) return 'Criada'
+  if (status.includes('IGNOR')) return 'Ignorada'
+  if (criada === false || status.includes('ERRO') || status.includes('FALHA')) return 'Não gerada'
+  return 'Processada'
+}
+
+function obterMotivoGerarProxima(dados) {
+  return obterCampo(dados, 'motivo', 'mensagem', 'message', 'descricaoResultado') || 'Fatura criada pela ação Gerar próxima.'
+}
+
 function formatarResultadoGeracao(item) {
   const motivo = obterCampo(item, 'motivo', 'mensagem', 'message', 'erro')
   if (motivoIndicaInatividade(motivo)) return 'Ignorada'
@@ -554,6 +618,37 @@ function obterCampo(objeto, ...campos) {
     if (objeto[campo] !== null && objeto[campo] !== undefined && objeto[campo] !== '') return objeto[campo]
   }
   return ''
+}
+
+function obterCampoProfundo(objeto, ...campos) {
+  if (!objeto || typeof objeto !== 'object') return ''
+
+  for (const campo of campos) {
+    const direto = obterCampo(objeto, campo)
+    if (direto !== '') return direto
+  }
+
+  for (const valor of Object.values(objeto)) {
+    if (!valor || typeof valor !== 'object') continue
+    const encontrado = obterCampoProfundo(valor, ...campos)
+    if (encontrado !== '') return encontrado
+  }
+
+  return ''
+}
+
+function obterValorSugestao(sugestao) {
+  return obterCampoProfundo(
+    sugestao,
+    'valorMensal',
+    'valorPlano',
+    'valor',
+    'mensalidade',
+    'preco',
+    'precoMensal',
+    'valorAssinatura',
+    'valorRecorrencia',
+  )
 }
 
 function obterNumeroCampo(objeto, ...campos) {
@@ -781,7 +876,7 @@ onMounted(carregarDados)
           </select>
         </label>
         <label v-if="sugestaoRecorrencia && temAssinaturaAtiva">Plano atual
-          <input :value="obterCampo(sugestaoRecorrencia, 'planoNome', 'nomePlano', 'plano', 'assinaturaPlano') || '-'" disabled />
+          <input :value="obterCampoProfundo(sugestaoRecorrencia, 'planoNome', 'nomePlano', 'nome', 'plano', 'assinaturaPlano') || '-'" disabled />
         </label>
         <label>Valor
           <input
