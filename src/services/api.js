@@ -168,7 +168,7 @@ async function extrairMensagemResposta(response) {
 
 async function tratarResposta(response) {
   if (!response.ok) {
-    const mensagem = await extrairMensagemResposta(response)
+    const mensagem = await extrairMensagemErro(response)
     const erro = new Error(mensagem)
     erro.status = response.status
 
@@ -194,7 +194,7 @@ async function tratarResposta(response) {
 
 async function tratarRespostaPublica(response) {
   if (!response.ok) {
-    const mensagem = await extrairMensagemResposta(response)
+    const mensagem = await extrairMensagemErro(response)
 
     throw new Error(mensagem)
   }

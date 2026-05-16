@@ -15,6 +15,10 @@ import {
   rejeitarComprovanteFatura,
   reativarFatura,
 } from '@/services/api'
+import {
+  normalizarListaMetodosPagamento,
+  obterRotuloMetodoPagamento,
+} from '@/utils/metodosPagamento'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const STATUS = [
@@ -77,8 +81,8 @@ const alertaFinanceiro = computed(() => {
 const formasPagamentoDisponiveis = computed(() => {
   const lista = metodosPagamento.value.length ? metodosPagamento.value : [{ codigo: 'PIX', rotulo: 'PIX' }]
   return lista.map((item) => ({
-    codigo: String(item.codigo || item.metodo || item.nome || item).toUpperCase(),
-    rotulo: item.rotulo || item.nome || String(item.codigo || item.metodo || item),
+    codigo: item.codigo,
+    rotulo: item.rotulo,
   }))
 })
 
@@ -144,6 +148,9 @@ async function carregarMetodosPagamento() {
     }
   } catch (error) {
     metodosPagamento.value = [{ codigo: 'PIX', rotulo: 'PIX' }]
+    if (!erro.value) {
+      erro.value = obterMensagemErro(error, 'Não foi possível carregar os métodos de pagamento. Usando PIX como padrão.')
+    }
     console.error(error)
   }
 }
@@ -774,14 +781,10 @@ function normalizarObjeto(dados) {
 }
 
 function normalizarMetodos(dados) {
-  const lista = normalizarLista(dados?.metodos || dados?.metodosAtivos || dados)
-  const ativos = lista
-    .filter((item) => (typeof item === 'object' ? item.ativo !== false : true))
-    .map((item) => ({
-      codigo: String(typeof item === 'object' ? item.codigo || item.metodo || item.nome : item).toUpperCase(),
-      rotulo: typeof item === 'object' ? item.rotulo || item.nome || item.codigo || item.metodo : String(item),
-    }))
-    .filter((item) => item.codigo)
+  const ativos = normalizarListaMetodosPagamento(dados).map((codigo) => ({
+    codigo,
+    rotulo: obterRotuloMetodoPagamento(codigo),
+  }))
 
   return ativos.length ? ativos : [{ codigo: 'PIX', rotulo: 'PIX' }]
 }

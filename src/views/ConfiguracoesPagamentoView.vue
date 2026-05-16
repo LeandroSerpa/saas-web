@@ -1,17 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { buscarMetodosPagamentoAdmin, salvarMetodosPagamentoAdmin } from '@/services/api'
+import { METODOS_PAGAMENTO, normalizarListaMetodosPagamento } from '@/utils/metodosPagamento'
 
-const metodosBase = [
-  { codigo: 'PIX', rotulo: 'Pix' },
-  { codigo: 'BOLETO', rotulo: 'Boleto' },
-  { codigo: 'CARTAO_CREDITO', rotulo: 'Cartão de crédito' },
-  { codigo: 'CARTAO_DEBITO', rotulo: 'Cartão de débito' },
-  { codigo: 'TRANSFERENCIA', rotulo: 'Transferência' },
-  { codigo: 'DINHEIRO', rotulo: 'Dinheiro' },
-  { codigo: 'LINK_MANUAL', rotulo: 'Link manual' },
-  { codigo: 'OUTRO', rotulo: 'Outro' },
-]
+const metodosBase = METODOS_PAGAMENTO
 
 const ativos = ref(['PIX'])
 const carregando = ref(true)
@@ -26,11 +18,7 @@ async function carregarDados() {
     carregando.value = true
     erro.value = ''
     const dados = await buscarMetodosPagamentoAdmin()
-    const lista = normalizarLista(dados)
-    const selecionados = lista
-      .filter((item) => item.ativo !== false)
-      .map((item) => String(item.codigo || item.nome || item.metodo || item).toUpperCase())
-      .filter(Boolean)
+    const selecionados = normalizarListaMetodosPagamento(dados)
     ativos.value = selecionados.length ? selecionados : ['PIX']
   } catch (error) {
     ativos.value = ['PIX']
@@ -43,7 +31,7 @@ async function carregarDados() {
 
 async function salvar() {
   if (!ativos.value.length) {
-    erro.value = 'Mantenha pelo menos um método de pagamento ativo.'
+    erro.value = 'Selecione pelo menos um método de pagamento.'
     sucesso.value = ''
     return
   }
@@ -52,12 +40,13 @@ async function salvar() {
     salvando.value = true
     erro.value = ''
     sucesso.value = ''
-    const metodos = metodosBase.map((metodo) => ({
-      codigo: metodo.codigo,
-      nome: metodo.rotulo,
-      ativo: ativos.value.includes(metodo.codigo),
-    }))
-    await salvarMetodosPagamentoAdmin({ metodos, metodosAtivos: ativos.value })
+
+    const metodosAtivos = metodosBase
+      .map((metodo) => metodo.codigo)
+      .filter((codigo) => ativos.value.includes(codigo))
+
+    await salvarMetodosPagamentoAdmin({ metodosAtivos })
+    ativos.value = metodosAtivos
     sucesso.value = 'Configurações de pagamento salvas com sucesso.'
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível salvar as configurações de pagamento.')
@@ -65,12 +54,6 @@ async function salvar() {
   } finally {
     salvando.value = false
   }
-}
-
-function normalizarLista(dados) {
-  if (Array.isArray(dados)) return dados
-  if (!dados || typeof dados !== 'object') return []
-  return dados.metodos || dados.metodosAtivos || dados.content || dados.data?.content || dados.data || dados.items || dados.itens || []
 }
 
 function obterMensagemErro(error, fallback) {
