@@ -5,6 +5,7 @@ import {
   atualizarFaturaRecorrente,
   buscarEmpresas,
   buscarFaturasRecorrentes,
+  buscarSugestaoFaturaRecorrente,
   criarFaturaRecorrente,
   desativarFaturaRecorrente,
   gerarFaturasRecorrentesDoMes,
@@ -29,6 +30,10 @@ const sucesso = ref('')
 const resumoGeracao = ref(null)
 const detalhesGeracao = ref([])
 const confirmacao = ref(null)
+const sugestaoRecorrencia = ref(null)
+const carregandoSugestao = ref(false)
+const sugestaoConsultada = ref(false)
+const erroSugestao = ref('')
 
 const recorrenciasFiltradas = computed(() =>
   recorrencias.value.filter((item) => {
@@ -63,6 +68,15 @@ const mensagemListaVazia = computed(() =>
   existemFiltrosAtivos.value
     ? 'Nenhuma recorrência encontrada para os filtros selecionados.'
     : 'Nenhuma recorrência cadastrada.',
+)
+
+const temAssinaturaAtiva = computed(() => {
+  if (!sugestaoConsultada.value || !sugestaoRecorrencia.value) return true
+  return valorBooleano(obterCampo(sugestaoRecorrencia.value, 'assinaturaAtiva', 'temAssinaturaAtiva', 'ativa', 'ativo'))
+})
+
+const podeSalvarRecorrencia = computed(() =>
+  !salvando.value && !carregandoSugestao.value && (editandoId.value || !formulario.value.empresaId || temAssinaturaAtiva.value),
 )
 
 async function carregarDados() {
@@ -105,6 +119,7 @@ async function limparFiltros() {
 function abrirNova() {
   editandoId.value = null
   formulario.value = criarFormulario()
+  limparSugestao()
   mostrarFormulario.value = true
   erro.value = ''
   sucesso.value = ''
@@ -121,10 +136,60 @@ function editar(item) {
     competenciaFim: normalizarCompetenciaEntrada(obterCampo(item, 'competenciaFim')) || '',
     observacao: obterCampo(item, 'observacao') || '',
     metodoPagamentoPadrao: 'PIX',
+    usarValorPersonalizado: true,
   }
+  limparSugestao()
   mostrarFormulario.value = true
   erro.value = ''
   sucesso.value = ''
+}
+
+async function carregarSugestaoEmpresa() {
+  if (editandoId.value) return
+
+  const empresaId = formulario.value.empresaId
+  limparSugestao()
+
+  if (!empresaId) return
+
+  try {
+    carregandoSugestao.value = true
+    erroSugestao.value = ''
+    sugestaoConsultada.value = true
+    const resposta = await buscarSugestaoFaturaRecorrente(empresaId)
+    const sugestao = normalizarObjeto(resposta)
+    sugestaoRecorrencia.value = sugestao
+
+    if (!temAssinaturaAtiva.value) {
+      erroSugestao.value = 'Esta empresa não possui assinatura ativa. Cadastre uma assinatura antes de criar recorrência.'
+      return
+    }
+
+    aplicarSugestaoRecorrencia(sugestao)
+  } catch (error) {
+    erroSugestao.value = obterMensagemErro(error, 'Não foi possível buscar a sugestão da recorrência para esta empresa.')
+    console.error(error)
+  } finally {
+    carregandoSugestao.value = false
+  }
+}
+
+function aplicarSugestaoRecorrencia(sugestao) {
+  const valor = obterCampo(sugestao, 'valorMensal', 'valorPlano', 'valor', 'mensalidade')
+  const descricao = obterCampo(sugestao, 'descricaoSugerida', 'descricao', 'descricaoRecorrencia')
+  const dia = obterCampo(sugestao, 'diaVencimentoSugerido', 'diaVencimento', 'vencimentoDia')
+
+  formulario.value.valor = valor !== '' ? formatarValorFormulario(valor) : formulario.value.valor
+  formulario.value.descricao = descricao || formulario.value.descricao
+  formulario.value.diaVencimento = dia || formulario.value.diaVencimento
+  formulario.value.usarValorPersonalizado = false
+}
+
+function limparSugestao() {
+  sugestaoRecorrencia.value = null
+  carregandoSugestao.value = false
+  sugestaoConsultada.value = false
+  erroSugestao.value = ''
 }
 
 async function salvar() {
@@ -201,6 +266,11 @@ async function alternarAtivo(item) {
 
 async function gerarProxima(item) {
   if (processandoProximaId.value === item.id) return
+  if (!estaAtiva(item)) {
+    erro.value = 'Ative a recorrência para gerar novas faturas.'
+    sucesso.value = ''
+    return
+  }
 
   try {
     processandoProximaId.value = item.id
@@ -265,6 +335,7 @@ function obterMensagemSucessoGeracao(resumo, competencia) {
   const ignoradas = obterNumeroCampo(resumo, 'ignoradas', 'faturasIgnoradas', 'totalIgnoradas', 'ignoradasCount')
   const erros = obterNumeroCampo(resumo, 'erros', 'faturasComErro', 'totalErros', 'falhas')
   const competenciaFormatada = formatarCompetencia(competencia)
+  const ignoradasPorInatividade = detalhesGeracao.value.some((item) => motivoIndicaInatividade(item.motivo))
 
   if (erros > 0) {
     return 'Geração concluída com atenção. Algumas recorrências não puderam ser processadas. Verifique os detalhes.'
@@ -280,6 +351,10 @@ function obterMensagemSucessoGeracao(resumo, competencia) {
 
   if (criadas > 0) {
     return `Geração concluída com sucesso. ${criadas} ${criadas === 1 ? 'fatura foi criada' : 'faturas foram criadas'} para a competência ${competenciaFormatada}.`
+  }
+
+  if (ignoradasPorInatividade && criadas === 0) {
+    return 'Geração concluída. Recorrência ignorada porque está inativa.'
   }
 
   if (ignoradas > 0) {
@@ -326,6 +401,7 @@ function criarFormulario() {
     competenciaFim: '',
     observacao: '',
     metodoPagamentoPadrao: 'PIX',
+    usarValorPersonalizado: false,
   }
 }
 
@@ -371,6 +447,7 @@ function montarPayload() {
     competenciaInicio: String(formulario.value.competenciaInicio || '').trim(),
     competenciaFim: String(formulario.value.competenciaFim || '').trim(),
     metodoPagamentoPadrao: 'PIX',
+    usarValorPersonalizado: Boolean(formulario.value.usarValorPersonalizado),
   })
 }
 
@@ -401,7 +478,11 @@ function nomeEmpresa(item) {
 }
 
 function obterProximaCompetencia(base) {
-  const valores = base.map((item) => obterCampo(item, 'proximaCompetencia')).filter(Boolean).sort()
+  const valores = base
+    .filter((item) => estaAtiva(item))
+    .map((item) => obterCampo(item, 'proximaCompetencia', 'proximaCompetenciaGeracao'))
+    .filter(Boolean)
+    .sort()
   return valores[0] ? formatarCompetencia(valores[0]) : '-'
 }
 
@@ -424,9 +505,29 @@ function normalizarDetalhesGeracao(resumo) {
   return detalhes.map((item) => ({
     empresa: nomeEmpresaDetalhe(item),
     descricao: obterCampo(item, 'descricao', 'recorrencia', 'recorrenciaDescricao') || '-',
-    resultado: obterCampo(item, 'resultado', 'status', 'situacao') || '-',
-    motivo: obterCampo(item, 'motivo', 'mensagem', 'message', 'erro') || '-',
+    resultado: formatarResultadoGeracao(item),
+    motivo: formatarMotivoGeracao(item),
   }))
+}
+
+function formatarResultadoGeracao(item) {
+  const motivo = obterCampo(item, 'motivo', 'mensagem', 'message', 'erro')
+  if (motivoIndicaInatividade(motivo)) return 'Ignorada'
+  return obterCampo(item, 'resultado', 'status', 'situacao') || '-'
+}
+
+function formatarMotivoGeracao(item) {
+  const motivo = obterCampo(item, 'motivo', 'mensagem', 'message', 'erro')
+  if (motivoIndicaInatividade(motivo)) return 'Recorrência ignorada porque está inativa.'
+  return motivo || '-'
+}
+
+function motivoIndicaInatividade(motivo) {
+  return String(motivo || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .includes('inativ')
 }
 
 function nomeEmpresaDetalhe(item) {
@@ -465,6 +566,15 @@ function obterNumeroCampo(objeto, ...campos) {
   if (Number.isFinite(n)) return n
   const match = String(valor || '').match(/\d+/)
   return match ? Number(match[0]) : 0
+}
+
+function valorBooleano(valor) {
+  if (valor === true) return true
+  if (valor === false) return false
+  const texto = String(valor || '').trim().toLowerCase()
+  if (['true', 'sim', 's', '1', 'ativa', 'ativo'].includes(texto)) return true
+  if (['false', 'nao', 'não', 'n', '0', 'inativa', 'inativo'].includes(texto)) return false
+  return Boolean(valor)
 }
 
 function numero(valor) {
@@ -604,6 +714,15 @@ onMounted(carregarDados)
       </div>
     </section>
 
+    <section v-if="resumoGeracao" class="card resumo-geracao">
+      <h2>Resumo retornado pelo backend</h2>
+      <div class="resumo-grid">
+        <p><strong>Criadas:</strong> {{ obterNumeroCampo(resumoGeracao, 'criadas', 'faturasCriadas', 'totalCriadas', 'criadasCount') }}</p>
+        <p><strong>Ignoradas:</strong> {{ obterNumeroCampo(resumoGeracao, 'ignoradas', 'faturasIgnoradas', 'totalIgnoradas', 'ignoradasCount') }}</p>
+        <p><strong>Erros:</strong> {{ obterNumeroCampo(resumoGeracao, 'erros', 'faturasComErro', 'totalErros', 'falhas') }}</p>
+      </div>
+    </section>
+
     <section class="grade-resumo">
       <article v-for="card in cards" :key="card.titulo" class="card indicador">
         <span>{{ card.titulo }}</span>
@@ -654,14 +773,28 @@ onMounted(carregarDados)
       </div>
       <div class="campos">
         <label>Empresa
-          <select v-model="formulario.empresaId" :disabled="salvando">
+          <select v-model="formulario.empresaId" :disabled="salvando || carregandoSugestao" @change="carregarSugestaoEmpresa">
             <option value="">Selecione</option>
             <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
               {{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}
             </option>
           </select>
         </label>
-        <label>Valor <input v-model="formulario.valor" type="text" inputmode="decimal" :disabled="salvando" /></label>
+        <label v-if="sugestaoRecorrencia && temAssinaturaAtiva">Plano atual
+          <input :value="obterCampo(sugestaoRecorrencia, 'planoNome', 'nomePlano', 'plano', 'assinaturaPlano') || '-'" disabled />
+        </label>
+        <label>Valor
+          <input
+            v-model="formulario.valor"
+            type="text"
+            inputmode="decimal"
+            :disabled="salvando || carregandoSugestao || (!formulario.usarValorPersonalizado && !editandoId)"
+          />
+        </label>
+        <label class="checkbox-label">
+          <input v-model="formulario.usarValorPersonalizado" type="checkbox" :disabled="salvando || carregandoSugestao" />
+          Usar valor personalizado
+        </label>
         <label>Dia de vencimento <input v-model="formulario.diaVencimento" type="number" min="1" max="31" :disabled="salvando" /></label>
         <label>Competência início <input v-model="formulario.competenciaInicio" type="month" :disabled="salvando" /></label>
         <label>Competência fim opcional <input v-model="formulario.competenciaFim" type="month" :disabled="salvando" /></label>
@@ -669,8 +802,10 @@ onMounted(carregarDados)
         <label class="campo-grande">Descrição <input v-model="formulario.descricao" type="text" :disabled="salvando" /></label>
         <label class="campo-grande">Observação <textarea v-model="formulario.observacao" rows="3" :disabled="salvando"></textarea></label>
       </div>
+      <p v-if="carregandoSugestao" class="sugestao-feedback aviso-pix">Buscando assinatura ativa da empresa...</p>
+      <p v-if="erroSugestao" class="sugestao-feedback erro">{{ erroSugestao }}</p>
       <div class="acoes">
-        <button class="botao principal" :disabled="salvando">
+        <button class="botao principal" :disabled="!podeSalvarRecorrencia">
           {{ salvando ? 'Salvando...' : editandoId ? 'Salvar edição' : 'Salvar recorrência' }}
         </button>
         <button type="button" class="botao secundario" :disabled="salvando" @click="fecharFormulario">Cancelar</button>
@@ -728,11 +863,13 @@ onMounted(carregarDados)
                   </button>
                   <button
                     class="botao compacto sucesso-botao"
-                    :disabled="Boolean(processandoId) || processandoProximaId === item.id"
+                    :disabled="Boolean(processandoId) || processandoProximaId === item.id || !estaAtiva(item)"
+                    :title="!estaAtiva(item) ? 'Ative a recorrência para gerar novas faturas.' : ''"
                     @click="gerarProxima(item)"
                   >
                     {{ processandoProximaId === item.id ? 'Gerando...' : 'Gerar próxima' }}
                   </button>
+                  <small v-if="!estaAtiva(item)" class="dica-acao">Ative a recorrência para gerar novas faturas.</small>
                 </div>
               </td>
             </tr>
@@ -749,6 +886,7 @@ onMounted(carregarDados)
 .formulario,
 .formulario-geracao,
 .detalhes-geracao,
+.resumo-geracao,
 .confirmacao {
   display: grid;
   gap: 18px;
@@ -835,6 +973,41 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
   gap: 14px;
+}
+
+.resumo-grid {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.checkbox-label {
+  align-content: end;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+}
+
+.checkbox-label input {
+  width: auto;
+}
+
+.dica-acao {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.sugestao-feedback {
+  margin: 0;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.sugestao-feedback.erro {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 label {

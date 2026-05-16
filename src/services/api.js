@@ -965,6 +965,14 @@ export async function buscarFaturaRecorrentePorId(id) {
   return tratarResposta(response)
 }
 
+export async function buscarSugestaoFaturaRecorrente(empresaId) {
+  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/sugestao${montarQueryString({ empresaId })}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function criarFaturaRecorrente(dados = {}) {
   const response = await fetch(`${API_URL}/admin/faturas-recorrentes`, {
     method: 'POST',
@@ -1014,6 +1022,10 @@ export async function gerarFaturasRecorrentes(dados = {}) {
 }
 
 export async function gerarFaturasRecorrentesDoMes(dados = {}) {
+  return gerarFaturasRecorrentes(dados)
+}
+
+export async function gerarFaturasRecorrentesMes(dados = {}) {
   return gerarFaturasRecorrentes(dados)
 }
 

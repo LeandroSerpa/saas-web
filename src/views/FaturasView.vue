@@ -44,6 +44,8 @@ const faturaEditandoId = ref(null)
 const faturaPagamento = ref(null)
 const faturaComprovante = ref(null)
 const faturaDetalhe = ref(null)
+const confirmacaoFinanceira = ref(null)
+const rejeicaoComprovante = ref(null)
 const mostrarFormulario = ref(false)
 const carregando = ref(true)
 const salvando = ref(false)
@@ -270,6 +272,46 @@ function fecharComprovante() {
   comprovante.value = criarComprovanteInicial()
 }
 
+function abrirConfirmacaoFinanceira({ item, titulo, mensagem, textoBotao, classeBotao, executar }) {
+  if (!superAdmin.value) return
+
+  confirmacaoFinanceira.value = {
+    item,
+    titulo,
+    mensagem,
+    textoBotao,
+    classeBotao,
+    executar,
+  }
+  erro.value = ''
+  mensagemSucesso.value = ''
+}
+
+function fecharConfirmacaoFinanceira() {
+  confirmacaoFinanceira.value = null
+}
+
+async function executarConfirmacaoFinanceira() {
+  if (!confirmacaoFinanceira.value?.item?.id || !confirmacaoFinanceira.value?.executar) return
+  await confirmacaoFinanceira.value.executar(confirmacaoFinanceira.value.item)
+  fecharConfirmacaoFinanceira()
+}
+
+function abrirRejeicaoComprovante(item) {
+  if (!superAdmin.value) return
+
+  rejeicaoComprovante.value = {
+    item,
+    motivo: '',
+  }
+  erro.value = ''
+  mensagemSucesso.value = ''
+}
+
+function fecharRejeicaoComprovante() {
+  rejeicaoComprovante.value = null
+}
+
 async function confirmarEnvioComprovante() {
   if (!faturaComprovante.value?.id) return
 
@@ -315,8 +357,17 @@ async function confirmarEnvioComprovante() {
 }
 
 async function aprovarComprovante(item) {
-  if (!superAdmin.value || !window.confirm('Aprovar comprovante e marcar fatura como paga?')) return
+  abrirConfirmacaoFinanceira({
+    item,
+    titulo: 'Aprovar comprovante',
+    mensagem: 'Aprovar comprovante e marcar fatura como paga?',
+    textoBotao: 'Aprovar comprovante',
+    classeBotao: 'sucesso-botao',
+    executar: aprovarComprovanteConfirmado,
+  })
+}
 
+async function aprovarComprovanteConfirmado(item) {
   try {
     processandoId.value = item.id
     erro.value = ''
@@ -335,18 +386,25 @@ async function aprovarComprovante(item) {
 }
 
 async function rejeitarComprovante(item) {
-  if (!superAdmin.value) return
-  const motivo = window.prompt('Informe o motivo da rejeição:')
-  if (!motivo?.trim()) {
+  abrirRejeicaoComprovante(item)
+}
+
+async function confirmarRejeicaoComprovante() {
+  if (!rejeicaoComprovante.value?.item?.id) return
+
+  const motivo = String(rejeicaoComprovante.value.motivo || '').trim()
+  if (!motivo) {
     erro.value = 'Informe o motivo da rejeição.'
     return
   }
 
   try {
+    const item = rejeicaoComprovante.value.item
     processandoId.value = item.id
     erro.value = ''
     mensagemSucesso.value = ''
-    await rejeitarComprovanteFatura(item.id, { motivoRejeicao: motivo.trim(), observacao: motivo.trim() })
+    await rejeitarComprovanteFatura(item.id, { motivoRejeicao: motivo, observacao: motivo })
+    fecharRejeicaoComprovante()
     await carregarDados({ limparFeedback: false })
     window.dispatchEvent(new Event('financeiro-status-atualizado'))
     window.dispatchEvent(new Event('notificacoes-atualizadas'))
@@ -385,10 +443,17 @@ async function confirmarPagamento() {
 }
 
 async function cancelar(item) {
-  if (!superAdmin.value || !window.confirm('Tem certeza que deseja cancelar esta fatura?')) {
-    return
-  }
+  abrirConfirmacaoFinanceira({
+    item,
+    titulo: 'Cancelar fatura',
+    mensagem: 'Tem certeza que deseja cancelar esta fatura?',
+    textoBotao: 'Cancelar fatura',
+    classeBotao: 'perigo',
+    executar: cancelarConfirmado,
+  })
+}
 
+async function cancelarConfirmado(item) {
   try {
     processandoId.value = item.id
     erro.value = ''
@@ -405,10 +470,17 @@ async function cancelar(item) {
 }
 
 async function reativar(item) {
-  if (!superAdmin.value || !window.confirm('Tem certeza que deseja reativar esta fatura?')) {
-    return
-  }
+  abrirConfirmacaoFinanceira({
+    item,
+    titulo: 'Reativar fatura',
+    mensagem: 'Tem certeza que deseja reativar esta fatura?',
+    textoBotao: 'Reativar fatura',
+    classeBotao: 'sucesso-botao',
+    executar: reativarConfirmado,
+  })
+}
 
+async function reativarConfirmado(item) {
   try {
     processandoId.value = item.id
     erro.value = ''
@@ -847,11 +919,29 @@ function obterMensagemErro(error, fallback) {
   const mensagem = String(error?.message || '').trim()
   const normalizada = mensagem.toLowerCase()
 
+  if (/duplic|semelhante|já existe|ja existe|unique|constraint/i.test(mensagem)) {
+    return 'Já existe uma fatura semelhante para esta empresa e competência.'
+  }
+
   if (normalizada === 'forbidden' || normalizada.includes('403') || normalizada.includes('permiss')) {
     return 'Você não tem permissão para executar esta ação.'
   }
 
+  if (error?.status === 400) {
+    return mensagem && !mensagemTecnica(mensagem)
+      ? mensagem
+      : 'Não foi possível processar a solicitação. Confira os dados informados.'
+  }
+
+  if (error?.status === 500 || mensagemTecnica(mensagem)) {
+    return 'Não foi possível concluir a operação agora. Tente novamente em instantes.'
+  }
+
   return mensagem || fallback || 'Não foi possível concluir a operação.'
+}
+
+function mensagemTecnica(mensagem) {
+  return /exception|stack trace|sql|constraint|hibernate|java\./i.test(String(mensagem || ''))
 }
 
 onMounted(async () => {
@@ -901,6 +991,52 @@ onUnmounted(() => {
     </section>
     <section v-if="alertaFinanceiro" :class="['card', 'feedback', alertaFinanceiro.classe]">
       <p>{{ alertaFinanceiro.texto }}</p>
+    </section>
+
+    <section v-if="confirmacaoFinanceira" class="card painel-acao">
+      <div class="cabecalho-card">
+        <div>
+          <h2>{{ confirmacaoFinanceira.titulo }}</h2>
+          <p>{{ confirmacaoFinanceira.mensagem }}</p>
+        </div>
+      </div>
+      <div class="acoes">
+        <button class="botao secundario" :disabled="Boolean(processandoId)" @click="fecharConfirmacaoFinanceira">
+          Cancelar
+        </button>
+        <button
+          class="botao"
+          :class="confirmacaoFinanceira.classeBotao"
+          :disabled="Boolean(processandoId)"
+          @click="executarConfirmacaoFinanceira"
+        >
+          {{ processandoId ? 'Processando...' : confirmacaoFinanceira.textoBotao }}
+        </button>
+      </div>
+    </section>
+
+    <section v-if="rejeicaoComprovante" class="card painel-acao">
+      <div class="cabecalho-card">
+        <div>
+          <h2>Rejeitar comprovante</h2>
+          <p>Informe um motivo claro para a empresa acompanhar a análise.</p>
+        </div>
+        <button class="botao secundario" :disabled="Boolean(processandoId)" @click="fecharRejeicaoComprovante">
+          Fechar
+        </button>
+      </div>
+      <label>
+        Motivo da rejeição
+        <textarea v-model="rejeicaoComprovante.motivo" rows="3" :disabled="Boolean(processandoId)"></textarea>
+      </label>
+      <div class="acoes">
+        <button class="botao secundario" :disabled="Boolean(processandoId)" @click="fecharRejeicaoComprovante">
+          Cancelar
+        </button>
+        <button class="botao perigo" :disabled="Boolean(processandoId)" @click="confirmarRejeicaoComprovante">
+          {{ processandoId ? 'Rejeitando...' : 'Rejeitar comprovante' }}
+        </button>
+      </div>
     </section>
 
     <section class="grade-resumo">
