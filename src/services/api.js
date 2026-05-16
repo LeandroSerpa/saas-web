@@ -1013,6 +1013,10 @@ export async function gerarFaturasRecorrentes(dados = {}) {
   return tratarResposta(response)
 }
 
+export async function gerarFaturasRecorrentesDoMes(dados = {}) {
+  return gerarFaturasRecorrentes(dados)
+}
+
 export async function gerarProximaFaturaRecorrente(id) {
   const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}/gerar-proxima`, {
     method: 'POST',

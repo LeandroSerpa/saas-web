@@ -7,7 +7,7 @@ import {
   buscarFaturasRecorrentes,
   criarFaturaRecorrente,
   desativarFaturaRecorrente,
-  gerarFaturasRecorrentes,
+  gerarFaturasRecorrentesDoMes,
   gerarProximaFaturaRecorrente,
 } from '@/services/api'
 
@@ -17,12 +17,18 @@ const filtros = ref({ empresaId: '', status: '', busca: '' })
 const formulario = ref(criarFormulario())
 const editandoId = ref(null)
 const mostrarFormulario = ref(false)
+const mostrarGeracaoMes = ref(false)
+const competenciaGeracao = ref(new Date().toISOString().slice(0, 7))
 const carregando = ref(true)
 const salvando = ref(false)
+const processandoMes = ref(false)
 const processandoId = ref(null)
+const processandoProximaId = ref(null)
 const erro = ref('')
 const sucesso = ref('')
 const resumoGeracao = ref(null)
+const detalhesGeracao = ref([])
+const confirmacao = ref(null)
 
 const recorrenciasFiltradas = computed(() =>
   recorrencias.value.filter((item) => {
@@ -31,6 +37,7 @@ const recorrenciasFiltradas = computed(() =>
     return true
   }),
 )
+
 const cards = computed(() => {
   const base = recorrenciasFiltradas.value
   const total = base.length
@@ -38,16 +45,29 @@ const cards = computed(() => {
   const valorMensal = base
     .filter((item) => estaAtiva(item))
     .reduce((totalValor, item) => totalValor + numero(obterCampo(item, 'valor')), 0)
+
   return [
     { titulo: 'Total de recorrências', valor: total },
     { titulo: 'Ativas', valor: ativas },
     { titulo: 'Inativas', valor: total - ativas },
     { titulo: 'Valor mensal previsto', valor: formatarMoeda(valorMensal) },
-    { titulo: 'Próxima competência', valor: obterProximaCompetencia() },
+    { titulo: 'Próxima competência', valor: obterProximaCompetencia(base) },
   ]
 })
 
+const existemFiltrosAtivos = computed(() =>
+  Boolean(filtros.value.empresaId || filtros.value.status || String(filtros.value.busca || '').trim()),
+)
+
+const mensagemListaVazia = computed(() =>
+  existemFiltrosAtivos.value
+    ? 'Nenhuma recorrência encontrada para os filtros selecionados.'
+    : 'Nenhuma recorrência cadastrada.',
+)
+
 async function carregarDados() {
+  if (carregando.value && recorrencias.value.length) return
+
   try {
     carregando.value = true
     erro.value = ''
@@ -66,18 +86,20 @@ async function carregarDados() {
 }
 
 function montarFiltrosApi() {
-  const status = String(filtros.value.status || '').trim().toUpperCase()
+  const status = normalizarStatusRecorrencia(filtros.value.status)
+  const ativo = status === 'ATIVA' ? true : status === 'INATIVA' ? false : ''
 
   return limparVazios({
     empresaId: filtros.value.empresaId,
     busca: filtros.value.busca,
-    ativo: status === 'ATIVA' ? true : status === 'INATIVA' ? false : '',
+    status,
+    ativo,
   })
 }
 
-function limparFiltros() {
+async function limparFiltros() {
   filtros.value = { empresaId: '', status: '', busca: '' }
-  carregarDados()
+  await carregarDados()
 }
 
 function abrirNova() {
@@ -95,16 +117,20 @@ function editar(item) {
     descricao: obterCampo(item, 'descricao') || '',
     valor: formatarValorFormulario(obterCampo(item, 'valor')),
     diaVencimento: obterCampo(item, 'diaVencimento') || '',
-    competenciaInicio: obterCampo(item, 'competenciaInicio') || '',
-    competenciaFim: obterCampo(item, 'competenciaFim') || '',
+    competenciaInicio: normalizarCompetenciaEntrada(obterCampo(item, 'competenciaInicio')) || '',
+    competenciaFim: normalizarCompetenciaEntrada(obterCampo(item, 'competenciaFim')) || '',
     observacao: obterCampo(item, 'observacao') || '',
     metodoPagamentoPadrao: 'PIX',
   }
   mostrarFormulario.value = true
+  erro.value = ''
+  sucesso.value = ''
 }
 
 async function salvar() {
-  const validacao = validar()
+  if (salvando.value) return
+
+  const validacao = validarFormulario()
   if (validacao) {
     erro.value = validacao
     sucesso.value = ''
@@ -121,7 +147,8 @@ async function salvar() {
       sucesso.value = 'Recorrência atualizada com sucesso.'
     } else {
       await criarFaturaRecorrente(payload)
-      sucesso.value = 'Recorrência criada com sucesso.'
+      sucesso.value =
+        'Recorrência criada com sucesso. As faturas poderão ser geradas a partir da competência informada.'
     }
     fecharFormulario()
     await carregarDados()
@@ -133,18 +160,36 @@ async function salvar() {
   }
 }
 
+function pedirAlternarAtivo(item) {
+  const ativa = estaAtiva(item)
+  confirmacao.value = {
+    titulo: ativa ? 'Desativar recorrência' : 'Ativar recorrência',
+    mensagem: ativa
+      ? 'Esta recorrência não será considerada nas próximas gerações automáticas.'
+      : 'Esta recorrência voltará a ser considerada nas próximas gerações.',
+    textoBotao: ativa ? 'Desativar' : 'Ativar',
+    tipo: ativa ? 'perigo' : 'sucesso-botao',
+    executar: () => alternarAtivo(item),
+  }
+}
+
 async function alternarAtivo(item) {
+  if (processandoId.value) return
+
   try {
     processandoId.value = item.id
     erro.value = ''
     sucesso.value = ''
     if (estaAtiva(item)) {
       await desativarFaturaRecorrente(item.id)
-      sucesso.value = 'Recorrência desativada com sucesso.'
+      sucesso.value =
+        'Recorrência desativada com sucesso. Ela não será considerada nas próximas gerações automáticas.'
     } else {
       await ativarFaturaRecorrente(item.id)
-      sucesso.value = 'Recorrência ativada com sucesso.'
+      sucesso.value =
+        'Recorrência ativada com sucesso. Ela voltará a ser considerada nas próximas gerações.'
     }
+    confirmacao.value = null
     await carregarDados()
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível alterar a recorrência.')
@@ -155,59 +200,114 @@ async function alternarAtivo(item) {
 }
 
 async function gerarProxima(item) {
-  if (!window.confirm('Gerar a próxima fatura desta recorrência?')) return
+  if (processandoProximaId.value === item.id) return
+
   try {
-    processandoId.value = item.id
+    processandoProximaId.value = item.id
     erro.value = ''
     sucesso.value = ''
-    await gerarProximaFaturaRecorrente(item.id)
-    sucesso.value = 'Próxima fatura gerada com sucesso.'
+    const resposta = await gerarProximaFaturaRecorrente(item.id)
+    sucesso.value = obterMensagemGerarProxima(resposta)
     await carregarDados()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível gerar a próxima fatura.')
+    erro.value = obterMensagemErro(error, 'Não foi possível gerar a próxima fatura. Verifique os detalhes.')
     console.error(error)
   } finally {
-    processandoId.value = null
+    processandoProximaId.value = null
   }
 }
 
+function abrirGeracaoMes() {
+  mostrarGeracaoMes.value = true
+  competenciaGeracao.value ||= new Date().toISOString().slice(0, 7)
+  erro.value = ''
+  sucesso.value = ''
+}
+
+function cancelarGeracaoMes() {
+  mostrarGeracaoMes.value = false
+  erro.value = ''
+}
+
 async function gerarMes() {
-  const competencia = window.prompt('Informe a competência no formato AAAA-MM. Exemplo: 2026-05:')
-  if (!competencia?.trim()) {
-    erro.value = 'Informe a competência no formato correto: AAAA-MM. Exemplo: 2026-05.'
-    sucesso.value = ''
-    return
-  }
-  if (!/^\d{4}-\d{2}$/.test(competencia.trim())) {
-    erro.value = 'Informe a competência no formato correto: AAAA-MM. Exemplo: 2026-05.'
+  if (processandoMes.value) return
+
+  const competencia = String(competenciaGeracao.value || '').trim()
+  const validacao = validarCompetencia(competencia)
+  if (validacao) {
+    erro.value = validacao
     sucesso.value = ''
     return
   }
 
   try {
+    processandoMes.value = true
     erro.value = ''
     sucesso.value = ''
     resumoGeracao.value = null
-    const resposta = await gerarFaturasRecorrentes({ competencia: competencia.trim(), metodoPagamento: 'PIX' })
+    detalhesGeracao.value = []
+    const resposta = await gerarFaturasRecorrentesDoMes({ competencia, metodoPagamento: 'PIX' })
     resumoGeracao.value = normalizarObjeto(resposta)
-    const criadas = obterCampo(resumoGeracao.value, 'criadas', 'faturasCriadas', 'totalCriadas') || 0
-    const ignoradas = obterCampo(resumoGeracao.value, 'ignoradas', 'faturasIgnoradas', 'totalIgnoradas') || 0
-    sucesso.value = obterMensagemSucessoGeracao(resumoGeracao.value, criadas, ignoradas)
+    detalhesGeracao.value = normalizarDetalhesGeracao(resumoGeracao.value)
+    sucesso.value = obterMensagemSucessoGeracao(resumoGeracao.value, competencia)
+    mostrarGeracaoMes.value = false
     await carregarDados()
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível gerar as faturas recorrentes.')
     console.error(error)
+  } finally {
+    processandoMes.value = false
   }
 }
 
-function obterMensagemSucessoGeracao(resumo, criadas, ignoradas) {
-  const mensagemApi = obterCampo(resumo, 'mensagem', 'message', 'mensagemResultado', 'descricao')
+function obterMensagemSucessoGeracao(resumo, competencia) {
+  const criadas = obterNumeroCampo(resumo, 'criadas', 'faturasCriadas', 'totalCriadas', 'criadasCount')
+  const ignoradas = obterNumeroCampo(resumo, 'ignoradas', 'faturasIgnoradas', 'totalIgnoradas', 'ignoradasCount')
+  const erros = obterNumeroCampo(resumo, 'erros', 'faturasComErro', 'totalErros', 'falhas')
+  const competenciaFormatada = formatarCompetencia(competencia)
 
-  if (mensagemApi) {
-    return mensagemApi
+  if (erros > 0) {
+    return 'Geração concluída com atenção. Algumas recorrências não puderam ser processadas. Verifique os detalhes.'
   }
 
-  return `Geração concluída. ${criadas} faturas criadas, ${ignoradas} ignoradas.`
+  if (criadas === 1 && ignoradas === 0) {
+    return `Geração concluída com sucesso. 1 fatura foi criada para a competência ${competenciaFormatada}.`
+  }
+
+  if (criadas > 1 && ignoradas === 0) {
+    return `Geração concluída com sucesso. ${criadas} faturas foram criadas para a competência ${competenciaFormatada}.`
+  }
+
+  if (criadas > 0) {
+    return `Geração concluída com sucesso. ${criadas} ${criadas === 1 ? 'fatura foi criada' : 'faturas foram criadas'} para a competência ${competenciaFormatada}.`
+  }
+
+  if (ignoradas > 0) {
+    return 'Geração concluída. Nenhuma nova fatura foi criada porque as cobranças dessa competência já haviam sido processadas.'
+  }
+
+  return 'Geração concluída. Nenhuma fatura foi criada porque não foram encontradas recorrências ativas elegíveis para essa competência.'
+}
+
+function obterMensagemGerarProxima(resposta) {
+  const dados = normalizarObjeto(resposta)
+  const status = String(obterCampo(dados, 'status', 'resultado', 'situacao') || '').toUpperCase()
+  const criada = obterCampo(dados, 'criada', 'faturaCriada', 'gerada', 'sucesso')
+  const motivo = String(obterCampo(dados, 'motivo', 'mensagem', 'message') || '').toLowerCase()
+
+  if (criada === true || ['CRIADA', 'GERADA', 'SUCESSO'].includes(status)) {
+    return 'Próxima fatura gerada com sucesso.'
+  }
+
+  if (status.includes('IGNOR') || motivo.includes('já') || motivo.includes('ja') || motivo.includes('exist')) {
+    return 'A fatura dessa competência já havia sido gerada.'
+  }
+
+  if (criada === false || status.includes('ERRO') || status.includes('FALHA') || status.includes('NAO')) {
+    return 'Não foi possível gerar a próxima fatura. Verifique os detalhes.'
+  }
+
+  return 'Próxima fatura gerada com sucesso.'
 }
 
 function fecharFormulario() {
@@ -229,13 +329,36 @@ function criarFormulario() {
   }
 }
 
-function validar() {
+function validarFormulario() {
   if (!formulario.value.empresaId) return 'Selecione a empresa.'
-  if (!String(formulario.value.descricao || '').trim()) return 'Informe a descrição.'
-  if (!Number.isFinite(converterValor(formulario.value.valor))) return 'Informe um valor válido.'
+  if (!String(formulario.value.descricao || '').trim()) return 'Informe a descrição da recorrência.'
+
+  const valor = converterValor(formulario.value.valor)
+  if (!Number.isFinite(valor) || valor <= 0) return 'Informe um valor válido e maior que zero.'
+
   const dia = Number(formulario.value.diaVencimento)
   if (!Number.isInteger(dia) || dia < 1 || dia > 31) return 'Informe um dia de vencimento entre 1 e 31.'
-  if (!formulario.value.competenciaInicio) return 'Informe a competência inicial.'
+
+  if (validarCompetencia(formulario.value.competenciaInicio)) {
+    return 'Informe a competência de início no formato YYYY-MM. Exemplo: 2026-05.'
+  }
+
+  if (formulario.value.competenciaFim && validarCompetencia(formulario.value.competenciaFim)) {
+    return 'Informe a competência fim no formato YYYY-MM. Exemplo: 2026-05.'
+  }
+
+  return ''
+}
+
+function validarCompetencia(valor) {
+  const texto = String(valor || '').trim()
+  const match = texto.match(/^(\d{4})-(\d{2})$/)
+
+  if (!match) return 'Informe a competência no formato YYYY-MM. Exemplo: 2026-05.'
+
+  const mes = Number(match[2])
+  if (mes < 1 || mes > 12) return 'Informe a competência no formato YYYY-MM. Exemplo: 2026-05.'
+
   return ''
 }
 
@@ -245,38 +368,40 @@ function montarPayload() {
     empresaId: Number(formulario.value.empresaId),
     valor: converterValor(formulario.value.valor),
     diaVencimento: Number(formulario.value.diaVencimento),
+    competenciaInicio: String(formulario.value.competenciaInicio || '').trim(),
+    competenciaFim: String(formulario.value.competenciaFim || '').trim(),
     metodoPagamentoPadrao: 'PIX',
   })
 }
 
 function estaAtiva(item) {
-  const ativo = obterCampo(item, 'ativo', 'ativa')
-  if (ativo !== '') return ativo !== false && String(ativo).toLowerCase() !== 'false'
-
   const status = normalizarStatusRecorrencia(obterCampo(item, 'status', 'situacao'))
   if (status) return status === 'ATIVA'
+
+  const ativo = obterCampo(item, 'ativo', 'ativa', 'isAtivo', 'isAtiva')
+  if (ativo !== '') return ativo !== false && String(ativo).toLowerCase() !== 'false'
 
   return true
 }
 
 function normalizarStatusRecorrencia(status) {
   const valor = String(status || '').trim().toUpperCase()
-  if (['ATIVA', 'ATIVAS', 'ATIVO', 'ATIVOS'].includes(valor)) return 'ATIVA'
-  if (['INATIVA', 'INATIVAS', 'INATIVO', 'INATIVOS'].includes(valor)) return 'INATIVA'
-  return valor
+  if (['ATIVA', 'ATIVAS', 'ATIVO', 'ATIVOS', 'ACTIVE'].includes(valor)) return 'ATIVA'
+  if (['INATIVA', 'INATIVAS', 'INATIVO', 'INATIVOS', 'INACTIVE'].includes(valor)) return 'INATIVA'
+  return ''
 }
 
 function nomeEmpresa(item) {
   return (
-    obterCampo(item, 'empresaNome', 'nomeEmpresa') ||
+    obterCampo(item, 'empresaNome', 'nomeEmpresa', 'razaoSocialEmpresa') ||
     obterCampo(item.empresa, 'nome', 'razaoSocial') ||
     empresas.value.find((empresa) => String(empresa.id) === String(obterCampo(item, 'empresaId')))?.nome ||
     '-'
   )
 }
 
-function obterProximaCompetencia() {
-  const valores = recorrenciasFiltradas.value.map((item) => obterCampo(item, 'proximaCompetencia')).filter(Boolean).sort()
+function obterProximaCompetencia(base) {
+  const valores = base.map((item) => obterCampo(item, 'proximaCompetencia')).filter(Boolean).sort()
   return valores[0] ? formatarCompetencia(valores[0]) : '-'
 }
 
@@ -291,8 +416,35 @@ function normalizarObjeto(dados) {
   return dados.data && !Array.isArray(dados.data) ? dados.data : dados
 }
 
+function normalizarDetalhesGeracao(resumo) {
+  const detalhes = normalizarLista(
+    obterCampo(resumo, 'detalhes', 'itens', 'items', 'resultados', 'recorrencias', 'processamentos'),
+  )
+
+  return detalhes.map((item) => ({
+    empresa: nomeEmpresaDetalhe(item),
+    descricao: obterCampo(item, 'descricao', 'recorrencia', 'recorrenciaDescricao') || '-',
+    resultado: obterCampo(item, 'resultado', 'status', 'situacao') || '-',
+    motivo: obterCampo(item, 'motivo', 'mensagem', 'message', 'erro') || '-',
+  }))
+}
+
+function nomeEmpresaDetalhe(item) {
+  const empresaDireta = obterCampo(item, 'empresaNome', 'nomeEmpresa', 'razaoSocial', 'razaoSocialEmpresa')
+  if (empresaDireta) return empresaDireta
+
+  const empresa = obterCampo(item, 'empresa')
+  if (empresa && typeof empresa === 'object') {
+    return obterCampo(empresa, 'nome', 'razaoSocial', 'fantasia') || '-'
+  }
+
+  return nomeEmpresa(item)
+}
+
 function limparVazios(objeto) {
-  return Object.fromEntries(Object.entries(objeto || {}).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()))
+  return Object.fromEntries(
+    Object.entries(objeto || {}).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()),
+  )
 }
 
 function obterCampo(objeto, ...campos) {
@@ -301,6 +453,18 @@ function obterCampo(objeto, ...campos) {
     if (objeto[campo] !== null && objeto[campo] !== undefined && objeto[campo] !== '') return objeto[campo]
   }
   return ''
+}
+
+function obterNumeroCampo(objeto, ...campos) {
+  const valor = obterCampo(objeto, ...campos)
+  if (Array.isArray(valor)) return valor.length
+  if (valor && typeof valor === 'object') {
+    return obterNumeroCampo(valor, 'total', 'count', 'quantidade')
+  }
+  const n = Number(valor)
+  if (Number.isFinite(n)) return n
+  const match = String(valor || '').match(/\d+/)
+  return match ? Number(match[0]) : 0
 }
 
 function numero(valor) {
@@ -329,13 +493,32 @@ function formatarMoeda(valor) {
   return numero(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+function normalizarCompetenciaEntrada(valor) {
+  const match = String(valor || '').match(/^(\d{4})-(\d{2})/)
+  return match ? `${match[1]}-${match[2]}` : ''
+}
+
 function formatarCompetencia(valor) {
   const match = String(valor || '').match(/^(\d{4})-(\d{2})/)
   return match ? `${match[2]}/${match[1]}` : valor || '-'
 }
 
 function obterMensagemErro(error, fallback) {
-  return String(error?.message || '').trim() || fallback
+  if (error?.status === 403) return 'Você não tem permissão para executar esta ação.'
+  if (error?.status === 500) return 'Não foi possível concluir a operação agora. Tente novamente em instantes.'
+  if (error?.status === 400) {
+    const mensagem = sanitizarMensagemErro(error?.message)
+    return mensagem || 'Não foi possível processar a solicitação. Confira os dados informados.'
+  }
+
+  return sanitizarMensagemErro(error?.message) || fallback
+}
+
+function sanitizarMensagemErro(mensagem) {
+  const texto = String(mensagem || '').trim()
+  if (!texto) return ''
+  if (/exception|stack trace|sql|constraint|hibernate|java\./i.test(texto)) return ''
+  return texto
 }
 
 onMounted(carregarDados)
@@ -350,14 +533,76 @@ onMounted(carregarDados)
         <p class="descricao">Configure cobranças mensais automáticas para empresas ativas.</p>
       </div>
       <div class="acoes">
-        <button class="botao secundario" :disabled="carregando" @click="carregarDados">Atualizar</button>
-        <button class="botao sucesso-botao" @click="gerarMes">Gerar faturas do mês</button>
-        <button class="botao principal" @click="abrirNova">Nova recorrência</button>
+        <button class="botao secundario" :disabled="carregando || processandoMes" @click="carregarDados">
+          {{ carregando ? 'Carregando...' : 'Atualizar' }}
+        </button>
+        <button class="botao sucesso-botao" :disabled="carregando || processandoMes" @click="abrirGeracaoMes">
+          {{ processandoMes ? 'Gerando...' : 'Gerar faturas do mês' }}
+        </button>
+        <button class="botao principal" :disabled="carregando || salvando" @click="abrirNova">Nova recorrência</button>
       </div>
     </header>
 
     <section v-if="erro" class="card feedback erro">{{ erro }}</section>
     <section v-if="sucesso" class="card feedback sucesso">{{ sucesso }}</section>
+
+    <section v-if="confirmacao" class="card confirmacao">
+      <div>
+        <h2>{{ confirmacao.titulo }}</h2>
+        <p>{{ confirmacao.mensagem }}</p>
+      </div>
+      <div class="acoes">
+        <button class="botao secundario" :disabled="Boolean(processandoId)" @click="confirmacao = null">Cancelar</button>
+        <button class="botao" :class="confirmacao.tipo" :disabled="Boolean(processandoId)" @click="confirmacao.executar">
+          {{ processandoId ? 'Processando...' : confirmacao.textoBotao }}
+        </button>
+      </div>
+    </section>
+
+    <form v-if="mostrarGeracaoMes" class="card formulario-geracao" @submit.prevent="gerarMes">
+      <div class="cabecalho-card">
+        <div>
+          <h2>Gerar faturas do mês</h2>
+          <p>Informe a competência que deseja processar. Exemplo: 2026-05 para maio de 2026.</p>
+        </div>
+      </div>
+      <label>
+        Competência
+        <input v-model="competenciaGeracao" type="text" placeholder="Ex: 2026-05" inputmode="numeric" />
+      </label>
+      <div class="acoes">
+        <button type="button" class="botao secundario" :disabled="processandoMes" @click="cancelarGeracaoMes">
+          Cancelar
+        </button>
+        <button class="botao sucesso-botao" :disabled="processandoMes">
+          {{ processandoMes ? 'Gerando...' : 'Gerar faturas' }}
+        </button>
+      </div>
+    </form>
+
+    <section v-if="detalhesGeracao.length" class="card detalhes-geracao">
+      <h2>Detalhes da última geração</h2>
+      <div class="tabela-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Empresa</th>
+              <th>Descrição</th>
+              <th>Resultado</th>
+              <th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(detalhe, index) in detalhesGeracao" :key="index">
+              <td>{{ detalhe.empresa }}</td>
+              <td>{{ detalhe.descricao }}</td>
+              <td>{{ detalhe.resultado }}</td>
+              <td>{{ detalhe.motivo }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <section class="grade-resumo">
       <article v-for="card in cards" :key="card.titulo" class="card indicador">
@@ -373,25 +618,29 @@ onMounted(carregarDados)
     <section class="card filtros">
       <div class="campos">
         <label>Empresa
-          <select v-model="filtros.empresaId">
+          <select v-model="filtros.empresaId" :disabled="carregando">
             <option value="">Todas</option>
-            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">{{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}</option>
+            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
+              {{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}
+            </option>
           </select>
         </label>
         <label>Status
-          <select v-model="filtros.status">
+          <select v-model="filtros.status" :disabled="carregando">
             <option value="">Todas</option>
             <option value="ATIVA">Ativas</option>
             <option value="INATIVA">Inativas</option>
           </select>
         </label>
         <label>Busca
-          <input v-model="filtros.busca" type="text" placeholder="Empresa ou descrição" />
+          <input v-model="filtros.busca" type="text" placeholder="Empresa ou descrição" :disabled="carregando" />
         </label>
       </div>
       <div class="acoes">
-        <button class="botao principal" @click="carregarDados">Aplicar filtros</button>
-        <button class="botao secundario" @click="limparFiltros">Limpar filtros</button>
+        <button class="botao principal" :disabled="carregando" @click="carregarDados">
+          {{ carregando ? 'Carregando...' : 'Aplicar filtros' }}
+        </button>
+        <button class="botao secundario" :disabled="carregando" @click="limparFiltros">Limpar filtros</button>
       </div>
     </section>
 
@@ -401,37 +650,51 @@ onMounted(carregarDados)
           <h2>{{ editandoId ? 'Editar recorrência' : 'Nova recorrência' }}</h2>
           <p>Faturas automáticas usam PIX por padrão.</p>
         </div>
-        <button type="button" class="botao secundario" @click="fecharFormulario">Fechar</button>
+        <button type="button" class="botao secundario" :disabled="salvando" @click="fecharFormulario">Fechar</button>
       </div>
       <div class="campos">
         <label>Empresa
-          <select v-model="formulario.empresaId">
+          <select v-model="formulario.empresaId" :disabled="salvando">
             <option value="">Selecione</option>
-            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">{{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}</option>
+            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
+              {{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}
+            </option>
           </select>
         </label>
-        <label>Valor <input v-model="formulario.valor" type="text" inputmode="decimal" /></label>
-        <label>Dia de vencimento <input v-model="formulario.diaVencimento" type="number" min="1" max="31" /></label>
-        <label>Competência início <input v-model="formulario.competenciaInicio" type="month" /></label>
-        <label>Competência fim opcional <input v-model="formulario.competenciaFim" type="month" /></label>
-        <label>Método padrão <input value="PIX — padrão para faturas automáticas" disabled /></label>
-        <label class="campo-grande">Descrição <input v-model="formulario.descricao" type="text" /></label>
-        <label class="campo-grande">Observação <textarea v-model="formulario.observacao" rows="3"></textarea></label>
+        <label>Valor <input v-model="formulario.valor" type="text" inputmode="decimal" :disabled="salvando" /></label>
+        <label>Dia de vencimento <input v-model="formulario.diaVencimento" type="number" min="1" max="31" :disabled="salvando" /></label>
+        <label>Competência início <input v-model="formulario.competenciaInicio" type="month" :disabled="salvando" /></label>
+        <label>Competência fim opcional <input v-model="formulario.competenciaFim" type="month" :disabled="salvando" /></label>
+        <label>Método padrão <input value="PIX - padrão para faturas automáticas" disabled /></label>
+        <label class="campo-grande">Descrição <input v-model="formulario.descricao" type="text" :disabled="salvando" /></label>
+        <label class="campo-grande">Observação <textarea v-model="formulario.observacao" rows="3" :disabled="salvando"></textarea></label>
       </div>
       <div class="acoes">
-        <button class="botao principal" :disabled="salvando">{{ salvando ? 'Salvando...' : 'Salvar recorrência' }}</button>
-        <button type="button" class="botao secundario" @click="fecharFormulario">Cancelar</button>
+        <button class="botao principal" :disabled="salvando">
+          {{ salvando ? 'Salvando...' : editandoId ? 'Salvar edição' : 'Salvar recorrência' }}
+        </button>
+        <button type="button" class="botao secundario" :disabled="salvando" @click="fecharFormulario">Cancelar</button>
       </div>
     </form>
 
     <section v-if="carregando" class="card">Carregando recorrências...</section>
-    <section v-else-if="!recorrenciasFiltradas.length" class="card">Nenhuma recorrência encontrada.</section>
+    <section v-else-if="!recorrenciasFiltradas.length" class="card">{{ mensagemListaVazia }}</section>
     <section v-else class="card tabela-card">
       <div class="tabela-container">
         <table>
           <thead>
             <tr>
-              <th>Empresa</th><th>Descrição</th><th>Valor</th><th>Dia vencimento</th><th>Competência início</th><th>Competência fim</th><th>Método padrão</th><th>Última gerada</th><th>Próxima</th><th>Status</th><th>Ações</th>
+              <th>Empresa</th>
+              <th>Descrição</th>
+              <th>Valor</th>
+              <th>Dia vencimento</th>
+              <th>Competência início</th>
+              <th>Competência fim</th>
+              <th>Método padrão</th>
+              <th>Última gerada</th>
+              <th>Próxima</th>
+              <th>Status</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -448,9 +711,28 @@ onMounted(carregarDados)
               <td><span :class="['status', estaAtiva(item) ? 'ativa' : 'inativa']">{{ estaAtiva(item) ? 'Ativa' : 'Inativa' }}</span></td>
               <td>
                 <div class="acoes-tabela">
-                  <button class="botao compacto secundario" @click="editar(item)">Editar</button>
-                  <button class="botao compacto" :class="estaAtiva(item) ? 'perigo' : 'sucesso-botao'" :disabled="processandoId === item.id" @click="alternarAtivo(item)">{{ estaAtiva(item) ? 'Desativar' : 'Ativar' }}</button>
-                  <button class="botao compacto sucesso-botao" :disabled="processandoId === item.id" @click="gerarProxima(item)">Gerar próxima</button>
+                  <button
+                    class="botao compacto secundario"
+                    :disabled="Boolean(processandoId) || processandoProximaId === item.id"
+                    @click="editar(item)"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    class="botao compacto"
+                    :class="estaAtiva(item) ? 'perigo' : 'sucesso-botao'"
+                    :disabled="Boolean(processandoId) || processandoProximaId === item.id"
+                    @click="pedirAlternarAtivo(item)"
+                  >
+                    {{ processandoId === item.id ? 'Processando...' : estaAtiva(item) ? 'Desativar' : 'Ativar' }}
+                  </button>
+                  <button
+                    class="botao compacto sucesso-botao"
+                    :disabled="Boolean(processandoId) || processandoProximaId === item.id"
+                    @click="gerarProxima(item)"
+                  >
+                    {{ processandoProximaId === item.id ? 'Gerando...' : 'Gerar próxima' }}
+                  </button>
                 </div>
               </td>
             </tr>
@@ -462,9 +744,278 @@ onMounted(carregarDados)
 </template>
 
 <style scoped>
-.pagina,.filtros,.formulario{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px}.descricao,.cabecalho-card p{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.grade-resumo{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:14px}.indicador{display:grid;gap:8px}.indicador span{color:#64748b;font-weight:800}.indicador strong{font-size:22px}.aviso-pix{border-color:#bfdbfe;background:#eff6ff;color:#1d4ed8;font-weight:800}.campos{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:14px}label{display:grid;gap:7px;font-weight:800;color:#334155}.campo-grande{grid-column:1/-1}input,select,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800}.compacto{width:100%;padding:7px 8px;font-size:11px;line-height:1.2;white-space:normal}.principal{background:#2563eb}.secundario{background:#0f172a}.sucesso-botao{background:#15803d}.perigo{background:#dc2626}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.tabela-card{padding:0;overflow:hidden}.tabela-container{overflow-x:visible}table{width:100%;min-width:0;border-collapse:collapse;table-layout:auto}th,td{padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:left;color:#374151;vertical-align:top;font-size:13px;line-height:1.35;white-space:normal;word-break:break-word}th{background:#f8fafc;color:#111827;font-size:11px;text-transform:uppercase}.status{display:inline-flex;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.status.ativa{background:#dcfce7;color:#15803d}.status.inativa{background:#e5e7eb;color:#4b5563}.acoes-tabela{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:130px}@media(max-width:1100px){.tabela-container{overflow-x:auto}table{min-width:1180px}.grade-resumo,.campos{grid-template-columns:repeat(2,minmax(160px,1fr))}}@media(max-width:760px){.cabecalho-pagina,.cabecalho-card,.acoes{align-items:flex-start;flex-direction:column}.grade-resumo,.campos{grid-template-columns:1fr}}
+.pagina,
+.filtros,
+.formulario,
+.formulario-geracao,
+.detalhes-geracao,
+.confirmacao {
+  display: grid;
+  gap: 18px;
+  color: #111827;
+}
+
+.cabecalho-pagina,
+.cabecalho-card,
+.acoes {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.subtitulo {
+  margin: 0 0 4px;
+  color: #2563eb;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 32px;
+}
+
+h2 {
+  font-size: 20px;
+}
+
+.descricao,
+.cabecalho-card p,
+.confirmacao p {
+  color: #64748b;
+}
+
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 22px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+}
+
+.grade-resumo {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.indicador {
+  display: grid;
+  gap: 8px;
+}
+
+.indicador span {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.indicador strong {
+  font-size: 22px;
+}
+
+.aviso-pix,
+.formulario-geracao {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.aviso-pix {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.campos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.campo-grande {
+  grid-column: 1 / -1;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled,
+button:disabled {
+  opacity: .7;
+  cursor: not-allowed;
+}
+
+.botao {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: white;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.compacto {
+  width: 100%;
+  padding: 7px 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.principal {
+  background: #2563eb;
+}
+
+.secundario {
+  background: #0f172a;
+}
+
+.sucesso-botao {
+  background: #15803d;
+}
+
+.perigo {
+  background: #dc2626;
+}
+
+.feedback.erro {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.feedback.sucesso {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.tabela-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.tabela-container {
+  overflow-x: visible;
+}
+
+table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+th,
+td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  color: #374151;
+  vertical-align: top;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+}
+
+th {
+  background: #f8fafc;
+  color: #111827;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.status {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status.ativa {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status.inativa {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.acoes-tabela {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  min-width: 130px;
+}
+
+@media(max-width: 1100px) {
+  .tabela-container {
+    overflow-x: auto;
+  }
+
+  table {
+    min-width: 1180px;
+  }
+
+  .grade-resumo,
+  .campos {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+}
+
+@media(max-width: 760px) {
+  .cabecalho-pagina,
+  .cabecalho-card,
+  .acoes {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .grade-resumo,
+  .campos {
+    grid-template-columns: 1fr;
+  }
+}
 
 th:last-child,
-td:last-child{position:sticky;right:0;z-index:2;width:140px;min-width:140px;background:white;box-shadow:-8px 0 14px rgba(15,23,42,.06)}
-th:last-child{z-index:3;background:#f8fafc}
+td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  width: 140px;
+  min-width: 140px;
+  background: white;
+  box-shadow: -8px 0 14px rgba(15, 23, 42, .06);
+}
+
+th:last-child {
+  z-index: 3;
+  background: #f8fafc;
+}
 </style>
