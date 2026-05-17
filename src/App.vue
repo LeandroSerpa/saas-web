@@ -20,10 +20,10 @@ const empresaLogada = computed(() => {
   }
 
   if (usuario.value?.empresaId) {
-    return `Empresa ID: ${usuario.value.empresaId}`
+    return 'Empresa'
   }
 
-  return 'Empresa ID: -'
+  return 'Empresa'
 })
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))

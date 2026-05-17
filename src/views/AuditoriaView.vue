@@ -447,7 +447,7 @@ function formatarJson(valor) {
           <tbody>
             <tr v-for="log in logs" :key="log.id || `${log.dataHora}-${log.descricao}`">
               <td class="col-data texto-nowrap">{{ formatarDataHora(obterCampo(log, 'dataHora', 'criadoEm', 'createdAt')) }}</td>
-              <td class="col-empresa">{{ obterCampo(log, 'empresaNome', 'empresaId', 'empresa') }}</td>
+              <td class="col-empresa">{{ obterCampo(log, 'empresaNome', 'empresa') }}</td>
               <td class="col-usuario">{{ obterCampo(log, 'usuarioNome', 'usuarioEmail', 'usuario') }}</td>
               <td class="col-perfil texto-nowrap">{{ obterCampo(log, 'perfil', 'usuarioPerfil') }}</td>
               <td class="col-modulo texto-nowrap">{{ obterCampo(log, 'modulo') }}</td>
@@ -506,7 +506,7 @@ function formatarJson(valor) {
         <div class="detalhes-grid">
           <p><strong>ID:</strong> {{ detalhe.id || '-' }}</p>
           <p><strong>Data/hora:</strong> {{ formatarDataHora(obterCampo(detalhe, 'dataHora', 'criadoEm', 'createdAt')) }}</p>
-          <p><strong>Empresa:</strong> {{ obterCampo(detalhe, 'empresaNome', 'empresaId', 'empresa') }}</p>
+          <p><strong>Empresa:</strong> {{ obterCampo(detalhe, 'empresaNome', 'empresa') }}</p>
           <p><strong>Usuário:</strong> {{ obterCampo(detalhe, 'usuarioNome', 'usuarioEmail', 'usuario') }}</p>
           <p><strong>Perfil:</strong> {{ obterCampo(detalhe, 'perfil', 'usuarioPerfil') }}</p>
           <p><strong>Módulo:</strong> {{ obterCampo(detalhe, 'modulo') }}</p>

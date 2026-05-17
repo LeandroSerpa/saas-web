@@ -835,7 +835,7 @@ onMounted(carregarDados)
           <select v-model="filtros.empresaId" :disabled="carregando">
             <option value="">Todas</option>
             <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
-              {{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}
+              {{ empresa.nome || empresa.razaoSocial || 'Empresa sem nome' }}
             </option>
           </select>
         </label>
@@ -871,7 +871,7 @@ onMounted(carregarDados)
           <select v-model="formulario.empresaId" :disabled="salvando || carregandoSugestao" @change="carregarSugestaoEmpresa">
             <option value="">Selecione</option>
             <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
-              {{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}
+              {{ empresa.nome || empresa.razaoSocial || 'Empresa sem nome' }}
             </option>
           </select>
         </label>

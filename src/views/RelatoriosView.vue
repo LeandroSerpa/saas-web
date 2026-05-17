@@ -530,7 +530,7 @@ onMounted(async () => {
           <select v-model="filtros.empresaId">
             <option value="">Todas</option>
             <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
-              {{ empresa.nome || empresa.razaoSocial || `Empresa ${empresa.id}` }}
+              {{ empresa.nome || empresa.razaoSocial || 'Empresa sem nome' }}
             </option>
           </select>
         </label>

@@ -319,7 +319,7 @@ function obterSituacao(item) {
           <select v-model="filtros.empresaId" :disabled="carregandoEmpresas">
             <option value="">Todas as empresas</option>
             <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
-              {{ empresa.nome || 'Empresa sem nome' }} — ID {{ empresa.id }}
+              {{ empresa.nome || 'Empresa sem nome' }}
             </option>
           </select>
         </label>
@@ -381,7 +381,7 @@ function obterSituacao(item) {
           <dl>
             <div>
               <dt>Empresa</dt>
-              <dd>{{ obterCampo(item, 'empresaNome', 'empresaId', 'empresa') || '-' }}</dd>
+              <dd>{{ obterCampo(item, 'empresaNome', 'empresa') || '-' }}</dd>
             </div>
             <div>
               <dt>Cliente</dt>

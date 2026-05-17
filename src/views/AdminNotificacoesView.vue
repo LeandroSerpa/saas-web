@@ -81,7 +81,7 @@ const empresasOptions = computed(() =>
 
       return {
         id,
-        nome: obterCampo(empresa, 'nome', 'empresaNome', 'razaoSocial') || `Empresa ${id}`,
+        nome: obterCampo(empresa, 'nome', 'empresaNome', 'razaoSocial') || 'Empresa sem nome',
       }
     })
     .filter((empresa) => empresa.id !== ''),
@@ -1249,7 +1249,7 @@ onMounted(() => {
               <tbody>
                 <tr v-for="item in historicoLembretesAgendamentos" :key="item.id">
                   <td>{{ formatarData(obterCampo(item, 'criadoEm')) }}</td>
-                  <td>{{ obterCampo(item, 'empresaNome') || obterCampo(item, 'empresaId') || '-' }}</td>
+                  <td>{{ obterCampo(item, 'empresaNome') || '-' }}</td>
                   <td>{{ formatarTipoLembrete(obterCampo(item, 'tipoLembrete')) }}</td>
                   <td>{{ obterCampo(item, 'clienteNome') || '-' }}</td>
                   <td>{{ obterCampo(item, 'servicoNome') || '-' }}</td>

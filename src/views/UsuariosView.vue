@@ -349,7 +349,7 @@ onMounted(() => {
             <p><strong>Perfil:</strong> {{ exibirValor(usuarioItem.perfil) }}</p>
             <p>
               <strong>Empresa:</strong>
-              {{ exibirValor(usuarioItem.empresaNome || usuarioItem.empresaId) }}
+              {{ exibirValor(usuarioItem.empresaNome) }}
             </p>
             <p v-if="usuarioAtual(usuarioItem)" class="usuario-atual">Usuário atual</p>
           </div>
