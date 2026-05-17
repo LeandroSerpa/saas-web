@@ -22,6 +22,7 @@ const carregando = ref(true)
 const salvando = ref(false)
 const erro = ref('')
 const sucesso = ref('')
+const aviso = ref('')
 const empresaCriada = ref(null)
 const slugEditado = ref(false)
 const empresa = ref(criarEmpresaInicial())
@@ -113,13 +114,16 @@ async function criarEmpresaGuiada() {
     salvando.value = true
     erro.value = ''
     sucesso.value = ''
+    aviso.value = ''
     const resposta = await cadastrarEmpresaComOnboarding({
       empresa: montarPayloadEmpresa(),
       assinatura: montarPayloadAssinatura(),
     })
 
-    empresaCriada.value = normalizarObjeto(resposta.empresa)
-    sucesso.value = `Empresa ${empresa.value.nome} criada com sucesso.`
+    const dadosResposta = normalizarObjeto(resposta)
+    empresaCriada.value = normalizarObjeto(resposta?.empresa || dadosResposta?.empresa || dadosResposta)
+    aviso.value = extrairAvisoResposta(resposta)
+    sucesso.value = `Empresa ${empresa.value.nome} cadastrada com sucesso.`
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível criar a empresa.')
     console.error(error)
@@ -245,6 +249,21 @@ function normalizarObjeto(dados) {
   return dados.data && typeof dados.data === 'object' ? dados.data : dados
 }
 
+function extrairAvisoResposta(resposta) {
+  const candidatos = [resposta, resposta?.data].filter(Boolean)
+  const camposAviso = ['aviso', 'warning', 'alerta', 'mensagemAviso', 'avisoAssinatura']
+
+  for (const item of candidatos) {
+    for (const campo of camposAviso) {
+      const valor = item?.[campo]
+      if (Array.isArray(valor)) return valor.filter(Boolean).join(' ')
+      if (typeof valor === 'string' && valor.trim()) return valor.trim()
+    }
+  }
+
+  return ''
+}
+
 function obterMensagemErro(error, fallback) {
   return String(error?.message || '').trim() || fallback
 }
@@ -264,7 +283,10 @@ function obterMensagemErro(error, fallback) {
     <section v-if="erro" class="card erro"><p>{{ erro }}</p></section>
 
     <section v-if="sucesso" class="card sucesso">
-      <p>{{ sucesso }}</p>
+      <div>
+        <p>{{ sucesso }}</p>
+        <p v-if="aviso" class="aviso-onboarding">{{ aviso }}</p>
+      </div>
       <RouterLink class="botao principal" to="/empresas">Ir para Empresas</RouterLink>
     </section>
 
@@ -597,6 +619,13 @@ textarea:focus {
 .erro p,
 .sucesso p {
   font-weight: 800;
+}
+
+.sucesso .aviso-onboarding {
+  margin-top: 6px;
+  color: #854d0e;
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
 @media (max-width: 1000px) {

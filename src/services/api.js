@@ -1243,18 +1243,13 @@ export async function salvarAssinaturaEmpresa(empresaId, dados) {
 }
 
 export async function cadastrarEmpresaComOnboarding({ empresa, assinatura }) {
-  const empresaCriada = await cadastrarEmpresa(empresa)
-  const empresaId = empresaCriada?.id || empresaCriada?.data?.id || empresaCriada?.empresa?.id
+  const response = await fetch(`${API_URL}/admin/empresas/onboarding`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify({ empresa, assinatura }),
+  })
 
-  if (!empresaId) {
-    return { empresa: empresaCriada, assinatura: null }
-  }
-
-  const assinaturaCriada = assinatura?.planoId
-    ? await salvarAssinaturaEmpresa(empresaId, assinatura)
-    : null
-
-  return { empresa: empresaCriada, assinatura: assinaturaCriada }
+  return tratarResposta(response)
 }
 
 export async function buscarMinhaAssinatura() {
