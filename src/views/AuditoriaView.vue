@@ -429,15 +429,15 @@ function formatarJson(valor) {
       <p v-if="carregando">Carregando logs...</p>
       <p v-else-if="!logs.length" class="vazio">Nenhum registro de auditoria encontrado.</p>
 
-      <div v-else class="tabela-container">
-        <table>
+      <div v-else class="auditoria-table-wrapper">
+        <table class="auditoria-table">
           <thead>
             <tr>
               <th class="col-data">Data/hora</th>
               <th class="col-empresa">Empresa</th>
               <th class="col-usuario">Usuário</th>
-              <th class="col-curta">Perfil</th>
-              <th class="col-curta">Módulo</th>
+              <th class="col-perfil">Perfil</th>
+              <th class="col-modulo">Módulo</th>
               <th class="col-media">Entidade</th>
               <th class="col-acao">Ação</th>
               <th class="col-descricao">Descrição</th>
@@ -449,10 +449,10 @@ function formatarJson(valor) {
               <td class="col-data texto-nowrap">{{ formatarDataHora(obterCampo(log, 'dataHora', 'criadoEm', 'createdAt')) }}</td>
               <td class="col-empresa">{{ obterCampo(log, 'empresaNome', 'empresaId', 'empresa') }}</td>
               <td class="col-usuario">{{ obterCampo(log, 'usuarioNome', 'usuarioEmail', 'usuario') }}</td>
-              <td class="col-curta texto-nowrap">{{ obterCampo(log, 'perfil', 'usuarioPerfil') }}</td>
-              <td class="col-curta texto-nowrap">{{ obterCampo(log, 'modulo') }}</td>
+              <td class="col-perfil texto-nowrap">{{ obterCampo(log, 'perfil', 'usuarioPerfil') }}</td>
+              <td class="col-modulo texto-nowrap">{{ obterCampo(log, 'modulo') }}</td>
               <td class="col-media texto-nowrap">{{ obterCampo(log, 'entidade', 'tipoEntidade') }}</td>
-              <td class="col-acao texto-nowrap">{{ obterCampo(log, 'acao') }}</td>
+              <td class="col-acao">{{ obterCampo(log, 'acao') }}</td>
               <td class="col-descricao">{{ obterCampo(log, 'descricao') }}</td>
               <td class="col-detalhes">
                 <button class="botao pequeno" :disabled="carregandoDetalhe" @click="abrirDetalhes(log)">
@@ -723,19 +723,20 @@ select:focus {
   flex-wrap: wrap;
 }
 
-.tabela-container {
+.auditoria-table-wrapper {
   overflow-x: auto;
+  width: 100%;
 }
 
-table {
+.auditoria-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1180px;
+  min-width: 1400px;
   table-layout: fixed;
 }
 
-th,
-td {
+.auditoria-table th,
+.auditoria-table td {
   border-bottom: 1px solid #e5e7eb;
   padding: 10px 8px;
   text-align: left;
@@ -747,7 +748,7 @@ td {
   overflow-wrap: normal;
 }
 
-th {
+.auditoria-table th {
   color: #475569;
   font-size: 12px;
   text-transform: uppercase;
@@ -759,24 +760,34 @@ th {
 }
 
 .col-data {
-  width: 140px;
+  width: 135px;
 }
 
 .col-empresa {
-  width: 170px;
+  width: 180px;
 }
 
 .col-usuario {
-  width: 170px;
+  width: 180px;
 }
 
-.col-curta {
+.col-perfil {
   width: 120px;
 }
 
-.col-media,
-.col-acao {
+.col-modulo {
   width: 140px;
+}
+
+.col-media {
+  width: 160px;
+}
+
+.col-acao {
+  width: 240px;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .col-descricao {
@@ -785,24 +796,8 @@ th {
 }
 
 .col-detalhes {
-  width: 100px;
+  width: 115px;
   text-align: right;
-}
-
-th:nth-child(3) {
-  width: 170px;
-}
-
-th:nth-child(5) {
-  width: 120px;
-}
-
-th:nth-child(7) {
-  width: 140px;
-}
-
-th:nth-child(8) {
-  width: auto;
 }
 
 .modal-fundo {
@@ -850,8 +845,8 @@ pre {
 }
 
 @media (max-width: 900px) {
-  table {
-    min-width: 1180px;
+  .auditoria-table {
+    min-width: 1400px;
   }
 
   .campos,
