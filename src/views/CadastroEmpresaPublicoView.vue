@@ -131,30 +131,44 @@ function falharValidacao(mensagem) {
 }
 
 function montarPayload() {
-  return limparVazios({
-    status: 'PENDENTE',
-    nomeEmpresa: formulario.value.nomeEmpresa,
-    documento: formulario.value.documento,
-    telefone: formulario.value.telefoneEmpresa,
-    telefoneEmpresa: formulario.value.telefoneEmpresa,
-    emailEmpresa: formulario.value.emailEmpresa,
-    endereco: formulario.value.endereco,
-    nomeResponsavel: formulario.value.nomeResponsavel,
-    responsavelNome: formulario.value.nomeResponsavel,
-    emailResponsavel: formulario.value.emailResponsavel,
-    responsavelEmail: formulario.value.emailResponsavel,
-    telefoneResponsavel: formulario.value.telefoneResponsavel,
-    responsavelTelefone: formulario.value.telefoneResponsavel,
-    cargoResponsavel: formulario.value.cargoResponsavel,
-    segmentoNegocioId: idOuVazio(formulario.value.segmentoNegocioId),
-    segmentoId: idOuVazio(formulario.value.segmentoNegocioId),
-    cidade: formulario.value.cidade,
-    estado: formulario.value.estado.toUpperCase(),
-    planoSaasId: idOuVazio(formulario.value.planoId),
-    planoId: idOuVazio(formulario.value.planoId),
-    mensagem: formulario.value.interesse,
-    observacao: formulario.value.interesse,
-  })
+  return {
+    empresa: limparVazios({
+      nome: formulario.value.nomeEmpresa,
+      nomeEmpresa: formulario.value.nomeEmpresa,
+      documento: formulario.value.documento,
+      telefone: formulario.value.telefoneEmpresa,
+      telefoneEmpresa: formulario.value.telefoneEmpresa,
+      email: formulario.value.emailEmpresa,
+      emailEmpresa: formulario.value.emailEmpresa,
+      endereco: formulario.value.endereco,
+    }),
+    responsavel: limparVazios({
+      nome: formulario.value.nomeResponsavel,
+      nomeResponsavel: formulario.value.nomeResponsavel,
+      responsavelNome: formulario.value.nomeResponsavel,
+      email: formulario.value.emailResponsavel,
+      emailResponsavel: formulario.value.emailResponsavel,
+      responsavelEmail: formulario.value.emailResponsavel,
+      telefone: formulario.value.telefoneResponsavel,
+      telefoneResponsavel: formulario.value.telefoneResponsavel,
+      responsavelTelefone: formulario.value.telefoneResponsavel,
+      cargo: formulario.value.cargoResponsavel,
+      cargoResponsavel: formulario.value.cargoResponsavel,
+    }),
+    segmento: limparVazios({
+      id: idOuVazio(formulario.value.segmentoNegocioId),
+      segmentoId: idOuVazio(formulario.value.segmentoNegocioId),
+      segmentoNegocioId: idOuVazio(formulario.value.segmentoNegocioId),
+      cidade: formulario.value.cidade,
+      estado: formulario.value.estado.toUpperCase(),
+    }),
+    plano: limparVazios({
+      id: idOuVazio(formulario.value.planoId),
+      planoId: idOuVazio(formulario.value.planoId),
+      planoSaasId: idOuVazio(formulario.value.planoId),
+    }),
+    observacoes: formulario.value.interesse.trim(),
+  }
 }
 
 function limparVazios(objeto) {
