@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   buscarAcoesAuditoria,
   buscarAuditoria,
@@ -21,6 +21,7 @@ const filtrosIniciais = {
 }
 
 const filtros = ref({ ...filtrosIniciais })
+const opcoesTamanhoPagina = [10, 20, 50, 100, 200]
 const empresas = ref([])
 const acoesAuditoria = ref([])
 const modulosAuditoria = ref([])
@@ -29,12 +30,24 @@ const usarSelectAcoes = ref(false)
 const usarSelectModulos = ref(false)
 const usarSelectEntidades = ref(false)
 const logs = ref([])
+const paginaAtual = ref(0)
+const tamanhoPagina = ref(10)
+const totalRegistros = ref(0)
+const totalPaginas = ref(0)
+const primeiraPagina = ref(true)
+const ultimaPagina = ref(true)
 const carregando = ref(false)
 const carregandoEmpresas = ref(false)
 const carregandoDetalhe = ref(false)
 const erro = ref('')
 const erroEmpresas = ref('')
 const detalhe = ref(null)
+
+const paginaHumana = computed(() => (totalPaginas.value ? paginaAtual.value + 1 : 0))
+const inicioExibicao = computed(() => (totalRegistros.value && logs.value.length ? paginaAtual.value * tamanhoPagina.value + 1 : 0))
+const fimExibicao = computed(() => Math.min(totalRegistros.value, paginaAtual.value * tamanhoPagina.value + logs.value.length))
+const podeVoltar = computed(() => !carregando.value && !primeiraPagina.value)
+const podeAvancar = computed(() => !carregando.value && !ultimaPagina.value)
 
 onMounted(() => {
   carregarEmpresasFiltro()
@@ -48,8 +61,8 @@ async function carregarAuditoria() {
     erro.value = ''
     detalhe.value = null
 
-    const resposta = await buscarAuditoria(filtros.value)
-    logs.value = extrairLista(resposta)
+    const resposta = await buscarAuditoria(montarParametrosAuditoria())
+    aplicarRespostaPaginada(resposta)
   } catch (error) {
     erro.value = obterMensagemErroAuditoria(error)
     console.error('Erro ao carregar auditoria:', error)
@@ -60,6 +73,42 @@ async function carregarAuditoria() {
 
 function limparFiltros() {
   filtros.value = { ...filtrosIniciais }
+  paginaAtual.value = 0
+  tamanhoPagina.value = 10
+  carregarAuditoria()
+}
+
+function aplicarFiltros() {
+  paginaAtual.value = 0
+  carregarAuditoria()
+}
+
+function alterarTamanhoPagina() {
+  paginaAtual.value = 0
+  carregarAuditoria()
+}
+
+function irParaPrimeiraPagina() {
+  if (primeiraPagina.value) return
+  paginaAtual.value = 0
+  carregarAuditoria()
+}
+
+function irParaPaginaAnterior() {
+  if (primeiraPagina.value) return
+  paginaAtual.value = Math.max(0, paginaAtual.value - 1)
+  carregarAuditoria()
+}
+
+function irParaProximaPagina() {
+  if (ultimaPagina.value) return
+  paginaAtual.value += 1
+  carregarAuditoria()
+}
+
+function irParaUltimaPagina() {
+  if (ultimaPagina.value) return
+  paginaAtual.value = Math.max(0, totalPaginas.value - 1)
   carregarAuditoria()
 }
 
@@ -121,12 +170,51 @@ function fecharDetalhes() {
   detalhe.value = null
 }
 
+function montarParametrosAuditoria() {
+  return limparVazios({
+    ...filtros.value,
+    page: paginaAtual.value,
+    size: tamanhoPagina.value,
+  })
+}
+
+function aplicarRespostaPaginada(resposta) {
+  if (resposta && typeof resposta === 'object' && Array.isArray(resposta.content)) {
+    const tamanhoResposta = Number(resposta.size ?? tamanhoPagina.value) || tamanhoPagina.value
+
+    logs.value = resposta.content
+    totalRegistros.value = Number(resposta.totalElements ?? resposta.total ?? resposta.content.length) || 0
+    totalPaginas.value = Number(resposta.totalPages) || calcularTotalPaginas(totalRegistros.value, tamanhoResposta)
+    paginaAtual.value = Number(resposta.number ?? resposta.page ?? paginaAtual.value) || 0
+    primeiraPagina.value = Boolean(resposta.first ?? paginaAtual.value <= 0)
+    ultimaPagina.value = Boolean(resposta.last ?? paginaAtual.value >= totalPaginas.value - 1)
+    return
+  }
+
+  const lista = extrairLista(resposta)
+  totalRegistros.value = lista.length
+  totalPaginas.value = calcularTotalPaginas(totalRegistros.value, tamanhoPagina.value)
+  primeiraPagina.value = paginaAtual.value <= 0
+  ultimaPagina.value = totalPaginas.value === 0 || paginaAtual.value >= totalPaginas.value - 1
+  logs.value = lista.slice(paginaAtual.value * tamanhoPagina.value, (paginaAtual.value + 1) * tamanhoPagina.value)
+}
+
+function calcularTotalPaginas(total, tamanho) {
+  return total ? Math.ceil(total / tamanho) : 0
+}
+
 function extrairLista(resposta) {
   if (Array.isArray(resposta)) {
     return resposta
   }
 
   return resposta?.content || resposta?.items || resposta?.data || resposta?.dados || resposta?.registros || []
+}
+
+function limparVazios(objeto) {
+  return Object.fromEntries(
+    Object.entries(objeto || {}).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()),
+  )
 }
 
 function normalizarOpcaoFiltro(item) {
@@ -316,7 +404,7 @@ function formatarJson(valor) {
       </div>
 
       <div class="acoes">
-        <button class="botao principal" :disabled="carregando" @click="carregarAuditoria">
+        <button class="botao principal" :disabled="carregando" @click="aplicarFiltros">
           Filtrar
         </button>
         <button class="botao secundario" :disabled="carregando" @click="limparFiltros">
@@ -327,7 +415,7 @@ function formatarJson(valor) {
 
     <section class="card">
       <p v-if="carregando">Carregando logs...</p>
-      <p v-else-if="!logs.length" class="vazio">Nenhum log encontrado para os filtros informados.</p>
+      <p v-else-if="!logs.length" class="vazio">Nenhum registro de auditoria encontrado.</p>
 
       <div v-else class="tabela-container">
         <table>
@@ -362,6 +450,37 @@ function formatarJson(valor) {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div v-if="!carregando && logs.length" class="paginacao">
+        <p class="resumo-paginacao">
+          Mostrando {{ inicioExibicao }} a {{ fimExibicao }} de {{ totalRegistros }} registros
+          <span v-if="totalPaginas"> - Página {{ paginaHumana }} de {{ totalPaginas }}</span>
+        </p>
+
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="tamanhoPagina" :disabled="carregando" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeVoltar" @click="irParaPrimeiraPagina">
+            Primeira
+          </button>
+          <button class="botao secundario" :disabled="!podeVoltar" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeAvancar" @click="irParaProximaPagina">
+            Próxima
+          </button>
+          <button class="botao secundario" :disabled="!podeAvancar" @click="irParaUltimaPagina">
+            Última
+          </button>
+        </div>
       </div>
     </section>
 
@@ -563,6 +682,34 @@ select:focus {
   font-weight: 700;
 }
 
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.resumo-paginacao {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.tamanho-pagina {
+  width: 190px;
+}
+
+.botoes-paginacao {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .tabela-container {
   overflow-x: visible;
 }
@@ -649,6 +796,16 @@ pre {
   .detalhes-grid,
   .blocos-json {
     grid-template-columns: 1fr;
+  }
+
+  .paginacao,
+  .botoes-paginacao {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tamanho-pagina {
+    width: 100%;
   }
 }
 </style>
