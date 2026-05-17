@@ -9,6 +9,7 @@ import LoginView from '../views/LoginView.vue'
 import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
 import EmpresasView from '../views/EmpresasView.vue'
+import EmpresaOnboardingAdminView from '../views/EmpresaOnboardingAdminView.vue'
 import MinhaEmpresaView from '../views/MinhaEmpresaView.vue'
 import RelatoriosView from '../views/RelatoriosView.vue'
 import PersonalizacaoPublicaView from '../views/PersonalizacaoPublicaView.vue'
@@ -233,6 +234,12 @@ const router = createRouter({
       path: '/admin/empresas',
       name: 'admin-empresas',
       component: EmpresasView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/empresas/onboarding',
+      name: 'admin-empresas-onboarding',
+      component: EmpresaOnboardingAdminView,
       meta: rotasSuperAdmin,
     },
     {

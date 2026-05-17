@@ -1242,6 +1242,21 @@ export async function salvarAssinaturaEmpresa(empresaId, dados) {
   return tratarResposta(response)
 }
 
+export async function cadastrarEmpresaComOnboarding({ empresa, assinatura }) {
+  const empresaCriada = await cadastrarEmpresa(empresa)
+  const empresaId = empresaCriada?.id || empresaCriada?.data?.id || empresaCriada?.empresa?.id
+
+  if (!empresaId) {
+    return { empresa: empresaCriada, assinatura: null }
+  }
+
+  const assinaturaCriada = assinatura?.planoId
+    ? await salvarAssinaturaEmpresa(empresaId, assinatura)
+    : null
+
+  return { empresa: empresaCriada, assinatura: assinaturaCriada }
+}
+
 export async function buscarMinhaAssinatura() {
   const response = await fetch(`${API_URL}/minha-empresa/assinatura`, {
     headers: montarHeaders(),

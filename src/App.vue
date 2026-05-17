@@ -150,6 +150,7 @@ onBeforeUnmount(() => {
           <div v-if="menuAdminAberto" class="submenu">
             <RouterLink to="/admin-dashboard">Dashboard SaaS</RouterLink>
             <RouterLink to="/empresas">Empresas</RouterLink>
+            <RouterLink to="/admin/empresas/onboarding">Novo cadastro guiado</RouterLink>
             <RouterLink to="/planos">Planos</RouterLink>
             <RouterLink to="/assinaturas">Assinaturas</RouterLink>
             <RouterLink to="/admin/notificacoes">Notificações</RouterLink>

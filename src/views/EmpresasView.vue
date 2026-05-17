@@ -313,7 +313,12 @@ onMounted(() => {
         <p class="descricao">Gerencie as empresas disponíveis na plataforma.</p>
       </div>
 
-      <button class="botao secundario" @click="carregarEmpresas">Atualizar dados</button>
+      <div class="acoes-cabecalho">
+        <RouterLink class="botao principal link-botao" to="/admin/empresas/onboarding">
+          Novo cadastro guiado
+        </RouterLink>
+        <button class="botao secundario" @click="carregarEmpresas">Atualizar dados</button>
+      </div>
     </header>
 
     <section v-if="erro" class="card erro">
@@ -637,6 +642,7 @@ onMounted(() => {
 }
 
 .acoes-filtros,
+.acoes-cabecalho,
 .acoes,
 :deep(.rodape-formulario) {
   display: flex;
@@ -647,6 +653,10 @@ onMounted(() => {
 
 .acoes-filtros {
   align-items: end;
+}
+
+.link-botao {
+  text-decoration: none;
 }
 
 .lista-empresas {
@@ -728,6 +738,10 @@ onMounted(() => {
 :deep(.secundario) {
   background: #0f172a;
   min-width: 140px;
+}
+
+.principal {
+  background: #2563eb;
 }
 
 .secundario:hover,
