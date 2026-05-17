@@ -37,10 +37,6 @@ const periodoAplicado = computed(() => {
     return `Período aplicado: agendamentos até ${dataFim}.`
   }
 
-  if (filtros.value.dataInicio === filtros.value.dataFim) {
-    return `Período aplicado: agendamentos do dia ${dataInicio}.`
-  }
-
   return `Período aplicado: agendamentos de ${dataInicio} até ${dataFim}.`
 })
 
@@ -50,7 +46,9 @@ onMounted(() => {
 })
 
 async function carregarLixeira() {
-  if (!datasValidas()) {
+  const filtrosApi = montarFiltrosApi()
+
+  if (!datasValidas(filtrosApi)) {
     erro.value = 'A data inicial não pode ser maior que a data final.'
     return
   }
@@ -60,7 +58,7 @@ async function carregarLixeira() {
     erro.value = ''
     mensagemSucesso.value = ''
 
-    const resposta = await buscarAgendamentosExcluidos(filtros.value)
+    const resposta = await buscarAgendamentosExcluidos(filtrosApi)
     console.debug('Lixeira de agendamentos carregada:', resposta)
     agendamentos.value = extrairLista(resposta)
   } catch (error) {
@@ -180,22 +178,42 @@ function obterCampo(item, ...campos) {
   return campos.map((campo) => item?.[campo]).find((valor) => valor !== null && valor !== undefined && String(valor).trim()) || ''
 }
 
-function datasValidas() {
-  return !(
-    filtros.value.dataInicio &&
-    filtros.value.dataFim &&
-    filtros.value.dataInicio > filtros.value.dataFim
+function montarFiltrosApi() {
+  return limparVazios({
+    empresaId: filtros.value.empresaId,
+    cliente: filtros.value.cliente,
+    funcionario: filtros.value.funcionario,
+    servico: filtros.value.servico,
+    dataInicio: normalizarDataFiltro(filtros.value.dataInicio),
+    dataFim: normalizarDataFiltro(filtros.value.dataFim),
+  })
+}
+
+function limparVazios(objeto) {
+  return Object.fromEntries(
+    Object.entries(objeto || {}).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()),
   )
 }
 
+function datasValidas(filtrosApi = montarFiltrosApi()) {
+  return !(filtrosApi.dataInicio && filtrosApi.dataFim && filtrosApi.dataInicio > filtrosApi.dataFim)
+}
+
+function normalizarDataFiltro(valor) {
+  const data = String(valor || '').trim()
+  return /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : ''
+}
+
 function formatarDataFiltro(valor) {
-  if (!valor) {
+  const dataNormalizada = normalizarDataFiltro(valor)
+
+  if (!dataNormalizada) {
     return ''
   }
 
-  const [ano, mes, dia] = String(valor).split('-')
+  const [ano, mes, dia] = dataNormalizada.split('-')
 
-  return ano && mes && dia ? `${dia}/${mes}/${ano}` : String(valor)
+  return `${dia}/${mes}/${ano}`
 }
 
 function obterDataHoraAgendamento(item) {
