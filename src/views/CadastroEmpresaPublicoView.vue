@@ -190,7 +190,13 @@ function extrairLista(resposta) {
   if (Array.isArray(resposta?.content)) return resposta.content
   if (Array.isArray(resposta?.data?.content)) return resposta.data.content
   if (Array.isArray(resposta?.data)) return resposta.data
-  return resposta?.items || resposta?.itens || resposta?.resultado || []
+  if (Array.isArray(resposta?.items)) return resposta.items
+  if (Array.isArray(resposta?.itens)) return resposta.itens
+  if (Array.isArray(resposta?.resultado)) return resposta.resultado
+  if (Array.isArray(resposta?.data?.items)) return resposta.data.items
+  if (Array.isArray(resposta?.data?.itens)) return resposta.data.itens
+  if (Array.isArray(resposta?.data?.resultado)) return resposta.data.resultado
+  return []
 }
 
 function obterCampo(item, ...campos) {
@@ -213,7 +219,7 @@ onMounted(carregarOpcoes)
     <section class="conteudo">
       <header class="cabecalho">
         <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
-        <span class="marca">Gestão SaaS</span>
+        <span class="marca">Gestão Empresarial</span>
         <h1>Cadastre sua empresa</h1>
         <p>Responda algumas perguntas para nossa equipe avaliar sua solicitação de entrada na plataforma.</p>
       </header>
@@ -269,11 +275,12 @@ onMounted(carregarOpcoes)
                   {{ segmento.nome || segmento.descricao || 'Segmento sem nome' }}
                 </option>
               </select>
+              <small v-if="!segmentos.length">Nenhum segmento disponível no momento. Nossa equipe poderá orientar você após o envio.</small>
             </label>
             <label>Cidade<input v-model="formulario.cidade" type="text" /></label>
             <label>Estado<input v-model="formulario.estado" maxlength="2" type="text" /></label>
             <label class="campo-grande">
-              O que você busca no SaaS? *
+              O que você deseja melhorar na gestão da sua empresa? *
               <textarea v-model="formulario.interesse" rows="4"></textarea>
             </label>
           </div>
