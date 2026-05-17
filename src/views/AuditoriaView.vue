@@ -172,10 +172,22 @@ function fecharDetalhes() {
 
 function montarParametrosAuditoria() {
   return limparVazios({
-    ...filtros.value,
     page: paginaAtual.value,
     size: tamanhoPagina.value,
+    empresaId: filtros.value.empresaId,
+    modulo: filtros.value.modulo,
+    entidade: filtros.value.entidade,
+    acao: filtros.value.acao,
+    usuario: filtros.value.usuario,
+    dataInicial: normalizarDataFiltro(filtros.value.dataInicial),
+    dataFinal: normalizarDataFiltro(filtros.value.dataFinal),
+    texto: filtros.value.texto,
   })
+}
+
+function normalizarDataFiltro(valor) {
+  const data = String(valor || '').trim()
+  return /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : ''
 }
 
 function aplicarRespostaPaginada(resposta) {
@@ -351,7 +363,7 @@ function formatarJson(valor) {
           <select v-model="filtros.empresaId" :disabled="carregandoEmpresas">
             <option value="">Todas as empresas</option>
             <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
-              {{ empresa.nome || 'Empresa sem nome' }} — ID {{ empresa.id }}
+              {{ empresa.nome || 'Empresa sem nome' }}
             </option>
           </select>
         </label>
@@ -421,28 +433,28 @@ function formatarJson(valor) {
         <table>
           <thead>
             <tr>
-              <th>Data/hora</th>
-              <th>Empresa</th>
-              <th>Usuário</th>
-              <th>Perfil</th>
-              <th>Módulo</th>
-              <th>Entidade</th>
-              <th>Ação</th>
-              <th>Descrição</th>
-              <th></th>
+              <th class="col-data">Data/hora</th>
+              <th class="col-empresa">Empresa</th>
+              <th class="col-usuario">Usuário</th>
+              <th class="col-curta">Perfil</th>
+              <th class="col-curta">Módulo</th>
+              <th class="col-media">Entidade</th>
+              <th class="col-acao">Ação</th>
+              <th class="col-descricao">Descrição</th>
+              <th class="col-detalhes"></th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="log in logs" :key="log.id || `${log.dataHora}-${log.descricao}`">
-              <td>{{ formatarDataHora(obterCampo(log, 'dataHora', 'criadoEm', 'createdAt')) }}</td>
-              <td>{{ obterCampo(log, 'empresaNome', 'empresaId', 'empresa') }}</td>
-              <td>{{ obterCampo(log, 'usuarioNome', 'usuarioEmail', 'usuario') }}</td>
-              <td>{{ obterCampo(log, 'perfil', 'usuarioPerfil') }}</td>
-              <td>{{ obterCampo(log, 'modulo') }}</td>
-              <td>{{ obterCampo(log, 'entidade', 'tipoEntidade') }}</td>
-              <td>{{ obterCampo(log, 'acao') }}</td>
-              <td>{{ obterCampo(log, 'descricao') }}</td>
-              <td>
+              <td class="col-data texto-nowrap">{{ formatarDataHora(obterCampo(log, 'dataHora', 'criadoEm', 'createdAt')) }}</td>
+              <td class="col-empresa">{{ obterCampo(log, 'empresaNome', 'empresaId', 'empresa') }}</td>
+              <td class="col-usuario">{{ obterCampo(log, 'usuarioNome', 'usuarioEmail', 'usuario') }}</td>
+              <td class="col-curta texto-nowrap">{{ obterCampo(log, 'perfil', 'usuarioPerfil') }}</td>
+              <td class="col-curta texto-nowrap">{{ obterCampo(log, 'modulo') }}</td>
+              <td class="col-media texto-nowrap">{{ obterCampo(log, 'entidade', 'tipoEntidade') }}</td>
+              <td class="col-acao texto-nowrap">{{ obterCampo(log, 'acao') }}</td>
+              <td class="col-descricao">{{ obterCampo(log, 'descricao') }}</td>
+              <td class="col-detalhes">
                 <button class="botao pequeno" :disabled="carregandoDetalhe" @click="abrirDetalhes(log)">
                   Detalhes
                 </button>
@@ -662,6 +674,7 @@ select:focus {
 .pequeno {
   padding: 8px 10px;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .erro {
@@ -711,14 +724,14 @@ select:focus {
 }
 
 .tabela-container {
-  overflow-x: visible;
+  overflow-x: auto;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 0;
-  table-layout: auto;
+  min-width: 1180px;
+  table-layout: fixed;
 }
 
 th,
@@ -730,13 +743,66 @@ td {
   font-size: 13px;
   line-height: 1.35;
   white-space: normal;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 th {
   color: #475569;
   font-size: 12px;
   text-transform: uppercase;
+}
+
+.texto-nowrap,
+.col-detalhes {
+  white-space: nowrap;
+}
+
+.col-data {
+  width: 140px;
+}
+
+.col-empresa {
+  width: 170px;
+}
+
+.col-usuario {
+  width: 170px;
+}
+
+.col-curta {
+  width: 120px;
+}
+
+.col-media,
+.col-acao {
+  width: 140px;
+}
+
+.col-descricao {
+  width: auto;
+  overflow-wrap: anywhere;
+}
+
+.col-detalhes {
+  width: 100px;
+  text-align: right;
+}
+
+th:nth-child(3) {
+  width: 170px;
+}
+
+th:nth-child(5) {
+  width: 120px;
+}
+
+th:nth-child(7) {
+  width: 140px;
+}
+
+th:nth-child(8) {
+  width: auto;
 }
 
 .modal-fundo {
@@ -784,12 +850,8 @@ pre {
 }
 
 @media (max-width: 900px) {
-  .tabela-container {
-    overflow-x: auto;
-  }
-
   table {
-    min-width: 920px;
+    min-width: 1180px;
   }
 
   .campos,
