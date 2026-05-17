@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   buscarPlanosCadastroPublico,
@@ -10,7 +10,7 @@ import {
 const etapas = [
   { titulo: 'Empresa' },
   { titulo: 'Responsável' },
-  { titulo: 'Interesse' },
+  { titulo: 'Localização e interesse' },
   { titulo: 'Plano' },
   { titulo: 'Revisão' },
 ]
@@ -32,9 +32,17 @@ const planoSelecionado = computed(() =>
   planos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null,
 )
 
+watch(
+  () => formulario.value.nomeEmpresa,
+  (nome) => {
+    formulario.value.slugDesejado = gerarSlug(nome)
+  },
+)
+
 function criarFormularioInicial() {
   return {
     nomeEmpresa: '',
+    slugDesejado: '',
     documento: '',
     telefoneEmpresa: '',
     emailEmpresa: '',
@@ -141,6 +149,7 @@ function montarPayload() {
       email: formulario.value.emailEmpresa,
       emailEmpresa: formulario.value.emailEmpresa,
       endereco: formulario.value.endereco,
+      slugDesejado: formulario.value.slugDesejado || gerarSlug(formulario.value.nomeEmpresa),
     }),
     responsavel: limparVazios({
       nome: formulario.value.nomeResponsavel,
@@ -183,6 +192,15 @@ function idOuVazio(valor) {
 
 function emailValido(valor) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim())
+}
+
+function gerarSlug(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 function extrairLista(resposta) {
@@ -313,10 +331,15 @@ onMounted(carregarOpcoes)
               <p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p>
             </article>
             <article>
-              <h2>Interesse</h2>
+              <h2>Localização e interesse</h2>
               <p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p>
-              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
+              <p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p>
+              <p><strong>Estado:</strong> {{ formulario.estado || '-' }}</p>
               <p><strong>Mensagem:</strong> {{ formulario.interesse }}</p>
+            </article>
+            <article>
+              <h2>Plano escolhido</h2>
+              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
             </article>
           </div>
 
