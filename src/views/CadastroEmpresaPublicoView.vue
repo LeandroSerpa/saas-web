@@ -10,7 +10,7 @@ import {
 const etapas = [
   { titulo: 'Empresa' },
   { titulo: 'Responsável' },
-  { titulo: 'Localização e interesse' },
+  { titulo: 'Interesse' },
   { titulo: 'Plano' },
   { titulo: 'Revisão' },
 ]
@@ -47,13 +47,15 @@ function criarFormularioInicial() {
     telefoneEmpresa: '',
     emailEmpresa: '',
     endereco: '',
+    cidade: '',
+    estado: '',
     nomeResponsavel: '',
     emailResponsavel: '',
     telefoneResponsavel: '',
     cargoResponsavel: '',
+    senhaResponsavel: '',
+    confirmarSenhaResponsavel: '',
     segmentoNegocioId: '',
-    cidade: '',
-    estado: '',
     interesse: '',
     planoId: '',
   }
@@ -113,12 +115,19 @@ function validarEtapaAtual() {
     if (!formulario.value.nomeEmpresa.trim()) return falharValidacao('Informe o nome da empresa.')
     if (!formulario.value.documento.trim()) return falharValidacao('Informe o documento da empresa.')
     if (!emailValido(formulario.value.emailEmpresa)) return falharValidacao('Informe um e-mail válido da empresa.')
+    if (!formulario.value.cidade.trim()) return falharValidacao('Informe a cidade da empresa.')
+    if (!formulario.value.estado.trim()) return falharValidacao('Informe o estado/UF da empresa.')
   }
 
   if (etapaAtual.value === 1) {
     if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsável.')
     if (!emailValido(formulario.value.emailResponsavel)) return falharValidacao('Informe um e-mail válido do responsável.')
     if (!formulario.value.telefoneResponsavel.trim()) return falharValidacao('Informe o telefone do responsável.')
+    if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsável.')
+    if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no mínimo 6 caracteres.')
+    if (formulario.value.confirmarSenhaResponsavel !== formulario.value.senhaResponsavel) {
+      return falharValidacao('A confirmação de senha deve ser igual à senha informada.')
+    }
   }
 
   if (etapaAtual.value === 2) {
@@ -149,6 +158,8 @@ function montarPayload() {
       email: formulario.value.emailEmpresa,
       emailEmpresa: formulario.value.emailEmpresa,
       endereco: formulario.value.endereco,
+      cidade: formulario.value.cidade,
+      estado: formulario.value.estado.toUpperCase(),
       slugDesejado: formulario.value.slugDesejado || gerarSlug(formulario.value.nomeEmpresa),
     }),
     responsavel: limparVazios({
@@ -163,18 +174,15 @@ function montarPayload() {
       responsavelTelefone: formulario.value.telefoneResponsavel,
       cargo: formulario.value.cargoResponsavel,
       cargoResponsavel: formulario.value.cargoResponsavel,
+      senha: formulario.value.senhaResponsavel,
     }),
     segmento: limparVazios({
-      id: idOuVazio(formulario.value.segmentoNegocioId),
       segmentoId: idOuVazio(formulario.value.segmentoNegocioId),
-      segmentoNegocioId: idOuVazio(formulario.value.segmentoNegocioId),
-      cidade: formulario.value.cidade,
-      estado: formulario.value.estado.toUpperCase(),
+      segmentoCodigo: segmentoSelecionado.value?.codigo || segmentoSelecionado.value?.sigla || '',
     }),
     plano: limparVazios({
-      id: idOuVazio(formulario.value.planoId),
       planoId: idOuVazio(formulario.value.planoId),
-      planoSaasId: idOuVazio(formulario.value.planoId),
+      planoDesejado: planoSelecionado.value?.nome || planoSelecionado.value?.titulo || '',
     }),
     observacoes: formulario.value.interesse.trim(),
   }
@@ -246,6 +254,7 @@ onMounted(carregarOpcoes)
         <span class="selo">Solicitação pendente</span>
         <h2>{{ sucesso }}</h2>
         <p v-if="protocolo"><strong>Protocolo:</strong> {{ protocolo }}</p>
+        <p>O responsável já pode tentar acessar com o e-mail e a senha cadastrados, mas a empresa ficará pendente até aprovação.</p>
         <div class="acoes">
           <RouterLink class="botao principal" to="/login">Voltar para login</RouterLink>
         </div>
@@ -275,6 +284,8 @@ onMounted(carregarOpcoes)
             <label>Telefone<input v-model="formulario.telefoneEmpresa" type="tel" /></label>
             <label>E-mail da empresa *<input v-model="formulario.emailEmpresa" type="email" /></label>
             <label class="campo-grande">Endereço<input v-model="formulario.endereco" type="text" /></label>
+            <label>Cidade *<input v-model="formulario.cidade" type="text" /></label>
+            <label>Estado/UF *<input v-model="formulario.estado" maxlength="2" type="text" /></label>
           </div>
 
           <div v-else-if="etapaAtual === 1" class="campos">
@@ -282,6 +293,8 @@ onMounted(carregarOpcoes)
             <label>E-mail do responsável *<input v-model="formulario.emailResponsavel" type="email" /></label>
             <label>Telefone/WhatsApp *<input v-model="formulario.telefoneResponsavel" type="tel" /></label>
             <label>Cargo<input v-model="formulario.cargoResponsavel" type="text" /></label>
+            <label>Senha *<input v-model="formulario.senhaResponsavel" type="password" autocomplete="new-password" /></label>
+            <label>Confirmar senha *<input v-model="formulario.confirmarSenhaResponsavel" type="password" autocomplete="new-password" /></label>
           </div>
 
           <div v-else-if="etapaAtual === 2" class="campos">
@@ -295,8 +308,6 @@ onMounted(carregarOpcoes)
               </select>
               <small v-if="!segmentos.length">Nenhum segmento disponível no momento. Nossa equipe poderá orientar você após o envio.</small>
             </label>
-            <label>Cidade<input v-model="formulario.cidade" type="text" /></label>
-            <label>Estado<input v-model="formulario.estado" maxlength="2" type="text" /></label>
             <label class="campo-grande">
               O que você deseja melhorar na gestão da sua empresa? *
               <textarea v-model="formulario.interesse" rows="4"></textarea>
@@ -323,18 +334,23 @@ onMounted(carregarOpcoes)
               <p><strong>Documento:</strong> {{ formulario.documento }}</p>
               <p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p>
               <p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p>
+              <p><strong>Endereço:</strong> {{ formulario.endereco || '-' }}</p>
             </article>
             <article>
               <h2>Responsável</h2>
               <p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p>
               <p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p>
               <p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p>
+              <p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p>
             </article>
             <article>
-              <h2>Localização e interesse</h2>
-              <p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p>
+              <h2>Localização</h2>
               <p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p>
               <p><strong>Estado:</strong> {{ formulario.estado || '-' }}</p>
+            </article>
+            <article>
+              <h2>Interesse</h2>
+              <p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p>
               <p><strong>Mensagem:</strong> {{ formulario.interesse }}</p>
             </article>
             <article>

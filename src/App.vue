@@ -12,7 +12,8 @@ const router = useRouter()
 const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
 const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(route.path))
-const rotaSemLayout = computed(() => rotaLogin.value || rotaAgendamentoPublico.value || rotaCadastroPublico.value)
+const rotaCadastroPendente = computed(() => route.path === '/cadastro-pendente')
+const rotaSemLayout = computed(() => rotaLogin.value || rotaAgendamentoPublico.value || rotaCadastroPublico.value || rotaCadastroPendente.value)
 const usuario = ref(null)
 const empresaLogada = computed(() => {
   if (usuario.value?.empresaNome) {

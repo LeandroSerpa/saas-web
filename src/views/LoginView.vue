@@ -28,16 +28,25 @@ async function entrar() {
     carregando.value = true
 
     const resposta = await login(email.value, senha.value)
+    const statusEmpresa = String(resposta.statusEmpresa || resposta.empresaStatus || '').trim().toUpperCase()
+    const cadastroPendente = resposta.cadastroPendente === true || statusEmpresa === 'PENDENTE'
     const usuario = {
       nome: resposta.nome,
       email: resposta.email,
       perfil: resposta.perfil,
       empresaId: resposta.empresaId,
       empresaNome: resposta.empresaNome,
+      cadastroPendente,
+      statusEmpresa,
     }
 
     localStorage.setItem('token', resposta.token)
     localStorage.setItem('usuario', JSON.stringify(usuario))
+
+    if (cadastroPendente) {
+      router.push('/cadastro-pendente')
+      return
+    }
 
     router.push('/dashboard')
   } catch (error) {

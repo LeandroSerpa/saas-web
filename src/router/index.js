@@ -6,6 +6,7 @@ import ServicosView from '../views/ServicosView.vue'
 import FuncionariosView from '../views/FuncionariosView.vue'
 import DisponibilidadeView from '../views/DisponibilidadeView.vue'
 import LoginView from '../views/LoginView.vue'
+import CadastroPendenteView from '../views/CadastroPendenteView.vue'
 import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
 import EmpresasView from '../views/EmpresasView.vue'
@@ -61,6 +62,12 @@ function carregarUsuario() {
     console.error(error)
     return null
   }
+}
+
+function empresaPendente(usuario) {
+  if (!usuario || typeof usuario !== 'object') return false
+  const statusEmpresa = String(usuario.statusEmpresa || usuario.empresaStatus || '').trim().toUpperCase()
+  return usuario.cadastroPendente === true || statusEmpresa === 'PENDENTE'
 }
 
 const router = createRouter({
@@ -355,6 +362,11 @@ const router = createRouter({
       component: LoginView,
     },
     {
+      path: '/cadastro-pendente',
+      name: 'cadastro-pendente',
+      component: CadastroPendenteView,
+    },
+    {
       path: '/about',
       name: 'about',
       // route level code-splitting
@@ -366,27 +378,28 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.path.startsWith('/agendar') || ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(to.path)) {
+  if (to.path.startsWith('/agendar') || ['/cadastro', '/cadastro-empresa', '/comece-agora', '/cadastro-pendente'].includes(to.path)) {
     return true
   }
 
   const token = localStorage.getItem('token')
+  const usuario = carregarUsuario()
+
+  if (token && empresaPendente(usuario)) {
+    return to.name === 'cadastro-pendente' ? true : '/cadastro-pendente'
+  }
 
   if (to.meta.requiresAuth && !token) {
     return '/login'
   }
 
   if (to.meta.requiresAdmin) {
-    const usuario = carregarUsuario()
-
     if (!ehAdmin(usuario)) {
       return '/dashboard'
     }
   }
 
   if (to.meta.requiresSuperAdmin) {
-    const usuario = carregarUsuario()
-
     if (!ehSuperAdmin(usuario)) {
       return '/dashboard'
     }

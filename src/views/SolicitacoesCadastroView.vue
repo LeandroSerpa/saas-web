@@ -235,12 +235,32 @@ function responsavelTelefone(item) {
   return obterCampo(item, 'responsavelTelefone', 'telefoneResponsavel', 'telefone') || '-'
 }
 
+function cidadeSolicitacao(item) {
+  return obterCampo(item, 'cidade') || obterCampo(item?.empresa, 'cidade') || obterCampo(item?.segmento, 'cidade') || '-'
+}
+
+function estadoSolicitacao(item) {
+  return obterCampo(item, 'estado', 'uf') || obterCampo(item?.empresa, 'estado', 'uf') || obterCampo(item?.segmento, 'estado', 'uf') || '-'
+}
+
 function nomeSegmento(item) {
-  return obterCampo(item, 'segmentoNome', 'segmentoNegocioNome') || obterCampo(item.segmento, 'nome') || '-'
+  return obterCampo(item, 'segmentoNome', 'segmentoNegocioNome') || obterCampo(item.segmento, 'nome', 'descricao') || '-'
 }
 
 function nomePlano(item) {
   return obterCampo(item, 'planoNome', 'planoDesejadoNome') || obterCampo(item.plano, 'nome') || '-'
+}
+
+function senhaTemporariaResultado(item) {
+  return obterCampo(item, 'senhaTemporaria', 'senhaInicialAdmin')
+}
+
+function solicitacaoJaTemSenha(item) {
+  return Boolean(
+    obterCampo(item, 'possuiSenha', 'senhaCriada', 'responsavelJaTemSenha')
+    || obterCampo(item?.responsavel, 'possuiSenha', 'senhaCriada')
+    || obterCampo(item, 'cadastroComSenha') === true,
+  )
 }
 
 function normalizarStatus(status) {
@@ -374,7 +394,7 @@ onMounted(carregarDados)
         <div class="detalhes-grid">
           <p><strong>Empresa:</strong> {{ nomeEmpresa(detalhe) }}</p>
           <p><strong>Documento:</strong> {{ obterCampo(detalhe, 'documento') || '-' }}</p>
-          <p><strong>Cidade/UF:</strong> {{ obterCampo(detalhe, 'cidade') || '-' }} / {{ obterCampo(detalhe, 'estado') || '-' }}</p>
+          <p><strong>Cidade/UF:</strong> {{ cidadeSolicitacao(detalhe) }} / {{ estadoSolicitacao(detalhe) }}</p>
           <p><strong>Responsável:</strong> {{ responsavelNome(detalhe) }}</p>
           <p><strong>E-mail:</strong> {{ responsavelEmail(detalhe) }}</p>
           <p><strong>Telefone:</strong> {{ responsavelTelefone(detalhe) }}</p>
@@ -444,11 +464,15 @@ onMounted(carregarDados)
         <button class="botao principal" :disabled="processando">{{ processando ? 'Aprovando...' : 'Aprovar e criar empresa' }}</button>
 
         <section v-if="resultadoAprovacao" class="alerta-acesso">
-          <strong>Copie a senha temporária agora. Ela poderá não ser exibida novamente.</strong>
+          <strong v-if="senhaTemporariaResultado(resultadoAprovacao) || aprovacao.senhaTemporaria">Copie a senha temporária agora. Ela poderá não ser exibida novamente.</strong>
+          <strong v-else-if="solicitacaoJaTemSenha(aprovando)">A responsável já definiu a própria senha no cadastro. O acesso será liberado após a aprovação.</strong>
+          <strong v-else>Empresa aprovada com sucesso.</strong>
           <p>Empresa criada: {{ obterCampo(resultadoAprovacao, 'empresaNome') || aprovacao.nomeEmpresa }}</p>
           <p>Admin: {{ obterCampo(resultadoAprovacao, 'adminEmail', 'usuarioAdminEmail') || aprovacao.adminEmail }}</p>
-          <p>Senha temporária: {{ obterCampo(resultadoAprovacao, 'senhaTemporaria', 'senhaInicialAdmin') || aprovacao.senhaTemporaria || '-' }}</p>
-          <button type="button" class="botao sucesso-botao" @click="copiarDadosAcesso">Copiar dados de acesso</button>
+          <p v-if="senhaTemporariaResultado(resultadoAprovacao) || aprovacao.senhaTemporaria">
+            Senha temporária: {{ senhaTemporariaResultado(resultadoAprovacao) || aprovacao.senhaTemporaria }}
+          </p>
+          <button v-if="senhaTemporariaResultado(resultadoAprovacao) || aprovacao.senhaTemporaria" type="button" class="botao sucesso-botao" @click="copiarDadosAcesso">Copiar dados de acesso</button>
         </section>
       </form>
     </section>
