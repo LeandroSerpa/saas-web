@@ -11,7 +11,7 @@ const router = useRouter()
 
 const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
-const rotaCadastroPublico = computed(() => route.path === '/comece-agora')
+const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(route.path))
 const rotaSemLayout = computed(() => rotaLogin.value || rotaAgendamentoPublico.value || rotaCadastroPublico.value)
 const usuario = ref(null)
 const empresaLogada = computed(() => {

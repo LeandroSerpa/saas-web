@@ -21,7 +21,7 @@ import AssinaturasView from '../views/AssinaturasView.vue'
 import MeuPlanoView from '../views/MeuPlanoView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
 import SegmentosView from '../views/SegmentosView.vue'
-import ComeceAgoraView from '../views/ComeceAgoraView.vue'
+import CadastroEmpresaPublicoView from '../views/CadastroEmpresaPublicoView.vue'
 import SolicitacoesCadastroView from '../views/SolicitacoesCadastroView.vue'
 import FaturasView from '../views/FaturasView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
@@ -337,9 +337,17 @@ const router = createRouter({
       component: AgendamentoPublicoView,
     },
     {
-      path: '/comece-agora',
+      path: '/cadastro',
       name: 'cadastro-empresa-publico',
-      component: ComeceAgoraView,
+      component: CadastroEmpresaPublicoView,
+    },
+    {
+      path: '/cadastro-empresa',
+      redirect: '/cadastro',
+    },
+    {
+      path: '/comece-agora',
+      redirect: '/cadastro',
     },
     {
       path: '/login',
@@ -358,7 +366,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.path.startsWith('/agendar') || to.path === '/comece-agora') {
+  if (to.path.startsWith('/agendar') || ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(to.path)) {
     return true
   }
 

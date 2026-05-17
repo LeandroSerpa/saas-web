@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { login } from '@/services/api'
 
 const router = useRouter()
@@ -113,6 +113,8 @@ async function entrar() {
           {{ carregando ? 'Entrando...' : 'Entrar' }}
         </button>
       </form>
+
+      <RouterLink class="link-cadastro" to="/cadastro">Quero cadastrar minha empresa</RouterLink>
     </section>
   </main>
 </template>
@@ -299,6 +301,18 @@ input:focus {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+.link-cadastro {
+  justify-self: center;
+  color: #2563eb;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.link-cadastro:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
 }
 
 .erro {

@@ -297,6 +297,10 @@ export async function enviarSolicitacaoCadastro(dados) {
 }
 
 export async function criarSolicitacaoCadastroEmpresa(dados) {
+  return cadastrarEmpresaInteressadaPublico(dados)
+}
+
+export async function cadastrarEmpresaInteressadaPublico(dados) {
   const response = await fetch(`${API_URL}/publico/solicitacoes-cadastro`, {
     method: 'POST',
     headers: montarHeadersPublicos(true),

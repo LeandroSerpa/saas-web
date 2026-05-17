@@ -1,222 +1,313 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import {
-  buscarPlanosPublicos,
-  buscarSegmentosPublicos,
-  enviarSolicitacaoCadastro,
+  buscarPlanosCadastroPublico,
+  buscarSegmentosCadastroPublico,
+  cadastrarEmpresaInteressadaPublico,
 } from '@/services/api'
 
+const etapas = [
+  { titulo: 'Empresa' },
+  { titulo: 'Responsável' },
+  { titulo: 'Interesse' },
+  { titulo: 'Plano' },
+  { titulo: 'Revisão' },
+]
+
+const etapaAtual = ref(0)
 const segmentos = ref([])
 const planos = ref([])
 const carregando = ref(true)
 const enviando = ref(false)
 const erro = ref('')
 const sucesso = ref('')
-const aceiteContato = ref(false)
-const formulario = ref({
-  nomeEmpresa: '',
-  documento: '',
-  telefoneEmpresa: '',
-  emailEmpresa: '',
-  endereco: '',
-  segmentoNegocioId: '',
-  planoId: '',
-  responsavelNome: '',
-  responsavelEmail: '',
-  responsavelTelefone: '',
-  mensagem: '',
-})
+const protocolo = ref('')
+const formulario = ref(criarFormularioInicial())
+
+const segmentoSelecionado = computed(() =>
+  segmentos.value.find((segmento) => String(segmento.id) === String(formulario.value.segmentoNegocioId)) || null,
+)
+const planoSelecionado = computed(() =>
+  planos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null,
+)
+
+function criarFormularioInicial() {
+  return {
+    nomeEmpresa: '',
+    documento: '',
+    telefoneEmpresa: '',
+    emailEmpresa: '',
+    endereco: '',
+    nomeResponsavel: '',
+    emailResponsavel: '',
+    telefoneResponsavel: '',
+    cargoResponsavel: '',
+    segmentoNegocioId: '',
+    cidade: '',
+    estado: '',
+    interesse: '',
+    planoId: '',
+  }
+}
 
 async function carregarOpcoes() {
   try {
     carregando.value = true
+    erro.value = ''
     const [segmentosApi, planosApi] = await Promise.all([
-      buscarSegmentosPublicos().catch(() => []),
-      buscarPlanosPublicos().catch(() => []),
+      buscarSegmentosCadastroPublico().catch(() => []),
+      buscarPlanosCadastroPublico().catch(() => []),
     ])
-    segmentos.value = extrairLista(segmentosApi)
-    planos.value = extrairLista(planosApi)
+
+    segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
+    planos.value = extrairLista(planosApi).filter((plano) => plano.publico !== false && plano.visivelPublico !== false)
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar as opções do cadastro.')
+    console.error(error)
   } finally {
     carregando.value = false
   }
 }
 
-async function enviarSolicitacao() {
+function proximaEtapa() {
+  if (!validarEtapaAtual()) return
+  etapaAtual.value = Math.min(etapaAtual.value + 1, etapas.length - 1)
+}
+
+function etapaAnterior() {
+  erro.value = ''
+  etapaAtual.value = Math.max(etapaAtual.value - 1, 0)
+}
+
+async function enviarCadastro() {
+  if (!validarEtapaAtual()) return
+
   try {
-    erro.value = ''
-    sucesso.value = ''
-
-    if (!formulario.value.nomeEmpresa.trim()) {
-      erro.value = 'Informe o nome da empresa.'
-      return
-    }
-
-    if (!formulario.value.responsavelNome.trim()) {
-      erro.value = 'Informe o nome do responsável.'
-      return
-    }
-
-    if (!formulario.value.responsavelTelefone.trim()) {
-      erro.value = 'Informe o telefone do responsável.'
-      return
-    }
-
-    if (!formulario.value.responsavelEmail.trim()) {
-      erro.value = 'Informe o e-mail do responsável.'
-      return
-    }
-
-    if (!aceiteContato.value) {
-      erro.value = 'Você precisa aceitar o contato para enviar a solicitação.'
-      return
-    }
-
     enviando.value = true
-    await enviarSolicitacaoCadastro(montarPayloadSolicitacao())
-    sucesso.value = 'Solicitação enviada com sucesso. Nossa equipe irá analisar seus dados e entrar em contato.'
-    limparFormulario()
+    erro.value = ''
+    const resposta = await cadastrarEmpresaInteressadaPublico(montarPayload())
+    protocolo.value = obterCampo(resposta, 'protocolo', 'numeroProtocolo', 'id')
+    sucesso.value = 'Cadastro enviado com sucesso. Nossa equipe analisará sua solicitação.'
+    formulario.value = criarFormularioInicial()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível enviar a solicitação.')
+    erro.value = obterMensagemErro(error, 'Não foi possível enviar o cadastro.')
     console.error(error)
   } finally {
     enviando.value = false
   }
 }
 
-function limparFormulario() {
-  formulario.value = {
-    nomeEmpresa: '',
-    documento: '',
-    telefoneEmpresa: '',
-    emailEmpresa: '',
-    endereco: '',
-    segmentoNegocioId: '',
-    planoId: '',
-    responsavelNome: '',
-    responsavelEmail: '',
-    responsavelTelefone: '',
-    mensagem: '',
+function validarEtapaAtual() {
+  erro.value = ''
+
+  if (etapaAtual.value === 0) {
+    if (!formulario.value.nomeEmpresa.trim()) return falharValidacao('Informe o nome da empresa.')
+    if (!formulario.value.documento.trim()) return falharValidacao('Informe o documento da empresa.')
+    if (!emailValido(formulario.value.emailEmpresa)) return falharValidacao('Informe um e-mail válido da empresa.')
   }
-  aceiteContato.value = false
-}
 
-function montarPayloadSolicitacao() {
-  return {
-    nomeEmpresa: textoOuNulo(formulario.value.nomeEmpresa),
-    documento: textoOuNulo(formulario.value.documento),
-    telefone: textoOuNulo(formulario.value.telefoneEmpresa),
-    emailEmpresa: textoOuNulo(formulario.value.emailEmpresa),
-    endereco: textoOuNulo(formulario.value.endereco),
-    nomeResponsavel: textoOuNulo(formulario.value.responsavelNome),
-    emailResponsavel: textoOuNulo(formulario.value.responsavelEmail),
-    telefoneResponsavel: textoOuNulo(formulario.value.responsavelTelefone),
-    segmentoNegocioId: idOuNulo(formulario.value.segmentoNegocioId),
-    planoSaasId: idOuNulo(formulario.value.planoId),
-    mensagem: textoOuNulo(formulario.value.mensagem),
+  if (etapaAtual.value === 1) {
+    if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsável.')
+    if (!emailValido(formulario.value.emailResponsavel)) return falharValidacao('Informe um e-mail válido do responsável.')
+    if (!formulario.value.telefoneResponsavel.trim()) return falharValidacao('Informe o telefone do responsável.')
   }
+
+  if (etapaAtual.value === 2) {
+    if (!formulario.value.segmentoNegocioId) return falharValidacao('Selecione o segmento.')
+    if (!formulario.value.interesse.trim()) return falharValidacao('Conte brevemente seu interesse.')
+  }
+
+  if (etapaAtual.value === 3 && !formulario.value.planoId) {
+    return falharValidacao('Selecione o plano desejado.')
+  }
+
+  return true
 }
 
-function textoOuNulo(valor) {
-  const texto = String(valor ?? '').trim()
-  return texto || null
+function falharValidacao(mensagem) {
+  erro.value = mensagem
+  return false
 }
 
-function idOuNulo(valor) {
-  return valor === '' || valor === null || valor === undefined ? null : Number(valor)
+function montarPayload() {
+  return limparVazios({
+    status: 'PENDENTE',
+    nomeEmpresa: formulario.value.nomeEmpresa,
+    documento: formulario.value.documento,
+    telefone: formulario.value.telefoneEmpresa,
+    telefoneEmpresa: formulario.value.telefoneEmpresa,
+    emailEmpresa: formulario.value.emailEmpresa,
+    endereco: formulario.value.endereco,
+    nomeResponsavel: formulario.value.nomeResponsavel,
+    responsavelNome: formulario.value.nomeResponsavel,
+    emailResponsavel: formulario.value.emailResponsavel,
+    responsavelEmail: formulario.value.emailResponsavel,
+    telefoneResponsavel: formulario.value.telefoneResponsavel,
+    responsavelTelefone: formulario.value.telefoneResponsavel,
+    cargoResponsavel: formulario.value.cargoResponsavel,
+    segmentoNegocioId: idOuVazio(formulario.value.segmentoNegocioId),
+    segmentoId: idOuVazio(formulario.value.segmentoNegocioId),
+    cidade: formulario.value.cidade,
+    estado: formulario.value.estado.toUpperCase(),
+    planoSaasId: idOuVazio(formulario.value.planoId),
+    planoId: idOuVazio(formulario.value.planoId),
+    mensagem: formulario.value.interesse,
+    observacao: formulario.value.interesse,
+  })
+}
+
+function limparVazios(objeto) {
+  return Object.fromEntries(
+    Object.entries(objeto).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()),
+  )
+}
+
+function idOuVazio(valor) {
+  return valor ? Number(valor) : ''
+}
+
+function emailValido(valor) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim())
 }
 
 function extrairLista(resposta) {
-  if (Array.isArray(resposta)) {
-    return resposta
-  }
+  if (Array.isArray(resposta)) return resposta
+  if (Array.isArray(resposta?.content)) return resposta.content
+  if (Array.isArray(resposta?.data?.content)) return resposta.data.content
+  if (Array.isArray(resposta?.data)) return resposta.data
+  return resposta?.items || resposta?.itens || resposta?.resultado || []
+}
 
-  return resposta?.content || resposta?.items || resposta?.data || []
+function obterCampo(item, ...campos) {
+  if (!item || typeof item !== 'object') return ''
+  for (const campo of campos) {
+    if (item[campo] !== null && item[campo] !== undefined && item[campo] !== '') return item[campo]
+  }
+  return ''
 }
 
 function obterMensagemErro(error, fallback) {
-  const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
-
-  return mensagem || fallback
+  return String(error?.message || '').trim() || fallback
 }
 
-onMounted(() => {
-  carregarOpcoes()
-})
+onMounted(carregarOpcoes)
 </script>
 
 <template>
   <main class="pagina-publica">
     <section class="conteudo">
       <header class="cabecalho">
+        <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
         <span class="marca">Gestão SaaS</span>
-        <h1>Comece a usar o Gestão SaaS</h1>
-        <p>
-          Preencha os dados abaixo para solicitar o cadastro da sua empresa. Nossa equipe irá
-          analisar e entrar em contato.
-        </p>
+        <h1>Cadastre sua empresa</h1>
+        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitação de entrada na plataforma.</p>
       </header>
 
-      <section v-if="erro" class="card erro"><p>{{ erro }}</p></section>
-      <section v-if="sucesso" class="card sucesso"><p>{{ sucesso }}</p></section>
+      <section v-if="sucesso" class="card confirmacao">
+        <span class="selo">Solicitação pendente</span>
+        <h2>{{ sucesso }}</h2>
+        <p v-if="protocolo"><strong>Protocolo:</strong> {{ protocolo }}</p>
+        <div class="acoes">
+          <RouterLink class="botao principal" to="/login">Voltar para login</RouterLink>
+        </div>
+      </section>
 
-      <form class="card formulario" @submit.prevent="enviarSolicitacao">
-        <section class="secao">
-          <h2>Dados da empresa</h2>
-          <div class="campos">
-            <label>Nome da empresa <input v-model="formulario.nomeEmpresa" type="text" /></label>
-            <label>Documento <input v-model="formulario.documento" type="text" /></label>
-            <label>Telefone <input v-model="formulario.telefoneEmpresa" type="text" /></label>
-            <label>E-mail da empresa <input v-model="formulario.emailEmpresa" type="email" /></label>
-            <label class="campo-grande">Endereço <input v-model="formulario.endereco" type="text" /></label>
+      <template v-else>
+        <section class="etapas">
+          <button
+            v-for="(etapa, indice) in etapas"
+            :key="etapa.titulo"
+            :class="['etapa', { ativa: etapaAtual === indice, concluida: etapaAtual > indice }]"
+            type="button"
+            @click="indice < etapaAtual && (etapaAtual = indice)"
+          >
+            <span>{{ indice + 1 }}</span>
+            {{ etapa.titulo }}
+          </button>
+        </section>
+
+        <section v-if="erro" class="feedback erro"><p>{{ erro }}</p></section>
+        <section v-if="carregando" class="card"><p>Carregando opções do cadastro...</p></section>
+
+        <form v-else class="card formulario" @submit.prevent="etapaAtual === etapas.length - 1 ? enviarCadastro() : proximaEtapa()">
+          <div v-if="etapaAtual === 0" class="campos">
+            <label>Nome da empresa *<input v-model="formulario.nomeEmpresa" type="text" /></label>
+            <label>Documento *<input v-model="formulario.documento" type="text" /></label>
+            <label>Telefone<input v-model="formulario.telefoneEmpresa" type="tel" /></label>
+            <label>E-mail da empresa *<input v-model="formulario.emailEmpresa" type="email" /></label>
+            <label class="campo-grande">Endereço<input v-model="formulario.endereco" type="text" /></label>
+          </div>
+
+          <div v-else-if="etapaAtual === 1" class="campos">
+            <label>Nome do responsável *<input v-model="formulario.nomeResponsavel" type="text" /></label>
+            <label>E-mail do responsável *<input v-model="formulario.emailResponsavel" type="email" /></label>
+            <label>Telefone/WhatsApp *<input v-model="formulario.telefoneResponsavel" type="tel" /></label>
+            <label>Cargo<input v-model="formulario.cargoResponsavel" type="text" /></label>
+          </div>
+
+          <div v-else-if="etapaAtual === 2" class="campos">
             <label>
-              Segmento de negócio
-              <select v-model="formulario.segmentoNegocioId" :disabled="carregando">
+              Segmento *
+              <select v-model="formulario.segmentoNegocioId">
                 <option value="">Selecione</option>
                 <option v-for="segmento in segmentos" :key="segmento.id" :value="segmento.id">
-                  {{ segmento.nome }}
+                  {{ segmento.nome || segmento.descricao || 'Segmento sem nome' }}
                 </option>
               </select>
             </label>
-            <label>
-              Plano desejado
-              <select v-model="formulario.planoId" :disabled="carregando">
-                <option value="">Opcional</option>
+            <label>Cidade<input v-model="formulario.cidade" type="text" /></label>
+            <label>Estado<input v-model="formulario.estado" maxlength="2" type="text" /></label>
+            <label class="campo-grande">
+              O que você busca no SaaS? *
+              <textarea v-model="formulario.interesse" rows="4"></textarea>
+            </label>
+          </div>
+
+          <div v-else-if="etapaAtual === 3" class="campos">
+            <label class="campo-grande">
+              Plano desejado *
+              <select v-model="formulario.planoId">
+                <option value="">Selecione</option>
                 <option v-for="plano in planos" :key="plano.id" :value="plano.id">
-                  {{ plano.nome }}
+                  {{ plano.nome || plano.titulo || 'Plano sem nome' }}
                 </option>
               </select>
-              <small v-if="!carregando && planos.length === 0">
-                Nenhum plano público disponível no momento. Nossa equipe irá indicar o melhor plano após análise.
-              </small>
+              <small v-if="!planos.length">Nenhum plano público disponível no momento.</small>
             </label>
           </div>
-        </section>
 
-        <section class="secao">
-          <h2>Responsável</h2>
-          <div class="campos">
-            <label>Nome do responsável <input v-model="formulario.responsavelNome" type="text" /></label>
-            <label>E-mail do responsável <input v-model="formulario.responsavelEmail" type="email" /></label>
-            <label>Telefone do responsável <input v-model="formulario.responsavelTelefone" type="text" /></label>
+          <div v-else class="revisao">
+            <article>
+              <h2>Empresa</h2>
+              <p><strong>Nome:</strong> {{ formulario.nomeEmpresa }}</p>
+              <p><strong>Documento:</strong> {{ formulario.documento }}</p>
+              <p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p>
+              <p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p>
+            </article>
+            <article>
+              <h2>Responsável</h2>
+              <p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p>
+              <p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p>
+              <p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p>
+            </article>
+            <article>
+              <h2>Interesse</h2>
+              <p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p>
+              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
+              <p><strong>Mensagem:</strong> {{ formulario.interesse }}</p>
+            </article>
           </div>
-        </section>
 
-        <section class="secao">
-          <h2>Mensagem</h2>
-          <label class="campo-grande">
-            Conte rapidamente o que você precisa
-            <textarea v-model="formulario.mensagem" rows="4"></textarea>
-          </label>
-          <label class="checkbox">
-            <input v-model="aceiteContato" type="checkbox" />
-            Aceito ser contatado sobre minha solicitação
-          </label>
-        </section>
-
-        <button class="botao principal" :disabled="enviando">
-          {{ enviando ? 'Enviando...' : 'Enviar solicitação' }}
-        </button>
-      </form>
+          <div class="acoes">
+            <button v-if="etapaAtual > 0" class="botao secundario" type="button" @click="etapaAnterior">Voltar</button>
+            <button v-if="etapaAtual < etapas.length - 1" class="botao principal" type="submit">Avançar</button>
+            <button v-else class="botao principal" type="submit" :disabled="enviando">
+              {{ enviando ? 'Enviando...' : 'Enviar cadastro' }}
+            </button>
+          </div>
+        </form>
+      </template>
     </section>
   </main>
 </template>
@@ -225,15 +316,15 @@ onMounted(() => {
 .pagina-publica {
   min-height: 100vh;
   background: #eef2f7;
-  padding: 32px 18px;
   color: #111827;
+  padding: 34px 18px;
 }
 
 .conteudo {
   max-width: 980px;
   margin: 0 auto;
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .cabecalho {
@@ -241,10 +332,19 @@ onMounted(() => {
   gap: 8px;
 }
 
-.marca {
+.marca,
+.selo {
   color: #2563eb;
+  font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.link-login {
+  justify-self: end;
+  color: #2563eb;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 h1,
@@ -254,16 +354,22 @@ p {
 }
 
 h1 {
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 800;
 }
 
-.cabecalho p {
+h2 {
+  font-size: 20px;
+}
+
+.cabecalho p,
+.confirmacao > p {
   color: #475569;
   font-size: 17px;
 }
 
-.card {
+.card,
+.feedback {
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -272,15 +378,58 @@ h1 {
 }
 
 .formulario,
-.secao {
+.confirmacao,
+.revisao {
   display: grid;
   gap: 18px;
 }
 
-.campos {
+.etapas,
+.campos,
+.revisao {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 16px;
+  gap: 14px;
+}
+
+.etapas {
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+}
+
+.etapa {
+  min-height: 58px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: white;
+  color: #475569;
+  cursor: default;
+  font-weight: 800;
+}
+
+.etapa span {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  margin-right: 7px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.etapa.ativa,
+.etapa.concluida {
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+.etapa.concluida {
+  cursor: pointer;
+}
+
+.etapa.ativa span,
+.etapa.concluida span {
+  background: #2563eb;
+  color: white;
 }
 
 .campo-grande {
@@ -297,43 +446,48 @@ label {
 label small {
   color: #64748b;
   font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
 }
 
 input,
 select,
 textarea {
   width: 100%;
+  min-width: 0;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 11px 12px;
+  background: white;
   font: inherit;
   box-sizing: border-box;
-  background: white;
 }
 
-.checkbox {
+.acoes {
   display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.checkbox input {
-  width: auto;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .botao {
   border: none;
-  color: white;
-  padding: 12px 18px;
   border-radius: 8px;
+  padding: 12px 18px;
+  color: white;
   cursor: pointer;
   font-weight: 800;
+  text-decoration: none;
 }
 
 .principal {
   background: #2563eb;
+}
+
+.secundario {
+  background: #0f172a;
+}
+
+.botao:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .erro {
@@ -342,20 +496,20 @@ textarea {
   color: #991b1b;
 }
 
-.sucesso {
+.confirmacao {
   border-color: #bbf7d0;
   background: #f0fdf4;
-  color: #166534;
 }
 
-@media (max-width: 760px) {
-  .campos {
+@media (max-width: 900px) {
+  .etapas,
+  .campos,
+  .revisao {
     grid-template-columns: 1fr;
   }
 
   h1 {
-    font-size: 30px;
+    font-size: 31px;
   }
 }
 </style>
-
