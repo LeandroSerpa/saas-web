@@ -24,7 +24,7 @@ const superAdmin = computed(() => ehSuperAdmin(usuarioLogado.value))
 const solicitacoes = ref([])
 const resumo = ref({})
 const planos = ref([])
-const filtros = ref({ status: '', busca: '', dataInicial: '', dataFinal: '' })
+const filtros = ref(criarFiltrosIniciais())
 const carregando = ref(true)
 const processando = ref(false)
 const processandoId = ref(null)
@@ -50,7 +50,7 @@ async function carregarDados(opcoes = {}) {
     carregando.value = true
     if (!opcoes.manterMensagem) limparMensagens()
     const [listaApi, resumoApi, planosApi] = await Promise.all([
-      buscarSolicitacoesCadastro(limparVazios(filtros.value)),
+      buscarSolicitacoesCadastro(montarFiltrosApi()),
       buscarResumoSolicitacoesCadastro().catch(() => ({})),
       buscarPlanos().catch(() => []),
     ])
@@ -187,8 +187,26 @@ function aplicarFiltros() {
 }
 
 function limparFiltros() {
-  filtros.value = { status: '', busca: '', dataInicial: '', dataFinal: '' }
+  filtros.value = criarFiltrosIniciais()
   carregarDados()
+}
+
+function criarFiltrosIniciais() {
+  return { status: '', busca: '', dataInicio: '', dataFim: '' }
+}
+
+function montarFiltrosApi() {
+  return limparVazios({
+    status: filtros.value.status,
+    busca: filtros.value.busca,
+    dataInicio: normalizarDataFiltro(filtros.value.dataInicio),
+    dataFim: normalizarDataFiltro(filtros.value.dataFim),
+  })
+}
+
+function normalizarDataFiltro(valor) {
+  const data = String(valor || '').trim()
+  return /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : ''
 }
 
 function fecharAprovacao() {
@@ -339,8 +357,8 @@ onMounted(carregarDados)
         <div class="campos">
           <label>Status <select v-model="filtros.status"><option v-for="status in STATUS" :key="status.valor" :value="status.valor">{{ status.rotulo }}</option></select></label>
           <label>Busca textual <input v-model="filtros.busca" placeholder="Empresa, responsável, e-mail, documento" type="text" /></label>
-          <label>Data inicial <input v-model="filtros.dataInicial" type="date" /></label>
-          <label>Data final <input v-model="filtros.dataFinal" type="date" /></label>
+          <label>Data inicial <input v-model="filtros.dataInicio" type="date" /></label>
+          <label>Data final <input v-model="filtros.dataFim" type="date" /></label>
         </div>
         <div class="acoes">
           <button class="botao principal" :disabled="carregando" @click="aplicarFiltros">Aplicar filtros</button>
