@@ -3,25 +3,21 @@ export function emailBasicoValido(valor) {
 }
 
 export function sanitizarTelefone(valor) {
-  return String(valor || '').replace(/[^0-9()+\-\s]/g, '')
+  return String(valor || '').replace(/\D/g, '')
 }
 
 export function telefoneBasicoValido(valor) {
-  const texto = sanitizarTelefone(valor).trim()
-  const digitos = texto.replace(/\D/g, '')
-
-  return !texto || digitos.length >= 8
+  const digitos = sanitizarTelefone(valor)
+  return !digitos || digitos.length === 10 || digitos.length === 11
 }
 
 export function sanitizarDocumento(valor) {
-  return String(valor || '').replace(/[^0-9./\-]/g, '')
+  return String(valor || '').replace(/\D/g, '')
 }
 
 export function documentoBasicoValido(valor) {
-  const texto = sanitizarDocumento(valor).trim()
-  const digitos = texto.replace(/\D/g, '')
-
-  return !texto || digitos.length >= 11
+  const digitos = sanitizarDocumento(valor)
+  return !digitos || digitos.length === 11 || digitos.length === 14
 }
 
 export function sanitizarDecimal(valor) {
@@ -50,4 +46,3 @@ export function inteiroPositivoValido(valor) {
 
   return /^[1-9]\d*$/.test(texto)
 }
-
