@@ -155,7 +155,7 @@ function obterMensagemErro(error, fallback) {
         <p class="subtitulo">Agendamento público</p>
         <h1>Personalização da página pública</h1>
         <p class="descricao">
-          Configure a aparência e os textos exibidos na página publica de agendamento da sua
+          Configure a aparência e os textos exibidos na página pública de agendamento da sua
           empresa.
         </p>
       </div>
@@ -172,7 +172,7 @@ function obterMensagemErro(error, fallback) {
     </section>
 
     <section v-if="carregando" class="card">
-      <p>Carregando personalizacao...</p>
+      <p>Carregando personalização...</p>
     </section>
 
     <section v-else class="grade">
@@ -180,7 +180,7 @@ function obterMensagemErro(error, fallback) {
         <section class="secao">
           <div class="titulo-card">
             <h2>Identidade visual</h2>
-            <p>Defina imagens, cores e tema da página publica.</p>
+            <p>Defina imagens, cores e tema da página pública.</p>
           </div>
 
           <div class="campos">
@@ -212,7 +212,7 @@ function obterMensagemErro(error, fallback) {
         <section class="secao">
           <div class="titulo-card">
             <h2>Textos da página</h2>
-            <p>Personalize o conteudo exibido aos clientes.</p>
+            <p>Personalize o conteúdo exibido aos clientes.</p>
           </div>
 
           <div class="campos">
@@ -237,7 +237,7 @@ function obterMensagemErro(error, fallback) {
               <textarea v-model="personalizacao.politicaCancelamento" rows="4"></textarea>
             </label>
             <label class="campo-grande">
-              Mensagem apos agendamento
+              Mensagem após agendamento
               <textarea v-model="personalizacao.mensagemConfirmacao" rows="4"></textarea>
             </label>
           </div>
@@ -267,13 +267,13 @@ function obterMensagemErro(error, fallback) {
 
         <section class="secao">
           <div class="titulo-card">
-            <h2>Exibição na página publica</h2>
+            <h2>Exibição na página pública</h2>
           </div>
 
           <div class="opcoes">
             <label class="campo-checkbox">
               <input v-model="personalizacao.mostrarPreco" type="checkbox" />
-              Mostrar preco
+              Mostrar preço
             </label>
             <label class="campo-checkbox">
               <input v-model="personalizacao.mostrarFuncionario" type="checkbox" />
@@ -281,7 +281,7 @@ function obterMensagemErro(error, fallback) {
             </label>
             <label class="campo-checkbox">
               <input v-model="personalizacao.mostrarEndereco" type="checkbox" />
-              Mostrar endereco
+              Mostrar endereço
             </label>
             <label class="campo-checkbox">
               <input v-model="personalizacao.mostrarTelefone" type="checkbox" />
@@ -292,7 +292,7 @@ function obterMensagemErro(error, fallback) {
 
         <div class="rodape-formulario">
           <button class="botao principal" :disabled="salvando">
-            {{ salvando ? 'Salvando...' : 'Salvar personalizacao' }}
+            {{ salvando ? 'Salvando...' : 'Salvar personalização' }}
           </button>
         </div>
       </form>

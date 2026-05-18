@@ -172,7 +172,7 @@ defineEmits(['salvar', 'cancelar'])
         </label>
 
         <label class="campo-grande">
-          Mensagem publica
+          Mensagem pública
           <textarea
             v-model="empresa.mensagemPublica"
             rows="4"

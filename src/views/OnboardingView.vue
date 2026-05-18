@@ -12,7 +12,7 @@ const ETAPAS_PADRAO = [
   {
     chave: 'DADOS_EMPRESA',
     titulo: 'Revise os dados da empresa',
-    descricao: 'Confira telefone, endereco, horarios, mensagem publica e informacoes principais.',
+    descricao: 'Confira telefone, endereço, horários, mensagem pública e informações principais.',
     acao: 'Abrir Minha empresa',
     rota: '/minha-empresa',
     permiteManual: true,
@@ -20,24 +20,24 @@ const ETAPAS_PADRAO = [
   },
   {
     chave: 'SERVICO',
-    titulo: 'Cadastre os servicos',
-    descricao: 'Adicione os servicos que seus clientes poderao agendar.',
-    acao: 'Abrir Servicos',
+    titulo: 'Cadastre os serviços',
+    descricao: 'Adicione os serviços que seus clientes poderão agendar.',
+    acao: 'Abrir Serviços',
     rota: '/servicos',
     permiteIgnorar: true,
   },
   {
     chave: 'FUNCIONARIO',
-    titulo: 'Cadastre os funcionarios',
-    descricao: 'Inclua quem realizara os atendimentos da empresa.',
-    acao: 'Abrir Funcionarios',
+    titulo: 'Cadastre os funcionários',
+    descricao: 'Inclua quem realizará os atendimentos da empresa.',
+    acao: 'Abrir Funcionários',
     rota: '/funcionarios',
     permiteIgnorar: true,
   },
   {
     chave: 'HORARIOS',
     titulo: 'Configure a disponibilidade',
-    descricao: 'Defina horarios, bloqueios e disponibilidade para organizar a agenda.',
+    descricao: 'Defina horários, bloqueios e disponibilidade para organizar a agenda.',
     acao: 'Abrir Disponibilidade',
     rota: '/disponibilidade',
     permiteManual: true,
@@ -45,8 +45,8 @@ const ETAPAS_PADRAO = [
   },
   {
     chave: 'PERSONALIZACAO',
-    titulo: 'Personalize sua pagina',
-    descricao: 'Ajuste identidade visual, textos e apresentacao publica da empresa.',
+    titulo: 'Personalize sua página',
+    descricao: 'Ajuste identidade visual, textos e apresentação pública da empresa.',
     acao: 'Abrir Personalizacao',
     rota: '/personalizacao',
     permiteManual: true,
@@ -54,16 +54,16 @@ const ETAPAS_PADRAO = [
   },
   {
     chave: 'LINK_PUBLICO',
-    titulo: 'Compartilhe o link publico',
+    titulo: 'Compartilhe o link público',
     descricao: 'Copie o link de agendamento para divulgar aos clientes.',
-    acao: 'Copiar link publico',
+    acao: 'Copiar link público',
     rota: '/agenda',
     permiteIgnorar: true,
   },
   {
     chave: 'PRIMEIRO_AGENDAMENTO',
     titulo: 'Acompanhe a agenda',
-    descricao: 'Veja a agenda ou valide o link publico para acompanhar seus primeiros agendamentos.',
+    descricao: 'Veja a agenda ou valide o link público para acompanhar seus primeiros agendamentos.',
     acao: 'Abrir Agenda',
     rota: '/agenda',
   },
@@ -90,14 +90,14 @@ const etapas = computed(() => {
   return listaBase.map((etapa, indice) => {
     const status = resolverStatusEtapa(etapa)
     const descricaoIgnorado = etapa.chave === 'PERSONALIZACAO' && status === 'IGNORADO'
-      ? 'Seu plano atual nao permite personalizacao da pagina publica.'
-      : etapa.descricao || 'Conclua esta configuracao para avancar no onboarding.'
+      ? 'Seu plano atual não permite personalização da página pública.'
+      : etapa.descricao || 'Conclua esta configuração para avançar no onboarding.'
 
     return {
       ...etapa,
       numero: indice + 1,
       status,
-      titulo: etapa.titulo || 'Etapa de configuracao',
+      titulo: etapa.titulo || 'Etapa de configuração',
       descricao: descricaoIgnorado,
       acao: etapa.acao || 'Continuar',
     }
@@ -164,7 +164,7 @@ async function carregarOnboarding() {
 
     onboarding.value = normalizarObjeto(await buscarOnboarding())
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os primeiros passos.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os primeiros passos.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -180,7 +180,7 @@ async function atualizarProgresso() {
     onboarding.value = normalizarObjeto(await buscarOnboarding())
     mensagemSucesso.value = 'Progresso atualizado com sucesso.'
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar os primeiros passos.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar os primeiros passos.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -199,9 +199,9 @@ async function marcarEtapa(etapa, status) {
       ignorado: status === 'IGNORADO',
     })
     await carregarOnboarding()
-    mensagemSucesso.value = status === 'CONCLUIDO' ? 'Etapa marcada como concluida.' : 'Etapa marcada como nao aplicavel.'
+    mensagemSucesso.value = status === 'CONCLUIDO' ? 'Etapa marcada como concluída.' : 'Etapa marcada como não aplicável.'
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel atualizar a etapa.')
+    erro.value = obterMensagemErro(error, 'Não foi possível atualizar a etapa.')
     console.error(error)
   } finally {
     processandoEtapa.value = ''
@@ -221,7 +221,7 @@ async function copiarLinkPublico() {
   const link = linkPublico.value
 
   if (!link) {
-    erro.value = 'Link publico ainda nao disponivel.'
+    erro.value = 'Link público ainda não disponível.'
     return
   }
 
@@ -232,9 +232,9 @@ async function copiarLinkPublico() {
     await navigator.clipboard.writeText(link)
     await marcarLinkPublicoVisualizado()
     await carregarOnboarding()
-    mensagemSucesso.value = 'Link publico copiado com sucesso.'
+    mensagemSucesso.value = 'Link público copiado com sucesso.'
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel copiar o link publico.')
+    erro.value = obterMensagemErro(error, 'Não foi possível copiar o link público.')
     console.error(error)
   } finally {
     processandoEtapa.value = ''
@@ -343,11 +343,11 @@ function rotaPadraoPorChave(chave) {
 function acaoPadraoPorChave(chave) {
   return {
     DADOS_EMPRESA: 'Abrir Minha empresa',
-    SERVICO: 'Abrir Servicos',
-    FUNCIONARIO: 'Abrir Funcionarios',
+    SERVICO: 'Abrir Serviços',
+    FUNCIONARIO: 'Abrir Funcionários',
     HORARIOS: 'Abrir Disponibilidade',
     PERSONALIZACAO: 'Abrir Personalizacao',
-    LINK_PUBLICO: 'Copiar link publico',
+    LINK_PUBLICO: 'Copiar link público',
     PRIMEIRO_AGENDAMENTO: 'Abrir Agenda',
   }[chave] || 'Continuar'
 }
@@ -395,8 +395,8 @@ function extrairSlug(valor) {
 
 function statusTexto(status) {
   return {
-    CONCLUIDO: 'Concluido',
-    IGNORADO: 'Nao aplicavel',
+    CONCLUIDO: 'Concluído',
+    IGNORADO: 'Não aplicável',
     PENDENTE: 'Pendente',
   }[status] || status
 }
@@ -445,7 +445,7 @@ function obterMensagemErro(error, fallback) {
   const mensagem = String(error?.message || '').trim()
   const normalizada = mensagem.toLowerCase()
   if (normalizada === 'forbidden' || normalizada.includes('403') || normalizada.includes('permiss')) {
-    return 'Voce nao tem permissao para acessar este onboarding.'
+    return 'Você não tem permissão para acessar este onboarding.'
   }
   return mensagem || fallback
 }
@@ -457,7 +457,7 @@ onMounted(carregarOnboarding)
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Configuracao inicial</p>
+        <p class="subtitulo">Configuração inicial</p>
         <h1>Primeiros passos</h1>
         <p class="descricao">Acompanhe o checklist inicial da empresa e conclua o que falta para operar.</p>
       </div>
@@ -474,12 +474,12 @@ onMounted(carregarOnboarding)
       <section class="card hero">
         <div class="hero-conteudo">
           <span class="empresa">{{ empresaNome }}</span>
-          <h2>{{ concluido ? 'Sua empresa esta pronta para comecar.' : 'Checklist inicial da empresa' }}</h2>
+          <h2>{{ concluido ? 'Sua empresa está pronta para começar.' : 'Checklist inicial da empresa' }}</h2>
           <p>
             {{
               concluido
                 ? 'Os principais pontos do onboarding foram finalizados.'
-                : 'Use este checklist para concluir a configuracao inicial sem perder nenhuma etapa importante.'
+                : 'Use este checklist para concluir a configuração inicial sem perder nenhuma etapa importante.'
             }}
           </p>
         </div>
@@ -487,13 +487,13 @@ onMounted(carregarOnboarding)
         <div class="progresso-box">
           <div class="progresso-topo">
             <strong>{{ percentual }}%</strong>
-            <span>{{ resumoChecklist.concluido }} concluidos, {{ resumoChecklist.ignorado }} nao aplicaveis</span>
+            <span>{{ resumoChecklist.concluido }} concluídos, {{ resumoChecklist.ignorado }} não aplicáveis</span>
           </div>
           <div class="barra" aria-hidden="true"><span :style="{ width: `${percentual}%` }"></span></div>
           <div class="resumo-grid">
-            <article class="resumo-item"><small>Concluidos</small><strong>{{ resumoChecklist.concluido }}</strong></article>
+            <article class="resumo-item"><small>Concluídos</small><strong>{{ resumoChecklist.concluido }}</strong></article>
             <article class="resumo-item"><small>Pendentes</small><strong>{{ resumoChecklist.pendente }}</strong></article>
-            <article class="resumo-item"><small>Nao aplicaveis</small><strong>{{ resumoChecklist.ignorado }}</strong></article>
+            <article class="resumo-item"><small>Não aplicáveis</small><strong>{{ resumoChecklist.ignorado }}</strong></article>
           </div>
         </div>
       </section>

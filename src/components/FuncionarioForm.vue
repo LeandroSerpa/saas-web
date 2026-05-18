@@ -51,7 +51,7 @@ function solicitarSalvamento() {
   erroValidacao.value = ''
 
   if (funcionario.value.telefone && !telefoneBasicoValido(funcionario.value.telefone)) {
-    erroValidacao.value = 'Informe um telefone valido.'
+    erroValidacao.value = 'Informe um telefone válido.'
     return
   }
 
@@ -67,12 +67,12 @@ function solicitarSalvamento() {
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar funcionario' : 'Novo funcionario' }}</h2>
+      <h2>{{ modoEdicao ? 'Editar funcionário' : 'Novo funcionário' }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do funcionario selecionado.'
-            : 'Cadastre um funcionario para atender os agendamentos.'
+            ? 'Atualize os dados do funcionário selecionado.'
+            : 'Cadastre um funcionário para atender os agendamentos.'
         }}
       </p>
     </div>
@@ -117,7 +117,7 @@ function solicitarSalvamento() {
 
       <div class="secao-disponibilidade">
         <div class="titulo-card">
-          <h3>Disponibilidade do funcionario</h3>
+          <h3>Disponibilidade do funcionário</h3>
         </div>
 
         <div class="campos-disponibilidade">
@@ -132,7 +132,7 @@ function solicitarSalvamento() {
               @input="aplicarMascaraHorario('horaInicioAtendimento', $event.target.value)"
             />
             <span v-if="horarioInicioInvalido" class="mensagem-campo">
-              Informe um horario valido entre 00:00 e 23:59.
+              Informe um horário válido entre 00:00 e 23:59.
             </span>
           </label>
 
@@ -147,7 +147,7 @@ function solicitarSalvamento() {
               @input="aplicarMascaraHorario('horaFimAtendimento', $event.target.value)"
             />
             <span v-if="horarioFimInvalido" class="mensagem-campo">
-              Informe um horario valido entre 00:00 e 23:59.
+              Informe um horário válido entre 00:00 e 23:59.
             </span>
           </label>
         </div>
@@ -155,11 +155,11 @@ function solicitarSalvamento() {
         <div class="dias-semana">
           <label class="campo-checkbox"><input v-model="funcionario.atendeDominao" type="checkbox" />Domingo</label>
           <label class="campo-checkbox"><input v-model="funcionario.atendeSegunda" type="checkbox" />Segunda</label>
-          <label class="campo-checkbox"><input v-model="funcionario.atendeTerca" type="checkbox" />Terca</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeTerca" type="checkbox" />Terça</label>
           <label class="campo-checkbox"><input v-model="funcionario.atendeQuarta" type="checkbox" />Quarta</label>
           <label class="campo-checkbox"><input v-model="funcionario.atendeQuinta" type="checkbox" />Quinta</label>
           <label class="campo-checkbox"><input v-model="funcionario.atendeSexta" type="checkbox" />Sexta</label>
-          <label class="campo-checkbox"><input v-model="funcionario.atendeSabado" type="checkbox" />Sabado</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeSabado" type="checkbox" />Sábado</label>
         </div>
       </div>
     </div>
@@ -168,7 +168,7 @@ function solicitarSalvamento() {
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="solicitarSalvamento">
-        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar funcionario' }}
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar funcionário' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">

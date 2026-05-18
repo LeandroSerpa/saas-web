@@ -27,11 +27,11 @@ const router = useRouter()
 const diasAtendimento = [
   { campo: 'atendeDominao', rotulo: 'Domingo' },
   { campo: 'atendeSegunda', rotulo: 'Segunda' },
-  { campo: 'atendeTerca', rotulo: 'Terca' },
+  { campo: 'atendeTerca', rotulo: 'Terça' },
   { campo: 'atendeQuarta', rotulo: 'Quarta' },
   { campo: 'atendeQuinta', rotulo: 'Quinta' },
   { campo: 'atendeSexta', rotulo: 'Sexta' },
-  { campo: 'atendeSabado', rotulo: 'Sabado' },
+  { campo: 'atendeSabado', rotulo: 'Sábado' },
 ]
 const intervalosAgenda = [15, 30, 60]
 const linkPublico = computed(() => {
@@ -91,7 +91,7 @@ async function carregarMinhaEmpresa() {
       mensagemPublica: empresaApi.mensagemPublica || '',
     }
   } catch (error) {
-    erro.value = 'Nao foi possivel carregar os dados da empresa.'
+    erro.value = 'Não foi possível carregar os dados da empresa.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -110,12 +110,12 @@ async function salvarEmpresa() {
     }
 
     if (empresa.value.documento && !documentoBasicoValido(empresa.value.documento)) {
-      erro.value = 'Informe um documento valido.'
+      erro.value = 'Informe um documento válido.'
       return
     }
 
     if (empresa.value.telefone && !telefoneBasicoValido(empresa.value.telefone)) {
-      erro.value = 'Informe um telefone valido.'
+      erro.value = 'Informe um telefone válido.'
       return
     }
 
@@ -125,13 +125,13 @@ async function salvarEmpresa() {
     }
 
     if (!inteiroPositivoValido(empresa.value.intervaloAgendaMinutos)) {
-      erro.value = 'Informe um intervalo de agenda valido.'
+      erro.value = 'Informe um intervalo de agenda válido.'
       return
     }
 
     const intervaloAgendaMinutos = Number(empresa.value.intervaloAgendaMinutos)
     if (!intervalosAgenda.includes(intervaloAgendaMinutos)) {
-      erro.value = 'Selecione um intervalo da agenda valido.'
+      erro.value = 'Selecione um intervalo da agenda válido.'
       return
     }
 
@@ -163,7 +163,7 @@ async function salvarEmpresa() {
     mensagemSucesso.value = 'Dados da empresa salvos com sucesso.'
     await retornarParaOnboardingSeNecessario()
   } catch (error) {
-    erro.value = 'Nao foi possivel atualizar a empresa.'
+    erro.value = 'Não foi possível atualizar a empresa.'
     console.error(error)
   } finally {
     salvando.value = false
@@ -197,9 +197,9 @@ async function copiarLinkPublico() {
 
   try {
     await navigator.clipboard.writeText(linkPublico.value)
-    mensagemLinkCopiado.value = 'Link publico copiado com sucesso.'
+    mensagemLinkCopiado.value = 'Link público copiado com sucesso.'
   } catch (error) {
-    erro.value = 'Nao foi possivel copiar o link publico.'
+    erro.value = 'Não foi possível copiar o link público.'
     console.error(error)
   }
 }
@@ -237,7 +237,7 @@ onMounted(carregarMinhaEmpresa)
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administracao</p>
+        <p class="subtitulo">Administração</p>
         <h1>Minha empresa</h1>
         <p class="descricao">Atualize os dados cadastrais da empresa logada.</p>
       </div>
@@ -251,7 +251,7 @@ onMounted(carregarMinhaEmpresa)
     <section v-else class="card formulario">
       <div class="titulo-card">
         <h2>Dados da empresa</h2>
-        <p>Edite as informacoes que identificam sua empresa no sistema.</p>
+        <p>Edite as informações que identificam sua empresa no sistema.</p>
       </div>
 
       <div class="campos">
@@ -259,13 +259,13 @@ onMounted(carregarMinhaEmpresa)
         <label>Documento<input :value="empresa.documento" type="text" placeholder="Ex: 00.000.000/0001-00" @input="aplicarDocumento($event.target.value)" /></label>
         <label>Telefone<input :value="empresa.telefone" type="text" placeholder="Ex: (21) 99999-9999" @input="aplicarTelefone($event.target.value)" /></label>
         <label>E-mail<input :value="empresa.email" type="email" placeholder="Ex: contato@empresa.com" @input="aplicarEmail($event.target.value)" /></label>
-        <label class="campo-grande">Endereco<input v-model="empresa.endereco" type="text" placeholder="Ex: Rua Principal, 100" /></label>
+        <label class="campo-grande">Endereço<input v-model="empresa.endereco" type="text" placeholder="Ex: Rua Principal, 100" /></label>
       </div>
 
       <div class="secao-horario">
         <div class="titulo-card">
-          <h2>Horario de funcionamento</h2>
-          <p>Configure os horarios e dias de atendimento da empresa.</p>
+          <h2>Horário de funcionamento</h2>
+          <p>Configure os horários e dias de atendimento da empresa.</p>
         </div>
         <div class="campos">
           <label>Hora de abertura<input v-model="empresa.horaAbertura" type="time" /></label>
@@ -286,27 +286,27 @@ onMounted(carregarMinhaEmpresa)
 
       <div class="secao-agendamento-publico">
         <div class="titulo-card">
-          <h2>Agendamento publico</h2>
-          <p>Configure o link publico para clientes realizarem agendamentos sem precisar acessar o sistema.</p>
+          <h2>Agendamento público</h2>
+          <p>Configure o link público para clientes realizarem agendamentos sem precisar acessar o sistema.</p>
         </div>
 
         <div class="campos">
-          <label>Slug publico<input v-model="empresa.slug" type="text" placeholder="petshop-rodrigo" /></label>
-          <label class="campo-checkbox"><input v-model="empresa.agendamentoPublicoAtivo" type="checkbox" />Permitir agendamento publico</label>
+          <label>Slug público<input v-model="empresa.slug" type="text" placeholder="petshop-rodrigo" /></label>
+          <label class="campo-checkbox"><input v-model="empresa.agendamentoPublicoAtivo" type="checkbox" />Permitir agendamento público</label>
           <label class="campo-grande">
-            Mensagem publica
-            <textarea v-model="empresa.mensagemPublica" placeholder="Ex: Agende seu atendimento de forma rapida e simples." rows="4"></textarea>
+            Mensagem pública
+            <textarea v-model="empresa.mensagemPublica" placeholder="Ex: Agende seu atendimento de forma rápida e simples." rows="4"></textarea>
           </label>
         </div>
 
         <div class="link-publico">
-          <p v-if="linkPublico"><strong>Link publico:</strong><span>{{ linkPublico }}</span></p>
-          <p v-else>Preencha o slug para gerar o link publico.</p>
+          <p v-if="linkPublico"><strong>Link público:</strong><span>{{ linkPublico }}</span></p>
+          <p v-else>Preencha o slug para gerar o link público.</p>
           <button class="botao secundario" :disabled="!linkPublico" @click="copiarLinkPublico">Copiar link</button>
         </div>
 
         <p v-if="mensagemLinkCopiado" class="sucesso-texto">{{ mensagemLinkCopiado }}</p>
-        <p v-if="!empresa.agendamentoPublicoAtivo" class="aviso-publico">O agendamento publico esta desativado.</p>
+        <p v-if="!empresa.agendamentoPublicoAtivo" class="aviso-publico">O agendamento público está desativado.</p>
       </div>
 
       <div class="rodape-formulario">
