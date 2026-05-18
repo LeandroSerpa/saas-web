@@ -106,7 +106,7 @@ async function salvarUsuario() {
     }
 
     if (!usuarioEditandoId.value && adminLogado.value && usuario.value.perfil !== 'USUARIO') {
-      erro.value = 'Administradores podem cadastrar apenas usuarios com perfil USUARIO.'
+      erro.value = 'Administradores podem cadastrar apenas usuários com perfil USUARIO.'
       return
     }
 

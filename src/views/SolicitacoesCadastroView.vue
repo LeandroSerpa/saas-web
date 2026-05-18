@@ -457,7 +457,7 @@ onMounted(carregarDados)
           <label>Plano <select v-model="aprovacao.planoId"><option value="">Selecione</option><option v-for="plano in planos" :key="plano.id" :value="plano.id">{{ plano.nome }}</option></select></label>
           <label>Nome do usuário admin <input v-model="aprovacao.adminNome" type="text" /></label>
           <label>E-mail do usuário admin <input v-model="aprovacao.adminEmail" type="email" /></label>
-          <label>Senha temporária <input v-model="aprovacao.senhaTemporaria" type="text" placeholder="Backend gera se ficar vazio" /></label>
+          <label>Senha temporária <input v-model="aprovacao.senhaTemporaria" type="text" placeholder="Será gerada pelo backend se ficar em branco" /></label>
           <label class="checkbox"><input v-model="aprovacao.ativarAgendamentoPublico" type="checkbox" /> Ativar agendamento público</label>
           <label class="campo-grande">Observação interna <textarea v-model="aprovacao.observacaoInterna" rows="3"></textarea></label>
         </div>

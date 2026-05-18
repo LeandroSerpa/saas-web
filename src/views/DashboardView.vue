@@ -74,12 +74,12 @@ const cardsResumo = computed(() => [
     destaque: 'hoje',
   },
   {
-    titulo: 'Concluidos hoje',
+    titulo: 'Concluídos hoje',
     valor: contarPorStatus('concluido', agendamentosHoje.value),
     destaque: 'concluido',
   },
   {
-    titulo: 'Receita concluida hoje',
+    titulo: 'Receita concluída hoje',
     valor: formatarMoeda(receitaPorStatus('concluido', agendamentosHoje.value)),
     destaque: 'receita',
   },
@@ -94,7 +94,7 @@ const cardsResumo = computed(() => [
     destaque: 'receita-prevista',
   },
   {
-    titulo: 'Receita concluida da semana',
+    titulo: 'Receita concluída da semana',
     valor: formatarMoeda(receitaPorStatus('concluido', agendamentosSemana.value)),
     destaque: 'receita',
   },
@@ -104,7 +104,7 @@ const cardsResumo = computed(() => [
     destaque: 'agendado',
   },
   {
-    titulo: 'Total concluido',
+    titulo: 'Total concluído',
     valor: contarPorStatus('concluido'),
     destaque: 'concluido',
   },
@@ -124,7 +124,7 @@ const cardsResumo = computed(() => [
     destaque: 'receita',
   },
   {
-    titulo: 'Receita concluida',
+    titulo: 'Receita concluída',
     valor: formatarMoeda(receitaPorStatus('concluido')),
     destaque: 'receita',
   },

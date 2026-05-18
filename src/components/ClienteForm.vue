@@ -33,12 +33,12 @@ function solicitarSalvamento() {
   erroValidacao.value = ''
 
   if (cliente.value.telefone && !telefoneBasicoValido(cliente.value.telefone)) {
-    erroValidacao.value = 'Informe um telefone valido.'
+    erroValidacao.value = 'Informe um telefone válido.'
     return
   }
 
   if (cliente.value.email && !emailBasicoValido(cliente.value.email)) {
-    erroValidacao.value = 'Informe um e-mail valido.'
+    erroValidacao.value = 'Informe um e-mail válido.'
     return
   }
 
@@ -88,11 +88,11 @@ function solicitarSalvamento() {
       </label>
 
       <label class="campo-grande">
-        Observacao
+        Observação
         <input
           v-model="cliente.observacao"
           type="text"
-          placeholder="Ex: Cliente prefere atendimento pela manha"
+          placeholder="Ex: Cliente prefere atendimento pela manhã"
         />
       </label>
     </div>
@@ -101,7 +101,7 @@ function solicitarSalvamento() {
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="solicitarSalvamento">
-        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar cliente' }}
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar cliente' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">

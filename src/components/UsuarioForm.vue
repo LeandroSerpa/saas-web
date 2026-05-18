@@ -49,7 +49,7 @@ function solicitarSalvamento() {
   erroValidacao.value = ''
 
   if (!emailBasicoValido(usuario.value.email)) {
-    erroValidacao.value = 'Informe um e-mail valido.'
+    erroValidacao.value = 'Informe um e-mail válido.'
     return
   }
 
@@ -60,12 +60,12 @@ function solicitarSalvamento() {
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar usuario' : 'Novo usuario' }}</h2>
+      <h2>{{ modoEdicao ? 'Editar usuário' : 'Novo usuário' }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do usuario selecionado.'
-            : 'Cadastre um usuario para acessar o sistema.'
+            ? 'Atualize os dados do usuário selecionado.'
+            : 'Cadastre um usuário para acessar o sistema.'
         }}
       </p>
     </div>
@@ -125,7 +125,7 @@ function solicitarSalvamento() {
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="solicitarSalvamento">
-        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar usuario' }}
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar usuário' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">
