@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { emailBasicoValido, sanitizarTelefone, telefoneBasicoValido } from '@/utils/validacoes'
 
 const funcionario = defineModel({
   type: Object,
@@ -17,7 +18,8 @@ defineProps({
   },
 })
 
-defineEmits(['salvar', 'cancelar'])
+const emit = defineEmits(['salvar', 'cancelar'])
+const erroValidacao = ref('')
 
 const horarioInicioInvalido = computed(() => horarioPreenchidoInvalido(funcionario.value.horaInicioAtendimento))
 const horarioFimInvalido = computed(() => horarioPreenchidoInvalido(funcionario.value.horaFimAtendimento))
@@ -36,17 +38,41 @@ function horarioPreenchidoInvalido(valor) {
 
   return Boolean(texto) && !/^([01]\d|2[0-3]):[0-5]\d$/.test(texto)
 }
+
+function aplicarTelefone(valor) {
+  funcionario.value.telefone = sanitizarTelefone(valor)
+}
+
+function aplicarEmail(valor) {
+  funcionario.value.email = String(valor || '').replace(/\s/g, '')
+}
+
+function solicitarSalvamento() {
+  erroValidacao.value = ''
+
+  if (funcionario.value.telefone && !telefoneBasicoValido(funcionario.value.telefone)) {
+    erroValidacao.value = 'Informe um telefone valido.'
+    return
+  }
+
+  if (funcionario.value.email && !emailBasicoValido(funcionario.value.email)) {
+    erroValidacao.value = 'Informe um e-mail valido.'
+    return
+  }
+
+  emit('salvar')
+}
 </script>
 
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar funcionário' : 'Novo funcionário' }}</h2>
+      <h2>{{ modoEdicao ? 'Editar funcionario' : 'Novo funcionario' }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do funcionário selecionado.'
-            : 'Cadastre um funcionário para atender os agendamentos.'
+            ? 'Atualize os dados do funcionario selecionado.'
+            : 'Cadastre um funcionario para atender os agendamentos.'
         }}
       </p>
     </div>
@@ -59,12 +85,24 @@ function horarioPreenchidoInvalido(valor) {
 
       <label>
         Telefone
-        <input v-model="funcionario.telefone" type="text" placeholder="Ex: (21) 99999-9999" />
+        <input
+          :value="funcionario.telefone"
+          type="text"
+          inputmode="tel"
+          placeholder="Ex: (21) 99999-9999"
+          @input="aplicarTelefone($event.target.value)"
+        />
       </label>
 
       <label>
         E-mail
-        <input v-model="funcionario.email" type="email" placeholder="Ex: funcionario@empresa.com" />
+        <input
+          :value="funcionario.email"
+          type="email"
+          inputmode="email"
+          placeholder="Ex: funcionario@empresa.com"
+          @input="aplicarEmail($event.target.value)"
+        />
       </label>
 
       <label>
@@ -79,7 +117,7 @@ function horarioPreenchidoInvalido(valor) {
 
       <div class="secao-disponibilidade">
         <div class="titulo-card">
-          <h3>Disponibilidade do funcionário</h3>
+          <h3>Disponibilidade do funcionario</h3>
         </div>
 
         <div class="campos-disponibilidade">
@@ -94,7 +132,7 @@ function horarioPreenchidoInvalido(valor) {
               @input="aplicarMascaraHorario('horaInicioAtendimento', $event.target.value)"
             />
             <span v-if="horarioInicioInvalido" class="mensagem-campo">
-              Informe um horário válido entre 00:00 e 23:59.
+              Informe um horario valido entre 00:00 e 23:59.
             </span>
           </label>
 
@@ -109,53 +147,28 @@ function horarioPreenchidoInvalido(valor) {
               @input="aplicarMascaraHorario('horaFimAtendimento', $event.target.value)"
             />
             <span v-if="horarioFimInvalido" class="mensagem-campo">
-              Informe um horário válido entre 00:00 e 23:59.
+              Informe um horario valido entre 00:00 e 23:59.
             </span>
           </label>
         </div>
 
         <div class="dias-semana">
-          <label class="campo-checkbox">
-            <input v-model="funcionario.atendeDominao" type="checkbox" />
-            Domingo
-          </label>
-
-          <label class="campo-checkbox">
-            <input v-model="funcionario.atendeSegunda" type="checkbox" />
-            Segunda
-          </label>
-
-          <label class="campo-checkbox">
-            <input v-model="funcionario.atendeTerca" type="checkbox" />
-            Terça
-          </label>
-
-          <label class="campo-checkbox">
-            <input v-model="funcionario.atendeQuarta" type="checkbox" />
-            Quarta
-          </label>
-
-          <label class="campo-checkbox">
-            <input v-model="funcionario.atendeQuinta" type="checkbox" />
-            Quinta
-          </label>
-
-          <label class="campo-checkbox">
-            <input v-model="funcionario.atendeSexta" type="checkbox" />
-            Sexta
-          </label>
-
-          <label class="campo-checkbox">
-            <input v-model="funcionario.atendeSabado" type="checkbox" />
-            Sábado
-          </label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeDominao" type="checkbox" />Domingo</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeSegunda" type="checkbox" />Segunda</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeTerca" type="checkbox" />Terca</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeQuarta" type="checkbox" />Quarta</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeQuinta" type="checkbox" />Quinta</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeSexta" type="checkbox" />Sexta</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeSabado" type="checkbox" />Sabado</label>
         </div>
       </div>
     </div>
 
+    <p v-if="erroValidacao" class="mensagem-campo">{{ erroValidacao }}</p>
+
     <div class="rodape-formulario">
-      <button class="botao principal" @click="$emit('salvar')">
-        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar funcionário' }}
+      <button class="botao principal" @click="solicitarSalvamento">
+        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar funcionario' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">

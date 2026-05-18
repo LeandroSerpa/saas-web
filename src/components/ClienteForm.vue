@@ -1,4 +1,7 @@
 <script setup>
+import { ref } from 'vue'
+import { emailBasicoValido, sanitizarTelefone, telefoneBasicoValido } from '@/utils/validacoes'
+
 const cliente = defineModel({
   type: Object,
   required: true,
@@ -15,7 +18,32 @@ defineProps({
   },
 })
 
-defineEmits(['salvar', 'cancelar'])
+const emit = defineEmits(['salvar', 'cancelar'])
+const erroValidacao = ref('')
+
+function aplicarTelefone(valor) {
+  cliente.value.telefone = sanitizarTelefone(valor)
+}
+
+function aplicarEmail(valor) {
+  cliente.value.email = String(valor || '').replace(/\s/g, '')
+}
+
+function solicitarSalvamento() {
+  erroValidacao.value = ''
+
+  if (cliente.value.telefone && !telefoneBasicoValido(cliente.value.telefone)) {
+    erroValidacao.value = 'Informe um telefone valido.'
+    return
+  }
+
+  if (cliente.value.email && !emailBasicoValido(cliente.value.email)) {
+    erroValidacao.value = 'Informe um e-mail valido.'
+    return
+  }
+
+  emit('salvar')
+}
 </script>
 
 <template>
@@ -39,27 +67,41 @@ defineEmits(['salvar', 'cancelar'])
 
       <label>
         Telefone
-        <input v-model="cliente.telefone" type="text" placeholder="Ex: (21) 99999-9999" />
+        <input
+          :value="cliente.telefone"
+          type="text"
+          inputmode="tel"
+          placeholder="Ex: (21) 99999-9999"
+          @input="aplicarTelefone($event.target.value)"
+        />
       </label>
 
       <label>
         E-mail
-        <input v-model="cliente.email" type="email" placeholder="Ex: cliente@email.com" />
+        <input
+          :value="cliente.email"
+          type="email"
+          inputmode="email"
+          placeholder="Ex: cliente@email.com"
+          @input="aplicarEmail($event.target.value)"
+        />
       </label>
 
       <label class="campo-grande">
-        Observação
+        Observacao
         <input
           v-model="cliente.observacao"
           type="text"
-          placeholder="Ex: Cliente prefere atendimento pela manhã"
+          placeholder="Ex: Cliente prefere atendimento pela manha"
         />
       </label>
     </div>
 
+    <p v-if="erroValidacao" class="sucesso-texto erro-texto">{{ erroValidacao }}</p>
+
     <div class="rodape-formulario">
-      <button class="botao principal" @click="$emit('salvar')">
-        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar cliente' }}
+      <button class="botao principal" @click="solicitarSalvamento">
+        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar cliente' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">

@@ -6,15 +6,15 @@ import {
   buscarSegmentosCadastroPublico,
   cadastrarEmpresaInteressadaPublico,
 } from '@/services/api'
+import {
+  documentoBasicoValido,
+  emailBasicoValido,
+  sanitizarDocumento,
+  sanitizarTelefone,
+  telefoneBasicoValido,
+} from '@/utils/validacoes'
 
-const etapas = [
-  { titulo: 'Empresa' },
-  { titulo: 'Responsável' },
-  { titulo: 'Interesse' },
-  { titulo: 'Plano' },
-  { titulo: 'Revisão' },
-]
-
+const etapas = [{ titulo: 'Empresa' }, { titulo: 'Responsavel' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'Revisao' }]
 const etapaAtual = ref(0)
 const segmentos = ref([])
 const planos = ref([])
@@ -25,19 +25,12 @@ const sucesso = ref('')
 const protocolo = ref('')
 const formulario = ref(criarFormularioInicial())
 
-const segmentoSelecionado = computed(() =>
-  segmentos.value.find((segmento) => String(segmento.id) === String(formulario.value.segmentoNegocioId)) || null,
-)
-const planoSelecionado = computed(() =>
-  planos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null,
-)
+const segmentoSelecionado = computed(() => segmentos.value.find((segmento) => String(segmento.id) === String(formulario.value.segmentoNegocioId)) || null)
+const planoSelecionado = computed(() => planos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null)
 
-watch(
-  () => formulario.value.nomeEmpresa,
-  (nome) => {
-    formulario.value.slugDesejado = gerarSlug(nome)
-  },
-)
+watch(() => formulario.value.nomeEmpresa, (nome) => {
+  formulario.value.slugDesejado = gerarSlug(nome)
+})
 
 function criarFormularioInicial() {
   return {
@@ -73,7 +66,7 @@ async function carregarOpcoes() {
     segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
     planos.value = extrairLista(planosApi).filter((plano) => plano.publico !== false && plano.visivelPublico !== false)
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível carregar as opções do cadastro.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel carregar as opcoes do cadastro.')
     console.error(error)
   } finally {
     carregando.value = false
@@ -98,10 +91,10 @@ async function enviarCadastro() {
     erro.value = ''
     const resposta = await cadastrarEmpresaInteressadaPublico(montarPayload())
     protocolo.value = obterCampo(resposta, 'protocolo', 'numeroProtocolo', 'id')
-    sucesso.value = 'Cadastro enviado com sucesso. Nossa equipe analisará sua solicitação.'
+    sucesso.value = 'Cadastro enviado com sucesso. Nossa equipe analisara sua solicitacao.'
     formulario.value = criarFormularioInicial()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível enviar o cadastro.')
+    erro.value = obterMensagemErro(error, 'Nao foi possivel enviar o cadastro.')
     console.error(error)
   } finally {
     enviando.value = false
@@ -114,20 +107,21 @@ function validarEtapaAtual() {
   if (etapaAtual.value === 0) {
     if (!formulario.value.nomeEmpresa.trim()) return falharValidacao('Informe o nome da empresa.')
     if (!formulario.value.documento.trim()) return falharValidacao('Informe o documento da empresa.')
-    if (!emailValido(formulario.value.emailEmpresa)) return falharValidacao('Informe um e-mail válido da empresa.')
+    if (!documentoBasicoValido(formulario.value.documento)) return falharValidacao('Informe um documento valido da empresa.')
+    if (formulario.value.telefoneEmpresa && !telefoneBasicoValido(formulario.value.telefoneEmpresa)) return falharValidacao('Informe um telefone valido da empresa.')
+    if (!emailBasicoValido(formulario.value.emailEmpresa)) return falharValidacao('Informe um e-mail valido da empresa.')
     if (!formulario.value.cidade.trim()) return falharValidacao('Informe a cidade da empresa.')
     if (!formulario.value.estado.trim()) return falharValidacao('Informe o estado/UF da empresa.')
   }
 
   if (etapaAtual.value === 1) {
-    if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsável.')
-    if (!emailValido(formulario.value.emailResponsavel)) return falharValidacao('Informe um e-mail válido do responsável.')
-    if (!formulario.value.telefoneResponsavel.trim()) return falharValidacao('Informe o telefone do responsável.')
-    if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsável.')
-    if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no mínimo 6 caracteres.')
-    if (formulario.value.confirmarSenhaResponsavel !== formulario.value.senhaResponsavel) {
-      return falharValidacao('A confirmação de senha deve ser igual à senha informada.')
-    }
+    if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsavel.')
+    if (!emailBasicoValido(formulario.value.emailResponsavel)) return falharValidacao('Informe um e-mail valido do responsavel.')
+    if (!formulario.value.telefoneResponsavel.trim()) return falharValidacao('Informe o telefone do responsavel.')
+    if (!telefoneBasicoValido(formulario.value.telefoneResponsavel)) return falharValidacao('Informe um telefone valido do responsavel.')
+    if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsavel.')
+    if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no minimo 6 caracteres.')
+    if (formulario.value.confirmarSenhaResponsavel !== formulario.value.senhaResponsavel) return falharValidacao('A confirmacao de senha deve ser igual a senha informada.')
   }
 
   if (etapaAtual.value === 2) {
@@ -145,6 +139,18 @@ function validarEtapaAtual() {
 function falharValidacao(mensagem) {
   erro.value = mensagem
   return false
+}
+
+function aplicarDocumento(valor) {
+  formulario.value.documento = sanitizarDocumento(valor)
+}
+
+function aplicarTelefone(campo, valor) {
+  formulario.value[campo] = sanitizarTelefone(valor)
+}
+
+function aplicarEmail(campo, valor) {
+  formulario.value[campo] = String(valor || '').replace(/\s/g, '')
 }
 
 function montarPayload() {
@@ -189,26 +195,15 @@ function montarPayload() {
 }
 
 function limparVazios(objeto) {
-  return Object.fromEntries(
-    Object.entries(objeto).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()),
-  )
+  return Object.fromEntries(Object.entries(objeto).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()))
 }
 
 function idOuVazio(valor) {
   return valor ? Number(valor) : ''
 }
 
-function emailValido(valor) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim())
-}
-
 function gerarSlug(valor) {
-  return String(valor || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+  return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
 function extrairLista(resposta) {
@@ -244,54 +239,45 @@ onMounted(carregarOpcoes)
   <main class="pagina-publica">
     <section class="conteudo">
       <header class="cabecalho">
-        <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
-        <span class="marca">Gestão Empresarial</span>
+        <RouterLink class="link-login" to="/login">Ja tenho acesso</RouterLink>
+        <span class="marca">Gestao Empresarial</span>
         <h1>Cadastre sua empresa</h1>
-        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitação de entrada na plataforma.</p>
+        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitacao de entrada na plataforma.</p>
       </header>
 
       <section v-if="sucesso" class="card confirmacao">
-        <span class="selo">Solicitação pendente</span>
+        <span class="selo">Solicitacao pendente</span>
         <h2>{{ sucesso }}</h2>
         <p v-if="protocolo"><strong>Protocolo:</strong> {{ protocolo }}</p>
-        <p>O responsável já pode tentar acessar com o e-mail e a senha cadastrados, mas a empresa ficará pendente até aprovação.</p>
-        <div class="acoes">
-          <RouterLink class="botao principal" to="/login">Voltar para login</RouterLink>
-        </div>
+        <p>O responsavel ja pode tentar acessar com o e-mail e a senha cadastrados, mas a empresa ficara pendente ate aprovacao.</p>
+        <div class="acoes"><RouterLink class="botao principal" to="/login">Voltar para login</RouterLink></div>
       </section>
 
       <template v-else>
         <section class="etapas">
-          <button
-            v-for="(etapa, indice) in etapas"
-            :key="etapa.titulo"
-            :class="['etapa', { ativa: etapaAtual === indice, concluida: etapaAtual > indice }]"
-            type="button"
-            @click="indice < etapaAtual && (etapaAtual = indice)"
-          >
-            <span>{{ indice + 1 }}</span>
-            {{ etapa.titulo }}
+          <button v-for="(etapa, indice) in etapas" :key="etapa.titulo" :class="['etapa', { ativa: etapaAtual === indice, concluida: etapaAtual > indice }]" type="button" @click="indice < etapaAtual && (etapaAtual = indice)">
+            <span>{{ indice + 1 }}</span>{{ etapa.titulo }}
           </button>
         </section>
 
         <section v-if="erro" class="feedback erro"><p>{{ erro }}</p></section>
-        <section v-if="carregando" class="card"><p>Carregando opções do cadastro...</p></section>
+        <section v-if="carregando" class="card"><p>Carregando opcoes do cadastro...</p></section>
 
         <form v-else class="card formulario" @submit.prevent="etapaAtual === etapas.length - 1 ? enviarCadastro() : proximaEtapa()">
           <div v-if="etapaAtual === 0" class="campos">
             <label>Nome da empresa *<input v-model="formulario.nomeEmpresa" type="text" /></label>
-            <label>Documento *<input v-model="formulario.documento" type="text" /></label>
-            <label>Telefone<input v-model="formulario.telefoneEmpresa" type="tel" /></label>
-            <label>E-mail da empresa *<input v-model="formulario.emailEmpresa" type="email" /></label>
-            <label class="campo-grande">Endereço<input v-model="formulario.endereco" type="text" /></label>
+            <label>Documento *<input :value="formulario.documento" type="text" @input="aplicarDocumento($event.target.value)" /></label>
+            <label>Telefone<input :value="formulario.telefoneEmpresa" type="tel" @input="aplicarTelefone('telefoneEmpresa', $event.target.value)" /></label>
+            <label>E-mail da empresa *<input :value="formulario.emailEmpresa" type="email" @input="aplicarEmail('emailEmpresa', $event.target.value)" /></label>
+            <label class="campo-grande">Endereco<input v-model="formulario.endereco" type="text" /></label>
             <label>Cidade *<input v-model="formulario.cidade" type="text" /></label>
             <label>Estado/UF *<input v-model="formulario.estado" maxlength="2" type="text" /></label>
           </div>
 
           <div v-else-if="etapaAtual === 1" class="campos">
-            <label>Nome do responsável *<input v-model="formulario.nomeResponsavel" type="text" /></label>
-            <label>E-mail do responsável *<input v-model="formulario.emailResponsavel" type="email" /></label>
-            <label>Telefone/WhatsApp *<input v-model="formulario.telefoneResponsavel" type="tel" /></label>
+            <label>Nome do responsavel *<input v-model="formulario.nomeResponsavel" type="text" /></label>
+            <label>E-mail do responsavel *<input :value="formulario.emailResponsavel" type="email" @input="aplicarEmail('emailResponsavel', $event.target.value)" /></label>
+            <label>Telefone/WhatsApp *<input :value="formulario.telefoneResponsavel" type="tel" @input="aplicarTelefone('telefoneResponsavel', $event.target.value)" /></label>
             <label>Cargo<input v-model="formulario.cargoResponsavel" type="text" /></label>
             <label>Senha *<input v-model="formulario.senhaResponsavel" type="password" autocomplete="new-password" /></label>
             <label>Confirmar senha *<input v-model="formulario.confirmarSenhaResponsavel" type="password" autocomplete="new-password" /></label>
@@ -302,16 +288,11 @@ onMounted(carregarOpcoes)
               Segmento *
               <select v-model="formulario.segmentoNegocioId">
                 <option value="">Selecione</option>
-                <option v-for="segmento in segmentos" :key="segmento.id" :value="segmento.id">
-                  {{ segmento.nome || segmento.descricao || 'Segmento sem nome' }}
-                </option>
+                <option v-for="segmento in segmentos" :key="segmento.id" :value="segmento.id">{{ segmento.nome || segmento.descricao || 'Segmento sem nome' }}</option>
               </select>
-              <small v-if="!segmentos.length">Nenhum segmento disponível no momento. Nossa equipe poderá orientar você após o envio.</small>
+              <small v-if="!segmentos.length">Nenhum segmento disponivel no momento. Nossa equipe podera orientar voce apos o envio.</small>
             </label>
-            <label class="campo-grande">
-              O que você deseja melhorar na gestão da sua empresa? *
-              <textarea v-model="formulario.interesse" rows="4"></textarea>
-            </label>
+            <label class="campo-grande">O que voce deseja melhorar na gestao da sua empresa? *<textarea v-model="formulario.interesse" rows="4"></textarea></label>
           </div>
 
           <div v-else-if="etapaAtual === 3" class="campos">
@@ -319,52 +300,24 @@ onMounted(carregarOpcoes)
               Plano desejado *
               <select v-model="formulario.planoId">
                 <option value="">Selecione</option>
-                <option v-for="plano in planos" :key="plano.id" :value="plano.id">
-                  {{ plano.nome || plano.titulo || 'Plano sem nome' }}
-                </option>
+                <option v-for="plano in planos" :key="plano.id" :value="plano.id">{{ plano.nome || plano.titulo || 'Plano sem nome' }}</option>
               </select>
-              <small v-if="!planos.length">Nenhum plano público disponível no momento.</small>
+              <small v-if="!planos.length">Nenhum plano publico disponivel no momento.</small>
             </label>
           </div>
 
           <div v-else class="revisao">
-            <article>
-              <h2>Empresa</h2>
-              <p><strong>Nome:</strong> {{ formulario.nomeEmpresa }}</p>
-              <p><strong>Documento:</strong> {{ formulario.documento }}</p>
-              <p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p>
-              <p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p>
-              <p><strong>Endereço:</strong> {{ formulario.endereco || '-' }}</p>
-            </article>
-            <article>
-              <h2>Responsável</h2>
-              <p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p>
-              <p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p>
-              <p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p>
-              <p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p>
-            </article>
-            <article>
-              <h2>Localização</h2>
-              <p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p>
-              <p><strong>Estado:</strong> {{ formulario.estado || '-' }}</p>
-            </article>
-            <article>
-              <h2>Interesse</h2>
-              <p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p>
-              <p><strong>Mensagem:</strong> {{ formulario.interesse }}</p>
-            </article>
-            <article>
-              <h2>Plano escolhido</h2>
-              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
-            </article>
+            <article><h2>Empresa</h2><p><strong>Nome:</strong> {{ formulario.nomeEmpresa }}</p><p><strong>Documento:</strong> {{ formulario.documento }}</p><p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p><p><strong>Endereco:</strong> {{ formulario.endereco || '-' }}</p></article>
+            <article><h2>Responsavel</h2><p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p><p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p><p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p></article>
+            <article><h2>Localizacao</h2><p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p><p><strong>Estado:</strong> {{ formulario.estado || '-' }}</p></article>
+            <article><h2>Interesse</h2><p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p><p><strong>Mensagem:</strong> {{ formulario.interesse }}</p></article>
+            <article><h2>Plano escolhido</h2><p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p></article>
           </div>
 
           <div class="acoes">
             <button v-if="etapaAtual > 0" class="botao secundario" type="button" @click="etapaAnterior">Voltar</button>
-            <button v-if="etapaAtual < etapas.length - 1" class="botao principal" type="submit">Avançar</button>
-            <button v-else class="botao principal" type="submit" :disabled="enviando">
-              {{ enviando ? 'Enviando...' : 'Enviar cadastro' }}
-            </button>
+            <button v-if="etapaAtual < etapas.length - 1" class="botao principal" type="submit">Avancar</button>
+            <button v-else class="botao principal" type="submit" :disabled="enviando">{{ enviando ? 'Enviando...' : 'Enviar cadastro' }}</button>
           </div>
         </form>
       </template>
@@ -373,203 +326,5 @@ onMounted(carregarOpcoes)
 </template>
 
 <style scoped>
-.pagina-publica {
-  min-height: 100vh;
-  background: #eef2f7;
-  color: #111827;
-  padding: 34px 18px;
-}
-
-.conteudo {
-  max-width: 980px;
-  margin: 0 auto;
-  display: grid;
-  gap: 20px;
-}
-
-.cabecalho {
-  display: grid;
-  gap: 8px;
-}
-
-.marca,
-.selo {
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.link-login {
-  justify-self: end;
-  color: #2563eb;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-h1,
-h2,
-p {
-  margin: 0;
-}
-
-h1 {
-  font-size: 38px;
-  font-weight: 800;
-}
-
-h2 {
-  font-size: 20px;
-}
-
-.cabecalho p,
-.confirmacao > p {
-  color: #475569;
-  font-size: 17px;
-}
-
-.card,
-.feedback {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 22px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.formulario,
-.confirmacao,
-.revisao {
-  display: grid;
-  gap: 18px;
-}
-
-.etapas,
-.campos,
-.revisao {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 14px;
-}
-
-.etapas {
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
-}
-
-.etapa {
-  min-height: 58px;
-  border: 1px solid #dbe4f0;
-  border-radius: 8px;
-  background: white;
-  color: #475569;
-  cursor: default;
-  font-weight: 800;
-}
-
-.etapa span {
-  display: inline-grid;
-  width: 24px;
-  height: 24px;
-  margin-right: 7px;
-  place-items: center;
-  border-radius: 999px;
-  background: #e2e8f0;
-}
-
-.etapa.ativa,
-.etapa.concluida {
-  border-color: #2563eb;
-  color: #1d4ed8;
-}
-
-.etapa.concluida {
-  cursor: pointer;
-}
-
-.etapa.ativa span,
-.etapa.concluida span {
-  background: #2563eb;
-  color: white;
-}
-
-.campo-grande {
-  grid-column: 1 / -1;
-}
-
-label {
-  display: grid;
-  gap: 7px;
-  color: #334155;
-  font-weight: 800;
-}
-
-label small {
-  color: #64748b;
-  font-size: 13px;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 11px 12px;
-  background: white;
-  font: inherit;
-  box-sizing: border-box;
-}
-
-.acoes {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.botao {
-  border: none;
-  border-radius: 8px;
-  padding: 12px 18px;
-  color: white;
-  cursor: pointer;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.principal {
-  background: #2563eb;
-}
-
-.secundario {
-  background: #0f172a;
-}
-
-.botao:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-.erro {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.confirmacao {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-}
-
-@media (max-width: 900px) {
-  .etapas,
-  .campos,
-  .revisao {
-    grid-template-columns: 1fr;
-  }
-
-  h1 {
-    font-size: 31px;
-  }
-}
+.pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:980px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}}
 </style>

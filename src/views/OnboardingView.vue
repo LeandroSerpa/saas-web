@@ -78,23 +78,30 @@ const route = useRoute()
 const router = useRouter()
 
 const empresaNome = computed(() => obterCampo(onboarding.value, 'empresaNome', 'nomeEmpresa') || 'Sua empresa')
-const linkPublico = computed(() => obterCampo(onboarding.value, 'linkPublicoAgendamento', 'linkPublico', 'urlAgendamento'))
 const etapasBackend = computed(() => normalizarEtapasBackend(onboarding.value))
 const usaEtapasBackend = computed(() => etapasBackend.value.length > 0)
+const linkPublico = computed(() => montarLinkPublico(onboarding.value))
 
 const etapas = computed(() => {
   const listaBase = usaEtapasBackend.value
     ? mesclarEtapasComConfiguracao(etapasBackend.value)
     : ETAPAS_PADRAO.map((item) => ({ ...item }))
 
-  return listaBase.map((etapa, indice) => ({
-    ...etapa,
-    numero: indice + 1,
-    status: resolverStatusEtapa(etapa),
-    titulo: etapa.titulo || 'Etapa de configuracao',
-    descricao: etapa.descricao || 'Conclua esta configuracao para avancar no onboarding.',
-    acao: etapa.acao || 'Continuar',
-  }))
+  return listaBase.map((etapa, indice) => {
+    const status = resolverStatusEtapa(etapa)
+    const descricaoIgnorado = etapa.chave === 'PERSONALIZACAO' && status === 'IGNORADO'
+      ? 'Seu plano atual nao permite personalizacao da pagina publica.'
+      : etapa.descricao || 'Conclua esta configuracao para avancar no onboarding.'
+
+    return {
+      ...etapa,
+      numero: indice + 1,
+      status,
+      titulo: etapa.titulo || 'Etapa de configuracao',
+      descricao: descricaoIgnorado,
+      acao: etapa.acao || 'Continuar',
+    }
+  })
 })
 
 const percentual = computed(() => {
@@ -102,7 +109,7 @@ const percentual = computed(() => {
   if (Number.isFinite(valor)) return limitarPercentual(valor)
 
   const total = etapas.value.length || 1
-  const concluidas = etapas.value.filter((etapa) => etapa.status === 'CONCLUIDO').length
+  const concluidas = etapas.value.filter((etapa) => etapa.status === 'CONCLUIDO' || etapa.status === 'IGNORADO').length
   return limitarPercentual((concluidas / total) * 100)
 })
 
@@ -165,9 +172,7 @@ async function atualizarProgresso() {
 }
 
 async function marcarEtapa(etapa, status) {
-  if (!etapa.chave) {
-    return
-  }
+  if (!etapa.chave) return
 
   try {
     processandoEtapa.value = etapa.chave
@@ -211,7 +216,7 @@ async function copiarLinkPublico() {
     await navigator.clipboard.writeText(link)
     await marcarLinkPublicoVisualizado()
     await carregarOnboarding()
-    mensagemSucesso.value = 'Link copiado com sucesso.'
+    mensagemSucesso.value = 'Link publico copiado com sucesso.'
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Nao foi possivel copiar o link publico.')
     console.error(error)
@@ -221,9 +226,7 @@ async function copiarLinkPublico() {
 }
 
 function navegarParaEtapa(etapa) {
-  if (!etapa.rota) {
-    return
-  }
+  if (!etapa.rota) return
 
   sessionStorage.setItem('origemOnboarding', 'true')
   if (etapa.chave) {
@@ -261,9 +264,7 @@ function mesclarEtapasComConfiguracao(etapasApi) {
 
 function normalizarEtapasBackend(dados) {
   const lista = obterCampo(dados, 'etapas')
-  if (Array.isArray(lista)) {
-    return lista
-  }
+  if (Array.isArray(lista)) return lista
 
   const passos = obterCampo(dados, 'checklist', 'itens', 'items')
   return Array.isArray(passos) ? passos : []
@@ -283,13 +284,12 @@ function resolverStatusEtapa(etapa) {
   const status = String(valorStatus || 'PENDENTE').trim().toUpperCase()
 
   if (['CONCLUIDA', 'CONCLUIDO', 'FEITO', 'FINALIZADO'].includes(status)) return 'CONCLUIDO'
-  if (['IGNORADA', 'IGNORADO'].includes(status)) return 'IGNORADO'
+  if (['IGNORADA', 'IGNORADO', 'NAO_APLICAVEL', 'NAO APLICAVEL'].includes(status)) return 'IGNORADO'
   return 'PENDENTE'
 }
 
 function encontrarEtapa(chave) {
-  const lista = etapasBackend.value
-  return lista.find((item, indice) => normalizarChaveEtapa(item, indice) === chave)
+  return etapasBackend.value.find((item, indice) => normalizarChaveEtapa(item, indice) === chave)
 }
 
 function normalizarChaveEtapa(item, indice = 0) {
@@ -335,8 +335,45 @@ function acaoPadraoPorChave(chave) {
   }[chave] || 'Continuar'
 }
 
+function montarLinkPublico(dados) {
+  const linkBruto = String(obterCampo(dados, 'linkPublicoAgendamento', 'linkPublico', 'urlAgendamento') || '').trim()
+  const slug = extrairSlug(linkBruto || obterCampo(dados, 'slug', 'empresaSlug', 'slugEmpresa'))
+
+  if (slug) {
+    return `${window.location.origin}/agendar/${slug}`
+  }
+
+  if (!linkBruto) {
+    return ''
+  }
+
+  if (/^https?:\/\//i.test(linkBruto)) {
+    return linkBruto
+  }
+
+  return `${window.location.origin}${linkBruto.startsWith('/') ? '' : '/'}${linkBruto}`
+}
+
+function extrairSlug(valor) {
+  const texto = String(valor || '').trim()
+  if (!texto) return ''
+
+  const rotaPublica = texto.match(/\/agendar\/([^/?#]+)/i)
+  if (rotaPublica?.[1]) return rotaPublica[1]
+
+  const rotaBackend = texto.match(/\/publico\/empresas\/([^/?#]+)/i)
+  if (rotaBackend?.[1]) return rotaBackend[1]
+
+  if (/^[a-z0-9-]+$/i.test(texto)) return texto
+  return ''
+}
+
 function statusTexto(status) {
-  return { CONCLUIDO: 'Concluido', IGNORADO: 'Ignorado', PENDENTE: 'Pendente' }[status] || status
+  return {
+    CONCLUIDO: 'Concluido',
+    IGNORADO: 'Nao aplicavel',
+    PENDENTE: 'Pendente',
+  }[status] || status
 }
 
 function classeStatus(status) {
@@ -392,7 +429,6 @@ onMounted(carregarOnboarding)
 
     <section v-if="erro" class="card erro"><p>{{ erro }}</p></section>
     <section v-if="mensagemSucesso" class="card sucesso"><p>{{ mensagemSucesso }}</p></section>
-
     <section v-if="carregando" class="card"><p>Carregando primeiros passos...</p></section>
 
     <template v-else>
@@ -412,22 +448,13 @@ onMounted(carregarOnboarding)
         <div class="progresso-box">
           <div class="progresso-topo">
             <strong>{{ percentual }}%</strong>
-            <span>{{ resumoChecklist.concluido }}/{{ etapas.length }} concluidos</span>
+            <span>{{ resumoChecklist.concluido + resumoChecklist.ignorado }}/{{ etapas.length }} concluidos</span>
           </div>
           <div class="barra" aria-hidden="true"><span :style="{ width: `${percentual}%` }"></span></div>
           <div class="resumo-grid">
-            <article class="resumo-item">
-              <small>Concluidos</small>
-              <strong>{{ resumoChecklist.concluido }}</strong>
-            </article>
-            <article class="resumo-item">
-              <small>Pendentes</small>
-              <strong>{{ resumoChecklist.pendente }}</strong>
-            </article>
-            <article class="resumo-item">
-              <small>Ignorados</small>
-              <strong>{{ resumoChecklist.ignorado }}</strong>
-            </article>
+            <article class="resumo-item"><small>Concluidos</small><strong>{{ resumoChecklist.concluido }}</strong></article>
+            <article class="resumo-item"><small>Pendentes</small><strong>{{ resumoChecklist.pendente }}</strong></article>
+            <article class="resumo-item"><small>Ignorados</small><strong>{{ resumoChecklist.ignorado }}</strong></article>
           </div>
         </div>
       </section>
@@ -435,7 +462,6 @@ onMounted(carregarOnboarding)
       <section class="checklist">
         <article v-for="etapa in etapas" :key="etapa.chave" class="card etapa-card">
           <div :class="['numero', classeStatus(etapa.status)]">{{ etapa.numero }}</div>
-
           <div class="conteudo-etapa">
             <div class="topo-etapa">
               <div class="texto-etapa">
@@ -483,258 +509,5 @@ onMounted(carregarOnboarding)
 </template>
 
 <style scoped>
-.pagina {
-  display: grid;
-  gap: 22px;
-  color: #111827;
-}
-
-.cabecalho-pagina,
-.hero,
-.topo-etapa,
-.acoes,
-.linha-titulo,
-.progresso-topo {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.subtitulo {
-  margin: 0 0 4px;
-  color: #2563eb;
-  font-size: 14px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-h1,
-h2,
-p {
-  margin: 0;
-}
-
-h1 {
-  font-size: 32px;
-  font-weight: 800;
-}
-
-.descricao,
-.hero p,
-.texto-etapa p {
-  margin-top: 6px;
-  color: #64748b;
-}
-
-.card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 22px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.hero {
-  align-items: stretch;
-  border-left: 5px solid #2563eb;
-}
-
-.hero-conteudo {
-  display: grid;
-  gap: 10px;
-  align-content: start;
-}
-
-.empresa {
-  color: #2563eb;
-  font-weight: 800;
-}
-
-.progresso-box {
-  min-width: 320px;
-  display: grid;
-  gap: 12px;
-}
-
-.progresso-topo strong {
-  font-size: 32px;
-}
-
-.progresso-topo span,
-.resumo-item small {
-  color: #64748b;
-  font-weight: 700;
-}
-
-.barra {
-  height: 12px;
-  border-radius: 999px;
-  background: #e5e7eb;
-  overflow: hidden;
-}
-
-.barra span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: #2563eb;
-}
-
-.resumo-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.resumo-item {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.resumo-item strong {
-  font-size: 20px;
-}
-
-.checklist {
-  display: grid;
-  gap: 14px;
-}
-
-.etapa-card {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
-  gap: 16px;
-}
-
-.numero {
-  width: 52px;
-  height: 52px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  font-weight: 800;
-  background: #e5e7eb;
-  color: #334155;
-}
-
-.numero.concluido {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.numero.pendente {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.numero.ignorado {
-  background: #e5e7eb;
-  color: #4b5563;
-}
-
-.conteudo-etapa {
-  display: grid;
-  gap: 14px;
-}
-
-.texto-etapa {
-  display: grid;
-  gap: 4px;
-}
-
-.texto-etapa h2 {
-  font-size: 22px;
-}
-
-.badge {
-  padding: 7px 11px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.badge.concluido {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.badge.pendente {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.badge.ignorado {
-  background: #e5e7eb;
-  color: #4b5563;
-}
-
-.botao {
-  border: none;
-  border-radius: 8px;
-  padding: 10px 16px;
-  color: white;
-  cursor: pointer;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.botao:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.principal {
-  background: #2563eb;
-}
-
-.secundario {
-  background: #0f172a;
-}
-
-.discreto {
-  background: #64748b;
-}
-
-.erro {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.sucesso {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-  color: #166534;
-}
-
-@media (max-width: 820px) {
-  .cabecalho-pagina,
-  .hero,
-  .topo-etapa,
-  .acoes,
-  .linha-titulo,
-  .progresso-topo {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .etapa-card {
-    grid-template-columns: 1fr;
-  }
-
-  .progresso-box {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .resumo-grid {
-    grid-template-columns: 1fr;
-  }
-}
+.pagina{display:grid;gap:22px;color:#111827}.cabecalho-pagina,.hero,.topo-etapa,.acoes,.linha-titulo,.progresso-topo{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-size:14px;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px;font-weight:800}.descricao,.hero p,.texto-etapa p{margin-top:6px;color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.hero{align-items:stretch;border-left:5px solid #2563eb}.hero-conteudo{display:grid;gap:10px;align-content:start}.empresa{color:#2563eb;font-weight:800}.progresso-box{min-width:320px;display:grid;gap:12px}.progresso-topo strong{font-size:32px}.progresso-topo span,.resumo-item small{color:#64748b;font-weight:700}.barra{height:12px;border-radius:999px;background:#e5e7eb;overflow:hidden}.barra span{display:block;height:100%;border-radius:999px;background:#2563eb}.resumo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.resumo-item{display:grid;gap:4px;padding:12px;border-radius:8px;background:#f8fafc}.resumo-item strong{font-size:20px}.checklist{display:grid;gap:14px}.etapa-card{display:grid;grid-template-columns:52px minmax(0,1fr);gap:16px}.numero{width:52px;height:52px;display:grid;place-items:center;border-radius:999px;font-weight:800;background:#e5e7eb;color:#334155}.numero.concluido{background:#dcfce7;color:#15803d}.numero.pendente{background:#dbeafe;color:#1d4ed8}.numero.ignorado{background:#e5e7eb;color:#4b5563}.conteudo-etapa{display:grid;gap:14px}.texto-etapa{display:grid;gap:4px}.texto-etapa h2{font-size:22px}.badge{padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase}.badge.concluido{background:#dcfce7;color:#15803d}.badge.pendente{background:#dbeafe;color:#1d4ed8}.badge.ignorado{background:#e5e7eb;color:#4b5563}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{cursor:not-allowed;opacity:.55}.principal{background:#2563eb}.secundario{background:#0f172a}.discreto{background:#64748b}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}@media(max-width:820px){.cabecalho-pagina,.hero,.topo-etapa,.acoes,.linha-titulo,.progresso-topo{align-items:flex-start;flex-direction:column}.etapa-card{grid-template-columns:1fr}.progresso-box{width:100%;min-width:0}.resumo-grid{grid-template-columns:1fr}}
 </style>

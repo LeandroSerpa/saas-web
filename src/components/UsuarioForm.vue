@@ -1,4 +1,7 @@
 <script setup>
+import { ref } from 'vue'
+import { emailBasicoValido } from '@/utils/validacoes'
+
 const usuario = defineModel({
   type: Object,
   required: true,
@@ -35,18 +38,34 @@ defineProps({
   },
 })
 
-defineEmits(['salvar', 'cancelar'])
+const emit = defineEmits(['salvar', 'cancelar'])
+const erroValidacao = ref('')
+
+function normalizarEmail(valor) {
+  usuario.value.email = String(valor || '').replace(/\s/g, '')
+}
+
+function solicitarSalvamento() {
+  erroValidacao.value = ''
+
+  if (!emailBasicoValido(usuario.value.email)) {
+    erroValidacao.value = 'Informe um e-mail valido.'
+    return
+  }
+
+  emit('salvar')
+}
 </script>
 
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar usuário' : 'Novo usuário' }}</h2>
+      <h2>{{ modoEdicao ? 'Editar usuario' : 'Novo usuario' }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do usuário selecionado.'
-            : 'Cadastre um usuário para acessar o sistema.'
+            ? 'Atualize os dados do usuario selecionado.'
+            : 'Cadastre um usuario para acessar o sistema.'
         }}
       </p>
     </div>
@@ -59,7 +78,13 @@ defineEmits(['salvar', 'cancelar'])
 
       <label>
         E-mail *
-        <input v-model="usuario.email" type="email" placeholder="Ex: usuario@empresa.com" />
+        <input
+          :value="usuario.email"
+          type="email"
+          inputmode="email"
+          placeholder="Ex: usuario@empresa.com"
+          @input="normalizarEmail($event.target.value)"
+        />
       </label>
 
       <label>
@@ -96,9 +121,11 @@ defineEmits(['salvar', 'cancelar'])
       </label>
     </div>
 
+    <p v-if="erroValidacao" class="sucesso-texto erro-texto">{{ erroValidacao }}</p>
+
     <div class="rodape-formulario">
-      <button class="botao principal" @click="$emit('salvar')">
-        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar usuário' }}
+      <button class="botao principal" @click="solicitarSalvamento">
+        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar usuario' }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">
