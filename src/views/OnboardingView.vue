@@ -114,10 +114,26 @@ const percentual = computed(() => {
 })
 
 const concluido = computed(() =>
-  percentual.value >= 100 || Boolean(obterCampo(onboarding.value, 'onboardingConcluido', 'concluido', 'finalizado')),
+  percentual.value >= 100 ||
+  resumoChecklist.value.pendente === 0 ||
+  Boolean(obterCampo(onboarding.value, 'onboardingConcluido', 'concluido', 'finalizado')),
 )
 
 const resumoChecklist = computed(() => {
+  const totaisBackend = {
+    concluido: numeroResumoBackend('concluidos', 'qtdConcluidos', 'totalConcluidos'),
+    pendente: numeroResumoBackend('pendentes', 'qtdPendentes', 'totalPendentes'),
+    ignorado: numeroResumoBackend('ignorados', 'naoAplicaveis', 'qtdIgnorados', 'totalIgnorados', 'qtdNaoAplicaveis', 'totalNaoAplicaveis'),
+  }
+
+  if (totaisBackend.concluido !== null || totaisBackend.pendente !== null || totaisBackend.ignorado !== null) {
+    return {
+      concluido: Math.max(0, totaisBackend.concluido ?? 0),
+      pendente: Math.max(0, totaisBackend.pendente ?? 0),
+      ignorado: Math.max(0, totaisBackend.ignorado ?? 0),
+    }
+  }
+
   const totais = {
     concluido: 0,
     pendente: 0,
@@ -183,7 +199,7 @@ async function marcarEtapa(etapa, status) {
       ignorado: status === 'IGNORADO',
     })
     await carregarOnboarding()
-    mensagemSucesso.value = status === 'CONCLUIDO' ? 'Etapa marcada como concluida.' : 'Etapa ignorada por enquanto.'
+    mensagemSucesso.value = status === 'CONCLUIDO' ? 'Etapa marcada como concluida.' : 'Etapa marcada como nao aplicavel.'
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Nao foi possivel atualizar a etapa.')
     console.error(error)
@@ -246,8 +262,9 @@ function mesclarEtapasComConfiguracao(etapasApi) {
   return etapasApi.map((etapaApi, indice) => {
     const chave = normalizarChaveEtapa(etapaApi, indice)
     const configuracao = ETAPAS_PADRAO.find((item) => item.chave === chave)
-    const tituloApi = obterCampo(etapaApi, 'titulo', 'nome', 'rotulo', 'descricaoCurta')
+    const tituloApiBruto = obterCampo(etapaApi, 'titulo', 'nome', 'rotulo', 'descricaoCurta')
     const descricaoApi = obterCampo(etapaApi, 'descricao', 'texto', 'detalhe', 'orientacao')
+    const tituloApi = textoPareceTecnico(tituloApiBruto) ? '' : tituloApiBruto
 
     return {
       chave,
@@ -358,6 +375,14 @@ function extrairSlug(valor) {
   const texto = String(valor || '').trim()
   if (!texto) return ''
 
+  try {
+    const url = /^https?:\/\//i.test(texto) ? new URL(texto) : null
+    if (url) {
+      const slugUrl = extrairSlug(url.pathname)
+      if (slugUrl) return slugUrl
+    }
+  } catch {}
+
   const rotaPublica = texto.match(/\/agendar\/([^/?#]+)/i)
   if (rotaPublica?.[1]) return rotaPublica[1]
 
@@ -386,6 +411,20 @@ function classeStatus(status) {
 
 function limitarPercentual(valor) {
   return Math.max(0, Math.min(100, Math.round(Number(valor) || 0)))
+}
+
+function numeroResumoBackend(...campos) {
+  const valor = obterCampo(onboarding.value, ...campos)
+  if (valor === '' || valor === null || valor === undefined) return null
+
+  const numero = Number(valor)
+  return Number.isFinite(numero) ? numero : null
+}
+
+function textoPareceTecnico(valor) {
+  const texto = String(valor || '').trim()
+  if (!texto) return false
+  return /^[A-Z0-9_]+$/.test(texto)
 }
 
 function normalizarObjeto(dados) {
@@ -448,13 +487,13 @@ onMounted(carregarOnboarding)
         <div class="progresso-box">
           <div class="progresso-topo">
             <strong>{{ percentual }}%</strong>
-            <span>{{ resumoChecklist.concluido + resumoChecklist.ignorado }}/{{ etapas.length }} concluidos</span>
+            <span>{{ resumoChecklist.concluido }} concluidos, {{ resumoChecklist.ignorado }} nao aplicaveis</span>
           </div>
           <div class="barra" aria-hidden="true"><span :style="{ width: `${percentual}%` }"></span></div>
           <div class="resumo-grid">
             <article class="resumo-item"><small>Concluidos</small><strong>{{ resumoChecklist.concluido }}</strong></article>
             <article class="resumo-item"><small>Pendentes</small><strong>{{ resumoChecklist.pendente }}</strong></article>
-            <article class="resumo-item"><small>Ignorados</small><strong>{{ resumoChecklist.ignorado }}</strong></article>
+            <article class="resumo-item"><small>Nao aplicaveis</small><strong>{{ resumoChecklist.ignorado }}</strong></article>
           </div>
         </div>
       </section>
