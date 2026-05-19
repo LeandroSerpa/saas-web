@@ -1256,6 +1256,30 @@ export async function cadastrarEmpresaComOnboarding({ empresa, assinatura }) {
   return tratarResposta(response)
 }
 
+export async function buscarOpcoesCadastroGuiadoAdmin() {
+  const urlPrincipal = `${API_URL}/admin/empresas/onboarding/opcoes`
+  const response = await fetch(urlPrincipal, {
+    headers: montarHeaders(),
+  })
+
+  if (response.status === 404) {
+    const planos = await buscarPlanos().catch(() => [])
+    return { planos }
+  }
+
+  return tratarResposta(response)
+}
+
+export async function criarEmpresaCadastroGuiadoAdmin(payload) {
+  const response = await fetch(`${API_URL}/admin/empresas/onboarding`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarMinhaAssinatura() {
   const response = await fetch(`${API_URL}/minha-empresa/assinatura`, {
     headers: montarHeaders(),

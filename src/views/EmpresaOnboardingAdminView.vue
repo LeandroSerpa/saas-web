@@ -2,133 +2,248 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  buscarPlanos,
-  buscarSegmentos,
-  cadastrarEmpresaComOnboarding,
+  buscarOpcoesCadastroGuiadoAdmin,
+  criarEmpresaCadastroGuiadoAdmin,
 } from '@/services/api'
-import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
+import {
+  criarManipuladorPasteNumerico,
+  documentoBasicoValido,
+  emailBasicoValido,
+  sanitizarDocumento,
+  sanitizarTelefone,
+  telefoneBasicoValido,
+} from '@/utils/validacoes'
 
-const etapas = [
-  { titulo: 'Dados básicos' },
-  { titulo: 'Segmento e agenda' },
-  { titulo: 'Plano/assinatura' },
+const ETAPAS = [
+  { titulo: 'Empresa' },
+  { titulo: 'Funcionamento' },
+  { titulo: 'Plano' },
+  { titulo: 'Usuário administrador' },
   { titulo: 'Revisão' },
 ]
-const intervalosAgenda = [15, 30, 60]
+
+const INTERVALOS_AGENDA = [15, 30, 60]
+const DIAS_FUNCIONAMENTO = [
+  { chave: 'domingo', rotulo: 'Domingo' },
+  { chave: 'segunda', rotulo: 'Segunda' },
+  { chave: 'terca', rotulo: 'Terça' },
+  { chave: 'quarta', rotulo: 'Quarta' },
+  { chave: 'quinta', rotulo: 'Quinta' },
+  { chave: 'sexta', rotulo: 'Sexta' },
+  { chave: 'sabado', rotulo: 'Sábado' },
+]
+const UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
 
 const etapaAtual = ref(0)
-const segmentos = ref([])
-const planos = ref([])
 const carregando = ref(true)
 const salvando = ref(false)
 const erro = ref('')
 const sucesso = ref('')
 const aviso = ref('')
+const infoCopia = ref('')
 const empresaCriada = ref(null)
+const opcoes = ref({ planos: [] })
+const errosCampos = ref({})
+const emailEmpresaTocado = ref(false)
+const emailAdminTocado = ref(false)
 const slugEditado = ref(false)
-const empresa = ref(criarEmpresaInicial())
-const assinatura = ref(criarAssinaturaInicial())
 
+const formulario = ref(criarFormularioInicial())
+
+const planosDisponiveis = computed(() => extrairLista(opcoes.value.planos).filter((plano) => plano?.ativo !== false))
 const planoSelecionado = computed(() =>
-  planos.value.find((plano) => String(plano.id) === String(assinatura.value.planoId)) || null,
+  planosDisponiveis.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null,
 )
-const segmentoSelecionado = computed(() =>
-  segmentos.value.find((segmento) => String(segmento.id) === String(empresa.value.segmentoNegocioId)) || null,
-)
-const planoVisivelParaEmpresa = computed(() => planoSelecionado.value?.visivelParaEmpresa !== false)
-const linkPublico = computed(() => {
-  const slug = String(empresa.value.slugPublico || '').trim()
+const linkPublicoPrevisto = computed(() => {
+  const slug = formulario.value.empresa.slugPublico.trim()
   return slug ? `${window.location.origin}/agendar/${slug}` : ''
 })
+const resumoSenha = computed(() =>
+  formulario.value.admin.senhaTemporaria.trim()
+    ? 'Senha informada manualmente'
+    : 'Backend gerará senha temporária',
+)
+const senhaTemporariaResultado = computed(() =>
+  obterCampo(empresaCriada.value, 'senhaTemporaria', 'senhaInicialAdmin', 'adminSenhaTemporaria', 'temporaryPassword'),
+)
+const emailAdminResultado = computed(() =>
+  obterCampo(
+    empresaCriada.value,
+    'adminEmail',
+    'usuarioAdminEmail',
+    'emailAdmin',
+    'usuario.email',
+  ) || formulario.value.admin.email,
+)
+const nomeEmpresaResultado = computed(() =>
+  obterCampo(empresaCriada.value, 'nomeEmpresa', 'empresaNome', 'nome') || formulario.value.empresa.nome,
+)
 
 watch(
-  () => empresa.value.nome,
+  () => formulario.value.empresa.nome,
   (nome) => {
     if (!slugEditado.value) {
-      empresa.value.slugPublico = gerarSlug(nome)
+      formulario.value.empresa.slugPublico = gerarSlug(nome)
     }
   },
 )
 
 onMounted(carregarOpcoes)
 
-function criarEmpresaInicial() {
+function criarFormularioInicial() {
   return {
-    nome: '',
-    documento: '',
-    telefone: '',
-    email: '',
-    endereco: '',
-    slugPublico: '',
-    segmentoNegocioId: '',
-    permitirAgendamentoPublico: true,
-    intervaloAgendaMinutos: 30,
-  }
-}
-
-function criarAssinaturaInicial() {
-  const hoje = new Date()
-  const vencimento = new Date(hoje)
-  vencimento.setMonth(vencimento.getMonth() + 1)
-
-  return {
+    empresa: {
+      nome: '',
+      documento: '',
+      telefone: '',
+      email: '',
+      endereco: '',
+      cidade: '',
+      estado: '',
+      slugPublico: '',
+      permitirAgendamentoPublico: true,
+    },
+    funcionamento: {
+      horaAbertura: '',
+      horaFechamento: '',
+      intervaloAgendaMinutos: 30,
+      diasFuncionamento: {
+        domingo: false,
+        segunda: true,
+        terca: true,
+        quarta: true,
+        quinta: true,
+        sexta: true,
+        sabado: false,
+      },
+    },
     planoId: '',
-    dataInicio: formatarDataInput(hoje),
-    dataVencimento: formatarDataInput(vencimento),
-    observacaoComercial: '',
+    admin: {
+      nome: '',
+      email: '',
+      telefone: '',
+      cargo: '',
+      senhaTemporaria: '',
+    },
   }
-}
-
-function aplicarTelefone(evento) {
-  empresa.value.telefone = sanitizarTelefoneDoEvento(evento)
 }
 
 async function carregarOpcoes() {
   try {
     carregando.value = true
     erro.value = ''
-    const [segmentosApi, planosApi] = await Promise.all([
-      buscarSegmentos().catch(() => []),
-      buscarPlanos().catch(() => []),
-    ])
-
-    segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
-    planos.value = extrairLista(planosApi).filter((plano) => plano.ativo !== false)
+    opcoes.value = normalizarOpcoes(await buscarOpcoesCadastroGuiadoAdmin())
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível carregar os dados para o cadastro guiado.')
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar as opções do cadastro guiado.')
     console.error(error)
   } finally {
     carregando.value = false
   }
 }
 
+function normalizarOpcoes(resposta) {
+  const dados = normalizarObjeto(resposta)
+  return {
+    planos: extrairLista(dados.planos ?? dados),
+  }
+}
+
+function atualizarDocumento(evento) {
+  formulario.value.empresa.documento = sanitizarDocumento(evento?.target?.value)
+}
+
+function colarDocumento(evento) {
+  criarManipuladorPasteNumerico(sanitizarDocumento)(evento, (valor) => {
+    formulario.value.empresa.documento = valor
+  })
+}
+
+function atualizarTelefoneEmpresa(evento) {
+  formulario.value.empresa.telefone = sanitizarTelefone(evento?.target?.value)
+}
+
+function colarTelefoneEmpresa(evento) {
+  criarManipuladorPasteNumerico(sanitizarTelefone)(evento, (valor) => {
+    formulario.value.empresa.telefone = valor
+  })
+}
+
+function atualizarTelefoneAdmin(evento) {
+  formulario.value.admin.telefone = sanitizarTelefone(evento?.target?.value)
+}
+
+function colarTelefoneAdmin(evento) {
+  criarManipuladorPasteNumerico(sanitizarTelefone)(evento, (valor) => {
+    formulario.value.admin.telefone = valor
+  })
+}
+
+function atualizarSlug(valor) {
+  slugEditado.value = true
+  formulario.value.empresa.slugPublico = gerarSlug(valor)
+}
+
+function validarEmailEmpresaBlur() {
+  emailEmpresaTocado.value = true
+  validarCampoEmail('empresa')
+}
+
+function validarEmailAdminBlur() {
+  emailAdminTocado.value = true
+  validarCampoEmail('admin')
+}
+
+function validarCampoEmail(tipo) {
+  if (tipo === 'empresa') {
+    const valor = formulario.value.empresa.email
+    definirErroCampo('empresa.email', valor && !emailBasicoValido(valor) ? 'Informe um e-mail válido.' : '')
+    return
+  }
+
+  const valor = formulario.value.admin.email
+  definirErroCampo('admin.email', valor && !emailBasicoValido(valor) ? 'Informe um e-mail válido.' : '')
+}
+
+function definirErroCampo(campo, mensagem) {
+  errosCampos.value = {
+    ...errosCampos.value,
+    [campo]: mensagem,
+  }
+}
+
+function limparMensagensGerais() {
+  erro.value = ''
+  sucesso.value = ''
+  aviso.value = ''
+  infoCopia.value = ''
+}
+
 function proximaEtapa() {
   if (!validarEtapaAtual()) return
-  etapaAtual.value = Math.min(etapaAtual.value + 1, etapas.length - 1)
+  limparMensagensGerais()
+  etapaAtual.value = Math.min(etapaAtual.value + 1, ETAPAS.length - 1)
 }
 
 function etapaAnterior() {
-  erro.value = ''
+  limparMensagensGerais()
   etapaAtual.value = Math.max(etapaAtual.value - 1, 0)
 }
 
-async function criarEmpresaGuiada() {
+async function criarEmpresa() {
   if (!validarEtapaAtual()) return
 
   try {
     salvando.value = true
-    erro.value = ''
-    sucesso.value = ''
-    aviso.value = ''
-    const resposta = await cadastrarEmpresaComOnboarding({
-      empresa: montarPayloadEmpresa(),
-      assinatura: montarPayloadAssinatura(),
-    })
-
-    const dadosResposta = normalizarObjeto(resposta)
-    empresaCriada.value = normalizarObjeto(resposta?.empresa || dadosResposta?.empresa || dadosResposta)
+    limparMensagensGerais()
+    const resposta = await criarEmpresaCadastroGuiadoAdmin(montarPayload())
+    const dados = normalizarObjeto(resposta)
+    empresaCriada.value = normalizarObjeto(dados.empresa || dados.resultado || dados)
+    sucesso.value = `Empresa ${formulario.value.empresa.nome} criada com sucesso.`
     aviso.value = extrairAvisoResposta(resposta)
-    sucesso.value = `Empresa ${empresa.value.nome} cadastrada com sucesso.`
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível criar a empresa.')
     console.error(error)
@@ -137,81 +252,165 @@ async function criarEmpresaGuiada() {
   }
 }
 
+function montarPayload() {
+  return limparVazios({
+    empresa: {
+      nome: textoOuNulo(formulario.value.empresa.nome),
+      documento: textoOuNulo(formulario.value.empresa.documento),
+      telefone: textoOuNulo(formulario.value.empresa.telefone),
+      email: textoOuNulo(formulario.value.empresa.email),
+      endereco: textoOuNulo(formulario.value.empresa.endereco),
+      cidade: textoOuNulo(formulario.value.empresa.cidade),
+      estado: textoOuNulo(formulario.value.empresa.estado),
+      uf: textoOuNulo(formulario.value.empresa.estado),
+      slug: textoOuNulo(formulario.value.empresa.slugPublico),
+      slugPublico: textoOuNulo(formulario.value.empresa.slugPublico),
+      permitirAgendamentoPublico: Boolean(formulario.value.empresa.permitirAgendamentoPublico),
+      agendamentoPublicoAtivo: Boolean(formulario.value.empresa.permitirAgendamentoPublico),
+    },
+    funcionamento: {
+      horaAbertura: textoOuNulo(formulario.value.funcionamento.horaAbertura),
+      horaFechamento: textoOuNulo(formulario.value.funcionamento.horaFechamento),
+      intervaloAgendaMinutos: Number(formulario.value.funcionamento.intervaloAgendaMinutos),
+      diasFuncionamento: { ...formulario.value.funcionamento.diasFuncionamento },
+      atendeDomingo: formulario.value.funcionamento.diasFuncionamento.domingo,
+      atendeSegunda: formulario.value.funcionamento.diasFuncionamento.segunda,
+      atendeTerca: formulario.value.funcionamento.diasFuncionamento.terca,
+      atendeQuarta: formulario.value.funcionamento.diasFuncionamento.quarta,
+      atendeQuinta: formulario.value.funcionamento.diasFuncionamento.quinta,
+      atendeSexta: formulario.value.funcionamento.diasFuncionamento.sexta,
+      atendeSabado: formulario.value.funcionamento.diasFuncionamento.sabado,
+    },
+    planoId: formulario.value.planoId ? Number(formulario.value.planoId) : null,
+    assinatura: formulario.value.planoId
+      ? {
+          planoId: Number(formulario.value.planoId),
+          status: 'ATIVA',
+        }
+      : null,
+    usuarioAdmin: {
+      nome: textoOuNulo(formulario.value.admin.nome),
+      email: textoOuNulo(formulario.value.admin.email),
+      telefone: textoOuNulo(formulario.value.admin.telefone),
+      cargo: textoOuNulo(formulario.value.admin.cargo),
+      senhaTemporaria: textoOuNulo(formulario.value.admin.senhaTemporaria),
+    },
+  })
+}
+
 function validarEtapaAtual() {
+  errosCampos.value = {}
   erro.value = ''
 
   if (etapaAtual.value === 0) {
-    if (!empresa.value.nome.trim()) return falharValidacao('Informe o nome da empresa.')
-    if (!empresa.value.documento.trim()) return falharValidacao('Informe o documento da empresa.')
-    if (!emailValido(empresa.value.email)) return falharValidacao('Informe um e-mail válido.')
-    if (!empresa.value.slugPublico.trim()) return falharValidacao('Informe o slug público.')
+    if (!formulario.value.empresa.nome.trim()) return falharCampo('empresa.nome', 'Informe o nome da empresa.')
+    if (formulario.value.empresa.documento && !documentoBasicoValido(formulario.value.empresa.documento)) {
+      return falharCampo('empresa.documento', 'Informe um documento com 11 ou 14 dígitos.')
+    }
+    if (formulario.value.empresa.telefone && !telefoneBasicoValido(formulario.value.empresa.telefone)) {
+      return falharCampo('empresa.telefone', 'Informe um telefone com 10 ou 11 dígitos.')
+    }
+    if (formulario.value.empresa.email && !emailBasicoValido(formulario.value.empresa.email)) {
+      return falharCampo('empresa.email', 'Informe um e-mail válido.')
+    }
+    if (!formulario.value.empresa.slugPublico.trim()) return falharCampo('empresa.slugPublico', 'Informe o slug público.')
+    if (formulario.value.empresa.slugPublico !== gerarSlug(formulario.value.empresa.slugPublico)) {
+      return falharCampo('empresa.slugPublico', 'Use apenas minúsculas, números e hífens no slug.')
+    }
   }
 
   if (etapaAtual.value === 1) {
-    if (!empresa.value.segmentoNegocioId) return falharValidacao('Selecione o segmento.')
-    if (!intervalosAgenda.includes(Number(empresa.value.intervaloAgendaMinutos))) {
-      return falharValidacao('Selecione um intervalo de agenda válido.')
+    if (!formulario.value.funcionamento.horaAbertura) {
+      return falharCampo('funcionamento.horaAbertura', 'Informe a hora de abertura.')
+    }
+    if (!formulario.value.funcionamento.horaFechamento) {
+      return falharCampo('funcionamento.horaFechamento', 'Informe a hora de fechamento.')
+    }
+    if (formulario.value.funcionamento.horaAbertura >= formulario.value.funcionamento.horaFechamento) {
+      return falharCampo('funcionamento.horaFechamento', 'A hora de fechamento deve ser maior que a abertura.')
+    }
+    if (!INTERVALOS_AGENDA.includes(Number(formulario.value.funcionamento.intervaloAgendaMinutos))) {
+      return falharCampo('funcionamento.intervaloAgendaMinutos', 'Selecione um intervalo da agenda válido.')
+    }
+    if (!Object.values(formulario.value.funcionamento.diasFuncionamento).some(Boolean)) {
+      return falharCampo('funcionamento.diasFuncionamento', 'Selecione pelo menos um dia de funcionamento.')
     }
   }
 
   if (etapaAtual.value === 2) {
-    if (!assinatura.value.planoId) return falharValidacao('Selecione o plano.')
-    if (!dataValida(assinatura.value.dataInicio)) return falharValidacao('Informe a data de início.')
-    if (!dataValida(assinatura.value.dataVencimento)) return falharValidacao('Informe a data de vencimento.')
-    if (assinatura.value.dataInicio > assinatura.value.dataVencimento) {
-      return falharValidacao('A data de início não pode ser maior que a data de vencimento.')
+    if (!formulario.value.planoId) return falharCampo('planoId', 'Selecione um plano ativo.')
+  }
+
+  if (etapaAtual.value === 3) {
+    if (!formulario.value.admin.nome.trim()) return falharCampo('admin.nome', 'Informe o nome do usuário admin.')
+    if (!formulario.value.admin.email.trim()) return falharCampo('admin.email', 'Informe o e-mail do usuário admin.')
+    if (!emailBasicoValido(formulario.value.admin.email)) return falharCampo('admin.email', 'Informe um e-mail válido.')
+    if (formulario.value.admin.telefone && !telefoneBasicoValido(formulario.value.admin.telefone)) {
+      return falharCampo('admin.telefone', 'Informe um telefone com 10 ou 11 dígitos.')
     }
   }
 
   return true
 }
 
-function falharValidacao(mensagem) {
+function falharCampo(campo, mensagem) {
+  definirErroCampo(campo, mensagem)
   erro.value = mensagem
   return false
 }
 
-function montarPayloadEmpresa() {
-  const intervaloAgendaMinutos = Number(empresa.value.intervaloAgendaMinutos)
+async function copiarLinkPublico() {
+  if (!linkPublicoPrevisto.value) return
 
-  return {
-    nome: textoOuNulo(empresa.value.nome),
-    documento: textoOuNulo(empresa.value.documento),
-    telefone: textoOuNulo(empresa.value.telefone),
-    email: textoOuNulo(empresa.value.email),
-    endereco: textoOuNulo(empresa.value.endereco),
-    ativo: true,
-    segmentoNegocioId: Number(empresa.value.segmentoNegocioId),
-    slug: textoOuNulo(empresa.value.slugPublico),
-    slugPublico: textoOuNulo(empresa.value.slugPublico),
-    agendamentoPublicoAtivo: Boolean(empresa.value.permitirAgendamentoPublico),
-    permitirAgendamentoPublico: Boolean(empresa.value.permitirAgendamentoPublico),
-    intervaloAgendaMinutos,
-    atendeDomingo: false,
-    atendeSegunda: true,
-    atendeTerca: true,
-    atendeQuarta: true,
-    atendeQuinta: true,
-    atendeSexta: true,
-    atendeSabado: true,
+  try {
+    if (!navigator?.clipboard?.writeText) {
+      throw new Error('Clipboard indisponível')
+    }
+    await navigator.clipboard.writeText(linkPublicoPrevisto.value)
+    infoCopia.value = 'Link público copiado com sucesso.'
+    erro.value = ''
+  } catch (error) {
+    infoCopia.value = ''
+    erro.value = 'Não foi possível copiar o link público.'
   }
 }
 
-function montarPayloadAssinatura() {
-  return {
-    planoId: Number(assinatura.value.planoId),
-    status: 'ATIVA',
-    dataInicio: assinatura.value.dataInicio,
-    dataFim: null,
-    dataVencimento: assinatura.value.dataVencimento,
-    observacao: '',
-    observacaoComercial: textoOuNulo(assinatura.value.observacaoComercial),
-  }
+function criarOutraEmpresa() {
+  formulario.value = criarFormularioInicial()
+  etapaAtual.value = 0
+  empresaCriada.value = null
+  slugEditado.value = false
+  emailEmpresaTocado.value = false
+  emailAdminTocado.value = false
+  errosCampos.value = {}
+  limparMensagensGerais()
 }
 
-function marcarSlugEditado(valor) {
-  slugEditado.value = true
-  empresa.value.slugPublico = gerarSlug(valor)
+function formatarMoeda(valor) {
+  const numero = Number(valor)
+  if (Number.isNaN(numero)) return 'Não aplicável'
+  return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function descricaoPlano(plano) {
+  if (!plano) return []
+  const itens = []
+  if (plano.valor !== undefined && plano.valor !== null) itens.push(`Valor: ${formatarMoeda(plano.valor)}`)
+  if (plano.descricao) itens.push(`Descrição: ${plano.descricao}`)
+  const limites = [
+    ['maxUsuarios', 'Usuários'],
+    ['maxFuncionarios', 'Funcionários'],
+    ['maxServicos', 'Serviços'],
+    ['maxClientes', 'Clientes'],
+    ['maxAgendamentosMes', 'Agendamentos/mês'],
+  ]
+  limites.forEach(([campo, rotulo]) => {
+    const valor = plano?.[campo]
+    if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
+      itens.push(`${rotulo}: ${valor}`)
+    }
+  })
+  return itens
 }
 
 function gerarSlug(valor) {
@@ -223,30 +422,9 @@ function gerarSlug(valor) {
     .replace(/^-+|-+$/g, '')
 }
 
-function textoOuNulo(valor) {
-  const texto = String(valor || '').trim()
-  return texto || null
-}
-
-function emailValido(valor) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim())
-}
-
-function dataValida(valor) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(valor || ''))
-}
-
-function formatarDataInput(data) {
-  return data.toISOString().slice(0, 10)
-}
-
-function formatarData(valor) {
-  return valor ? new Date(`${String(valor).slice(0, 10)}T00:00:00`).toLocaleDateString('pt-BR') : '-'
-}
-
 function extrairLista(resposta) {
   if (Array.isArray(resposta)) return resposta
-  return resposta?.content || resposta?.items || resposta?.data || []
+  return resposta?.content || resposta?.items || resposta?.data || resposta?.planos || []
 }
 
 function normalizarObjeto(dados) {
@@ -256,12 +434,11 @@ function normalizarObjeto(dados) {
 
 function extrairAvisoResposta(resposta) {
   const candidatos = [resposta, resposta?.data].filter(Boolean)
-  const camposAviso = ['aviso', 'warning', 'alerta', 'mensagemAviso', 'avisoAssinatura']
+  const campos = ['aviso', 'warning', 'alerta', 'mensagemAviso']
 
   for (const item of candidatos) {
-    for (const campo of camposAviso) {
+    for (const campo of campos) {
       const valor = item?.[campo]
-      if (Array.isArray(valor)) return valor.filter(Boolean).join(' ')
       if (typeof valor === 'string' && valor.trim()) return valor.trim()
     }
   }
@@ -272,6 +449,43 @@ function extrairAvisoResposta(resposta) {
 function obterMensagemErro(error, fallback) {
   return String(error?.message || '').trim() || fallback
 }
+
+function limparVazios(objeto) {
+  if (Array.isArray(objeto)) {
+    return objeto.map(limparVazios)
+  }
+
+  if (!objeto || typeof objeto !== 'object') {
+    return objeto
+  }
+
+  return Object.fromEntries(
+    Object.entries(objeto)
+      .filter(([, valor]) => valor !== undefined)
+      .map(([chave, valor]) => [chave, valor && typeof valor === 'object' ? limparVazios(valor) : valor]),
+  )
+}
+
+function textoOuNulo(valor) {
+  const texto = String(valor || '').trim()
+  return texto || null
+}
+
+function obterCampo(objeto, ...caminhos) {
+  for (const caminho of caminhos) {
+    const valor = lerCaminho(objeto, caminho)
+    if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
+      return valor
+    }
+  }
+  return ''
+}
+
+function lerCaminho(objeto, caminho) {
+  return String(caminho || '')
+    .split('.')
+    .reduce((acumulado, chave) => (acumulado && acumulado[chave] !== undefined ? acumulado[chave] : undefined), objeto)
+}
 </script>
 
 <template>
@@ -280,114 +494,293 @@ function obterMensagemErro(error, fallback) {
       <div>
         <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
         <h1>Novo cadastro guiado</h1>
-        <p class="descricao">Crie a empresa e deixe a assinatura inicial configurada em poucos passos.</p>
+        <p class="descricao">Crie uma empresa pelo SUPER_ADMIN em um fluxo claro, validado e seguro.</p>
       </div>
-      <RouterLink class="botao secundario" to="/empresas">Voltar para empresas</RouterLink>
+      <RouterLink class="botao secundario" to="/empresas">Voltar para Empresas</RouterLink>
     </header>
 
     <section v-if="erro" class="card erro"><p>{{ erro }}</p></section>
-
-    <section v-if="sucesso" class="card sucesso">
-      <div>
-        <p>{{ sucesso }}</p>
-        <p v-if="aviso" class="aviso-onboarding">{{ aviso }}</p>
-      </div>
-      <RouterLink class="botao principal" to="/empresas">Ir para Empresas</RouterLink>
-    </section>
+    <section v-if="infoCopia" class="card sucesso"><p>{{ infoCopia }}</p></section>
 
     <section class="etapas">
       <button
-        v-for="(etapa, indice) in etapas"
+        v-for="(etapa, indice) in ETAPAS"
         :key="etapa.titulo"
-        :class="['etapa', { ativa: etapaAtual === indice, concluida: etapaAtual > indice }]"
+        class="etapa"
+        :class="{ ativa: etapaAtual === indice, concluida: etapaAtual > indice }"
         type="button"
-        @click="indice < etapaAtual && (etapaAtual = indice)"
+        :disabled="indice > etapaAtual"
+        @click="indice <= etapaAtual && (etapaAtual = indice)"
       >
         <span>{{ indice + 1 }}</span>
         {{ etapa.titulo }}
       </button>
     </section>
 
-    <section v-if="carregando" class="card"><p>Carregando opções do cadastro...</p></section>
+    <section v-if="carregando" class="card">
+      <p>Carregando opções do cadastro...</p>
+    </section>
 
-    <section v-else-if="!sucesso" class="card formulario">
+    <section v-else-if="sucesso" class="card sucesso-card">
+      <div class="sucesso-topo">
+        <div>
+          <h2>Empresa criada com sucesso</h2>
+          <p>{{ sucesso }}</p>
+          <p v-if="aviso" class="texto-aviso">{{ aviso }}</p>
+        </div>
+      </div>
+
+      <div class="sucesso-grid">
+        <article>
+          <h3>Empresa</h3>
+          <p><strong>Nome:</strong> {{ nomeEmpresaResultado }}</p>
+          <p><strong>E-mail do admin:</strong> {{ emailAdminResultado }}</p>
+          <p v-if="senhaTemporariaResultado"><strong>Senha temporária:</strong> {{ senhaTemporariaResultado }}</p>
+          <p v-else><strong>Senha temporária:</strong> Não retornada pelo backend.</p>
+        </article>
+        <article>
+          <h3>Público</h3>
+          <p><strong>Link público:</strong> {{ linkPublicoPrevisto }}</p>
+        </article>
+      </div>
+
+      <div class="acoes">
+        <button class="botao principal" type="button" @click="copiarLinkPublico">Copiar link público</button>
+        <RouterLink class="botao secundario" to="/empresas">Ir para Empresas</RouterLink>
+        <button class="botao neutro" type="button" @click="criarOutraEmpresa">Criar outra empresa</button>
+      </div>
+    </section>
+
+    <section v-else class="card formulario">
       <div v-if="etapaAtual === 0" class="campos">
-        <label>Nome *<input v-model="empresa.nome" type="text" placeholder="Barbearia Teste" /></label>
-        <label>Documento *<input v-model="empresa.documento" type="text" placeholder="00.000.000/0001-00" /></label>
-        <label>Telefone<input :value="empresa.telefone" type="text" inputmode="numeric" placeholder="(11) 99999-9999" @input="aplicarTelefone" @paste.prevent="aplicarTelefone" /></label>
-        <label>E-mail *<input v-model="empresa.email" type="email" placeholder="contato@empresa.com" /></label>
-        <label class="campo-grande">Endereço<input v-model="empresa.endereco" type="text" placeholder="Rua Principal, 100" /></label>
-        <label>Slug/link público *<input :value="empresa.slugPublico" type="text" placeholder="barbearia-teste" @input="marcarSlugEditado($event.target.value)" /></label>
-        <p v-if="linkPublico" class="link-publico">{{ linkPublico }}</p>
+        <label>
+          Nome da empresa *
+          <input v-model="formulario.empresa.nome" type="text" placeholder="Barbearia Exemplo" />
+          <small v-if="errosCampos['empresa.nome']" class="mensagem-erro">{{ errosCampos['empresa.nome'] }}</small>
+        </label>
+
+        <label>
+          Documento
+          <input
+            :value="formulario.empresa.documento"
+            type="text"
+            inputmode="numeric"
+            placeholder="Somente números"
+            @input="atualizarDocumento"
+            @paste="colarDocumento"
+          />
+          <small v-if="errosCampos['empresa.documento']" class="mensagem-erro">{{ errosCampos['empresa.documento'] }}</small>
+        </label>
+
+        <label>
+          Telefone
+          <input
+            :value="formulario.empresa.telefone"
+            type="text"
+            inputmode="numeric"
+            placeholder="Somente números"
+            @input="atualizarTelefoneEmpresa"
+            @paste="colarTelefoneEmpresa"
+          />
+          <small v-if="errosCampos['empresa.telefone']" class="mensagem-erro">{{ errosCampos['empresa.telefone'] }}</small>
+        </label>
+
+        <label>
+          E-mail da empresa
+          <input v-model="formulario.empresa.email" type="email" placeholder="contato@empresa.com" @blur="validarEmailEmpresaBlur" />
+          <small v-if="emailEmpresaTocado && errosCampos['empresa.email']" class="mensagem-erro">{{ errosCampos['empresa.email'] }}</small>
+        </label>
+
+        <label>
+          Cidade
+          <input v-model="formulario.empresa.cidade" type="text" placeholder="São Paulo" />
+        </label>
+
+        <label>
+          Estado/UF
+          <select v-model="formulario.empresa.estado">
+            <option value="">Selecione</option>
+            <option v-for="uf in UFS" :key="uf" :value="uf">{{ uf }}</option>
+          </select>
+        </label>
+
+        <label class="campo-grande">
+          Endereço
+          <input v-model="formulario.empresa.endereco" type="text" placeholder="Rua Principal, 100" />
+        </label>
+
+        <label>
+          Slug público *
+          <input
+            :value="formulario.empresa.slugPublico"
+            type="text"
+            placeholder="barbearia-exemplo"
+            @input="atualizarSlug($event.target.value)"
+          />
+          <small v-if="errosCampos['empresa.slugPublico']" class="mensagem-erro">{{ errosCampos['empresa.slugPublico'] }}</small>
+        </label>
+
+        <label class="checkbox campo-grande">
+          <input v-model="formulario.empresa.permitirAgendamentoPublico" type="checkbox" />
+          Permitir agendamento público
+        </label>
+
+        <p v-if="linkPublicoPrevisto" class="link-publico">
+          Link público previsto: {{ linkPublicoPrevisto }}
+        </p>
       </div>
 
       <div v-else-if="etapaAtual === 1" class="campos">
         <label>
-          Segmento *
-          <select v-model="empresa.segmentoNegocioId">
-            <option value="">Selecione</option>
-            <option v-for="segmento in segmentos" :key="segmento.id" :value="segmento.id">
-              {{ segmento.nome || segmento.descricao || 'Segmento sem nome' }}
-            </option>
-          </select>
+          Hora de abertura *
+          <input v-model="formulario.funcionamento.horaAbertura" type="time" />
+          <small v-if="errosCampos['funcionamento.horaAbertura']" class="mensagem-erro">{{ errosCampos['funcionamento.horaAbertura'] }}</small>
         </label>
+
+        <label>
+          Hora de fechamento *
+          <input v-model="formulario.funcionamento.horaFechamento" type="time" />
+          <small v-if="errosCampos['funcionamento.horaFechamento']" class="mensagem-erro">{{ errosCampos['funcionamento.horaFechamento'] }}</small>
+        </label>
+
         <label>
           Intervalo da agenda *
-          <select v-model.number="empresa.intervaloAgendaMinutos">
-            <option v-for="intervalo in intervalosAgenda" :key="intervalo" :value="intervalo">
-              {{ intervalo }} minutos
-            </option>
+          <select v-model.number="formulario.funcionamento.intervaloAgendaMinutos">
+            <option v-for="intervalo in INTERVALOS_AGENDA" :key="intervalo" :value="intervalo">{{ intervalo }} minutos</option>
           </select>
+          <small v-if="errosCampos['funcionamento.intervaloAgendaMinutos']" class="mensagem-erro">{{ errosCampos['funcionamento.intervaloAgendaMinutos'] }}</small>
         </label>
-        <label class="checkbox"><input v-model="empresa.permitirAgendamentoPublico" type="checkbox" /> Agendamento público ativo</label>
+
+        <div class="campo-grande dias-card">
+          <div class="dias-topo">
+            <strong>Dias de funcionamento</strong>
+            <small v-if="errosCampos['funcionamento.diasFuncionamento']" class="mensagem-erro">
+              {{ errosCampos['funcionamento.diasFuncionamento'] }}
+            </small>
+          </div>
+          <div class="dias-grid">
+            <label v-for="dia in DIAS_FUNCIONAMENTO" :key="dia.chave" class="checkbox">
+              <input v-model="formulario.funcionamento.diasFuncionamento[dia.chave]" type="checkbox" />
+              {{ dia.rotulo }}
+            </label>
+          </div>
+        </div>
       </div>
 
       <div v-else-if="etapaAtual === 2" class="campos">
-        <label>
-          Plano *
-          <select v-model="assinatura.planoId">
+        <label class="campo-grande">
+          Plano ativo *
+          <select v-model="formulario.planoId">
             <option value="">Selecione</option>
-            <option v-for="plano in planos" :key="plano.id" :value="plano.id">
+            <option v-for="plano in planosDisponiveis" :key="plano.id" :value="plano.id">
               {{ plano.nome || 'Plano sem nome' }}
             </option>
           </select>
+          <small v-if="errosCampos.planoId" class="mensagem-erro">{{ errosCampos.planoId }}</small>
         </label>
-        <label>Data início *<input v-model="assinatura.dataInicio" type="date" /></label>
-        <label>Data vencimento *<input v-model="assinatura.dataVencimento" type="date" /></label>
-        <label class="checkbox"><input :checked="planoVisivelParaEmpresa" type="checkbox" disabled /> Visível para empresa</label>
-        <label class="campo-grande">Observação comercial<textarea v-model="assinatura.observacaoComercial" rows="4"></textarea></label>
+
+        <article v-if="planoSelecionado" class="resumo-plano campo-grande">
+          <h3>{{ planoSelecionado.nome || 'Plano selecionado' }}</h3>
+          <p v-for="item in descricaoPlano(planoSelecionado)" :key="item">{{ item }}</p>
+        </article>
+
+        <article v-else class="resumo-plano vazio campo-grande">
+          <p>{{ planosDisponiveis.length ? 'Selecione um plano para visualizar os detalhes.' : 'Não há plano ativo disponível no momento.' }}</p>
+        </article>
+      </div>
+
+      <div v-else-if="etapaAtual === 3" class="campos">
+        <label>
+          Nome do usuário admin *
+          <input v-model="formulario.admin.nome" type="text" placeholder="Responsável principal" />
+          <small v-if="errosCampos['admin.nome']" class="mensagem-erro">{{ errosCampos['admin.nome'] }}</small>
+        </label>
+
+        <label>
+          E-mail do usuário admin *
+          <input v-model="formulario.admin.email" type="email" placeholder="admin@empresa.com" @blur="validarEmailAdminBlur" />
+          <small v-if="emailAdminTocado && errosCampos['admin.email']" class="mensagem-erro">{{ errosCampos['admin.email'] }}</small>
+        </label>
+
+        <label>
+          Telefone
+          <input
+            :value="formulario.admin.telefone"
+            type="text"
+            inputmode="numeric"
+            placeholder="Somente números"
+            @input="atualizarTelefoneAdmin"
+            @paste="colarTelefoneAdmin"
+          />
+          <small v-if="errosCampos['admin.telefone']" class="mensagem-erro">{{ errosCampos['admin.telefone'] }}</small>
+        </label>
+
+        <label>
+          Cargo
+          <input v-model="formulario.admin.cargo" type="text" placeholder="Administrador" />
+        </label>
+
+        <label class="campo-grande">
+          Senha temporária
+          <input v-model="formulario.admin.senhaTemporaria" type="text" placeholder="Se ficar vazio, o backend gera a senha temporária" />
+        </label>
+
+        <p class="dica campo-grande">Se deixar vazio, o backend gera uma senha temporária.</p>
       </div>
 
       <div v-else class="revisao">
         <article>
-          <h2>Dados básicos</h2>
-          <p><strong>Nome:</strong> {{ empresa.nome }}</p>
-          <p><strong>Documento:</strong> {{ empresa.documento }}</p>
-          <p><strong>Telefone:</strong> {{ empresa.telefone || '-' }}</p>
-          <p><strong>E-mail:</strong> {{ empresa.email }}</p>
-          <p><strong>Endereço:</strong> {{ empresa.endereco || '-' }}</p>
-          <p><strong>Link público:</strong> {{ linkPublico || '-' }}</p>
+          <h2>Empresa</h2>
+          <p><strong>Nome:</strong> {{ formulario.empresa.nome }}</p>
+          <p><strong>Documento:</strong> {{ formulario.empresa.documento || 'Não aplicável' }}</p>
+          <p><strong>Telefone:</strong> {{ formulario.empresa.telefone || 'Não aplicável' }}</p>
+          <p><strong>E-mail:</strong> {{ formulario.empresa.email || 'Não aplicável' }}</p>
+          <p><strong>Agendamento público:</strong> {{ formulario.empresa.permitirAgendamentoPublico ? 'Sim' : 'Não' }}</p>
         </article>
+
         <article>
-          <h2>Segmento e agenda</h2>
-          <p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || '-' }}</p>
-          <p><strong>Agendamento público:</strong> {{ empresa.permitirAgendamentoPublico ? 'Ativo' : 'Inativo' }}</p>
-          <p><strong>Intervalo:</strong> {{ empresa.intervaloAgendaMinutos }} minutos</p>
+          <h2>Localização</h2>
+          <p><strong>Endereço:</strong> {{ formulario.empresa.endereco || 'Não aplicável' }}</p>
+          <p><strong>Cidade:</strong> {{ formulario.empresa.cidade || 'Não aplicável' }}</p>
+          <p><strong>Estado:</strong> {{ formulario.empresa.estado || 'Não aplicável' }}</p>
+          <p><strong>Slug/link público:</strong> {{ linkPublicoPrevisto || 'Não aplicável' }}</p>
         </article>
+
         <article>
-          <h2>Plano/assinatura</h2>
-          <p><strong>Plano:</strong> {{ planoSelecionado?.nome || '-' }}</p>
-          <p><strong>Data início:</strong> {{ formatarData(assinatura.dataInicio) }}</p>
-          <p><strong>Data vencimento:</strong> {{ formatarData(assinatura.dataVencimento) }}</p>
-          <p><strong>Visível para empresa:</strong> {{ planoVisivelParaEmpresa ? 'Sim' : 'Não' }}</p>
-          <p><strong>Observação comercial:</strong> {{ assinatura.observacaoComercial || '-' }}</p>
+          <h2>Funcionamento</h2>
+          <p><strong>Abertura:</strong> {{ formulario.funcionamento.horaAbertura }}</p>
+          <p><strong>Fechamento:</strong> {{ formulario.funcionamento.horaFechamento }}</p>
+          <p><strong>Intervalo:</strong> {{ formulario.funcionamento.intervaloAgendaMinutos }} minutos</p>
+          <p>
+            <strong>Dias:</strong>
+            {{
+              DIAS_FUNCIONAMENTO.filter((dia) => formulario.funcionamento.diasFuncionamento[dia.chave])
+                .map((dia) => dia.rotulo)
+                .join(', ')
+            }}
+          </p>
+        </article>
+
+        <article>
+          <h2>Plano</h2>
+          <p><strong>Plano ativo:</strong> {{ planoSelecionado?.nome || 'Não aplicável' }}</p>
+          <p v-for="item in descricaoPlano(planoSelecionado)" :key="item">{{ item }}</p>
+        </article>
+
+        <article>
+          <h2>Usuário admin</h2>
+          <p><strong>Nome:</strong> {{ formulario.admin.nome }}</p>
+          <p><strong>E-mail:</strong> {{ formulario.admin.email }}</p>
+          <p><strong>Telefone:</strong> {{ formulario.admin.telefone || 'Não aplicável' }}</p>
+          <p><strong>Cargo:</strong> {{ formulario.admin.cargo || 'Não aplicável' }}</p>
+          <p><strong>Senha:</strong> {{ resumoSenha }}</p>
         </article>
       </div>
 
       <div class="acoes">
         <button v-if="etapaAtual > 0" class="botao secundario" type="button" @click="etapaAnterior">Voltar</button>
-        <button v-if="etapaAtual < etapas.length - 1" class="botao principal" type="button" @click="proximaEtapa">Avançar</button>
-        <button v-else class="botao principal" type="button" :disabled="salvando" @click="criarEmpresaGuiada">
+        <button v-if="etapaAtual < ETAPAS.length - 1" class="botao principal" type="button" @click="proximaEtapa">Avançar</button>
+        <button v-else class="botao principal" type="button" :disabled="salvando" @click="criarEmpresa">
           {{ salvando ? 'Criando empresa...' : 'Criar empresa' }}
         </button>
       </div>
@@ -409,7 +802,8 @@ function obterMensagemErro(error, fallback) {
 }
 
 .cabecalho-pagina,
-.acoes {
+.acoes,
+.sucesso-topo {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -427,6 +821,7 @@ function obterMensagemErro(error, fallback) {
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
 }
@@ -441,6 +836,11 @@ h2 {
   font-weight: 800;
 }
 
+h3 {
+  font-size: 18px;
+  font-weight: 800;
+}
+
 .descricao {
   margin-top: 6px;
   color: #64748b;
@@ -448,8 +848,11 @@ h2 {
 
 .card,
 .etapa,
-.revisao article {
-  background: white;
+.revisao article,
+.sucesso-grid article,
+.resumo-plano,
+.dias-card {
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 22px;
@@ -458,7 +861,7 @@ h2 {
 
 .etapas {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
   gap: 12px;
 }
 
@@ -467,14 +870,15 @@ h2 {
   align-items: center;
   gap: 10px;
   color: #475569;
-  cursor: default;
+  cursor: pointer;
   font: inherit;
   font-weight: 800;
   text-align: left;
 }
 
-.etapa.concluida {
-  cursor: pointer;
+.etapa:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
 .etapa span {
@@ -496,10 +900,11 @@ h2 {
 .etapa.ativa span,
 .etapa.concluida span {
   background: #2563eb;
-  color: white;
+  color: #fff;
 }
 
-.campos {
+.campos,
+.sucesso-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
   gap: 16px;
@@ -526,11 +931,7 @@ textarea {
   padding: 10px 12px;
   font: inherit;
   box-sizing: border-box;
-  background: white;
-}
-
-textarea {
-  resize: vertical;
+  background: #fff;
 }
 
 input:focus,
@@ -549,6 +950,22 @@ textarea:focus {
   width: auto;
 }
 
+.mensagem-erro {
+  color: #b91c1c;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.texto-aviso {
+  color: #854d0e;
+  font-weight: 700;
+}
+
+.dica {
+  color: #475569;
+  font-weight: 700;
+}
+
 .link-publico {
   align-self: end;
   padding: 11px 12px;
@@ -558,6 +975,27 @@ textarea:focus {
   color: #1e3a8a;
   font-weight: 800;
   word-break: break-word;
+}
+
+.dias-card,
+.resumo-plano,
+.sucesso-grid article {
+  display: grid;
+  gap: 10px;
+  box-shadow: none;
+}
+
+.dias-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dias-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .revisao {
@@ -570,14 +1008,6 @@ textarea:focus {
   box-shadow: none;
 }
 
-.revisao p {
-  color: #374151;
-}
-
-.revisao strong {
-  font-weight: 800;
-}
-
 .botao {
   display: inline-flex;
   align-items: center;
@@ -585,7 +1015,7 @@ textarea:focus {
   border: none;
   border-radius: 8px;
   padding: 10px 16px;
-  color: white;
+  color: #fff;
   cursor: pointer;
   font-weight: 800;
   text-decoration: none;
@@ -604,6 +1034,10 @@ textarea:focus {
   background: #0f172a;
 }
 
+.neutro {
+  background: #475569;
+}
+
 .erro {
   border-color: #fecaca;
   background: #fef2f2;
@@ -611,32 +1045,29 @@ textarea:focus {
 }
 
 .sucesso {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
   border-color: #bbf7d0;
   background: #f0fdf4;
   color: #166534;
 }
 
-.erro p,
-.sucesso p {
-  font-weight: 800;
+.sucesso-card {
+  display: grid;
+  gap: 18px;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
 }
 
-.sucesso .aviso-onboarding {
-  margin-top: 6px;
-  color: #854d0e;
-  font-size: 0.92rem;
-  font-weight: 700;
+.vazio {
+  color: #64748b;
 }
 
 @media (max-width: 1000px) {
   .etapas,
   .campos,
-  .revisao {
+  .revisao,
+  .sucesso-grid,
+  .dias-grid {
     grid-template-columns: 1fr;
   }
 
