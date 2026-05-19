@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { login } from '@/services/api'
+import { login, salvarSessaoAutenticacao } from '@/services/api'
 
 const router = useRouter()
 
@@ -28,23 +28,15 @@ async function entrar() {
     carregando.value = true
 
     const resposta = await login(email.value, senha.value)
-    const statusEmpresa = String(resposta.statusEmpresa || resposta.empresaStatus || '').trim().toUpperCase()
-    const cadastroPendente = resposta.cadastroPendente === true || statusEmpresa === 'PENDENTE'
-    const usuario = {
-      nome: resposta.nome,
-      email: resposta.email,
-      perfil: resposta.perfil,
-      empresaId: resposta.empresaId,
-      empresaNome: resposta.empresaNome,
-      cadastroPendente,
-      statusEmpresa,
+    const usuario = salvarSessaoAutenticacao(resposta)
+
+    if (usuario.cadastroPendente) {
+      router.push('/cadastro-pendente')
+      return
     }
 
-    localStorage.setItem('token', resposta.token)
-    localStorage.setItem('usuario', JSON.stringify(usuario))
-
-    if (cadastroPendente) {
-      router.push('/cadastro-pendente')
+    if (usuario.trocaSenhaObrigatoria) {
+      router.push('/alterar-senha')
       return
     }
 

@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { alterarSenha } from '@/services/api'
+import { alterarSenha, carregarUsuarioSessao, salvarSessaoAutenticacao } from '@/services/api'
 
 const router = useRouter()
 
@@ -14,6 +14,7 @@ const carregando = ref(false)
 const mostrarSenhaAtual = ref(false)
 const mostrarNovaSenha = ref(false)
 const mostrarConfirmacaovaSenha = ref(false)
+const usuarioLogado = ref(carregarUsuarioSessao())
 
 async function salvarSenha() {
   try {
@@ -51,18 +52,25 @@ async function salvarSenha() {
 
     carregando.value = true
 
-    await alterarSenha(senhaAtual.value, novaSenha.value)
+    const resposta = await alterarSenha(senhaAtual.value, novaSenha.value)
+    const dadosSessao = resposta && typeof resposta === 'object' ? resposta : {}
+    const sessaoAtualizada = salvarSessaoAutenticacao(
+      {
+        ...usuarioLogado.value,
+        ...dadosSessao,
+        trocaSenhaObrigatoria: false,
+      },
+      usuarioLogado.value,
+    )
+    usuarioLogado.value = sessaoAtualizada
 
-    mensagemSucesso.value = 'Senha alterada com sucesso. Faca login novamente.'
+    mensagemSucesso.value = 'Senha alterada com sucesso. Redirecionando para o dashboard.'
     senhaAtual.value = ''
     novaSenha.value = ''
     confirmacaoNovaSenha.value = ''
 
-    localStorage.removeItem('token')
-    localStorage.removeItem('usuario')
-
     setTimeout(() => {
-      router.push('/login')
+      router.push('/dashboard')
     }, 1000)
   } catch (error) {
     erro.value = 'Não foi possível alterar a senha. Confira a senha atual e tente novamente.'
@@ -95,6 +103,9 @@ async function salvarSenha() {
       <div class="titulo-card">
         <h2>Nova senha</h2>
         <p>Informe a senha atual e defina uma nova senha de acesso.</p>
+        <p v-if="usuarioLogado?.trocaSenhaObrigatoria" class="alerta-fluxo">
+          Por segurança, altere sua senha temporária antes de continuar.
+        </p>
       </div>
 
       <div class="campos">
@@ -271,6 +282,15 @@ async function salvarSenha() {
   margin: 6px 0 0;
   color: #64748b;
   font-size: 14px;
+}
+
+.alerta-fluxo {
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8 !important;
+  font-weight: 700;
 }
 
 .campos {

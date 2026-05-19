@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import NotificacoesBell from '@/components/NotificacoesBell.vue'
-import { buscarStatusFinanceiroMinhaEmpresa } from '@/services/api'
+import { buscarStatusFinanceiroMinhaEmpresa, carregarUsuarioSessao } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const route = useRoute()
@@ -13,8 +13,15 @@ const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
 const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(route.path))
 const rotaCadastroPendente = computed(() => route.path === '/cadastro-pendente')
-const rotaSemLayout = computed(() => rotaLogin.value || rotaAgendamentoPublico.value || rotaCadastroPublico.value || rotaCadastroPendente.value)
-const usuario = ref(null)
+const usuario = ref(carregarUsuarioSessao())
+const trocaSenhaObrigatoria = computed(() => usuario.value?.trocaSenhaObrigatoria === true)
+const rotaSemLayout = computed(() =>
+  rotaLogin.value ||
+  rotaAgendamentoPublico.value ||
+  rotaCadastroPublico.value ||
+  rotaCadastroPendente.value ||
+  (route.path === '/alterar-senha' && trocaSenhaObrigatoria.value),
+)
 const empresaLogada = computed(() => {
   if (usuario.value?.empresaNome) {
     return `Empresa: ${usuario.value.empresaNome}`
@@ -34,21 +41,6 @@ const statusFinanceiro = ref(null)
 const carregandoStatusFinanceiro = ref(false)
 const ultimaConsultaFinanceira = ref(0)
 
-function carregarUsuario() {
-  const usuarioSalvo = localStorage.getItem('usuario')
-
-  if (!usuarioSalvo) {
-    return null
-  }
-
-  try {
-    return JSON.parse(usuarioSalvo)
-  } catch (error) {
-    console.error(error)
-    return null
-  }
-}
-
 function sair() {
   localStorage.removeItem('token')
   localStorage.removeItem('usuario')
@@ -63,7 +55,7 @@ function atualizarUsuarioLogado() {
     return
   }
 
-  usuario.value = carregarUsuario()
+  usuario.value = carregarUsuarioSessao()
   carregarStatusFinanceiro()
 }
 

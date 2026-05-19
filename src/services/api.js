@@ -1,5 +1,71 @@
 const API_URL = 'https://automacao-le-saas-api.1mweab.easypanel.host'
 
+function normalizarBooleano(valor) {
+  return valor === true
+}
+
+function normalizarTrocaSenhaObrigatoria(dados) {
+  if (!dados || typeof dados !== 'object') {
+    return false
+  }
+
+  return normalizarBooleano(
+    dados.trocaSenhaObrigatoria ??
+      dados.passwordChangeRequired ??
+      dados.senhaTemporariaObrigatoria ??
+      dados.requirePasswordChange,
+  )
+}
+
+function normalizarUsuarioSessao(dados = {}, usuarioBase = null) {
+  const origem = dados && typeof dados === 'object' ? dados : {}
+  const base = usuarioBase && typeof usuarioBase === 'object' ? usuarioBase : {}
+  const statusEmpresa = String(origem.statusEmpresa || origem.empresaStatus || base.statusEmpresa || '').trim().toUpperCase()
+  const cadastroPendente = origem.cadastroPendente === true || base.cadastroPendente === true || statusEmpresa === 'PENDENTE'
+
+  return {
+    ...base,
+    nome: origem.nome ?? origem.usuarioNome ?? base.nome ?? '',
+    email: origem.email ?? origem.usuarioEmail ?? base.email ?? '',
+    perfil: origem.perfil ?? origem.role ?? base.perfil ?? '',
+    empresaId: origem.empresaId ?? base.empresaId ?? null,
+    empresaNome: origem.empresaNome ?? base.empresaNome ?? '',
+    cadastroPendente,
+    statusEmpresa,
+    trocaSenhaObrigatoria: normalizarTrocaSenhaObrigatoria(origem) || false,
+  }
+}
+
+export function carregarUsuarioSessao() {
+  const usuarioSalvo = localStorage.getItem('usuario')
+
+  if (!usuarioSalvo) {
+    return null
+  }
+
+  try {
+    const usuario = JSON.parse(usuarioSalvo)
+    return normalizarUsuarioSessao(usuario)
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+export function salvarSessaoAutenticacao(respostaLoginOuSessao, usuarioBase = null) {
+  const token = respostaLoginOuSessao?.token || localStorage.getItem('token')
+  const usuario = normalizarUsuarioSessao(respostaLoginOuSessao, usuarioBase)
+
+  if (token) {
+    localStorage.setItem('token', token)
+  }
+
+  localStorage.setItem('usuario', JSON.stringify(usuario))
+  window.dispatchEvent(new Event('usuario-atualizado'))
+
+  return usuario
+}
+
 function montarHeaders(comJson = false) {
   const headers = {}
   const token = localStorage.getItem('token')
@@ -42,6 +108,7 @@ function montarQueryString(filtros = {}) {
 function encerrarSessao() {
   localStorage.removeItem('token')
   localStorage.removeItem('usuario')
+  window.dispatchEvent(new Event('usuario-atualizado'))
 
   if (window.location.pathname !== '/login') {
     window.location.href = '/login'

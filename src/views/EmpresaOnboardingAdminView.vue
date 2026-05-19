@@ -572,7 +572,25 @@ function extrairAvisoResposta(resposta) {
 }
 
 function obterMensagemErro(error, fallback) {
-  return String(error?.message || '').trim() || fallback
+  const mensagem = String(error?.message || '').trim()
+  const mensagemNormalizada = mensagem
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
+  if (mensagemNormalizada.includes('slug') && (mensagemNormalizada.includes('duplic') || mensagemNormalizada.includes('ja existe'))) {
+    return 'Já existe empresa com este slug público.'
+  }
+
+  if (
+    mensagemNormalizada.includes('email') &&
+    mensagemNormalizada.includes('admin') &&
+    (mensagemNormalizada.includes('duplic') || mensagemNormalizada.includes('ja existe'))
+  ) {
+    return 'Já existe usuário com este e-mail de login.'
+  }
+
+  return mensagem || fallback
 }
 
 function limparVazios(objeto) {
@@ -698,7 +716,7 @@ function obterCampoProfundo(objeto, caminho) {
         </label>
 
         <label>
-          Documento *
+          Documento (CPF/CNPJ) *
           <input
             :value="formulario.empresa.documento"
             type="text"

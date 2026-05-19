@@ -33,6 +33,7 @@ import NotificacoesView from '../views/NotificacoesView.vue'
 import AdminNotificacoesView from '../views/AdminNotificacoesView.vue'
 import ConfiguracoesNotificacoesView from '../views/ConfiguracoesNotificacoesView.vue'
 import AdminAutomacoesView from '../views/AdminAutomacoesView.vue'
+import { carregarUsuarioSessao } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -49,25 +50,14 @@ const rotasSuperAdmin = {
   requiresSuperAdmin: true,
 }
 
-function carregarUsuario() {
-  const usuarioSalvo = localStorage.getItem('usuario')
-
-  if (!usuarioSalvo) {
-    return null
-  }
-
-  try {
-    return JSON.parse(usuarioSalvo)
-  } catch (error) {
-    console.error(error)
-    return null
-  }
-}
-
 function empresaPendente(usuario) {
   if (!usuario || typeof usuario !== 'object') return false
   const statusEmpresa = String(usuario.statusEmpresa || usuario.empresaStatus || '').trim().toUpperCase()
   return usuario.cadastroPendente === true || statusEmpresa === 'PENDENTE'
+}
+
+function trocaSenhaObrigatoria(usuario) {
+  return usuario?.trocaSenhaObrigatoria === true
 }
 
 const router = createRouter({
@@ -383,10 +373,14 @@ router.beforeEach((to) => {
   }
 
   const token = localStorage.getItem('token')
-  const usuario = carregarUsuario()
+  const usuario = carregarUsuarioSessao()
 
   if (token && empresaPendente(usuario)) {
     return to.name === 'cadastro-pendente' ? true : '/cadastro-pendente'
+  }
+
+  if (token && trocaSenhaObrigatoria(usuario)) {
+    return to.name === 'alterar-senha' ? true : '/alterar-senha'
   }
 
   if (to.meta.requiresAuth && !token) {
@@ -406,6 +400,10 @@ router.beforeEach((to) => {
   }
 
   if (to.name === 'login' && token) {
+    if (trocaSenhaObrigatoria(usuario)) {
+      return '/alterar-senha'
+    }
+
     return '/dashboard'
   }
 
