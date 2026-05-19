@@ -6,7 +6,7 @@ import {
   buscarSegmentos,
   cadastrarEmpresaComOnboarding,
 } from '@/services/api'
-import { criarManipuladorPasteNumerico, sanitizarTelefone } from '@/utils/validacoes'
+import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
 
 const etapas = [
   { titulo: 'Dados básicos' },
@@ -28,7 +28,6 @@ const empresaCriada = ref(null)
 const slugEditado = ref(false)
 const empresa = ref(criarEmpresaInicial())
 const assinatura = ref(criarAssinaturaInicial())
-const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
 
 const planoSelecionado = computed(() =>
   planos.value.find((plano) => String(plano.id) === String(assinatura.value.planoId)) || null,
@@ -80,8 +79,8 @@ function criarAssinaturaInicial() {
   }
 }
 
-function aplicarTelefone(valor) {
-  empresa.value.telefone = sanitizarTelefone(valor)
+function aplicarTelefone(evento) {
+  empresa.value.telefone = sanitizarTelefoneDoEvento(evento)
 }
 
 async function carregarOpcoes() {
@@ -315,7 +314,7 @@ function obterMensagemErro(error, fallback) {
       <div v-if="etapaAtual === 0" class="campos">
         <label>Nome *<input v-model="empresa.nome" type="text" placeholder="Barbearia Teste" /></label>
         <label>Documento *<input v-model="empresa.documento" type="text" placeholder="00.000.000/0001-00" /></label>
-        <label>Telefone<input :value="empresa.telefone" type="text" inputmode="numeric" placeholder="(11) 99999-9999" @input="aplicarTelefone($event.target.value)" @paste="aoColarTelefone($event, (valor) => aplicarTelefone(valor))" /></label>
+        <label>Telefone<input :value="empresa.telefone" type="text" inputmode="numeric" placeholder="(11) 99999-9999" @input="aplicarTelefone" @paste.prevent="aplicarTelefone" /></label>
         <label>E-mail *<input v-model="empresa.email" type="email" placeholder="contato@empresa.com" /></label>
         <label class="campo-grande">Endereço<input v-model="empresa.endereco" type="text" placeholder="Rua Principal, 100" /></label>
         <label>Slug/link público *<input :value="empresa.slugPublico" type="text" placeholder="barbearia-teste" @input="marcarSlugEditado($event.target.value)" /></label>

@@ -16,6 +16,26 @@ export function sanitizarTelefone(valor) {
   return sanitizarSomenteDigitos(valor).slice(0, 11)
 }
 
+export function sanitizarTelefoneDoEvento(evento) {
+  const clipboardLegado =
+    typeof window !== 'undefined' ? window?.clipboardData?.getData('Text') : ''
+  const valorOriginal =
+    evento?.type === 'paste'
+      ? evento?.clipboardData?.getData('text') ?? clipboardLegado ?? ''
+      : evento?.target?.value
+  const valorLimpo = sanitizarTelefone(valorOriginal)
+
+  if (evento?.type === 'paste') {
+    evento.preventDefault()
+  }
+
+  if (evento?.target) {
+    evento.target.value = valorLimpo
+  }
+
+  return valorLimpo
+}
+
 export function telefoneBasicoValido(valor) {
   const digitos = sanitizarTelefone(valor)
   return !digitos || digitos.length === 10 || digitos.length === 11

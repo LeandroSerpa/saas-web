@@ -15,6 +15,7 @@ import {
   sanitizarDocumento,
   sanitizarInteiroPositivo,
   sanitizarTelefone,
+  sanitizarTelefoneDoEvento,
   telefoneBasicoValido,
 } from '@/utils/validacoes'
 
@@ -43,7 +44,6 @@ const diasAtendimento = [
 ]
 const intervalosAgenda = [15, 30, 60]
 const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
-const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
 const aoColarIntervalo = criarManipuladorPasteNumerico(sanitizarInteiroPositivo)
 
 const linkPublico = computed(() => {
@@ -262,8 +262,8 @@ function aplicarDocumento(valor) {
   limparErroCampo('documento')
 }
 
-function aplicarTelefone(valor) {
-  empresa.value.telefone = sanitizarTelefone(valor)
+function aplicarTelefone(evento) {
+  empresa.value.telefone = sanitizarTelefoneDoEvento(evento)
   limparErroCampo('telefone')
 }
 
@@ -337,9 +337,9 @@ onMounted(carregarMinhaEmpresa)
             type="text"
             inputmode="numeric"
             placeholder="Ex: (21) 99999-9999"
-            @input="aplicarTelefone($event.target.value)"
+            @input="aplicarTelefone"
             @blur="validarTelefone"
-            @paste="aoColarTelefone($event, (valor) => aplicarTelefone(valor))"
+            @paste.prevent="aplicarTelefone"
           />
           <small v-if="errosCampos.telefone" class="erro-texto">{{ errosCampos.telefone }}</small>
         </label>

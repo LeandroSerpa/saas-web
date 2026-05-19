@@ -1,5 +1,5 @@
 <script setup>
-import { criarManipuladorPasteNumerico, sanitizarTelefone } from '@/utils/validacoes'
+import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
 
 const empresa = defineModel({
   type: Object,
@@ -16,8 +16,6 @@ const diasAtendimento = [
   { campo: 'atendeSabado', rotulo: 'Sábado' },
 ]
 const intervalosAgenda = [15, 30, 60]
-const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
-
 function obterSlugPublico() {
   return String(empresa.value.slugPublico || empresa.value.slug || '').trim()
 }
@@ -35,8 +33,8 @@ function aplicarMascaraHorario(campo, valor) {
   empresa.value[campo] = horario
 }
 
-function aplicarTelefone(valor) {
-  empresa.value.telefone = sanitizarTelefone(valor)
+function aplicarTelefone(evento) {
+  empresa.value.telefone = sanitizarTelefoneDoEvento(evento)
 }
 
 defineProps({
@@ -88,8 +86,8 @@ defineEmits(['salvar', 'cancelar'])
           type="text"
           inputmode="numeric"
           placeholder="Ex: (21) 99999-9999"
-          @input="aplicarTelefone($event.target.value)"
-          @paste="aoColarTelefone($event, (valor) => aplicarTelefone(valor))"
+          @input="aplicarTelefone"
+          @paste.prevent="aplicarTelefone"
         />
       </label>
 

@@ -1,10 +1,9 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import {
-  criarManipuladorPasteNumerico,
   emailBasicoValido,
   limparEspacos,
-  sanitizarTelefone,
+  sanitizarTelefoneDoEvento,
   telefoneBasicoValido,
 } from '@/utils/validacoes'
 
@@ -31,15 +30,13 @@ const errosCampos = reactive({
   email: '',
 })
 
-const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
-
 function limparErroCampo(campo) {
   errosCampos[campo] = ''
   erroValidacao.value = ''
 }
 
-function aplicarTelefone(valor) {
-  cliente.value.telefone = sanitizarTelefone(valor)
+function aplicarTelefone(evento) {
+  cliente.value.telefone = sanitizarTelefoneDoEvento(evento)
   limparErroCampo('telefone')
 }
 
@@ -107,9 +104,9 @@ function solicitarSalvamento() {
           type="text"
           inputmode="numeric"
           placeholder="Ex: (21) 99999-9999"
-          @input="aplicarTelefone($event.target.value)"
+          @input="aplicarTelefone"
           @blur="validarTelefone"
-          @paste="aoColarTelefone($event, (valor) => aplicarTelefone(valor))"
+          @paste.prevent="aplicarTelefone"
         />
         <span v-if="errosCampos.telefone" class="erro-texto">{{ errosCampos.telefone }}</span>
       </label>

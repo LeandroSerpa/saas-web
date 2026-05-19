@@ -6,7 +6,7 @@ import {
   buscarSegmentosCadastroPublico,
   criarSolicitacaoCadastroEmpresa,
 } from '@/services/api'
-import { criarManipuladorPasteNumerico, sanitizarTelefone } from '@/utils/validacoes'
+import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
 
 const segmentos = ref([])
 const planos = ref([])
@@ -15,7 +15,6 @@ const enviando = ref(false)
 const erro = ref('')
 const confirmacao = ref(null)
 const formulario = ref(criarFormularioInicial())
-const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
 
 function criarFormularioInicial() {
   return {
@@ -32,8 +31,8 @@ function criarFormularioInicial() {
   }
 }
 
-function aplicarTelefoneResponsavel(valor) {
-  formulario.value.responsavelTelefone = sanitizarTelefone(valor)
+function aplicarTelefoneResponsavel(evento) {
+  formulario.value.responsavelTelefone = sanitizarTelefoneDoEvento(evento)
 }
 
 async function carregarOpcoes() {
@@ -197,7 +196,7 @@ onMounted(carregarOpcoes)
           <div class="campos">
             <label>Nome do responsável <input v-model="formulario.responsavelNome" type="text" /></label>
             <label>E-mail <input v-model="formulario.responsavelEmail" type="email" /></label>
-            <label>Telefone/WhatsApp <input :value="formulario.responsavelTelefone" type="text" inputmode="numeric" @input="aplicarTelefoneResponsavel($event.target.value)" @paste="aoColarTelefone($event, (valor) => aplicarTelefoneResponsavel(valor))" /></label>
+            <label>Telefone/WhatsApp <input :value="formulario.responsavelTelefone" type="text" inputmode="numeric" @input="aplicarTelefoneResponsavel" @paste.prevent="aplicarTelefoneResponsavel" /></label>
           </div>
         </section>
 

@@ -10,11 +10,10 @@ import {
   buscarServicosPublicos,
   criarAgendamentoPublico,
 } from '@/services/api'
-import { criarManipuladorPasteNumerico, sanitizarTelefone } from '@/utils/validacoes'
+import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
-const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
 
 const empresa = ref(null)
 const personalizacao = ref(criarPersonalizacaoPublicaPadrao())
@@ -261,8 +260,8 @@ function criarAgendamentoInicial() {
   }
 }
 
-function aplicarTelefoneCliente(valor) {
-  agendamento.value.telefoneCliente = sanitizarTelefone(valor)
+function aplicarTelefoneCliente(evento) {
+  agendamento.value.telefoneCliente = sanitizarTelefoneDoEvento(evento)
 }
 
 function criarPersonalizacaoPublicaPadrao() {
@@ -988,8 +987,8 @@ onMounted(() => {
               type="text"
               inputmode="numeric"
               placeholder="Ex: (21) 99999-9999"
-              @input="aplicarTelefoneCliente($event.target.value)"
-              @paste="aoColarTelefone($event, (valor) => aplicarTelefoneCliente(valor))"
+              @input="aplicarTelefoneCliente"
+              @paste.prevent="aplicarTelefoneCliente"
             />
           </label>
 

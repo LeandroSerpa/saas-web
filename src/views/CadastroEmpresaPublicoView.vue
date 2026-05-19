@@ -12,14 +12,13 @@ import {
   emailBasicoValido,
   limparEspacos,
   sanitizarDocumento,
-  sanitizarTelefone,
+  sanitizarTelefoneDoEvento,
   telefoneBasicoValido,
 } from '@/utils/validacoes'
 
 const etapas = [{ titulo: 'Empresa' }, { titulo: 'Responsável' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'Revisão' }]
 const ufs = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
-const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
 
 const etapaAtual = ref(0)
 const segmentos = ref([])
@@ -190,8 +189,8 @@ function aplicarDocumento(valor) {
   limparErroCampo('documento')
 }
 
-function aplicarTelefone(campo, valor) {
-  formulario.value[campo] = sanitizarTelefone(valor)
+function aplicarTelefone(campo, evento) {
+  formulario.value[campo] = sanitizarTelefoneDoEvento(evento)
   limparErroCampo(campo)
 }
 
@@ -325,7 +324,7 @@ onMounted(carregarOpcoes)
             </label>
             <label>
               Telefone
-              <input :value="formulario.telefoneEmpresa" type="text" inputmode="numeric" @input="aplicarTelefone('telefoneEmpresa', $event.target.value)" @blur="validarCampoTelefone('telefoneEmpresa')" @paste="aoColarTelefone($event, (valor) => aplicarTelefone('telefoneEmpresa', valor))" />
+              <input :value="formulario.telefoneEmpresa" type="text" inputmode="numeric" @input="aplicarTelefone('telefoneEmpresa', $event)" @blur="validarCampoTelefone('telefoneEmpresa')" @paste.prevent="aplicarTelefone('telefoneEmpresa', $event)" />
               <small v-if="errosCampos.telefoneEmpresa" class="erro-campo">{{ errosCampos.telefoneEmpresa }}</small>
             </label>
             <label>
@@ -354,7 +353,7 @@ onMounted(carregarOpcoes)
             </label>
             <label>
               Telefone/WhatsApp *
-              <input :value="formulario.telefoneResponsavel" type="text" inputmode="numeric" @input="aplicarTelefone('telefoneResponsavel', $event.target.value)" @blur="validarCampoTelefone('telefoneResponsavel', true)" @paste="aoColarTelefone($event, (valor) => aplicarTelefone('telefoneResponsavel', valor))" />
+              <input :value="formulario.telefoneResponsavel" type="text" inputmode="numeric" @input="aplicarTelefone('telefoneResponsavel', $event)" @blur="validarCampoTelefone('telefoneResponsavel', true)" @paste.prevent="aplicarTelefone('telefoneResponsavel', $event)" />
               <small v-if="errosCampos.telefoneResponsavel" class="erro-campo">{{ errosCampos.telefoneResponsavel }}</small>
             </label>
             <label>Cargo<input v-model="formulario.cargoResponsavel" type="text" /></label>
