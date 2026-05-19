@@ -325,7 +325,7 @@ onMounted(carregarOpcoes)
             </label>
             <label>
               Telefone
-              <input :value="formulario.telefoneEmpresa" type="tel" inputmode="numeric" @input="aplicarTelefone('telefoneEmpresa', $event.target.value)" @blur="validarCampoTelefone('telefoneEmpresa')" @paste="aoColarTelefone($event, (valor) => aplicarTelefone('telefoneEmpresa', valor))" />
+              <input :value="formulario.telefoneEmpresa" type="text" inputmode="numeric" @input="aplicarTelefone('telefoneEmpresa', $event.target.value)" @blur="validarCampoTelefone('telefoneEmpresa')" @paste="aoColarTelefone($event, (valor) => aplicarTelefone('telefoneEmpresa', valor))" />
               <small v-if="errosCampos.telefoneEmpresa" class="erro-campo">{{ errosCampos.telefoneEmpresa }}</small>
             </label>
             <label>
@@ -354,7 +354,7 @@ onMounted(carregarOpcoes)
             </label>
             <label>
               Telefone/WhatsApp *
-              <input :value="formulario.telefoneResponsavel" type="tel" inputmode="numeric" @input="aplicarTelefone('telefoneResponsavel', $event.target.value)" @blur="validarCampoTelefone('telefoneResponsavel', true)" @paste="aoColarTelefone($event, (valor) => aplicarTelefone('telefoneResponsavel', valor))" />
+              <input :value="formulario.telefoneResponsavel" type="text" inputmode="numeric" @input="aplicarTelefone('telefoneResponsavel', $event.target.value)" @blur="validarCampoTelefone('telefoneResponsavel', true)" @paste="aoColarTelefone($event, (valor) => aplicarTelefone('telefoneResponsavel', valor))" />
               <small v-if="errosCampos.telefoneResponsavel" class="erro-campo">{{ errosCampos.telefoneResponsavel }}</small>
             </label>
             <label>Cargo<input v-model="formulario.cargoResponsavel" type="text" /></label>

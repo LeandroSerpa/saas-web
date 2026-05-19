@@ -105,7 +105,7 @@ function solicitarSalvamento() {
         <input
           :value="cliente.telefone"
           type="text"
-          inputmode="tel"
+          inputmode="numeric"
           placeholder="Ex: (21) 99999-9999"
           @input="aplicarTelefone($event.target.value)"
           @blur="validarTelefone"

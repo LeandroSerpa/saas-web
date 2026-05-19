@@ -11,7 +11,7 @@ export function sanitizarSomenteDigitos(valor) {
 }
 
 export function sanitizarTelefone(valor) {
-  return sanitizarSomenteDigitos(valor)
+  return sanitizarSomenteDigitos(valor).slice(0, 11)
 }
 
 export function telefoneBasicoValido(valor) {
@@ -20,7 +20,7 @@ export function telefoneBasicoValido(valor) {
 }
 
 export function sanitizarDocumento(valor) {
-  return sanitizarSomenteDigitos(valor)
+  return sanitizarSomenteDigitos(valor).slice(0, 14)
 }
 
 export function documentoBasicoValido(valor) {
