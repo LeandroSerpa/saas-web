@@ -43,7 +43,6 @@ const diasAtendimento = [
   { campo: 'atendeSabado', rotulo: 'Sábado' },
 ]
 const intervalosAgenda = [15, 30, 60]
-const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
 const aoColarIntervalo = criarManipuladorPasteNumerico(sanitizarInteiroPositivo)
 
 const linkPublico = computed(() => {
@@ -121,7 +120,7 @@ async function carregarMinhaEmpresa() {
 
 function validarDocumento() {
   if (empresa.value.documento && !documentoBasicoValido(empresa.value.documento)) {
-    const mensagem = 'Informe um documento válido.'
+    const mensagem = 'Informe um CPF ou CNPJ válido, usando apenas números.'
     errosCampos.documento = mensagem
     erro.value = mensagem
     return false
@@ -257,8 +256,18 @@ async function copiarLinkPublico() {
   }
 }
 
-function aplicarDocumento(valor) {
-  empresa.value.documento = sanitizarDocumento(valor)
+function aplicarDocumento(evento) {
+  const valorOriginal =
+    evento?.type === 'paste'
+      ? evento?.clipboardData?.getData('text') ?? ''
+      : evento?.target?.value
+  const valorLimpo = sanitizarDocumento(valorOriginal)
+
+  if (evento?.target) {
+    evento.target.value = valorLimpo
+  }
+
+  empresa.value.documento = valorLimpo
   limparErroCampo('documento')
 }
 
@@ -318,15 +327,15 @@ onMounted(carregarMinhaEmpresa)
       <div class="campos">
         <label>Nome *<input v-model="empresa.nome" type="text" placeholder="Ex: Barbearia Teste" /></label>
         <label>
-          Documento
+          Documento (CPF/CNPJ)
           <input
             :value="empresa.documento"
             type="text"
             inputmode="numeric"
             placeholder="Ex: 00.000.000/0001-00"
-            @input="aplicarDocumento($event.target.value)"
+            @input="aplicarDocumento"
             @blur="validarDocumento"
-            @paste="aoColarDocumento($event, (valor) => aplicarDocumento(valor))"
+            @paste.prevent="aplicarDocumento"
           />
           <small v-if="errosCampos.documento" class="erro-texto">{{ errosCampos.documento }}</small>
         </label>
