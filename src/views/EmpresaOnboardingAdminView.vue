@@ -4,6 +4,8 @@ import { RouterLink } from 'vue-router'
 import {
   buscarOpcoesCadastroGuiadoAdmin,
   criarEmpresaCadastroGuiadoAdmin,
+  validarEmailAdminOnboardingAdmin,
+  validarSlugOnboardingAdmin,
 } from '@/services/api'
 import {
   criarManipuladorPasteNumerico,
@@ -42,6 +44,7 @@ const URL_PUBLICA_BASE = 'https://automacao-le-saas-web.1mweab.easypanel.host'
 const etapaAtual = ref(0)
 const carregando = ref(true)
 const salvando = ref(false)
+const validandoAvanco = ref(false)
 const erro = ref('')
 const sucesso = ref('')
 const aviso = ref('')
@@ -258,14 +261,52 @@ function limparMensagensGerais() {
   infoCopia.value = ''
 }
 
-function proximaEtapa() {
+async function proximaEtapa() {
+  if (validandoAvanco.value || salvando.value) return
   if (!validarEtapaAtual()) return
-  limparMensagensGerais()
-  etapaAtual.value = Math.min(etapaAtual.value + 1, ETAPAS.length - 1)
+
+  try {
+    validandoAvanco.value = true
+    limparMensagensGerais()
+
+    if (etapaAtual.value === 0) {
+      const resposta = await validarSlugOnboardingAdmin(formulario.value.empresa.slugPublico.trim())
+      const validacao = normalizarRespostaValidacao(resposta)
+
+      if (!validacao.valido) {
+        return falharCampo('empresa.slugPublico', validacao.mensagem || 'Nao foi possivel validar o slug publico.')
+      }
+    }
+
+    if (etapaAtual.value === 3) {
+      const resposta = await validarEmailAdminOnboardingAdmin(formulario.value.admin.email.trim())
+      const validacao = normalizarRespostaValidacao(resposta)
+
+      if (!validacao.valido) {
+        return falharCampo('admin.email', validacao.mensagem || 'Nao foi possivel validar o e-mail do usuario administrador.')
+      }
+    }
+
+    etapaAtual.value = Math.min(etapaAtual.value + 1, ETAPAS.length - 1)
+  } catch (error) {
+    if (etapaAtual.value === 0) {
+      falharCampo('empresa.slugPublico', obterMensagemErro(error, 'Nao foi possivel validar o slug publico agora. Tente novamente.'))
+      return
+    }
+
+    if (etapaAtual.value === 3) {
+      falharCampo('admin.email', obterMensagemErro(error, 'Nao foi possivel validar o e-mail do usuario administrador agora. Tente novamente.'))
+      return
+    }
+
+    erro.value = obterMensagemErro(error, 'Nao foi possivel validar os dados informados.')
+  } finally {
+    validandoAvanco.value = false
+  }
 }
 
 function etapaAnterior() {
-  if (salvando.value) return
+  if (salvando.value || validandoAvanco.value) return
   limparMensagensGerais()
   etapaAtual.value = Math.max(etapaAtual.value - 1, 0)
 }
@@ -571,6 +612,26 @@ function extrairAvisoResposta(resposta) {
   return ''
 }
 
+function normalizarRespostaValidacao(resposta) {
+  const dados = normalizarObjeto(resposta)
+  const data = normalizarObjeto(dados.data)
+  const origem = Object.keys(data).length ? data : dados
+
+  const valorValido = origem.valido ?? origem.valida ?? origem.valid ?? origem.isValid
+  const mensagem = String(
+    origem.mensagem ??
+      origem.message ??
+      origem.detail ??
+      origem.erro ??
+      '',
+  ).trim()
+
+  return {
+    valido: valorValido !== false,
+    mensagem,
+  }
+}
+
 function obterMensagemErro(error, fallback) {
   const mensagem = String(error?.message || '').trim()
   const mensagemNormalizada = mensagem
@@ -652,8 +713,8 @@ function obterCampoProfundo(objeto, caminho) {
         class="etapa"
         :class="{ ativa: etapaAtual === indice, concluida: etapaAtual > indice }"
         type="button"
-        :disabled="indice > etapaAtual || salvando"
-        @click="indice <= etapaAtual && !salvando && (etapaAtual = indice)"
+        :disabled="indice > etapaAtual || salvando || validandoAvanco"
+        @click="indice <= etapaAtual && !salvando && !validandoAvanco && (etapaAtual = indice)"
       >
         <span>{{ indice + 1 }}</span>
         {{ etapa.titulo }}
@@ -936,8 +997,16 @@ function obterCampoProfundo(objeto, caminho) {
       </div>
 
       <div class="acoes">
-        <button v-if="etapaAtual > 0" class="botao secundario" type="button" :disabled="salvando" @click="etapaAnterior">Voltar</button>
-        <button v-if="etapaAtual < ETAPAS.length - 1" class="botao principal" type="button" :disabled="salvando" @click="proximaEtapa">Avançar</button>
+        <button v-if="etapaAtual > 0" class="botao secundario" type="button" :disabled="salvando || validandoAvanco" @click="etapaAnterior">Voltar</button>
+        <button
+          v-if="etapaAtual < ETAPAS.length - 1"
+          class="botao principal"
+          type="button"
+          :disabled="salvando || validandoAvanco"
+          @click="proximaEtapa"
+        >
+          {{ validandoAvanco ? 'Validando...' : 'Avançar' }}
+        </button>
         <button v-else class="botao principal" type="button" :disabled="salvando" @click="criarEmpresa">
           {{ salvando ? 'Criando empresa...' : 'Criar empresa' }}
         </button>

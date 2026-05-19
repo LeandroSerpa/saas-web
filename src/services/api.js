@@ -1337,6 +1337,28 @@ export async function buscarOpcoesCadastroGuiadoAdmin() {
   return tratarResposta(response)
 }
 
+export async function validarSlugOnboardingAdmin(slug) {
+  const response = await fetch(
+    `${API_URL}/admin/empresas/onboarding/validar-slug${montarQueryString({ slug })}`,
+    {
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function validarEmailAdminOnboardingAdmin(email) {
+  const response = await fetch(
+    `${API_URL}/admin/empresas/onboarding/validar-email-admin${montarQueryString({ email })}`,
+    {
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
 export async function criarEmpresaCadastroGuiadoAdmin(payload) {
   const response = await fetch(`${API_URL}/admin/empresas/onboarding`, {
     method: 'POST',
