@@ -64,9 +64,22 @@ const senhaTemporariaResultado = computed(() =>
   obterCampo(
     empresaCriada.value,
     'senhaTemporaria',
+    'data.senhaTemporaria',
+    'resultado.senhaTemporaria',
+    'empresa.senhaTemporaria',
+    'usuarioAdmin.senhaTemporaria',
     'senhaInicialAdmin',
     'adminSenhaTemporaria',
     'temporaryPassword',
+    'data.senhaInicialAdmin',
+    'data.adminSenhaTemporaria',
+    'data.temporaryPassword',
+    'resultado.senhaInicialAdmin',
+    'resultado.adminSenhaTemporaria',
+    'resultado.temporaryPassword',
+    'empresa.senhaInicialAdmin',
+    'empresa.adminSenhaTemporaria',
+    'empresa.temporaryPassword',
     'usuarioAdmin.senhaTemporaria',
     'usuarioAdmin.temporaryPassword',
   ),
@@ -264,8 +277,7 @@ async function criarEmpresa() {
     salvando.value = true
     limparMensagensGerais()
     const resposta = await criarEmpresaCadastroGuiadoAdmin(montarPayload())
-    const dados = normalizarObjeto(resposta)
-    empresaCriada.value = normalizarObjeto(dados.empresa || dados.resultado || dados)
+    empresaCriada.value = normalizarRespostaCriacaoEmpresa(resposta)
     sucesso.value = `Empresa ${nomeEmpresaResultado.value} criada com sucesso.`
     aviso.value = extrairAvisoResposta(resposta)
   } catch (error) {
@@ -483,6 +495,68 @@ function normalizarObjeto(dados) {
   return dados.data && typeof dados.data === 'object' ? dados.data : dados
 }
 
+function normalizarRespostaCriacaoEmpresa(resposta) {
+  const respostaNormalizada = normalizarObjeto(resposta)
+  const dataNormalizada = normalizarObjeto(respostaNormalizada.data || respostaNormalizada)
+  const resultadoNormalizado = normalizarObjeto(dataNormalizada.resultado)
+  const empresaNormalizada = normalizarObjeto(dataNormalizada.empresa)
+  const usuarioAdminNormalizado = normalizarObjeto(
+    dataNormalizada.usuarioAdmin || dataNormalizada.admin || resultadoNormalizado.usuarioAdmin || empresaNormalizada.usuarioAdmin,
+  )
+
+  const respostaMesclada = {
+    ...respostaNormalizada,
+    ...dataNormalizada,
+    ...resultadoNormalizado,
+    ...empresaNormalizada,
+    resultado: Object.keys(resultadoNormalizado).length ? resultadoNormalizado : dataNormalizada.resultado || null,
+    empresa: Object.keys(empresaNormalizada).length ? empresaNormalizada : dataNormalizada.empresa || null,
+    usuarioAdmin: Object.keys(usuarioAdminNormalizado).length
+      ? usuarioAdminNormalizado
+      : dataNormalizada.usuarioAdmin || dataNormalizada.admin || null,
+  }
+
+  const senhaDetectada = obterCampo(
+    respostaMesclada,
+    'senhaTemporaria',
+    'data.senhaTemporaria',
+    'resultado.senhaTemporaria',
+    'empresa.senhaTemporaria',
+    'usuarioAdmin.senhaTemporaria',
+    'senhaInicialAdmin',
+    'adminSenhaTemporaria',
+    'temporaryPassword',
+    'data.senhaInicialAdmin',
+    'data.adminSenhaTemporaria',
+    'data.temporaryPassword',
+    'resultado.senhaInicialAdmin',
+    'resultado.adminSenhaTemporaria',
+    'resultado.temporaryPassword',
+    'empresa.senhaInicialAdmin',
+    'empresa.adminSenhaTemporaria',
+    'empresa.temporaryPassword',
+    'usuarioAdmin.temporaryPassword',
+  )
+
+  if (senhaDetectada) {
+    respostaMesclada.senhaTemporaria = respostaMesclada.senhaTemporaria || senhaDetectada
+    if (respostaMesclada.usuarioAdmin && !respostaMesclada.usuarioAdmin.senhaTemporaria) {
+      respostaMesclada.usuarioAdmin.senhaTemporaria = senhaDetectada
+    }
+  } else {
+    const chavesDisponiveis = Object.keys(respostaMesclada).sort().join(', ')
+    console.warn('Senha temporaria nao encontrada na resposta do onboarding administrativo.', {
+      chavesDisponiveis,
+      possuiData: Boolean(respostaNormalizada.data),
+      possuiResultado: Boolean(respostaMesclada.resultado),
+      possuiEmpresa: Boolean(respostaMesclada.empresa),
+      possuiUsuarioAdmin: Boolean(respostaMesclada.usuarioAdmin),
+    })
+  }
+
+  return respostaMesclada
+}
+
 function extrairAvisoResposta(resposta) {
   const candidatos = [resposta, resposta?.data].filter(Boolean)
   const campos = ['aviso', 'warning', 'alerta', 'mensagemAviso']
@@ -524,7 +598,7 @@ function textoOuNulo(valor) {
 
 function obterCampo(objeto, ...caminhos) {
   for (const caminho of caminhos) {
-    const valor = lerCaminho(objeto, caminho)
+    const valor = obterCampoProfundo(objeto, caminho)
     if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
       return valor
     }
@@ -532,7 +606,7 @@ function obterCampo(objeto, ...caminhos) {
   return ''
 }
 
-function lerCaminho(objeto, caminho) {
+function obterCampoProfundo(objeto, caminho) {
   return String(caminho || '')
     .split('.')
     .reduce((acumulado, chave) => (acumulado && acumulado[chave] !== undefined ? acumulado[chave] : undefined), objeto)
