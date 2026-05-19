@@ -10,6 +10,7 @@ import {
   atualizarServico,
   atualizarAtivoServico,
 } from '@/services/api'
+import { normalizarDecimalParaBackend } from '@/utils/validacoes'
 
 const servicos = ref([])
 const carregando = ref(true)
@@ -217,7 +218,7 @@ function montarPayloadServico() {
     empresaId: 1,
     nome: servico.value.nome,
     descricao: servico.value.descricao,
-    preco: Number(servico.value.preco),
+    preco: normalizarDecimalParaBackend(servico.value.preco),
     duracaoMinutos: Number(servico.value.duracaoMinutos),
     ativo: Boolean(servico.value.ativo),
   }
@@ -745,6 +746,12 @@ onMounted(() => {
 
 :deep(.sucesso-texto) {
   color: #15803d;
+  font-weight: 800;
+  margin: 0;
+}
+
+:deep(.erro-texto) {
+  color: #b91c1c;
   font-weight: 800;
   margin: 0;
 }

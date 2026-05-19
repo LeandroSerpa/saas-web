@@ -845,6 +845,12 @@ onMounted(() => {
   margin: 0;
 }
 
+:deep(.erro-texto) {
+  color: #b91c1c;
+  font-weight: 800;
+  margin: 0;
+}
+
 @media (max-width: 900px) {
   .cabecalho-pagina,
   .cabecalho-lista {

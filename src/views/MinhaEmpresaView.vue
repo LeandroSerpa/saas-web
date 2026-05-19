@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   atualizarMinhaEmpresa,
@@ -7,9 +7,11 @@ import {
   recalcularOnboarding,
 } from '@/services/api'
 import {
+  criarManipuladorPasteNumerico,
   documentoBasicoValido,
   emailBasicoValido,
   inteiroPositivoValido,
+  limparEspacos,
   sanitizarDocumento,
   sanitizarInteiroPositivo,
   sanitizarTelefone,
@@ -22,6 +24,12 @@ const erro = ref('')
 const mensagemSucesso = ref('')
 const mensagemLinkCopiado = ref('')
 const empresa = ref(criarEmpresaInicial())
+const errosCampos = reactive({
+  documento: '',
+  telefone: '',
+  email: '',
+  intervaloAgendaMinutos: '',
+})
 const route = useRoute()
 const router = useRouter()
 const diasAtendimento = [
@@ -34,6 +42,10 @@ const diasAtendimento = [
   { campo: 'atendeSabado', rotulo: 'Sábado' },
 ]
 const intervalosAgenda = [15, 30, 60]
+const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
+const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
+const aoColarIntervalo = criarManipuladorPasteNumerico(sanitizarInteiroPositivo)
+
 const linkPublico = computed(() => {
   const slug = String(empresa.value.slug || '').trim()
   return slug ? `${window.location.origin}/agendar/${slug}` : ''
@@ -62,19 +74,28 @@ function criarEmpresaInicial() {
   }
 }
 
+function limparMensagens() {
+  erro.value = ''
+  mensagemSucesso.value = ''
+  mensagemLinkCopiado.value = ''
+}
+
+function limparErroCampo(campo) {
+  errosCampos[campo] = ''
+  erro.value = ''
+}
+
 async function carregarMinhaEmpresa() {
   try {
     carregando.value = true
-    erro.value = ''
-    mensagemSucesso.value = ''
-    mensagemLinkCopiado.value = ''
+    limparMensagens()
 
     const empresaApi = await buscarMinhaEmpresa()
     empresa.value = {
       nome: empresaApi.nome || '',
       documento: sanitizarDocumento(empresaApi.documento || ''),
       telefone: sanitizarTelefone(empresaApi.telefone || ''),
-      email: empresaApi.email || '',
+      email: limparEspacos(empresaApi.email || ''),
       endereco: empresaApi.endereco || '',
       horaAbertura: empresaApi.horaAbertura || '',
       horaFechamento: empresaApi.horaFechamento || '',
@@ -90,52 +111,84 @@ async function carregarMinhaEmpresa() {
       agendamentoPublicoAtivo: Boolean(empresaApi.agendamentoPublicoAtivo),
       mensagemPublica: empresaApi.mensagemPublica || '',
     }
-  } catch (error) {
+  } catch (errorAtual) {
     erro.value = 'Não foi possível carregar os dados da empresa.'
-    console.error(error)
+    console.error(errorAtual)
   } finally {
     carregando.value = false
   }
 }
 
+function validarDocumento() {
+  if (empresa.value.documento && !documentoBasicoValido(empresa.value.documento)) {
+    const mensagem = 'Informe um documento válido.'
+    errosCampos.documento = mensagem
+    erro.value = mensagem
+    return false
+  }
+  errosCampos.documento = ''
+  return true
+}
+
+function validarTelefone() {
+  if (empresa.value.telefone && !telefoneBasicoValido(empresa.value.telefone)) {
+    const mensagem = 'Informe um telefone válido.'
+    errosCampos.telefone = mensagem
+    erro.value = mensagem
+    return false
+  }
+  errosCampos.telefone = ''
+  return true
+}
+
+function validarEmail() {
+  if (empresa.value.email && !emailBasicoValido(empresa.value.email)) {
+    const mensagem = 'Informe um e-mail válido.'
+    errosCampos.email = mensagem
+    erro.value = mensagem
+    return false
+  }
+  errosCampos.email = ''
+  return true
+}
+
+function validarIntervaloAgenda() {
+  if (!inteiroPositivoValido(empresa.value.intervaloAgendaMinutos)) {
+    const mensagem = 'Informe um intervalo de agenda válido.'
+    errosCampos.intervaloAgendaMinutos = mensagem
+    erro.value = mensagem
+    return false
+  }
+
+  const intervaloAgendaMinutos = Number(empresa.value.intervaloAgendaMinutos)
+  if (!intervalosAgenda.includes(intervaloAgendaMinutos)) {
+    const mensagem = 'Selecione um intervalo da agenda válido.'
+    errosCampos.intervaloAgendaMinutos = mensagem
+    erro.value = mensagem
+    return false
+  }
+
+  errosCampos.intervaloAgendaMinutos = ''
+  return true
+}
+
 async function salvarEmpresa() {
   try {
-    erro.value = ''
-    mensagemSucesso.value = ''
-    mensagemLinkCopiado.value = ''
+    limparMensagens()
 
     if (!empresa.value.nome.trim()) {
       erro.value = 'Informe o nome da empresa.'
       return
     }
 
-    if (empresa.value.documento && !documentoBasicoValido(empresa.value.documento)) {
-      erro.value = 'Informe um documento válido.'
-      return
-    }
-
-    if (empresa.value.telefone && !telefoneBasicoValido(empresa.value.telefone)) {
-      erro.value = 'Informe um telefone válido.'
-      return
-    }
-
-    if (empresa.value.email && !emailBasicoValido(empresa.value.email)) {
-      erro.value = 'Informe um e-mail valido.'
-      return
-    }
-
-    if (!inteiroPositivoValido(empresa.value.intervaloAgendaMinutos)) {
-      erro.value = 'Informe um intervalo de agenda válido.'
-      return
-    }
-
-    const intervaloAgendaMinutos = Number(empresa.value.intervaloAgendaMinutos)
-    if (!intervalosAgenda.includes(intervaloAgendaMinutos)) {
-      erro.value = 'Selecione um intervalo da agenda válido.'
-      return
-    }
+    const documentoValido = validarDocumento()
+    const telefoneValido = validarTelefone()
+    const emailValido = validarEmail()
+    const intervaloValido = validarIntervaloAgenda()
+    if (!documentoValido || !telefoneValido || !emailValido || !intervaloValido) return
 
     salvando.value = true
+    const intervaloAgendaMinutos = Number(empresa.value.intervaloAgendaMinutos)
 
     const dadosEmpresa = {
       nome: empresa.value.nome,
@@ -162,9 +215,9 @@ async function salvarEmpresa() {
     atualizarEmpresaNoUsuarioLogado(resposta?.nome || empresa.value.nome)
     mensagemSucesso.value = 'Dados da empresa salvos com sucesso.'
     await retornarParaOnboardingSeNecessario()
-  } catch (error) {
+  } catch (errorAtual) {
     erro.value = 'Não foi possível atualizar a empresa.'
-    console.error(error)
+    console.error(errorAtual)
   } finally {
     salvando.value = false
   }
@@ -172,7 +225,7 @@ async function salvarEmpresa() {
 
 async function retornarParaOnboardingSeNecessario() {
   if (!veioDoOnboarding()) return
-  await recalcularOnboarding().catch((error) => console.error(error))
+  await recalcularOnboarding().catch((errorAtual) => console.error(errorAtual))
   limparOrigemOnboarding()
   router.push({ path: '/onboarding', query: { atualizado: 'true' } })
 }
@@ -198,22 +251,30 @@ async function copiarLinkPublico() {
   try {
     await navigator.clipboard.writeText(linkPublico.value)
     mensagemLinkCopiado.value = 'Link público copiado com sucesso.'
-  } catch (error) {
+  } catch (errorAtual) {
     erro.value = 'Não foi possível copiar o link público.'
-    console.error(error)
+    console.error(errorAtual)
   }
 }
 
 function aplicarDocumento(valor) {
   empresa.value.documento = sanitizarDocumento(valor)
+  limparErroCampo('documento')
 }
 
 function aplicarTelefone(valor) {
   empresa.value.telefone = sanitizarTelefone(valor)
+  limparErroCampo('telefone')
 }
 
 function aplicarEmail(valor) {
-  empresa.value.email = String(valor || '').replace(/\s/g, '')
+  empresa.value.email = limparEspacos(valor)
+  limparErroCampo('email')
+}
+
+function aplicarIntervaloAgenda(valor) {
+  empresa.value.intervaloAgendaMinutos = sanitizarInteiroPositivo(valor)
+  limparErroCampo('intervaloAgendaMinutos')
 }
 
 function atualizarEmpresaNoUsuarioLogado(nomeEmpresa) {
@@ -225,8 +286,8 @@ function atualizarEmpresaNoUsuarioLogado(nomeEmpresa) {
     usuario.empresaNome = nomeEmpresa
     localStorage.setItem('usuario', JSON.stringify(usuario))
     window.dispatchEvent(new Event('usuario-atualizado'))
-  } catch (error) {
-    console.error(error)
+  } catch (errorAtual) {
+    console.error(errorAtual)
   }
 }
 
@@ -256,9 +317,44 @@ onMounted(carregarMinhaEmpresa)
 
       <div class="campos">
         <label>Nome *<input v-model="empresa.nome" type="text" placeholder="Ex: Barbearia Teste" /></label>
-        <label>Documento<input :value="empresa.documento" type="text" placeholder="Ex: 00.000.000/0001-00" @input="aplicarDocumento($event.target.value)" /></label>
-        <label>Telefone<input :value="empresa.telefone" type="text" placeholder="Ex: (21) 99999-9999" @input="aplicarTelefone($event.target.value)" /></label>
-        <label>E-mail<input :value="empresa.email" type="email" placeholder="Ex: contato@empresa.com" @input="aplicarEmail($event.target.value)" /></label>
+        <label>
+          Documento
+          <input
+            :value="empresa.documento"
+            type="text"
+            inputmode="numeric"
+            placeholder="Ex: 00.000.000/0001-00"
+            @input="aplicarDocumento($event.target.value)"
+            @blur="validarDocumento"
+            @paste="aoColarDocumento($event, (valor) => aplicarDocumento(valor))"
+          />
+          <small v-if="errosCampos.documento" class="erro-texto">{{ errosCampos.documento }}</small>
+        </label>
+        <label>
+          Telefone
+          <input
+            :value="empresa.telefone"
+            type="text"
+            inputmode="tel"
+            placeholder="Ex: (21) 99999-9999"
+            @input="aplicarTelefone($event.target.value)"
+            @blur="validarTelefone"
+            @paste="aoColarTelefone($event, (valor) => aplicarTelefone(valor))"
+          />
+          <small v-if="errosCampos.telefone" class="erro-texto">{{ errosCampos.telefone }}</small>
+        </label>
+        <label>
+          E-mail
+          <input
+            :value="empresa.email"
+            type="text"
+            inputmode="email"
+            placeholder="Ex: contato@empresa.com"
+            @input="aplicarEmail($event.target.value)"
+            @blur="validarEmail"
+          />
+          <small v-if="errosCampos.email" class="erro-texto">{{ errosCampos.email }}</small>
+        </label>
         <label class="campo-grande">Endereço<input v-model="empresa.endereco" type="text" placeholder="Ex: Rua Principal, 100" /></label>
       </div>
 
@@ -272,9 +368,16 @@ onMounted(carregarMinhaEmpresa)
           <label>Hora de fechamento<input v-model="empresa.horaFechamento" type="time" /></label>
           <label>
             Intervalo da agenda
-            <select v-model.number="empresa.intervaloAgendaMinutos">
-              <option v-for="intervalo in intervalosAgenda" :key="intervalo" :value="intervalo">{{ intervalo }} minutos</option>
-            </select>
+            <input
+              :value="empresa.intervaloAgendaMinutos"
+              type="text"
+              inputmode="numeric"
+              placeholder="15, 30 ou 60"
+              @input="aplicarIntervaloAgenda($event.target.value)"
+              @blur="validarIntervaloAgenda"
+              @paste="aoColarIntervalo($event, (valor) => aplicarIntervaloAgenda(valor))"
+            />
+            <small v-if="errosCampos.intervaloAgendaMinutos" class="erro-texto">{{ errosCampos.intervaloAgendaMinutos }}</small>
           </label>
         </div>
         <div class="dias-atendimento">
@@ -317,5 +420,5 @@ onMounted(carregarMinhaEmpresa)
 </template>
 
 <style scoped>
-.pagina,.formulario,.secao-horario,.secao-agendamento-publico{display:grid;gap:16px}.pagina{gap:24px;color:#111827}.cabecalho-pagina{display:flex;justify-content:space-between;align-items:center;gap:16px}.subtitulo{margin:0 0 4px;color:#2563eb;font-size:14px;font-weight:700;text-transform:uppercase}.cabecalho-pagina h1{margin:0;font-size:32px;font-weight:800;letter-spacing:0}.descricao,.titulo-card p{margin:6px 0 0;color:#64748b}.titulo-card h2{margin:0;font-size:22px;color:#111827;font-weight:800}.titulo-card p{font-size:14px}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.campos{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:16px}label{display:grid;gap:6px;color:#374151;font-weight:700;font-size:14px}input,select,textarea{width:100%;min-width:0;border:1px solid #d1d5db;border-radius:8px;padding:11px 12px;font-size:15px;background:white;box-sizing:border-box}textarea{resize:vertical;min-height:110px;font-family:inherit}input:focus,select:focus,textarea:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.campo-grande{grid-column:1 / -1}.dias-atendimento{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px}.campo-checkbox{align-content:center;grid-template-columns:auto 1fr;gap:10px}input[type='checkbox']{width:18px;height:18px;accent-color:#2563eb}.link-publico{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff}.link-publico p{margin:0;color:#1e3a8a;font-weight:700;word-break:break-word}.link-publico strong{font-weight:800}.link-publico span{margin-left:6px}.aviso-publico{margin:0;color:#92400e;font-weight:800}.rodape-formulario{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.botao{border:none;color:white;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:800;transition:transform .15s ease,opacity .15s ease,background .15s ease}.botao:hover{transform:translateY(-1px)}.botao:disabled{opacity:.5;cursor:not-allowed;transform:none}.principal{background:#2563eb}.principal:hover{background:#1d4ed8}.secundario{background:#0f172a;min-width:140px}.secundario:hover{background:#1e293b}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.sucesso-card{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}.sucesso-texto{color:#15803d;font-weight:800;margin:0}@media (max-width:900px){.cabecalho-pagina{flex-direction:column;align-items:flex-start}.campos{grid-template-columns:1fr}.dias-atendimento{grid-template-columns:repeat(2,minmax(120px,1fr))}}
+.pagina,.formulario,.secao-horario,.secao-agendamento-publico{display:grid;gap:16px}.pagina{gap:24px;color:#111827}.cabecalho-pagina{display:flex;justify-content:space-between;align-items:center;gap:16px}.subtitulo{margin:0 0 4px;color:#2563eb;font-size:14px;font-weight:700;text-transform:uppercase}.cabecalho-pagina h1{margin:0;font-size:32px;font-weight:800;letter-spacing:0}.descricao,.titulo-card p{margin:6px 0 0;color:#64748b}.titulo-card h2{margin:0;font-size:22px;color:#111827;font-weight:800}.titulo-card p{font-size:14px}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.campos{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:16px}label{display:grid;gap:6px;color:#374151;font-weight:700;font-size:14px}input,select,textarea{width:100%;min-width:0;border:1px solid #d1d5db;border-radius:8px;padding:11px 12px;font-size:15px;background:white;box-sizing:border-box}textarea{resize:vertical;min-height:110px;font-family:inherit}input:focus,select:focus,textarea:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.campo-grande{grid-column:1 / -1}.dias-atendimento{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px}.campo-checkbox{align-content:center;grid-template-columns:auto 1fr;gap:10px}input[type='checkbox']{width:18px;height:18px;accent-color:#2563eb}.link-publico{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff}.link-publico p{margin:0;color:#1e3a8a;font-weight:700;word-break:break-word}.link-publico strong{font-weight:800}.link-publico span{margin-left:6px}.aviso-publico{margin:0;color:#92400e;font-weight:800}.rodape-formulario{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.botao{border:none;color:white;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:800;transition:transform .15s ease,opacity .15s ease,background .15s ease}.botao:hover{transform:translateY(-1px)}.botao:disabled{opacity:.5;cursor:not-allowed;transform:none}.principal{background:#2563eb}.principal:hover{background:#1d4ed8}.secundario{background:#0f172a;min-width:140px}.secundario:hover{background:#1e293b}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.sucesso-card{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}.sucesso-texto{color:#15803d;font-weight:800;margin:0}.erro-texto{color:#b91c1c;font-weight:700}@media (max-width:900px){.cabecalho-pagina{flex-direction:column;align-items:flex-start}.campos{grid-template-columns:1fr}.dias-atendimento{grid-template-columns:repeat(2,minmax(120px,1fr))}}
 </style>

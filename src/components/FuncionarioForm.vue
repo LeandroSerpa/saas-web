@@ -1,6 +1,12 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { emailBasicoValido, sanitizarTelefone, telefoneBasicoValido } from '@/utils/validacoes'
+import { computed, reactive, ref } from 'vue'
+import {
+  criarManipuladorPasteNumerico,
+  emailBasicoValido,
+  limparEspacos,
+  sanitizarTelefone,
+  telefoneBasicoValido,
+} from '@/utils/validacoes'
 
 const funcionario = defineModel({
   type: Object,
@@ -20,9 +26,19 @@ defineProps({
 
 const emit = defineEmits(['salvar', 'cancelar'])
 const erroValidacao = ref('')
+const errosCampos = reactive({
+  telefone: '',
+  email: '',
+})
 
 const horarioInicioInvalido = computed(() => horarioPreenchidoInvalido(funcionario.value.horaInicioAtendimento))
 const horarioFimInvalido = computed(() => horarioPreenchidoInvalido(funcionario.value.horaFimAtendimento))
+const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
+
+function limparErroCampo(campo) {
+  errosCampos[campo] = ''
+  erroValidacao.value = ''
+}
 
 function aplicarMascaraHorario(campo, valor) {
   const digitos = String(valor || '')
@@ -35,31 +51,48 @@ function aplicarMascaraHorario(campo, valor) {
 
 function horarioPreenchidoInvalido(valor) {
   const texto = String(valor || '').trim()
-
   return Boolean(texto) && !/^([01]\d|2[0-3]):[0-5]\d$/.test(texto)
 }
 
 function aplicarTelefone(valor) {
   funcionario.value.telefone = sanitizarTelefone(valor)
+  limparErroCampo('telefone')
 }
 
 function aplicarEmail(valor) {
-  funcionario.value.email = String(valor || '').replace(/\s/g, '')
+  funcionario.value.email = limparEspacos(valor)
+  limparErroCampo('email')
+}
+
+function validarTelefone() {
+  if (funcionario.value.telefone && !telefoneBasicoValido(funcionario.value.telefone)) {
+    const mensagem = 'Informe um telefone válido.'
+    errosCampos.telefone = mensagem
+    erroValidacao.value = mensagem
+    return false
+  }
+
+  errosCampos.telefone = ''
+  return true
+}
+
+function validarEmail() {
+  if (funcionario.value.email && !emailBasicoValido(funcionario.value.email)) {
+    const mensagem = 'Informe um e-mail válido.'
+    errosCampos.email = mensagem
+    erroValidacao.value = mensagem
+    return false
+  }
+
+  errosCampos.email = ''
+  return true
 }
 
 function solicitarSalvamento() {
   erroValidacao.value = ''
-
-  if (funcionario.value.telefone && !telefoneBasicoValido(funcionario.value.telefone)) {
-    erroValidacao.value = 'Informe um telefone válido.'
-    return
-  }
-
-  if (funcionario.value.email && !emailBasicoValido(funcionario.value.email)) {
-    erroValidacao.value = 'Informe um e-mail valido.'
-    return
-  }
-
+  const telefoneValido = validarTelefone()
+  const emailValido = validarEmail()
+  if (!telefoneValido || !emailValido) return
   emit('salvar')
 }
 </script>
@@ -91,18 +124,23 @@ function solicitarSalvamento() {
           inputmode="tel"
           placeholder="Ex: (21) 99999-9999"
           @input="aplicarTelefone($event.target.value)"
+          @blur="validarTelefone"
+          @paste="aoColarTelefone($event, (valor) => aplicarTelefone(valor))"
         />
+        <span v-if="errosCampos.telefone" class="mensagem-campo">{{ errosCampos.telefone }}</span>
       </label>
 
       <label>
         E-mail
         <input
           :value="funcionario.email"
-          type="email"
+          type="text"
           inputmode="email"
           placeholder="Ex: funcionario@empresa.com"
           @input="aplicarEmail($event.target.value)"
+          @blur="validarEmail"
         />
+        <span v-if="errosCampos.email" class="mensagem-campo">{{ errosCampos.email }}</span>
       </label>
 
       <label>

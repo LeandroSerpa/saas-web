@@ -1,8 +1,10 @@
 <script setup>
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import {
+  criarManipuladorPasteNumerico,
   decimalValido,
   inteiroPositivoValido,
+  normalizarDecimalParaBackend,
   sanitizarDecimal,
   sanitizarInteiroPositivo,
 } from '@/utils/validacoes'
@@ -25,28 +27,59 @@ defineProps({
 
 const emit = defineEmits(['salvar', 'cancelar'])
 const erroValidacao = ref('')
+const errosCampos = reactive({
+  preco: '',
+  duracaoMinutos: '',
+})
+
+const aoColarPreco = criarManipuladorPasteNumerico(sanitizarDecimal)
+const aoColarDuracao = criarManipuladorPasteNumerico(sanitizarInteiroPositivo)
+
+function limparErroCampo(campo) {
+  errosCampos[campo] = ''
+  erroValidacao.value = ''
+}
 
 function aplicarPreco(valor) {
   servico.value.preco = sanitizarDecimal(valor)
+  limparErroCampo('preco')
 }
 
 function aplicarDuracao(valor) {
   servico.value.duracaoMinutos = sanitizarInteiroPositivo(valor)
+  limparErroCampo('duracaoMinutos')
+}
+
+function validarPreco() {
+  if (!decimalValido(servico.value.preco)) {
+    const mensagem = 'Informe um preço válido.'
+    errosCampos.preco = mensagem
+    erroValidacao.value = mensagem
+    return false
+  }
+
+  servico.value.preco = String(normalizarDecimalParaBackend(servico.value.preco) ?? '')
+  errosCampos.preco = ''
+  return true
+}
+
+function validarDuracao() {
+  if (!inteiroPositivoValido(servico.value.duracaoMinutos)) {
+    const mensagem = 'Informe a duração em minutos com números inteiros positivos.'
+    errosCampos.duracaoMinutos = mensagem
+    erroValidacao.value = mensagem
+    return false
+  }
+
+  errosCampos.duracaoMinutos = ''
+  return true
 }
 
 function solicitarSalvamento() {
   erroValidacao.value = ''
-
-  if (!decimalValido(servico.value.preco)) {
-    erroValidacao.value = 'Informe um preco valido.'
-    return
-  }
-
-  if (!inteiroPositivoValido(servico.value.duracaoMinutos)) {
-    erroValidacao.value = 'Informe a duracao em minutos com numeros inteiros positivos.'
-    return
-  }
-
+  const precoValido = validarPreco()
+  const duracaoValida = validarDuracao()
+  if (!precoValido || !duracaoValida) return
   emit('salvar')
 }
 </script>
@@ -54,12 +87,12 @@ function solicitarSalvamento() {
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar servico' : 'Novo servico' }}</h2>
+      <h2>{{ modoEdicao ? 'Editar serviço' : 'Novo serviço' }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do servico selecionado.'
-            : 'Cadastre um servico para disponibilizar nos agendamentos.'
+            ? 'Atualize os dados do serviço selecionado.'
+            : 'Cadastre um serviço para disponibilizar nos agendamentos.'
         }}
       </p>
     </div>
@@ -71,25 +104,31 @@ function solicitarSalvamento() {
       </label>
 
       <label>
-        Preco *
+        Preço *
         <input
           :value="servico.preco"
           type="text"
           inputmode="decimal"
-          placeholder="Ex: 120.00"
+          placeholder="Ex: 120,00"
           @input="aplicarPreco($event.target.value)"
+          @blur="validarPreco"
+          @paste="aoColarPreco($event, (valor) => aplicarPreco(valor))"
         />
+        <span v-if="errosCampos.preco" class="erro-texto">{{ errosCampos.preco }}</span>
       </label>
 
       <label>
-        Duracao em minutos *
+        Duração em minutos *
         <input
           :value="servico.duracaoMinutos"
           type="text"
           inputmode="numeric"
           placeholder="Ex: 60"
           @input="aplicarDuracao($event.target.value)"
+          @blur="validarDuracao"
+          @paste="aoColarDuracao($event, (valor) => aplicarDuracao(valor))"
         />
+        <span v-if="errosCampos.duracaoMinutos" class="erro-texto">{{ errosCampos.duracaoMinutos }}</span>
       </label>
 
       <label class="campo-checkbox">
@@ -98,24 +137,24 @@ function solicitarSalvamento() {
       </label>
 
       <label class="campo-grande">
-        Descricao
+        Descrição
         <input
           v-model="servico.descricao"
           type="text"
-          placeholder="Ex: Atendimento completo com avaliacao"
+          placeholder="Ex: Atendimento completo com avaliação"
         />
       </label>
     </div>
 
-    <p v-if="erroValidacao" class="sucesso-texto erro-texto">{{ erroValidacao }}</p>
+    <p v-if="erroValidacao" class="erro-texto">{{ erroValidacao }}</p>
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="solicitarSalvamento">
-        {{ modoEdicao ? 'Salvar alteracoes' : 'Cadastrar servico' }}
+        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar serviço' }}
       </button>
 
       <button v-if="modoEdicao" class="botao neutro" @click="$emit('cancelar')">
-        Cancelar edicao
+        Cancelar edição
       </button>
 
       <p v-if="mensagemSucesso" class="sucesso-texto">

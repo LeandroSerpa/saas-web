@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue'
-import { emailBasicoValido } from '@/utils/validacoes'
+import { reactive, ref } from 'vue'
+import { emailBasicoValido, limparEspacos } from '@/utils/validacoes'
 
 const usuario = defineModel({
   type: Object,
@@ -40,19 +40,31 @@ defineProps({
 
 const emit = defineEmits(['salvar', 'cancelar'])
 const erroValidacao = ref('')
+const errosCampos = reactive({
+  email: '',
+})
 
 function normalizarEmail(valor) {
-  usuario.value.email = String(valor || '').replace(/\s/g, '')
+  usuario.value.email = limparEspacos(valor)
+  errosCampos.email = ''
+  erroValidacao.value = ''
+}
+
+function validarEmail() {
+  if (!emailBasicoValido(usuario.value.email)) {
+    const mensagem = 'Informe um e-mail válido.'
+    errosCampos.email = mensagem
+    erroValidacao.value = mensagem
+    return false
+  }
+
+  errosCampos.email = ''
+  return true
 }
 
 function solicitarSalvamento() {
   erroValidacao.value = ''
-
-  if (!emailBasicoValido(usuario.value.email)) {
-    erroValidacao.value = 'Informe um e-mail válido.'
-    return
-  }
-
+  if (!validarEmail()) return
   emit('salvar')
 }
 </script>
@@ -80,11 +92,13 @@ function solicitarSalvamento() {
         E-mail *
         <input
           :value="usuario.email"
-          type="email"
+          type="text"
           inputmode="email"
           placeholder="Ex: usuario@empresa.com"
           @input="normalizarEmail($event.target.value)"
+          @blur="validarEmail"
         />
+        <span v-if="errosCampos.email" class="erro-texto">{{ errosCampos.email }}</span>
       </label>
 
       <label>
@@ -121,7 +135,7 @@ function solicitarSalvamento() {
       </label>
     </div>
 
-    <p v-if="erroValidacao" class="sucesso-texto erro-texto">{{ erroValidacao }}</p>
+    <p v-if="erroValidacao" class="erro-texto">{{ erroValidacao }}</p>
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="solicitarSalvamento">

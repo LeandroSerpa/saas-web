@@ -7,8 +7,10 @@ import {
   cadastrarEmpresaInteressadaPublico,
 } from '@/services/api'
 import {
+  criarManipuladorPasteNumerico,
   documentoBasicoValido,
   emailBasicoValido,
+  limparEspacos,
   sanitizarDocumento,
   sanitizarTelefone,
   telefoneBasicoValido,
@@ -16,6 +18,8 @@ import {
 
 const etapas = [{ titulo: 'Empresa' }, { titulo: 'Responsável' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'Revisão' }]
 const ufs = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
+const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
 
 const etapaAtual = ref(0)
 const segmentos = ref([])
@@ -68,6 +72,11 @@ function criarErrosCamposIniciais() {
   }
 }
 
+function limparErroCampo(campo) {
+  if (campo in errosCampos.value) errosCampos.value[campo] = ''
+  erro.value = ''
+}
+
 async function carregarOpcoes() {
   try {
     carregando.value = true
@@ -79,9 +88,9 @@ async function carregarOpcoes() {
 
     segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
     planos.value = extrairLista(planosApi).filter((plano) => plano.publico !== false && plano.visivelPublico !== false)
-  } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível carregar as opções do cadastro.')
-    console.error(error)
+  } catch (errorAtual) {
+    erro.value = obterMensagemErro(errorAtual, 'Não foi possível carregar as opções do cadastro.')
+    console.error(errorAtual)
   } finally {
     carregando.value = false
   }
@@ -94,7 +103,7 @@ function proximaEtapa() {
 
 function etapaAnterior() {
   erro.value = ''
-  limparErrosCampos()
+  errosCampos.value = criarErrosCamposIniciais()
   etapaAtual.value = Math.max(etapaAtual.value - 1, 0)
 }
 
@@ -110,33 +119,52 @@ async function enviarCadastro() {
     formulario.value = criarFormularioInicial()
     errosCampos.value = criarErrosCamposIniciais()
     etapaAtual.value = 0
-  } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível enviar o cadastro.')
-    console.error(error)
+  } catch (errorAtual) {
+    erro.value = obterMensagemErro(errorAtual, 'Não foi possível enviar o cadastro.')
+    console.error(errorAtual)
   } finally {
     enviando.value = false
   }
 }
 
+function validarCampoDocumento() {
+  if (!formulario.value.documento.trim()) return falharValidacao('Informe o documento da empresa.', 'documento')
+  if (!documentoBasicoValido(formulario.value.documento)) return falharValidacao('Informe um CPF ou CNPJ válido, usando apenas números.', 'documento')
+  errosCampos.value.documento = ''
+  return true
+}
+
+function validarCampoTelefone(campo, obrigatorio = false) {
+  const rotulo = campo === 'telefoneResponsavel' ? 'do responsável' : 'da empresa'
+  if (obrigatorio && !formulario.value[campo].trim()) return falharValidacao(`Informe o telefone ${rotulo}.`, campo)
+  if (formulario.value[campo] && !telefoneBasicoValido(formulario.value[campo])) return falharValidacao('Informe um telefone válido, usando apenas números com DDD.', campo)
+  errosCampos.value[campo] = ''
+  return true
+}
+
+function validarCampoEmail(campo) {
+  if (!emailBasicoValido(formulario.value[campo])) return falharValidacao('Informe um e-mail válido.', campo)
+  errosCampos.value[campo] = ''
+  return true
+}
+
 function validarEtapaAtual() {
   erro.value = ''
-  limparErrosCampos()
+  errosCampos.value = criarErrosCamposIniciais()
 
   if (etapaAtual.value === 0) {
     if (!formulario.value.nomeEmpresa.trim()) return falharValidacao('Informe o nome da empresa.')
-    if (!formulario.value.documento.trim()) return falharValidacao('Informe o documento da empresa.')
-    if (!documentoBasicoValido(formulario.value.documento)) return falharValidacao('Informe um CPF ou CNPJ válido, usando apenas números.', 'documento')
-    if (formulario.value.telefoneEmpresa && !telefoneBasicoValido(formulario.value.telefoneEmpresa)) return falharValidacao('Informe um telefone válido, usando apenas números com DDD.', 'telefoneEmpresa')
-    if (!emailBasicoValido(formulario.value.emailEmpresa)) return falharValidacao('Informe um e-mail válido.', 'emailEmpresa')
+    if (!validarCampoDocumento()) return false
+    if (!validarCampoTelefone('telefoneEmpresa')) return false
+    if (!validarCampoEmail('emailEmpresa')) return false
     if (!formulario.value.cidade.trim()) return falharValidacao('Informe a cidade da empresa.')
     if (!formulario.value.estado.trim()) return falharValidacao('Selecione o Estado/UF da empresa.', 'estado')
   }
 
   if (etapaAtual.value === 1) {
     if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsável.')
-    if (!emailBasicoValido(formulario.value.emailResponsavel)) return falharValidacao('Informe um e-mail válido.', 'emailResponsavel')
-    if (!formulario.value.telefoneResponsavel.trim()) return falharValidacao('Informe o telefone do responsável.')
-    if (!telefoneBasicoValido(formulario.value.telefoneResponsavel)) return falharValidacao('Informe um telefone válido, usando apenas números com DDD.', 'telefoneResponsavel')
+    if (!validarCampoEmail('emailResponsavel')) return false
+    if (!validarCampoTelefone('telefoneResponsavel', true)) return false
     if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsável.')
     if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no mínimo 6 caracteres.')
     if (formulario.value.confirmarSenhaResponsavel !== formulario.value.senhaResponsavel) return falharValidacao('A confirmação de senha deve ser igual à senha informada.')
@@ -147,47 +175,34 @@ function validarEtapaAtual() {
     if (!formulario.value.interesse.trim()) return falharValidacao('Conte brevemente seu interesse.')
   }
 
-  if (etapaAtual.value === 3 && !formulario.value.planoId) {
-    return falharValidacao('Selecione o plano desejado.')
-  }
-
+  if (etapaAtual.value === 3 && !formulario.value.planoId) return falharValidacao('Selecione o plano desejado.')
   return true
 }
 
 function falharValidacao(mensagem, campo = '') {
   erro.value = mensagem
-  if (campo) {
-    errosCampos.value[campo] = mensagem
-  }
+  if (campo) errosCampos.value[campo] = mensagem
   return false
-}
-
-function limparErrosCampos() {
-  errosCampos.value = criarErrosCamposIniciais()
 }
 
 function aplicarDocumento(valor) {
   formulario.value.documento = sanitizarDocumento(valor)
-  errosCampos.value.documento = ''
+  limparErroCampo('documento')
 }
 
 function aplicarTelefone(campo, valor) {
   formulario.value[campo] = sanitizarTelefone(valor)
-  if (campo in errosCampos.value) {
-    errosCampos.value[campo] = ''
-  }
+  limparErroCampo(campo)
 }
 
 function aplicarEmail(campo, valor) {
-  formulario.value[campo] = String(valor || '').replace(/\s/g, '')
-  if (campo in errosCampos.value) {
-    errosCampos.value[campo] = ''
-  }
+  formulario.value[campo] = limparEspacos(valor)
+  limparErroCampo(campo)
 }
 
 function aplicarEstado(valor) {
   formulario.value.estado = String(valor || '').toUpperCase()
-  errosCampos.value.estado = ''
+  limparErroCampo('estado')
 }
 
 function montarPayload() {
@@ -265,8 +280,8 @@ function obterCampo(item, ...campos) {
   return ''
 }
 
-function obterMensagemErro(error, fallback) {
-  return String(error?.message || '').trim() || fallback
+function obterMensagemErro(errorAtual, fallback) {
+  return String(errorAtual?.message || '').trim() || fallback
 }
 
 onMounted(carregarOpcoes)
@@ -305,17 +320,17 @@ onMounted(carregarOpcoes)
             <label>Nome da empresa *<input v-model="formulario.nomeEmpresa" type="text" /></label>
             <label>
               Documento (CPF/CNPJ) *
-              <input :value="formulario.documento" type="text" inputmode="numeric" @input="aplicarDocumento($event.target.value)" />
+              <input :value="formulario.documento" type="text" inputmode="numeric" @input="aplicarDocumento($event.target.value)" @blur="validarCampoDocumento" @paste="aoColarDocumento($event, (valor) => aplicarDocumento(valor))" />
               <small v-if="errosCampos.documento" class="erro-campo">{{ errosCampos.documento }}</small>
             </label>
             <label>
               Telefone
-              <input :value="formulario.telefoneEmpresa" type="tel" inputmode="numeric" @input="aplicarTelefone('telefoneEmpresa', $event.target.value)" />
+              <input :value="formulario.telefoneEmpresa" type="tel" inputmode="numeric" @input="aplicarTelefone('telefoneEmpresa', $event.target.value)" @blur="validarCampoTelefone('telefoneEmpresa')" @paste="aoColarTelefone($event, (valor) => aplicarTelefone('telefoneEmpresa', valor))" />
               <small v-if="errosCampos.telefoneEmpresa" class="erro-campo">{{ errosCampos.telefoneEmpresa }}</small>
             </label>
             <label>
               E-mail da empresa *
-              <input :value="formulario.emailEmpresa" type="text" inputmode="email" @input="aplicarEmail('emailEmpresa', $event.target.value)" />
+              <input :value="formulario.emailEmpresa" type="text" inputmode="email" @input="aplicarEmail('emailEmpresa', $event.target.value)" @blur="validarCampoEmail('emailEmpresa')" />
               <small v-if="errosCampos.emailEmpresa" class="erro-campo">{{ errosCampos.emailEmpresa }}</small>
             </label>
             <label class="campo-grande">Endereço<input v-model="formulario.endereco" type="text" /></label>
@@ -334,12 +349,12 @@ onMounted(carregarOpcoes)
             <label>Nome do responsável *<input v-model="formulario.nomeResponsavel" type="text" /></label>
             <label>
               E-mail do responsável *
-              <input :value="formulario.emailResponsavel" type="text" inputmode="email" @input="aplicarEmail('emailResponsavel', $event.target.value)" />
+              <input :value="formulario.emailResponsavel" type="text" inputmode="email" @input="aplicarEmail('emailResponsavel', $event.target.value)" @blur="validarCampoEmail('emailResponsavel')" />
               <small v-if="errosCampos.emailResponsavel" class="erro-campo">{{ errosCampos.emailResponsavel }}</small>
             </label>
             <label>
               Telefone/WhatsApp *
-              <input :value="formulario.telefoneResponsavel" type="tel" inputmode="numeric" @input="aplicarTelefone('telefoneResponsavel', $event.target.value)" />
+              <input :value="formulario.telefoneResponsavel" type="tel" inputmode="numeric" @input="aplicarTelefone('telefoneResponsavel', $event.target.value)" @blur="validarCampoTelefone('telefoneResponsavel', true)" @paste="aoColarTelefone($event, (valor) => aplicarTelefone('telefoneResponsavel', valor))" />
               <small v-if="errosCampos.telefoneResponsavel" class="erro-campo">{{ errosCampos.telefoneResponsavel }}</small>
             </label>
             <label>Cargo<input v-model="formulario.cargoResponsavel" type="text" /></label>

@@ -2,8 +2,16 @@ export function emailBasicoValido(valor) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim())
 }
 
-export function sanitizarTelefone(valor) {
+export function limparEspacos(valor) {
+  return String(valor || '').replace(/\s/g, '')
+}
+
+export function sanitizarSomenteDigitos(valor) {
   return String(valor || '').replace(/\D/g, '')
+}
+
+export function sanitizarTelefone(valor) {
+  return sanitizarSomenteDigitos(valor)
 }
 
 export function telefoneBasicoValido(valor) {
@@ -12,7 +20,7 @@ export function telefoneBasicoValido(valor) {
 }
 
 export function sanitizarDocumento(valor) {
-  return String(valor || '').replace(/\D/g, '')
+  return sanitizarSomenteDigitos(valor)
 }
 
 export function documentoBasicoValido(valor) {
@@ -21,7 +29,9 @@ export function documentoBasicoValido(valor) {
 }
 
 export function sanitizarDecimal(valor) {
-  const texto = String(valor || '').replace(',', '.').replace(/[^0-9.]/g, '')
+  const texto = String(valor || '')
+    .replace(',', '.')
+    .replace(/[^0-9.]/g, '')
   const partes = texto.split('.')
 
   if (partes.length <= 1) {
@@ -38,11 +48,25 @@ export function decimalValido(valor) {
 }
 
 export function sanitizarInteiroPositivo(valor) {
-  return String(valor || '').replace(/\D/g, '')
+  return sanitizarSomenteDigitos(valor)
 }
 
 export function inteiroPositivoValido(valor) {
   const texto = sanitizarInteiroPositivo(valor).trim()
 
   return /^[1-9]\d*$/.test(texto)
+}
+
+export function normalizarDecimalParaBackend(valor) {
+  const texto = sanitizarDecimal(valor).trim()
+  return texto ? Number(texto) : null
+}
+
+export function criarManipuladorPasteNumerico(sanitizador) {
+  return function aoColarNumerico(evento, aplicarValor) {
+    const texto = evento?.clipboardData?.getData('text') ?? window?.clipboardData?.getData('Text') ?? ''
+    if (!texto) return
+    evento.preventDefault()
+    aplicarValor(sanitizador(texto))
+  }
 }
