@@ -70,6 +70,7 @@ const resumoSenha = computed(() =>
 const senhaTemporariaResultado = computed(() =>
   obterCampo(empresaCriada.value, 'senhaTemporaria', 'senhaInicialAdmin', 'adminSenhaTemporaria', 'temporaryPassword'),
 )
+const senhaTemporariaResultadoTexto = computed(() => senhaTemporariaResultado.value || 'Não retornada pelo backend.')
 const emailAdminResultado = computed(() =>
   obterCampo(
     empresaCriada.value,
@@ -81,6 +82,17 @@ const emailAdminResultado = computed(() =>
 )
 const nomeEmpresaResultado = computed(() =>
   obterCampo(empresaCriada.value, 'nomeEmpresa', 'empresaNome', 'nome') || formulario.value.empresa.nome,
+)
+const linkPublicoResultado = computed(() =>
+  obterCampo(
+    empresaCriada.value,
+    'linkPublico',
+    'urlPublica',
+    'urlPublico',
+    'publicLink',
+    'empresa.linkPublico',
+    'empresa.urlPublica',
+  ) || linkPublicoPrevisto.value,
 )
 
 watch(
@@ -360,18 +372,27 @@ function falharCampo(campo, mensagem) {
 }
 
 async function copiarLinkPublico() {
-  if (!linkPublicoPrevisto.value) return
+  await copiarTexto(linkPublicoResultado.value, 'Link público copiado com sucesso.', 'Não foi possível copiar o link público.')
+}
+
+async function copiarSenhaTemporaria() {
+  if (!senhaTemporariaResultado.value) return
+  await copiarTexto(senhaTemporariaResultado.value, 'Senha temporária copiada com sucesso.', 'Não foi possível copiar a senha temporária.')
+}
+
+async function copiarTexto(valor, mensagemSucesso, mensagemErro) {
+  if (!valor) return
 
   try {
     if (!navigator?.clipboard?.writeText) {
       throw new Error('Clipboard indisponível')
     }
-    await navigator.clipboard.writeText(linkPublicoPrevisto.value)
-    infoCopia.value = 'Link público copiado com sucesso.'
+    await navigator.clipboard.writeText(valor)
+    infoCopia.value = mensagemSucesso
     erro.value = ''
   } catch (error) {
     infoCopia.value = ''
-    erro.value = 'Não foi possível copiar o link público.'
+    erro.value = mensagemErro
   }
 }
 
@@ -535,12 +556,25 @@ function lerCaminho(objeto, caminho) {
           <h3>Empresa</h3>
           <p><strong>Nome:</strong> {{ nomeEmpresaResultado }}</p>
           <p><strong>E-mail do admin:</strong> {{ emailAdminResultado }}</p>
-          <p v-if="senhaTemporariaResultado"><strong>Senha temporária:</strong> {{ senhaTemporariaResultado }}</p>
-          <p v-else><strong>Senha temporária:</strong> Não retornada pelo backend.</p>
+          <p class="credencial-destaque">
+            <strong>Senha temporária:</strong>
+            <span>{{ senhaTemporariaResultadoTexto }}</span>
+          </p>
+          <button
+            v-if="senhaTemporariaResultado"
+            class="botao neutro botao-inline"
+            type="button"
+            @click="copiarSenhaTemporaria"
+          >
+            Copiar senha temporária
+          </button>
         </article>
         <article>
           <h3>Público</h3>
-          <p><strong>Link público:</strong> {{ linkPublicoPrevisto }}</p>
+          <p class="credencial-destaque">
+            <strong>Link público:</strong>
+            <span>{{ linkPublicoResultado || 'Não disponível.' }}</span>
+          </p>
         </article>
       </div>
 
@@ -983,6 +1017,27 @@ textarea:focus {
   display: grid;
   gap: 10px;
   box-shadow: none;
+}
+
+.credencial-destaque {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.credencial-destaque span {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #14532d;
+  word-break: break-word;
+}
+
+.botao-inline {
+  justify-self: start;
 }
 
 .dias-topo {
