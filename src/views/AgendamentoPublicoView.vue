@@ -10,9 +10,11 @@ import {
   buscarServicosPublicos,
   criarAgendamentoPublico,
 } from '@/services/api'
+import { criarManipuladorPasteNumerico, sanitizarTelefone } from '@/utils/validacoes'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
+const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
 
 const empresa = ref(null)
 const personalizacao = ref(criarPersonalizacaoPublicaPadrao())
@@ -257,6 +259,10 @@ function criarAgendamentoInicial() {
     dataHoraInicio: '',
     observacao: '',
   }
+}
+
+function aplicarTelefoneCliente(valor) {
+  agendamento.value.telefoneCliente = sanitizarTelefone(valor)
 }
 
 function criarPersonalizacaoPublicaPadrao() {
@@ -978,9 +984,12 @@ onMounted(() => {
           <label>
             Telefone *
             <input
-              v-model="agendamento.telefoneCliente"
+              :value="agendamento.telefoneCliente"
               type="text"
+              inputmode="numeric"
               placeholder="Ex: (21) 99999-9999"
+              @input="aplicarTelefoneCliente($event.target.value)"
+              @paste="aoColarTelefone($event, (valor) => aplicarTelefoneCliente(valor))"
             />
           </label>
 

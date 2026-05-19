@@ -10,6 +10,8 @@ export function sanitizarSomenteDigitos(valor) {
   return String(valor || '').replace(/\D/g, '')
 }
 
+export const somenteNumeros = sanitizarSomenteDigitos
+
 export function sanitizarTelefone(valor) {
   return sanitizarSomenteDigitos(valor).slice(0, 11)
 }

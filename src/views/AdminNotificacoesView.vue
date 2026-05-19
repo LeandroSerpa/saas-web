@@ -25,6 +25,7 @@ import {
   salvarConfiguracoesNotificacoesEmpresa,
 } from '@/services/api'
 import { ehSuperAdmin } from '@/utils/permissoes'
+import { criarManipuladorPasteNumerico, sanitizarTelefone } from '@/utils/validacoes'
 
 const abas = [
   { id: 'notificacoes', rotulo: 'Notificações' },
@@ -69,6 +70,7 @@ const filtrosLixeira = ref({ empresaId: '', tipo: '', busca: '', dataInicial: ''
 const filtrosLogs = ref({ tipo: '', canal: '', destino: '', dataInicial: '', dataFinal: '' })
 const filtrosLembretesAgendamentos = ref({ empresaId: '', tipoLembrete: '' })
 const manual = ref(criarManualInicial())
+const aoColarTelefone = criarManipuladorPasteNumerico(sanitizarTelefone)
 const carregando = ref(false)
 const processandoId = ref(null)
 const erro = ref('')
@@ -312,6 +314,15 @@ function editarNotificacao(item) {
 
 function cancelarEdicaoNotificacao() {
   notificacaoEditando.value = null
+}
+
+function aplicarTelefoneNotificacao(valor) {
+  if (!notificacaoEditando.value) return
+  notificacaoEditando.value.telefoneDestino = sanitizarTelefone(valor)
+}
+
+function aplicarTelefoneManual(valor) {
+  manual.value.telefoneDestino = sanitizarTelefone(valor)
 }
 
 async function salvarNotificacao() {
@@ -834,7 +845,7 @@ onMounted(() => {
           </label>
           <label class="campo-grande">Título <input v-model="notificacaoEditando.titulo" type="text" /></label>
           <label class="campo-grande">Mensagem <textarea v-model="notificacaoEditando.mensagem" rows="4"></textarea></label>
-          <label>Telefone destino <input v-model="notificacaoEditando.telefoneDestino" type="text" /></label>
+          <label>Telefone destino <input :value="notificacaoEditando.telefoneDestino" type="text" inputmode="numeric" @input="aplicarTelefoneNotificacao($event.target.value)" @paste="aoColarTelefone($event, (valor) => aplicarTelefoneNotificacao(valor))" /></label>
           <label class="checkbox"><input v-model="notificacaoEditando.gerarLinkWhatsapp" type="checkbox" /> Gerar WhatsApp</label>
           <label class="campo-grande">Link de ação
             <input
@@ -1038,7 +1049,7 @@ onMounted(() => {
             <option v-for="prioridade in prioridades" :key="prioridade" :value="prioridade">{{ prioridade }}</option>
           </select>
         </label>
-        <label>Telefone destino opcional <input v-model="manual.telefoneDestino" type="text" /></label>
+        <label>Telefone destino opcional <input :value="manual.telefoneDestino" type="text" inputmode="numeric" @input="aplicarTelefoneManual($event.target.value)" @paste="aoColarTelefone($event, (valor) => aplicarTelefoneManual(valor))" /></label>
         <label class="campo-grande">Título <input v-model="manual.titulo" type="text" /></label>
         <label class="campo-grande">Mensagem <textarea v-model="manual.mensagem" rows="4"></textarea></label>
         <label class="campo-grande">Link de ação
