@@ -37,6 +37,7 @@ const UFS = [
   'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
+const URL_PUBLICA_BASE = 'https://automacao-le-saas-web.1mweab.easypanel.host'
 
 const etapaAtual = ref(0)
 const carregando = ref(true)
@@ -58,19 +59,21 @@ const planosDisponiveis = computed(() => extrairLista(opcoes.value.planos).filte
 const planoSelecionado = computed(() =>
   planosDisponiveis.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null,
 )
-const linkPublicoPrevisto = computed(() => {
-  const slug = formulario.value.empresa.slugPublico.trim()
-  return slug ? `${window.location.origin}/agendar/${slug}` : ''
-})
-const resumoSenha = computed(() =>
-  formulario.value.admin.senhaTemporaria.trim()
-    ? 'Senha informada manualmente'
-    : 'Backend gerará senha temporária',
-)
+const linkPublicoPrevisto = computed(() => montarLinkPublico(formulario.value.empresa.slugPublico))
 const senhaTemporariaResultado = computed(() =>
-  obterCampo(empresaCriada.value, 'senhaTemporaria', 'senhaInicialAdmin', 'adminSenhaTemporaria', 'temporaryPassword'),
+  obterCampo(
+    empresaCriada.value,
+    'senhaTemporaria',
+    'senhaInicialAdmin',
+    'adminSenhaTemporaria',
+    'temporaryPassword',
+    'usuarioAdmin.senhaTemporaria',
+    'usuarioAdmin.temporaryPassword',
+  ),
 )
-const senhaTemporariaResultadoTexto = computed(() => senhaTemporariaResultado.value || 'Não retornada pelo backend.')
+const senhaTemporariaResultadoTexto = computed(() =>
+  senhaTemporariaResultado.value || 'Senha temporária não retornada pelo backend.',
+)
 const emailAdminResultado = computed(() =>
   obterCampo(
     empresaCriada.value,
@@ -78,10 +81,17 @@ const emailAdminResultado = computed(() =>
     'usuarioAdminEmail',
     'emailAdmin',
     'usuario.email',
+    'usuarioAdmin.email',
   ) || formulario.value.admin.email,
 )
 const nomeEmpresaResultado = computed(() =>
-  obterCampo(empresaCriada.value, 'nomeEmpresa', 'empresaNome', 'nome') || formulario.value.empresa.nome,
+  obterCampo(
+    empresaCriada.value,
+    'nomeEmpresa',
+    'empresaNome',
+    'nome',
+    'empresa.nome',
+  ) || formulario.value.empresa.nome,
 )
 const linkPublicoResultado = computed(() =>
   obterCampo(
@@ -92,6 +102,7 @@ const linkPublicoResultado = computed(() =>
     'publicLink',
     'empresa.linkPublico',
     'empresa.urlPublica',
+    'empresa.publicLink',
   ) || linkPublicoPrevisto.value,
 )
 
@@ -241,12 +252,13 @@ function proximaEtapa() {
 }
 
 function etapaAnterior() {
+  if (salvando.value) return
   limparMensagensGerais()
   etapaAtual.value = Math.max(etapaAtual.value - 1, 0)
 }
 
 async function criarEmpresa() {
-  if (!validarEtapaAtual()) return
+  if (salvando.value || !validarEtapaAtual()) return
 
   try {
     salvando.value = true
@@ -254,7 +266,7 @@ async function criarEmpresa() {
     const resposta = await criarEmpresaCadastroGuiadoAdmin(montarPayload())
     const dados = normalizarObjeto(resposta)
     empresaCriada.value = normalizarObjeto(dados.empresa || dados.resultado || dados)
-    sucesso.value = `Empresa ${formulario.value.empresa.nome} criada com sucesso.`
+    sucesso.value = `Empresa ${nomeEmpresaResultado.value} criada com sucesso.`
     aviso.value = extrairAvisoResposta(resposta)
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível criar a empresa.')
@@ -316,15 +328,20 @@ function validarEtapaAtual() {
 
   if (etapaAtual.value === 0) {
     if (!formulario.value.empresa.nome.trim()) return falharCampo('empresa.nome', 'Informe o nome da empresa.')
-    if (formulario.value.empresa.documento && !documentoBasicoValido(formulario.value.empresa.documento)) {
+    if (!formulario.value.empresa.documento.trim()) return falharCampo('empresa.documento', 'Informe o documento da empresa.')
+    if (!documentoBasicoValido(formulario.value.empresa.documento)) {
       return falharCampo('empresa.documento', 'Informe um documento com 11 ou 14 dígitos.')
     }
     if (formulario.value.empresa.telefone && !telefoneBasicoValido(formulario.value.empresa.telefone)) {
       return falharCampo('empresa.telefone', 'Informe um telefone com 10 ou 11 dígitos.')
     }
-    if (formulario.value.empresa.email && !emailBasicoValido(formulario.value.empresa.email)) {
+    if (!formulario.value.empresa.email.trim()) return falharCampo('empresa.email', 'Informe o e-mail da empresa.')
+    if (!emailBasicoValido(formulario.value.empresa.email)) {
       return falharCampo('empresa.email', 'Informe um e-mail válido.')
     }
+    if (!formulario.value.empresa.cidade.trim()) return falharCampo('empresa.cidade', 'Informe a cidade.')
+    if (!formulario.value.empresa.estado.trim()) return falharCampo('empresa.estado', 'Informe a UF.')
+    if (!formulario.value.empresa.endereco.trim()) return falharCampo('empresa.endereco', 'Informe o endereço.')
     if (!formulario.value.empresa.slugPublico.trim()) return falharCampo('empresa.slugPublico', 'Informe o slug público.')
     if (formulario.value.empresa.slugPublico !== gerarSlug(formulario.value.empresa.slugPublico)) {
       return falharCampo('empresa.slugPublico', 'Use apenas minúsculas, números e hífens no slug.')
@@ -354,8 +371,8 @@ function validarEtapaAtual() {
   }
 
   if (etapaAtual.value === 3) {
-    if (!formulario.value.admin.nome.trim()) return falharCampo('admin.nome', 'Informe o nome do usuário admin.')
-    if (!formulario.value.admin.email.trim()) return falharCampo('admin.email', 'Informe o e-mail do usuário admin.')
+    if (!formulario.value.admin.nome.trim()) return falharCampo('admin.nome', 'Informe o nome do usuário administrador.')
+    if (!formulario.value.admin.email.trim()) return falharCampo('admin.email', 'Informe o e-mail do usuário administrador.')
     if (!emailBasicoValido(formulario.value.admin.email)) return falharCampo('admin.email', 'Informe um e-mail válido.')
     if (formulario.value.admin.telefone && !telefoneBasicoValido(formulario.value.admin.telefone)) {
       return falharCampo('admin.telefone', 'Informe um telefone com 10 ou 11 dígitos.')
@@ -372,12 +389,20 @@ function falharCampo(campo, mensagem) {
 }
 
 async function copiarLinkPublico() {
-  await copiarTexto(linkPublicoResultado.value, 'Link público copiado com sucesso.', 'Não foi possível copiar o link público.')
+  await copiarTexto(
+    linkPublicoResultado.value,
+    'Link público copiado com sucesso.',
+    'Não foi possível copiar o link público.',
+  )
 }
 
 async function copiarSenhaTemporaria() {
   if (!senhaTemporariaResultado.value) return
-  await copiarTexto(senhaTemporariaResultado.value, 'Senha temporária copiada com sucesso.', 'Não foi possível copiar a senha temporária.')
+  await copiarTexto(
+    senhaTemporariaResultado.value,
+    'Senha temporária copiada com sucesso.',
+    'Não foi possível copiar a senha temporária.',
+  )
 }
 
 async function copiarTexto(valor, mensagemSucesso, mensagemErro) {
@@ -405,6 +430,11 @@ function criarOutraEmpresa() {
   emailAdminTocado.value = false
   errosCampos.value = {}
   limparMensagensGerais()
+}
+
+function montarLinkPublico(slug) {
+  const slugNormalizado = gerarSlug(slug)
+  return slugNormalizado ? `${URL_PUBLICA_BASE}/agendar/${slugNormalizado}` : ''
 }
 
 function formatarMoeda(valor) {
@@ -530,8 +560,8 @@ function lerCaminho(objeto, caminho) {
         class="etapa"
         :class="{ ativa: etapaAtual === indice, concluida: etapaAtual > indice }"
         type="button"
-        :disabled="indice > etapaAtual"
-        @click="indice <= etapaAtual && (etapaAtual = indice)"
+        :disabled="indice > etapaAtual || salvando"
+        @click="indice <= etapaAtual && !salvando && (etapaAtual = indice)"
       >
         <span>{{ indice + 1 }}</span>
         {{ etapa.titulo }}
@@ -554,8 +584,8 @@ function lerCaminho(objeto, caminho) {
       <div class="sucesso-grid">
         <article>
           <h3>Empresa</h3>
-          <p><strong>Nome:</strong> {{ nomeEmpresaResultado }}</p>
-          <p><strong>E-mail do admin:</strong> {{ emailAdminResultado }}</p>
+          <p><strong>Nome da empresa:</strong> {{ nomeEmpresaResultado }}</p>
+          <p><strong>E-mail do usuário admin:</strong> {{ emailAdminResultado }}</p>
           <p class="credencial-destaque">
             <strong>Senha temporária:</strong>
             <span>{{ senhaTemporariaResultadoTexto }}</span>
@@ -570,9 +600,9 @@ function lerCaminho(objeto, caminho) {
           </button>
         </article>
         <article>
-          <h3>Público</h3>
+          <h3>Página pública</h3>
           <p class="credencial-destaque">
-            <strong>Link público:</strong>
+            <strong>Link público completo:</strong>
             <span>{{ linkPublicoResultado || 'Não disponível.' }}</span>
           </p>
         </article>
@@ -594,7 +624,7 @@ function lerCaminho(objeto, caminho) {
         </label>
 
         <label>
-          Documento
+          Documento *
           <input
             :value="formulario.empresa.documento"
             type="text"
@@ -620,27 +650,30 @@ function lerCaminho(objeto, caminho) {
         </label>
 
         <label>
-          E-mail da empresa
+          E-mail da empresa *
           <input v-model="formulario.empresa.email" type="email" placeholder="contato@empresa.com" @blur="validarEmailEmpresaBlur" />
-          <small v-if="emailEmpresaTocado && errosCampos['empresa.email']" class="mensagem-erro">{{ errosCampos['empresa.email'] }}</small>
+          <small v-if="errosCampos['empresa.email']" class="mensagem-erro">{{ errosCampos['empresa.email'] }}</small>
         </label>
 
         <label>
-          Cidade
+          Cidade *
           <input v-model="formulario.empresa.cidade" type="text" placeholder="São Paulo" />
+          <small v-if="errosCampos['empresa.cidade']" class="mensagem-erro">{{ errosCampos['empresa.cidade'] }}</small>
         </label>
 
         <label>
-          Estado/UF
+          UF *
           <select v-model="formulario.empresa.estado">
             <option value="">Selecione</option>
             <option v-for="uf in UFS" :key="uf" :value="uf">{{ uf }}</option>
           </select>
+          <small v-if="errosCampos['empresa.estado']" class="mensagem-erro">{{ errosCampos['empresa.estado'] }}</small>
         </label>
 
         <label class="campo-grande">
-          Endereço
+          Endereço *
           <input v-model="formulario.empresa.endereco" type="text" placeholder="Rua Principal, 100" />
+          <small v-if="errosCampos['empresa.endereco']" class="mensagem-erro">{{ errosCampos['empresa.endereco'] }}</small>
         </label>
 
         <label>
@@ -725,15 +758,15 @@ function lerCaminho(objeto, caminho) {
 
       <div v-else-if="etapaAtual === 3" class="campos">
         <label>
-          Nome do usuário admin *
+          Nome do usuário administrador *
           <input v-model="formulario.admin.nome" type="text" placeholder="Responsável principal" />
           <small v-if="errosCampos['admin.nome']" class="mensagem-erro">{{ errosCampos['admin.nome'] }}</small>
         </label>
 
         <label>
-          E-mail do usuário admin *
+          E-mail do usuário administrador *
           <input v-model="formulario.admin.email" type="email" placeholder="admin@empresa.com" @blur="validarEmailAdminBlur" />
-          <small v-if="emailAdminTocado && errosCampos['admin.email']" class="mensagem-erro">{{ errosCampos['admin.email'] }}</small>
+          <small v-if="errosCampos['admin.email']" class="mensagem-erro">{{ errosCampos['admin.email'] }}</small>
         </label>
 
         <label>
@@ -776,8 +809,8 @@ function lerCaminho(objeto, caminho) {
           <h2>Localização</h2>
           <p><strong>Endereço:</strong> {{ formulario.empresa.endereco || 'Não aplicável' }}</p>
           <p><strong>Cidade:</strong> {{ formulario.empresa.cidade || 'Não aplicável' }}</p>
-          <p><strong>Estado:</strong> {{ formulario.empresa.estado || 'Não aplicável' }}</p>
-          <p><strong>Slug/link público:</strong> {{ linkPublicoPrevisto || 'Não aplicável' }}</p>
+          <p><strong>UF:</strong> {{ formulario.empresa.estado || 'Não aplicável' }}</p>
+          <p><strong>Link da página pública:</strong> {{ linkPublicoPrevisto || 'Não aplicável' }}</p>
         </article>
 
         <article>
@@ -802,18 +835,17 @@ function lerCaminho(objeto, caminho) {
         </article>
 
         <article>
-          <h2>Usuário admin</h2>
+          <h2>Usuário administrador</h2>
           <p><strong>Nome:</strong> {{ formulario.admin.nome }}</p>
           <p><strong>E-mail:</strong> {{ formulario.admin.email }}</p>
           <p><strong>Telefone:</strong> {{ formulario.admin.telefone || 'Não aplicável' }}</p>
           <p><strong>Cargo:</strong> {{ formulario.admin.cargo || 'Não aplicável' }}</p>
-          <p><strong>Senha:</strong> {{ resumoSenha }}</p>
         </article>
       </div>
 
       <div class="acoes">
-        <button v-if="etapaAtual > 0" class="botao secundario" type="button" @click="etapaAnterior">Voltar</button>
-        <button v-if="etapaAtual < ETAPAS.length - 1" class="botao principal" type="button" @click="proximaEtapa">Avançar</button>
+        <button v-if="etapaAtual > 0" class="botao secundario" type="button" :disabled="salvando" @click="etapaAnterior">Voltar</button>
+        <button v-if="etapaAtual < ETAPAS.length - 1" class="botao principal" type="button" :disabled="salvando" @click="proximaEtapa">Avançar</button>
         <button v-else class="botao principal" type="button" :disabled="salvando" @click="criarEmpresa">
           {{ salvando ? 'Criando empresa...' : 'Criar empresa' }}
         </button>
