@@ -55,6 +55,11 @@ const errosCampos = ref({})
 const emailEmpresaTocado = ref(false)
 const emailAdminTocado = ref(false)
 const slugEditado = ref(false)
+const etapasValidadas = ref([false, false, false, false, false])
+const validacaoRemota = ref({
+  slug: criarEstadoValidacaoRemota(),
+  emailAdmin: criarEstadoValidacaoRemota(),
+})
 
 const formulario = ref(criarFormularioInicial())
 
@@ -63,14 +68,17 @@ const planoSelecionado = computed(() =>
   planosDisponiveis.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null,
 )
 const linkPublicoPrevisto = computed(() => montarLinkPublico(formulario.value.empresa.slugPublico))
+const validandoRemoto = computed(() => validacaoRemota.value.slug.carregando || validacaoRemota.value.emailAdmin.carregando)
 const senhaTemporariaResultado = computed(() =>
   obterCampo(
     empresaCriada.value,
     'senhaTemporaria',
     'data.senhaTemporaria',
     'resultado.senhaTemporaria',
+    'data.resultado.senhaTemporaria',
     'empresa.senhaTemporaria',
     'usuarioAdmin.senhaTemporaria',
+    'data.usuarioAdmin.senhaTemporaria',
     'senhaInicialAdmin',
     'adminSenhaTemporaria',
     'temporaryPassword',
@@ -127,7 +135,17 @@ watch(
   (nome) => {
     if (!slugEditado.value) {
       formulario.value.empresa.slugPublico = gerarSlug(nome)
+      limparValidacaoRemota('slug')
+      definirErroCampo('empresa.slugPublico', '')
     }
+  },
+)
+
+watch(
+  () => formulario.value.admin.email,
+  () => {
+    limparValidacaoRemota('emailAdmin')
+    definirErroCampo('admin.email', '')
   },
 )
 
@@ -168,6 +186,15 @@ function criarFormularioInicial() {
       cargo: '',
       senhaTemporaria: '',
     },
+  }
+}
+
+function criarEstadoValidacaoRemota() {
+  return {
+    valor: '',
+    valido: null,
+    mensagem: '',
+    carregando: false,
   }
 }
 
@@ -223,7 +250,10 @@ function colarTelefoneAdmin(evento) {
 
 function atualizarSlug(valor) {
   slugEditado.value = true
-  formulario.value.empresa.slugPublico = gerarSlug(valor)
+  const slugNormalizado = gerarSlug(valor)
+  formulario.value.empresa.slugPublico = slugNormalizado
+  limparValidacaoRemota('slug')
+  definirErroCampo('empresa.slugPublico', '')
 }
 
 function validarEmailEmpresaBlur() {
@@ -231,9 +261,10 @@ function validarEmailEmpresaBlur() {
   validarCampoEmail('empresa')
 }
 
-function validarEmailAdminBlur() {
+async function validarEmailAdminBlur() {
   emailAdminTocado.value = true
   validarCampoEmail('admin')
+  await validarEmailAdminRemotoSeNecessario()
 }
 
 function validarCampoEmail(tipo) {
@@ -245,6 +276,10 @@ function validarCampoEmail(tipo) {
 
   const valor = formulario.value.admin.email
   definirErroCampo('admin.email', valor && !emailBasicoValido(valor) ? 'Informe um e-mail válido.' : '')
+}
+
+async function validarSlugBlur() {
+  await validarSlugRemotoSeNecessario()
 }
 
 function definirErroCampo(campo, mensagem) {
@@ -262,49 +297,7 @@ function limparMensagensGerais() {
 }
 
 async function proximaEtapa() {
-  if (validandoAvanco.value || salvando.value) return
-  if (!validarEtapaAtual()) return
-
-  try {
-    validandoAvanco.value = true
-    limparMensagensGerais()
-
-    if (etapaAtual.value === 0) {
-      const resposta = await validarSlugOnboardingAdmin(formulario.value.empresa.slugPublico.trim())
-      console.log('validacao slug onboarding admin', resposta)
-      const validacao = normalizarRespostaValidacao(resposta)
-
-      if (!validacao.valido) {
-        return falharCampo('empresa.slugPublico', validacao.mensagem || 'Nao foi possivel validar o slug publico.')
-      }
-    }
-
-    if (etapaAtual.value === 3) {
-      const resposta = await validarEmailAdminOnboardingAdmin(formulario.value.admin.email.trim())
-      console.log('validacao email admin onboarding admin', resposta)
-      const validacao = normalizarRespostaValidacao(resposta)
-
-      if (!validacao.valido) {
-        return falharCampo('admin.email', validacao.mensagem || 'Nao foi possivel validar o e-mail do usuario administrador.')
-      }
-    }
-
-    etapaAtual.value = Math.min(etapaAtual.value + 1, ETAPAS.length - 1)
-  } catch (error) {
-    if (etapaAtual.value === 0) {
-      falharCampo('empresa.slugPublico', 'Nao foi possivel validar o slug publico agora. Tente novamente.')
-      return
-    }
-
-    if (etapaAtual.value === 3) {
-      falharCampo('admin.email', 'Nao foi possivel validar o e-mail do usuario administrador agora. Tente novamente.')
-      return
-    }
-
-    erro.value = obterMensagemErro(error, 'Nao foi possivel validar os dados informados.')
-  } finally {
-    validandoAvanco.value = false
-  }
+  await tentarIrParaEtapa(etapaAtual.value + 1)
 }
 
 function etapaAnterior() {
@@ -437,6 +430,200 @@ function validarEtapaAtual() {
   return true
 }
 
+async function tentarIrParaEtapa(indiceDestino) {
+  if (validandoAvanco.value || salvando.value) return false
+  if (indiceDestino < 0 || indiceDestino >= ETAPAS.length) return false
+
+  if (indiceDestino <= etapaAtual.value) {
+    limparMensagensGerais()
+    etapaAtual.value = indiceDestino
+    return true
+  }
+
+  const etapaOriginal = etapaAtual.value
+
+  try {
+    validandoAvanco.value = true
+    limparMensagensGerais()
+
+    for (let indice = 0; indice < indiceDestino; indice += 1) {
+      etapaAtual.value = indice
+      if (!(await validarEtapaParaAvanco(indice))) {
+        return false
+      }
+    }
+
+    etapaAtual.value = indiceDestino
+    return true
+  } finally {
+    if (etapaAtual.value > indiceDestino || etapaAtual.value < 0) {
+      etapaAtual.value = etapaOriginal
+    }
+    validandoAvanco.value = false
+  }
+}
+
+async function validarEtapaParaAvanco(indice) {
+  if (!validarEtapaAtual()) {
+    etapasValidadas.value[indice] = false
+    return false
+  }
+
+  if (indice === 0) {
+    const validacaoSlug = await validarSlugRemoto()
+    etapasValidadas.value[indice] = validacaoSlug
+    return validacaoSlug
+  }
+
+  if (indice === 3) {
+    const validacaoEmail = await validarEmailAdminRemoto()
+    etapasValidadas.value[indice] = validacaoEmail
+    return validacaoEmail
+  }
+
+  etapasValidadas.value[indice] = true
+  return true
+}
+
+function limparValidacaoRemota(tipo) {
+  validacaoRemota.value[tipo] = criarEstadoValidacaoRemota()
+  if (tipo === 'slug') {
+    etapasValidadas.value[0] = false
+    return
+  }
+  etapasValidadas.value[3] = false
+}
+
+function atualizarEstadoValidacaoRemota(tipo, dados) {
+  validacaoRemota.value[tipo] = {
+    ...validacaoRemota.value[tipo],
+    ...dados,
+  }
+}
+
+function respostaRemotaJaConhecida(tipo, valor) {
+  const estado = validacaoRemota.value[tipo]
+  return estado.valor === valor && estado.valido !== null
+}
+
+async function validarSlugRemotoSeNecessario() {
+  const slug = formulario.value.empresa.slugPublico.trim()
+  if (!slug) return false
+  if (slug !== gerarSlug(slug)) return false
+  if (respostaRemotaJaConhecida('slug', slug)) {
+    aplicarResultadoValidacaoRemota('slug', validacaoRemota.value.slug)
+    return validacaoRemota.value.slug.valido === true
+  }
+  return validarSlugRemoto()
+}
+
+async function validarEmailAdminRemotoSeNecessario() {
+  const email = formulario.value.admin.email.trim()
+  if (!email || !emailBasicoValido(email)) return false
+  if (respostaRemotaJaConhecida('emailAdmin', email)) {
+    aplicarResultadoValidacaoRemota('emailAdmin', validacaoRemota.value.emailAdmin)
+    return validacaoRemota.value.emailAdmin.valido === true
+  }
+  return validarEmailAdminRemoto()
+}
+
+async function validarSlugRemoto() {
+  const slug = formulario.value.empresa.slugPublico.trim()
+  if (!slug) return false
+
+  if (respostaRemotaJaConhecida('slug', slug)) {
+    aplicarResultadoValidacaoRemota('slug', validacaoRemota.value.slug)
+    return validacaoRemota.value.slug.valido === true
+  }
+
+  atualizarEstadoValidacaoRemota('slug', {
+    valor: slug,
+    valido: null,
+    mensagem: '',
+    carregando: true,
+  })
+
+  try {
+    const resposta = await validarSlugOnboardingAdmin(slug)
+    const validacao = normalizarRespostaValidacao(resposta)
+    atualizarEstadoValidacaoRemota('slug', {
+      valor: slug,
+      valido: validacao.valido,
+      mensagem: validacao.mensagem,
+      carregando: false,
+    })
+    aplicarResultadoValidacaoRemota('slug', validacaoRemota.value.slug)
+    return validacao.valido === true
+  } catch (error) {
+    atualizarEstadoValidacaoRemota('slug', {
+      valor: slug,
+      valido: false,
+      mensagem: 'Não foi possível validar o slug público agora. Tente novamente.',
+      carregando: false,
+    })
+    etapasValidadas.value[0] = false
+    falharCampo('empresa.slugPublico', 'Não foi possível validar o slug público agora. Tente novamente.')
+    return false
+  }
+}
+
+async function validarEmailAdminRemoto() {
+  const email = formulario.value.admin.email.trim()
+  if (!email) return false
+
+  if (respostaRemotaJaConhecida('emailAdmin', email)) {
+    aplicarResultadoValidacaoRemota('emailAdmin', validacaoRemota.value.emailAdmin)
+    return validacaoRemota.value.emailAdmin.valido === true
+  }
+
+  atualizarEstadoValidacaoRemota('emailAdmin', {
+    valor: email,
+    valido: null,
+    mensagem: '',
+    carregando: true,
+  })
+
+  try {
+    const resposta = await validarEmailAdminOnboardingAdmin(email)
+    const validacao = normalizarRespostaValidacao(resposta)
+    atualizarEstadoValidacaoRemota('emailAdmin', {
+      valor: email,
+      valido: validacao.valido,
+      mensagem: validacao.mensagem,
+      carregando: false,
+    })
+    aplicarResultadoValidacaoRemota('emailAdmin', validacaoRemota.value.emailAdmin)
+    return validacao.valido === true
+  } catch (error) {
+    atualizarEstadoValidacaoRemota('emailAdmin', {
+      valor: email,
+      valido: false,
+      mensagem: 'Não foi possível validar o e-mail do usuário administrador agora. Tente novamente.',
+      carregando: false,
+    })
+    etapasValidadas.value[3] = false
+    falharCampo('admin.email', 'Não foi possível validar o e-mail do usuário administrador agora. Tente novamente.')
+    return false
+  }
+}
+
+function aplicarResultadoValidacaoRemota(tipo, resultado) {
+  if (tipo === 'slug') {
+    etapasValidadas.value[0] = resultado.valido === true
+    definirErroCampo('empresa.slugPublico', resultado.valido === false ? resultado.mensagem || 'Slug público inválido.' : '')
+    if (resultado.valido === false) {
+      erro.value = resultado.mensagem || 'Slug público inválido.'
+    }
+    return
+  }
+
+  etapasValidadas.value[3] = resultado.valido === true
+  definirErroCampo('admin.email', resultado.valido === false ? resultado.mensagem || 'E-mail do usuário administrador inválido.' : '')
+  if (resultado.valido === false) {
+    erro.value = resultado.mensagem || 'E-mail do usuário administrador inválido.'
+  }
+}
+
 function falharCampo(campo, mensagem) {
   definirErroCampo(campo, mensagem)
   erro.value = mensagem
@@ -483,6 +670,11 @@ function criarOutraEmpresa() {
   slugEditado.value = false
   emailEmpresaTocado.value = false
   emailAdminTocado.value = false
+  etapasValidadas.value = [false, false, false, false, false]
+  validacaoRemota.value = {
+    slug: criarEstadoValidacaoRemota(),
+    emailAdmin: criarEstadoValidacaoRemota(),
+  }
   errosCampos.value = {}
   limparMensagensGerais()
 }
@@ -564,8 +756,10 @@ function normalizarRespostaCriacaoEmpresa(resposta) {
     'senhaTemporaria',
     'data.senhaTemporaria',
     'resultado.senhaTemporaria',
+    'data.resultado.senhaTemporaria',
     'empresa.senhaTemporaria',
     'usuarioAdmin.senhaTemporaria',
+    'data.usuarioAdmin.senhaTemporaria',
     'senhaInicialAdmin',
     'adminSenhaTemporaria',
     'temporaryPassword',
@@ -647,7 +841,7 @@ function normalizarRespostaValidacao(resposta) {
 
   return {
     valido: normalizarBooleanoValidacao(valorValido),
-    mensagem,
+    mensagem: mensagem || (normalizarBooleanoValidacao(valorValido) ? '' : 'Validação recusada pelo backend.'),
   }
 }
 
@@ -738,8 +932,8 @@ function obterCampoProfundo(objeto, caminho) {
         class="etapa"
         :class="{ ativa: etapaAtual === indice, concluida: etapaAtual > indice }"
         type="button"
-        :disabled="indice > etapaAtual || salvando || validandoAvanco"
-        @click="indice <= etapaAtual && !salvando && !validandoAvanco && (etapaAtual = indice)"
+        :disabled="salvando || validandoAvanco || validandoRemoto"
+        @click="tentarIrParaEtapa(indice)"
       >
         <span>{{ indice + 1 }}</span>
         {{ etapa.titulo }}
@@ -861,6 +1055,7 @@ function obterCampoProfundo(objeto, caminho) {
             type="text"
             placeholder="barbearia-exemplo"
             @input="atualizarSlug($event.target.value)"
+            @blur="validarSlugBlur"
           />
           <small v-if="errosCampos['empresa.slugPublico']" class="mensagem-erro">{{ errosCampos['empresa.slugPublico'] }}</small>
         </label>
@@ -1022,17 +1217,17 @@ function obterCampoProfundo(objeto, caminho) {
       </div>
 
       <div class="acoes">
-        <button v-if="etapaAtual > 0" class="botao secundario" type="button" :disabled="salvando || validandoAvanco" @click="etapaAnterior">Voltar</button>
+        <button v-if="etapaAtual > 0" class="botao secundario" type="button" :disabled="salvando || validandoAvanco || validandoRemoto" @click="etapaAnterior">Voltar</button>
         <button
           v-if="etapaAtual < ETAPAS.length - 1"
           class="botao principal"
           type="button"
-          :disabled="salvando || validandoAvanco"
+          :disabled="salvando || validandoAvanco || validandoRemoto"
           @click="proximaEtapa"
         >
-          {{ validandoAvanco ? 'Validando...' : 'Avançar' }}
+          {{ validandoAvanco || validandoRemoto ? 'Validando...' : 'Avançar' }}
         </button>
-        <button v-else class="botao principal" type="button" :disabled="salvando" @click="criarEmpresa">
+        <button v-else class="botao principal" type="button" :disabled="salvando || validandoRemoto" @click="criarEmpresa">
           {{ salvando ? 'Criando empresa...' : 'Criar empresa' }}
         </button>
       </div>
