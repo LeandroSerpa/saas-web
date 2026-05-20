@@ -271,6 +271,7 @@ async function proximaEtapa() {
 
     if (etapaAtual.value === 0) {
       const resposta = await validarSlugOnboardingAdmin(formulario.value.empresa.slugPublico.trim())
+      console.log('validacao slug onboarding admin', resposta)
       const validacao = normalizarRespostaValidacao(resposta)
 
       if (!validacao.valido) {
@@ -280,6 +281,7 @@ async function proximaEtapa() {
 
     if (etapaAtual.value === 3) {
       const resposta = await validarEmailAdminOnboardingAdmin(formulario.value.admin.email.trim())
+      console.log('validacao email admin onboarding admin', resposta)
       const validacao = normalizarRespostaValidacao(resposta)
 
       if (!validacao.valido) {
@@ -290,12 +292,12 @@ async function proximaEtapa() {
     etapaAtual.value = Math.min(etapaAtual.value + 1, ETAPAS.length - 1)
   } catch (error) {
     if (etapaAtual.value === 0) {
-      falharCampo('empresa.slugPublico', obterMensagemErro(error, 'Nao foi possivel validar o slug publico agora. Tente novamente.'))
+      falharCampo('empresa.slugPublico', 'Nao foi possivel validar o slug publico agora. Tente novamente.')
       return
     }
 
     if (etapaAtual.value === 3) {
-      falharCampo('admin.email', obterMensagemErro(error, 'Nao foi possivel validar o e-mail do usuario administrador agora. Tente novamente.'))
+      falharCampo('admin.email', 'Nao foi possivel validar o e-mail do usuario administrador agora. Tente novamente.')
       return
     }
 
@@ -613,23 +615,46 @@ function extrairAvisoResposta(resposta) {
 }
 
 function normalizarRespostaValidacao(resposta) {
-  const dados = normalizarObjeto(resposta)
-  const data = normalizarObjeto(dados.data)
-  const origem = Object.keys(data).length ? data : dados
+  const candidatos = [
+    resposta,
+    normalizarObjeto(resposta),
+    resposta?.data,
+    normalizarObjeto(resposta?.data),
+    resposta?.resultado,
+    normalizarObjeto(resposta?.resultado),
+    resposta?.data?.resultado,
+    normalizarObjeto(resposta?.data?.resultado),
+  ].filter((item) => item && typeof item === 'object')
 
-  const valorValido = origem.valido ?? origem.valida ?? origem.valid ?? origem.isValid
-  const mensagem = String(
-    origem.mensagem ??
-      origem.message ??
-      origem.detail ??
-      origem.erro ??
-      '',
-  ).trim()
+  let valorValido
+  let mensagem = ''
+
+  for (const origem of candidatos) {
+    if (valorValido === undefined) {
+      valorValido = origem.valido ?? origem.valida ?? origem.valid ?? origem.isValid
+    }
+
+    if (!mensagem) {
+      mensagem = String(
+        origem.mensagem ??
+          origem.message ??
+          origem.detail ??
+          origem.erro ??
+          '',
+      ).trim()
+    }
+  }
 
   return {
-    valido: valorValido !== false,
+    valido: normalizarBooleanoValidacao(valorValido),
     mensagem,
   }
+}
+
+function normalizarBooleanoValidacao(valor) {
+  if (valor === false || valor === 'false') return false
+  if (valor === true || valor === 'true') return true
+  return valor !== undefined ? Boolean(valor) : true
 }
 
 function obterMensagemErro(error, fallback) {
