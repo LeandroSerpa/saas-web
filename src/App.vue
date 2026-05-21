@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import NotificacoesBell from '@/components/NotificacoesBell.vue'
 import {
+  API_URL,
   buscarStatusFinanceiroMinhaEmpresa,
   carregarUsuarioSessao,
   limparSessaoAutenticacao,
@@ -194,7 +195,7 @@ onBeforeUnmount(() => {
       <header class="topo-app">
         <div>
           <span class="ambiente">API publicada</span>
-          <p>https://automacao-le-saas-api.1mweab.easypanel.host</p>
+          <p>{{ API_URL }}</p>
         </div>
 
         <div class="usuario-logado">

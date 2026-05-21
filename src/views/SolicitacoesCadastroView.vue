@@ -6,11 +6,11 @@ import {
   buscarResumoSolicitacoesCadastro,
   buscarSolicitacaoCadastroPorId,
   buscarSolicitacoesCadastro,
+  obterUrlPublicaFrontend,
   rejeitarSolicitacaoCadastro,
 } from '@/services/api'
 import { ehSuperAdmin } from '@/utils/permissoes'
 
-const LINK_ACESSO = 'https://automacao-le-saas-web.1mweab.easypanel.host'
 const STATUS = [
   { valor: '', rotulo: 'Todos' },
   { valor: 'PENDENTE', rotulo: 'Pendente' },
@@ -153,7 +153,7 @@ async function copiarDadosAcesso() {
     `Usuário administrador: ${obterCampo(resultadoAprovacao.value, 'adminNome', 'usuarioAdminNome') || aprovacao.value.adminNome || '-'}`,
     `E-mail: ${obterCampo(resultadoAprovacao.value, 'adminEmail', 'usuarioAdminEmail') || aprovacao.value.adminEmail || '-'}`,
     `Senha temporária: ${obterCampo(resultadoAprovacao.value, 'senhaTemporaria', 'senhaInicialAdmin') || aprovacao.value.senhaTemporaria || '-'}`,
-    `Link de acesso: ${LINK_ACESSO}`,
+    `Link de acesso: ${obterUrlPublicaFrontend()}`,
   ].join('\n')
 
   try {

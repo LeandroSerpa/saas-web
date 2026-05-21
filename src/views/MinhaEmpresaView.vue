@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   atualizarMinhaEmpresa,
   buscarMinhaEmpresa,
+  montarLinkPublicoAgendamento,
   recalcularOnboarding,
 } from '@/services/api'
 import {
@@ -47,7 +48,7 @@ const aoColarIntervalo = criarManipuladorPasteNumerico(sanitizarInteiroPositivo)
 
 const linkPublico = computed(() => {
   const slug = String(empresa.value.slug || '').trim()
-  return slug ? `${window.location.origin}/agendar/${slug}` : ''
+  return montarLinkPublicoAgendamento(slug)
 })
 
 function criarEmpresaInicial() {

@@ -5,6 +5,8 @@ import {
   atualizarEtapaOnboarding,
   buscarOnboarding,
   marcarLinkPublicoVisualizado,
+  montarLinkPublicoAgendamento,
+  obterUrlPublicaFrontend,
   recalcularOnboarding,
 } from '@/services/api'
 
@@ -357,7 +359,7 @@ function montarLinkPublico(dados) {
   const slug = extrairSlug(linkBruto || obterCampo(dados, 'slug', 'empresaSlug', 'slugEmpresa'))
 
   if (slug) {
-    return `${window.location.origin}/agendar/${slug}`
+    return montarLinkPublicoAgendamento(slug)
   }
 
   if (!linkBruto) {
@@ -368,7 +370,7 @@ function montarLinkPublico(dados) {
     return linkBruto
   }
 
-  return `${window.location.origin}${linkBruto.startsWith('/') ? '' : '/'}${linkBruto}`
+  return `${obterUrlPublicaFrontend()}${linkBruto.startsWith('/') ? '' : '/'}${linkBruto}`
 }
 
 function extrairSlug(valor) {

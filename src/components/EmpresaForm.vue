@@ -1,4 +1,5 @@
 <script setup>
+import { montarLinkPublicoAgendamento } from '@/services/api'
 import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
 
 const empresa = defineModel({
@@ -23,7 +24,7 @@ function obterSlugPublico() {
 function obterLinkPublico() {
   const slug = obterSlugPublico()
 
-  return slug ? `${window.location.origin}/agendar/${slug}` : ''
+  return montarLinkPublicoAgendamento(slug)
 }
 
 function aplicarMascaraHorario(campo, valor) {

@@ -7,6 +7,7 @@ import {
   cadastrarEmpresa,
   atualizarEmpresa,
   atualizarAtivoEmpresa,
+  montarLinkPublicoAgendamento,
 } from '@/services/api'
 
 const empresas = ref([])
@@ -296,7 +297,7 @@ function exibirDiasAtendimento(empresaItem) {
 function exibirLinkPublico(empresaItem) {
   const slug = String(empresaItem.slugPublico || empresaItem.slug || '').trim()
 
-  return slug ? `${window.location.origin}/agendar/${slug}` : ''
+  return montarLinkPublicoAgendamento(slug)
 }
 
 onMounted(() => {

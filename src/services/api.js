@@ -1,4 +1,28 @@
-const API_URL = 'https://automacao-le-saas-api.1mweab.easypanel.host'
+const API_URL_FALLBACK = 'https://automacao-le-saas-api.1mweab.easypanel.host'
+const PUBLIC_APP_URL_FALLBACK = 'https://automacao-le-saas-web.1mweab.easypanel.host'
+
+function normalizarUrlBase(url, fallback = '') {
+  const valor = String(url || '').trim()
+
+  return (valor || fallback).replace(/\/+$/, '')
+}
+
+export const API_URL = normalizarUrlBase(import.meta.env.VITE_API_URL, API_URL_FALLBACK)
+const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PUBLIC_APP_URL_FALLBACK)
+
+export function obterUrlPublicaFrontend() {
+  if (PUBLIC_APP_URL) {
+    return PUBLIC_APP_URL
+  }
+
+  return normalizarUrlBase(window.location.origin)
+}
+
+export function montarLinkPublicoAgendamento(slug) {
+  const slugNormalizado = String(slug || '').trim()
+
+  return slugNormalizado ? `${obterUrlPublicaFrontend()}/agendar/${slugNormalizado}` : ''
+}
 
 function normalizarBooleano(valor) {
   return valor === true

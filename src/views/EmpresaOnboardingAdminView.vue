@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import {
   buscarOpcoesCadastroGuiadoAdmin,
   criarEmpresaCadastroGuiadoAdmin,
+  montarLinkPublicoAgendamento,
   validarEmailAdminOnboardingAdmin,
   validarSlugOnboardingAdmin,
 } from '@/services/api'
@@ -39,8 +40,6 @@ const UFS = [
   'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
-const URL_PUBLICA_BASE = 'https://automacao-le-saas-web.1mweab.easypanel.host'
-
 const etapaAtual = ref(0)
 const carregando = ref(true)
 const salvando = ref(false)
@@ -681,7 +680,7 @@ function criarOutraEmpresa() {
 
 function montarLinkPublico(slug) {
   const slugNormalizado = gerarSlug(slug)
-  return slugNormalizado ? `${URL_PUBLICA_BASE}/agendar/${slugNormalizado}` : ''
+  return montarLinkPublicoAgendamento(slugNormalizado)
 }
 
 function formatarMoeda(valor) {
