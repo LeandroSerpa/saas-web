@@ -1,7 +1,13 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { alterarSenha, carregarUsuarioSessao, salvarSessaoAutenticacao } from '@/services/api'
+import {
+  alterarSenha,
+  carregarUsuarioSessao,
+  limparSessaoAutenticacao,
+  obterMensagemAmigavelErro,
+  salvarSessaoAutenticacao,
+} from '@/services/api'
 
 const router = useRouter()
 
@@ -15,6 +21,11 @@ const mostrarSenhaAtual = ref(false)
 const mostrarNovaSenha = ref(false)
 const mostrarConfirmacaovaSenha = ref(false)
 const usuarioLogado = ref(carregarUsuarioSessao())
+
+function sair() {
+  limparSessaoAutenticacao()
+  router.push('/login')
+}
 
 async function salvarSenha() {
   try {
@@ -46,7 +57,7 @@ async function salvarSenha() {
     }
 
     if (novaSenha.value !== confirmacaoNovaSenha.value) {
-      erro.value = 'A nova senha e a confirmacao precisam ser iguais.'
+      erro.value = 'A nova senha e a confirmação precisam ser iguais.'
       return
     }
 
@@ -73,7 +84,10 @@ async function salvarSenha() {
       router.push('/dashboard')
     }, 1000)
   } catch (error) {
-    erro.value = 'Não foi possível alterar a senha. Confira a senha atual e tente novamente.'
+    erro.value = obterMensagemAmigavelErro(
+      error,
+      'Não foi possível alterar a senha. Confira a senha atual e tente novamente.',
+    )
     console.error(error)
   } finally {
     carregando.value = false
@@ -85,7 +99,7 @@ async function salvarSenha() {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Seguranca</p>
+        <p class="subtitulo">Segurança</p>
         <h1>Alterar senha</h1>
         <p class="descricao">Atualize a senha do usuário logado.</p>
       </div>
@@ -186,8 +200,8 @@ async function salvarSenha() {
               type="button"
               :aria-label="
                 mostrarConfirmacaovaSenha
-                  ? 'Ocultar confirmacao de senha'
-                  : 'Mostrar confirmacao de senha'
+                  ? 'Ocultar confirmação de senha'
+                  : 'Mostrar confirmação de senha'
               "
               @click="mostrarConfirmacaovaSenha = !mostrarConfirmacaovaSenha"
             >
@@ -217,6 +231,10 @@ async function salvarSenha() {
           :disabled="carregando || Boolean(mensagemSucesso)"
         >
           {{ carregando ? 'Alterando...' : 'Alterar senha' }}
+        </button>
+
+        <button class="botao secundario" type="button" :disabled="carregando" @click="sair">
+          Sair
         </button>
       </div>
     </form>
@@ -411,6 +429,14 @@ input:focus {
 
 .principal:hover {
   background: #1d4ed8;
+}
+
+.secundario {
+  background: #0f172a;
+}
+
+.secundario:hover {
+  background: #1e293b;
 }
 
 .erro {

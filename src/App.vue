@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import NotificacoesBell from '@/components/NotificacoesBell.vue'
@@ -49,6 +49,7 @@ const carregandoStatusFinanceiro = ref(false)
 const ultimaConsultaFinanceira = ref(0)
 const mensagemGlobal = ref('')
 const tipoMensagemGlobal = ref('erro')
+const erroInesperado = ref(false)
 let timeoutMensagemGlobal = null
 
 function sair() {
@@ -110,14 +111,27 @@ function exibirMensagemGlobal(event) {
   }, 7000)
 }
 
+function recarregarAplicacao() {
+  window.location.reload()
+}
+
 watch(
   () => route.fullPath,
   () => {
     atualizarUsuarioLogado()
     mensagemGlobal.value = ''
+    erroInesperado.value = false
   },
   { immediate: true },
 )
+
+onErrorCaptured((error) => {
+  console.error(error)
+  erroInesperado.value = true
+  mensagemGlobal.value = 'Ocorreu um erro inesperado. Recarregue a página para continuar.'
+  tipoMensagemGlobal.value = 'erro'
+  return false
+})
 
 onMounted(() => {
   window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
@@ -137,7 +151,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <RouterView v-if="rotaSemLayout" />
+  <main v-if="erroInesperado" class="pagina-erro-interno">
+    <section class="card-erro-interno">
+      <span class="selo-erro">Erro inesperado</span>
+      <h1>Não foi possível concluir esta ação.</h1>
+      <p>Recarregue a página para continuar. Se o problema persistir, tente novamente em instantes.</p>
+      <div class="acoes-erro-interno">
+        <button class="botao-erro-interno" type="button" @click="recarregarAplicacao">
+          Recarregar página
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <RouterView v-else-if="rotaSemLayout" />
 
   <div v-else class="app-shell">
     <aside class="barra-lateral">
@@ -225,6 +252,67 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.pagina-erro-interno {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #eef2f7;
+  color: #111827;
+}
+
+.card-erro-interno {
+  width: min(100%, 620px);
+  display: grid;
+  gap: 14px;
+  background: white;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 28px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.selo-erro {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.card-erro-interno h1,
+.card-erro-interno p {
+  margin: 0;
+}
+
+.card-erro-interno h1 {
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.card-erro-interno p {
+  color: #475569;
+  line-height: 1.5;
+}
+
+.acoes-erro-interno {
+  display: flex;
+  gap: 10px;
+}
+
+.botao-erro-interno {
+  border: none;
+  border-radius: 8px;
+  padding: 11px 16px;
+  color: white;
+  background: #2563eb;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.botao-erro-interno:hover {
+  background: #1d4ed8;
+}
+
 .app-shell {
   min-height: 100vh;
   display: grid;

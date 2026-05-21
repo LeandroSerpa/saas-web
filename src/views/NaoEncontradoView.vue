@@ -5,9 +5,9 @@ import { RouterLink } from 'vue-router'
 <template>
   <main class="pagina-feedback">
     <section class="card-feedback">
-      <span class="selo">Página indisponível</span>
-      <h1>Não foi possível carregar os dados. Tente novamente.</h1>
-      <p>A rota informada não existe ou não está disponível para navegação direta.</p>
+      <span class="selo">Rota inexistente</span>
+      <h1>Esta página não foi encontrada.</h1>
+      <p>O endereço acessado não existe ou não está disponível para navegação direta.</p>
       <RouterLink class="botao" to="/dashboard">Ir para o dashboard</RouterLink>
     </section>
   </main>

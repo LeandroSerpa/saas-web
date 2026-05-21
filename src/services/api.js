@@ -1,5 +1,15 @@
 const API_URL_FALLBACK = 'https://automacao-le-saas-api.1mweab.easypanel.host'
 const PUBLIC_APP_URL_FALLBACK = 'https://automacao-le-saas-web.1mweab.easypanel.host'
+const MENSAGENS_PADRAO = {
+  sessaoExpirada: 'Sessão expirada. Faça login novamente.',
+  acessoNegado: 'Acesso negado. Você não tem permissão para acessar esta área.',
+  rotaInexistente: 'Rota inexistente. Verifique o endereço e tente novamente.',
+  recursoNaoEncontrado: 'Não foi possível localizar o conteúdo solicitado.',
+  redeApiIndisponivel: 'Não foi possível conectar. Verifique sua internet e tente novamente.',
+  apiIndisponivel: 'Serviço temporariamente indisponível. Tente novamente em instantes.',
+  erroCarregarDados: 'Não foi possível carregar os dados. Tente novamente.',
+  erroOperacao: 'Não foi possível concluir a operação. Tente novamente.',
+}
 
 function normalizarUrlBase(url, fallback = '') {
   const valor = String(url || '').trim()
@@ -144,6 +154,17 @@ function montarQueryString(filtros = {}) {
   return query ? `?${query}` : ''
 }
 
+async function executarFetch(input, init) {
+  try {
+    return await fetch(input, init)
+  } catch (error) {
+    const erro = new Error(MENSAGENS_PADRAO.redeApiIndisponivel)
+    erro.status = 0
+    erro.causaOriginal = error
+    throw erro
+  }
+}
+
 function emitirMensagemGlobal(mensagem, tipo = 'erro') {
   window.dispatchEvent(
     new CustomEvent('mensagem-global', {
@@ -155,7 +176,7 @@ function emitirMensagemGlobal(mensagem, tipo = 'erro') {
   )
 }
 
-function encerrarSessao(mensagem = 'Sessão expirada. Faça login novamente.') {
+function encerrarSessao(mensagem = MENSAGENS_PADRAO.sessaoExpirada) {
   limparSessaoAutenticacao()
   sessionStorage.setItem('mensagem-login', mensagem)
 
@@ -173,14 +194,14 @@ async function extrairMensagemErro(response) {
     const mensagemJson = extrairMensagemJson(dados)
 
     if (mensagemJson) {
-      return mensagemJson
+      return sanitizarMensagemUsuario(mensagemJson, mensagemPadrao)
     }
   }
 
   const texto = await lerTextoErro(response)
 
   if (texto) {
-    return texto
+    return sanitizarMensagemUsuario(texto, mensagemPadrao)
   }
 
   return mensagemPadrao
@@ -188,20 +209,28 @@ async function extrairMensagemErro(response) {
 
 function mensagemPadraoPorStatus(status) {
   if (status === 401) {
-    return 'Sessão expirada. Faça login novamente.'
+    return MENSAGENS_PADRAO.sessaoExpirada
   }
 
   if (status === 403) {
-    return 'Você não tem permissão para acessar esta área.'
+    return MENSAGENS_PADRAO.acessoNegado
   }
 
-  return 'Não foi possível carregar os dados. Tente novamente.'
+  if (status === 404) {
+    return MENSAGENS_PADRAO.recursoNaoEncontrado
+  }
+
+  if (status >= 500) {
+    return MENSAGENS_PADRAO.apiIndisponivel
+  }
+
+  return MENSAGENS_PADRAO.erroCarregarDados
 }
 
 async function lerJsonErro(response) {
   try {
     return await response.clone().json()
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -217,7 +246,7 @@ async function lerTextoErro(response) {
 
 function extrairMensagemJson(dados) {
   if (typeof dados === 'string') {
-    return dados.trim()
+    return sanitizarMensagemUsuario(dados.trim(), '')
   }
 
   if (!dados || typeof dados !== 'object') {
@@ -242,11 +271,11 @@ function normalizarMensagemErro(mensagem) {
     return ''
   }
 
-  return texto
+  return sanitizarMensagemUsuario(texto, '')
 }
 
 function mensagemGenerica(mensagem) {
-  const texto = mensagem.toLowerCase()
+  const texto = String(mensagem || '').toLowerCase()
 
   return [
     'bad request',
@@ -260,22 +289,53 @@ function mensagemGenerica(mensagem) {
   ].includes(texto)
 }
 
+function contemTrechoTecnico(texto) {
+  return /<\s*html|<!doctype|stack trace|java\.|org\.springframework|sql|constraint|exception|traceback|syntaxerror/i.test(
+    String(texto || ''),
+  )
+}
+
+function sanitizarMensagemUsuario(mensagem, fallback = MENSAGENS_PADRAO.erroCarregarDados) {
+  const texto = String(mensagem || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!texto) {
+    return fallback
+  }
+
+  if (mensagemGenerica(texto) || contemTrechoTecnico(texto)) {
+    return fallback
+  }
+
+  if (texto.length > 280 && /[{[<(]/.test(texto)) {
+    return fallback
+  }
+
+  return texto
+}
+
+export function obterMensagemAmigavelErro(error, fallback = MENSAGENS_PADRAO.erroCarregarDados) {
+  const mensagem = sanitizarMensagemUsuario(error?.message, '')
+  return mensagem || fallback
+}
+
 async function extrairMensagemResposta(response) {
-  const mensagemPadrao = 'Não foi possível concluir a operação.'
+  const mensagemPadrao = MENSAGENS_PADRAO.erroOperacao
 
   try {
     const data = await response.clone().json()
 
     if (data?.message) {
-      return data.message
+      return sanitizarMensagemUsuario(data.message, mensagemPadrao)
     }
 
     if (data?.detail) {
-      return data.detail
+      return sanitizarMensagemUsuario(data.detail, mensagemPadrao)
     }
 
     if (data?.error) {
-      return data.error
+      return sanitizarMensagemUsuario(data.error, mensagemPadrao)
     }
   } catch (error) {
     console.error(error)
@@ -285,7 +345,7 @@ async function extrairMensagemResposta(response) {
     const texto = (await response.clone().text()).trim()
 
     if (texto) {
-      return texto
+      return sanitizarMensagemUsuario(texto, mensagemPadrao)
     }
   } catch (error) {
     console.error(error)
@@ -295,22 +355,30 @@ async function extrairMensagemResposta(response) {
 }
 
 async function tratarResposta(response, opcoes = {}) {
-  const { encerrarSessao401 = true, emitir403 = true } = opcoes
+  const {
+    encerrarSessao401 = true,
+    emitir403 = true,
+    mensagem401 = '',
+    mensagem403 = '',
+  } = opcoes
 
   if (!response.ok) {
     const mensagem = await extrairMensagemErro(response)
-    const mensagemTratada = [401, 403].includes(response.status)
-      ? mensagemPadraoPorStatus(response.status)
-      : mensagem
+    const mensagemTratada =
+      response.status === 401
+        ? mensagem401 || mensagemPadraoPorStatus(response.status)
+        : response.status === 403
+          ? mensagem403 || mensagemPadraoPorStatus(response.status)
+          : mensagem
     const erro = new Error(mensagemTratada)
     erro.status = response.status
 
     if (response.status === 401 && encerrarSessao401) {
-      encerrarSessao(mensagemTratada)
+      encerrarSessao(mensagemPadraoPorStatus(401))
     }
 
     if (response.status === 403 && emitir403) {
-      emitirMensagemGlobal(mensagemTratada)
+      emitirMensagemGlobal(mensagemPadraoPorStatus(403))
     }
 
     throw erro
@@ -350,7 +418,7 @@ async function tratarRespostaPublica(response) {
 }
 
 export async function buscarClientes() {
-  const response = await fetch(`${API_URL}/clientes`, {
+  const response = await executarFetch(`${API_URL}/clientes`, {
     headers: montarHeaders(),
   })
 
@@ -358,7 +426,7 @@ export async function buscarClientes() {
 }
 
 export async function buscarServicos() {
-  const response = await fetch(`${API_URL}/servicos`, {
+  const response = await executarFetch(`${API_URL}/servicos`, {
     headers: montarHeaders(),
   })
 
@@ -366,7 +434,7 @@ export async function buscarServicos() {
 }
 
 export async function buscarFuncionarios(filtros = {}) {
-  const response = await fetch(`${API_URL}/funcionarios${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/funcionarios${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -374,7 +442,7 @@ export async function buscarFuncionarios(filtros = {}) {
 }
 
 export async function buscarAgendamentos() {
-  const response = await fetch(`${API_URL}/agendamentos`, {
+  const response = await executarFetch(`${API_URL}/agendamentos`, {
     headers: montarHeaders(),
   })
 
@@ -382,7 +450,7 @@ export async function buscarAgendamentos() {
 }
 
 export async function buscarEmpresaPublica(slug) {
-  const response = await fetch(`${API_URL}/publico/empresas/${slug}`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -390,7 +458,7 @@ export async function buscarEmpresaPublica(slug) {
 }
 
 export async function buscarServicosPublicos(slug) {
-  const response = await fetch(`${API_URL}/publico/empresas/${slug}/servicos`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/servicos`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -398,7 +466,7 @@ export async function buscarServicosPublicos(slug) {
 }
 
 export async function buscarSegmentosPublicos() {
-  const response = await fetch(`${API_URL}/publico/segmentos`, {
+  const response = await executarFetch(`${API_URL}/publico/segmentos`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -406,7 +474,7 @@ export async function buscarSegmentosPublicos() {
 }
 
 export async function buscarSegmentosCadastroPublico() {
-  const response = await fetch(`${API_URL}/publico/segmentos-cadastro`, {
+  const response = await executarFetch(`${API_URL}/publico/segmentos-cadastro`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -414,7 +482,7 @@ export async function buscarSegmentosCadastroPublico() {
 }
 
 export async function buscarPlanosPublicos() {
-  const response = await fetch(`${API_URL}/publico/planos`, {
+  const response = await executarFetch(`${API_URL}/publico/planos`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -422,7 +490,7 @@ export async function buscarPlanosPublicos() {
 }
 
 export async function buscarPlanosCadastroPublico() {
-  const response = await fetch(`${API_URL}/publico/planos-cadastro`, {
+  const response = await executarFetch(`${API_URL}/publico/planos-cadastro`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -431,7 +499,7 @@ export async function buscarPlanosCadastroPublico() {
 
 export async function buscarConteudoInstitucionalPublico(tipo) {
   const tipoNormalizado = String(tipo || '').trim()
-  const response = await fetch(`${API_URL}/publico/institucional/${tipoNormalizado}`, {
+  const response = await executarFetch(`${API_URL}/publico/institucional/${tipoNormalizado}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -447,7 +515,7 @@ export async function criarSolicitacaoCadastroEmpresa(dados) {
 }
 
 export async function cadastrarEmpresaInteressadaPublico(dados) {
-  const response = await fetch(`${API_URL}/publico/solicitacoes-cadastro/onboarding`, {
+  const response = await executarFetch(`${API_URL}/publico/solicitacoes-cadastro/onboarding`, {
     method: 'POST',
     headers: montarHeadersPublicos(true),
     body: JSON.stringify(dados),
@@ -457,7 +525,7 @@ export async function cadastrarEmpresaInteressadaPublico(dados) {
 }
 
 export async function buscarFuncionariosPublicos(slug, filtros = {}) {
-  const response = await fetch(`${API_URL}/publico/empresas/${slug}/funcionarios${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/funcionarios${montarQueryString(filtros)}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -471,7 +539,7 @@ export async function buscarDisponibilidadePublica(slug, servicoId, funcionarioI
     data,
   })
 
-  const response = await fetch(`${API_URL}/publico/empresas/${slug}/disponibilidade?${params}`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/disponibilidade?${params}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -480,7 +548,7 @@ export async function buscarDisponibilidadePublica(slug, servicoId, funcionarioI
 
 export async function buscarDisponibilidadeDataPublica(slug, data) {
   const params = new URLSearchParams({ data })
-  const response = await fetch(`${API_URL}/publico/empresas/${slug}/disponibilidade-data?${params}`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/disponibilidade-data?${params}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -488,7 +556,7 @@ export async function buscarDisponibilidadeDataPublica(slug, data) {
 }
 
 export async function criarAgendamentoPublico(slug, dados) {
-  const response = await fetch(`${API_URL}/publico/empresas/${slug}/agendamentos`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/agendamentos`, {
     method: 'POST',
     headers: montarHeadersPublicos(true),
     body: JSON.stringify(dados),
@@ -498,7 +566,7 @@ export async function criarAgendamentoPublico(slug, dados) {
 }
 
 export async function buscarMinhaPersonalizacao() {
-  const response = await fetch(`${API_URL}/minha-empresa/personalizacao`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao`, {
     headers: montarHeaders(),
   })
 
@@ -506,7 +574,7 @@ export async function buscarMinhaPersonalizacao() {
 }
 
 export async function buscarIndisponibilidades(filtros = {}) {
-  const response = await fetch(`${API_URL}/indisponibilidades${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -514,7 +582,7 @@ export async function buscarIndisponibilidades(filtros = {}) {
 }
 
 export async function buscarIndisponibilidadePorId(id) {
-  const response = await fetch(`${API_URL}/indisponibilidades/${id}`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -522,7 +590,7 @@ export async function buscarIndisponibilidadePorId(id) {
 }
 
 export async function criarIndisponibilidade(dados) {
-  const response = await fetch(`${API_URL}/indisponibilidades`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -532,7 +600,7 @@ export async function criarIndisponibilidade(dados) {
 }
 
 export async function atualizarIndisponibilidade(id, dados) {
-  const response = await fetch(`${API_URL}/indisponibilidades/${id}`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -542,7 +610,7 @@ export async function atualizarIndisponibilidade(id, dados) {
 }
 
 export async function excluirIndisponibilidade(id) {
-  const response = await fetch(`${API_URL}/indisponibilidades/${id}`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -551,7 +619,7 @@ export async function excluirIndisponibilidade(id) {
 }
 
 export async function buscarFuncionarioServicos(filtros = {}) {
-  const response = await fetch(`${API_URL}/funcionario-servicos${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/funcionario-servicos${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -559,7 +627,7 @@ export async function buscarFuncionarioServicos(filtros = {}) {
 }
 
 export async function vincularFuncionarioServico(dados) {
-  const response = await fetch(`${API_URL}/funcionario-servicos`, {
+  const response = await executarFetch(`${API_URL}/funcionario-servicos`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -569,7 +637,7 @@ export async function vincularFuncionarioServico(dados) {
 }
 
 export async function excluirFuncionarioServico(id) {
-  const response = await fetch(`${API_URL}/funcionario-servicos/${id}`, {
+  const response = await executarFetch(`${API_URL}/funcionario-servicos/${id}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -579,13 +647,13 @@ export async function excluirFuncionarioServico(id) {
 
 export async function buscarFuncionariosVinculadosAoServico(servicoId) {
   const urlPrincipal = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
-  const response = await fetch(urlPrincipal, {
+  const response = await executarFetch(urlPrincipal, {
     headers: montarHeaders(),
   })
 
   if (response.status === 404) {
     const urlFallback = `${API_URL}/servicos/${servicoId}/funcionarios`
-    const fallback = await fetch(urlFallback, {
+    const fallback = await executarFetch(urlFallback, {
       headers: montarHeaders(),
     })
 
@@ -606,7 +674,7 @@ export async function buscarFuncionariosVinculadosAoServico(servicoId) {
 export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionarioIds) {
   const url = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
   const payload = { funcionarioIds }
-  const response = await fetch(url, {
+  const response = await executarFetch(url, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(payload),
@@ -640,7 +708,7 @@ async function lerCorpoResposta(response) {
 
   try {
     return JSON.parse(texto)
-  } catch (error) {
+  } catch {
     return texto
   }
 }
@@ -728,7 +796,7 @@ function normalizarColecaoResposta(dados) {
 }
 
 export async function buscarServicosVinculadosAoFuncionario(funcionarioId) {
-  const response = await fetch(`${API_URL}/funcionarios/${funcionarioId}/servicos`, {
+  const response = await executarFetch(`${API_URL}/funcionarios/${funcionarioId}/servicos`, {
     headers: montarHeaders(),
   })
 
@@ -736,7 +804,7 @@ export async function buscarServicosVinculadosAoFuncionario(funcionarioId) {
 }
 
 export async function salvarServicosVinculadosAoFuncionario(funcionarioId, servicoIds) {
-  const response = await fetch(`${API_URL}/funcionarios/${funcionarioId}/servicos`, {
+  const response = await executarFetch(`${API_URL}/funcionarios/${funcionarioId}/servicos`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(servicoIds),
@@ -746,7 +814,7 @@ export async function salvarServicosVinculadosAoFuncionario(funcionarioId, servi
 }
 
 export async function salvarMinhaPersonalizacao(dados) {
-  const response = await fetch(`${API_URL}/minha-empresa/personalizacao`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -756,7 +824,7 @@ export async function salvarMinhaPersonalizacao(dados) {
 }
 
 export async function buscarPersonalizacaoPublica(slug) {
-  const response = await fetch(`${API_URL}/publico/empresas/${slug}/personalizacao`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/personalizacao`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -764,7 +832,7 @@ export async function buscarPersonalizacaoPublica(slug) {
 }
 
 export async function buscarAuditoria(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/auditoria${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/auditoria${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -772,7 +840,7 @@ export async function buscarAuditoria(filtros = {}) {
 }
 
 export async function buscarAuditoriaPorId(id) {
-  const response = await fetch(`${API_URL}/admin/auditoria/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/auditoria/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -780,7 +848,7 @@ export async function buscarAuditoriaPorId(id) {
 }
 
 export async function buscarDashboardSaas() {
-  const response = await fetch(`${API_URL}/admin/dashboard-saas`, {
+  const response = await executarFetch(`${API_URL}/admin/dashboard-saas`, {
     headers: montarHeaders(),
   })
 
@@ -788,7 +856,7 @@ export async function buscarDashboardSaas() {
 }
 
 export async function buscarDashboardSaasResumo() {
-  const response = await fetch(`${API_URL}/admin/dashboard-saas/resumo`, {
+  const response = await executarFetch(`${API_URL}/admin/dashboard-saas/resumo`, {
     headers: montarHeaders(),
   })
 
@@ -796,7 +864,7 @@ export async function buscarDashboardSaasResumo() {
 }
 
 export async function buscarOnboarding() {
-  const response = await fetch(`${API_URL}/onboarding`, {
+  const response = await executarFetch(`${API_URL}/onboarding`, {
     headers: montarHeaders(),
   })
 
@@ -804,7 +872,7 @@ export async function buscarOnboarding() {
 }
 
 export async function recalcularOnboarding() {
-  const response = await fetch(`${API_URL}/onboarding/recalcular`, {
+  const response = await executarFetch(`${API_URL}/onboarding/recalcular`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -813,7 +881,7 @@ export async function recalcularOnboarding() {
 }
 
 export async function atualizarEtapaOnboarding(etapa, dados = {}) {
-  const response = await fetch(`${API_URL}/onboarding/etapas/${etapa}`, {
+  const response = await executarFetch(`${API_URL}/onboarding/etapas/${etapa}`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -823,7 +891,7 @@ export async function atualizarEtapaOnboarding(etapa, dados = {}) {
 }
 
 export async function marcarLinkPublicoVisualizado() {
-  const response = await fetch(`${API_URL}/onboarding/link-publico/visualizado`, {
+  const response = await executarFetch(`${API_URL}/onboarding/link-publico/visualizado`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -832,7 +900,7 @@ export async function marcarLinkPublicoVisualizado() {
 }
 
 export async function buscarAcoesAuditoria() {
-  const response = await fetch(`${API_URL}/admin/auditoria/acoes`, {
+  const response = await executarFetch(`${API_URL}/admin/auditoria/acoes`, {
     headers: montarHeaders(),
   })
 
@@ -840,7 +908,7 @@ export async function buscarAcoesAuditoria() {
 }
 
 export async function buscarModulosAuditoria() {
-  const response = await fetch(`${API_URL}/admin/auditoria/modulos`, {
+  const response = await executarFetch(`${API_URL}/admin/auditoria/modulos`, {
     headers: montarHeaders(),
   })
 
@@ -848,7 +916,7 @@ export async function buscarModulosAuditoria() {
 }
 
 export async function buscarEntidadesAuditoria() {
-  const response = await fetch(`${API_URL}/admin/auditoria/entidades`, {
+  const response = await executarFetch(`${API_URL}/admin/auditoria/entidades`, {
     headers: montarHeaders(),
   })
 
@@ -856,7 +924,7 @@ export async function buscarEntidadesAuditoria() {
 }
 
 export async function buscarSegmentos() {
-  const response = await fetch(`${API_URL}/admin/segmentos`, {
+  const response = await executarFetch(`${API_URL}/admin/segmentos`, {
     headers: montarHeaders(),
   })
 
@@ -864,7 +932,7 @@ export async function buscarSegmentos() {
 }
 
 export async function buscarSegmentoPorId(id) {
-  const response = await fetch(`${API_URL}/admin/segmentos/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/segmentos/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -872,7 +940,7 @@ export async function buscarSegmentoPorId(id) {
 }
 
 export async function criarSegmento(dados) {
-  const response = await fetch(`${API_URL}/admin/segmentos`, {
+  const response = await executarFetch(`${API_URL}/admin/segmentos`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -882,7 +950,7 @@ export async function criarSegmento(dados) {
 }
 
 export async function atualizarSegmento(id, dados) {
-  const response = await fetch(`${API_URL}/admin/segmentos/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/segmentos/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -892,7 +960,7 @@ export async function atualizarSegmento(id, dados) {
 }
 
 export async function ativarSegmento(id) {
-  const response = await fetch(`${API_URL}/admin/segmentos/${id}/ativar`, {
+  const response = await executarFetch(`${API_URL}/admin/segmentos/${id}/ativar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -901,7 +969,7 @@ export async function ativarSegmento(id) {
 }
 
 export async function desativarSegmento(id) {
-  const response = await fetch(`${API_URL}/admin/segmentos/${id}/desativar`, {
+  const response = await executarFetch(`${API_URL}/admin/segmentos/${id}/desativar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -910,7 +978,7 @@ export async function desativarSegmento(id) {
 }
 
 export async function buscarSolicitacoesCadastro(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/solicitacoes-cadastro${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -918,7 +986,7 @@ export async function buscarSolicitacoesCadastro(filtros = {}) {
 }
 
 export async function buscarResumoSolicitacoesCadastro() {
-  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/resumo`, {
+  const response = await executarFetch(`${API_URL}/admin/solicitacoes-cadastro/resumo`, {
     headers: montarHeaders(),
   })
 
@@ -926,7 +994,7 @@ export async function buscarResumoSolicitacoesCadastro() {
 }
 
 export async function buscarSolicitacaoCadastroPorId(id) {
-  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/solicitacoes-cadastro/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -934,7 +1002,7 @@ export async function buscarSolicitacaoCadastroPorId(id) {
 }
 
 export async function marcarSolicitacaoEmAnalise(id) {
-  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/em-analise`, {
+  const response = await executarFetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/em-analise`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -943,7 +1011,7 @@ export async function marcarSolicitacaoEmAnalise(id) {
 }
 
 export async function rejeitarSolicitacaoCadastro(id, dados) {
-  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/rejeitar`, {
+  const response = await executarFetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/rejeitar`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -953,7 +1021,7 @@ export async function rejeitarSolicitacaoCadastro(id, dados) {
 }
 
 export async function aprovarSolicitacaoCadastro(id, dados) {
-  const response = await fetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/aprovar`, {
+  const response = await executarFetch(`${API_URL}/admin/solicitacoes-cadastro/${id}/aprovar`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -963,7 +1031,7 @@ export async function aprovarSolicitacaoCadastro(id, dados) {
 }
 
 export async function buscarFaturas(filtros = {}) {
-  const response = await fetch(`${API_URL}/faturas${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/faturas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -971,7 +1039,7 @@ export async function buscarFaturas(filtros = {}) {
 }
 
 export async function buscarResumoFaturas(filtros = {}) {
-  const response = await fetch(`${API_URL}/faturas/resumo${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/faturas/resumo${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -979,7 +1047,7 @@ export async function buscarResumoFaturas(filtros = {}) {
 }
 
 export async function buscarFaturaPorId(id) {
-  const response = await fetch(`${API_URL}/faturas/${id}`, {
+  const response = await executarFetch(`${API_URL}/faturas/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -987,7 +1055,7 @@ export async function buscarFaturaPorId(id) {
 }
 
 export async function criarFatura(dados) {
-  const response = await fetch(`${API_URL}/faturas`, {
+  const response = await executarFetch(`${API_URL}/faturas`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -997,7 +1065,7 @@ export async function criarFatura(dados) {
 }
 
 export async function atualizarFatura(id, dados) {
-  const response = await fetch(`${API_URL}/faturas/${id}`, {
+  const response = await executarFetch(`${API_URL}/faturas/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1007,7 +1075,7 @@ export async function atualizarFatura(id, dados) {
 }
 
 export async function atualizarStatusFatura(id, dados = {}) {
-  const response = await fetch(`${API_URL}/faturas/${id}/status`, {
+  const response = await executarFetch(`${API_URL}/faturas/${id}/status`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1021,7 +1089,7 @@ export async function marcarFaturaPaga(id, dados = {}) {
 }
 
 export async function cancelarFatura(id, dados = {}) {
-  const response = await fetch(`${API_URL}/faturas/${id}/cancelar`, {
+  const response = await executarFetch(`${API_URL}/faturas/${id}/cancelar`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1031,7 +1099,7 @@ export async function cancelarFatura(id, dados = {}) {
 }
 
 export async function reativarFatura(id) {
-  const response = await fetch(`${API_URL}/faturas/${id}/reativar`, {
+  const response = await executarFetch(`${API_URL}/faturas/${id}/reativar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1040,7 +1108,7 @@ export async function reativarFatura(id) {
 }
 
 export async function buscarStatusFinanceiroMinhaEmpresa() {
-  const response = await fetch(`${API_URL}/minha-empresa/status-financeiro`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/status-financeiro`, {
     headers: montarHeaders(),
   })
 
@@ -1048,7 +1116,7 @@ export async function buscarStatusFinanceiroMinhaEmpresa() {
 }
 
 export async function buscarResumoFinanceiroSaas() {
-  const response = await fetch(`${API_URL}/admin/financeiro/resumo`, {
+  const response = await executarFetch(`${API_URL}/admin/financeiro/resumo`, {
     headers: montarHeaders(),
   })
 
@@ -1056,7 +1124,7 @@ export async function buscarResumoFinanceiroSaas() {
 }
 
 export async function buscarEmpresasFinanceiro(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/financeiro/empresas${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/financeiro/empresas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1064,7 +1132,7 @@ export async function buscarEmpresasFinanceiro(filtros = {}) {
 }
 
 export async function alterarBloqueioFinanceiroEmpresa(empresaId, dados = {}) {
-  const response = await fetch(`${API_URL}/admin/financeiro/empresas/${empresaId}/bloqueio`, {
+  const response = await executarFetch(`${API_URL}/admin/financeiro/empresas/${empresaId}/bloqueio`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1074,7 +1142,7 @@ export async function alterarBloqueioFinanceiroEmpresa(empresaId, dados = {}) {
 }
 
 export async function buscarMetodosPagamentoAdmin() {
-  const response = await fetch(`${API_URL}/admin/financeiro/metodos-pagamento`, {
+  const response = await executarFetch(`${API_URL}/admin/financeiro/metodos-pagamento`, {
     headers: montarHeaders(),
   })
 
@@ -1082,7 +1150,7 @@ export async function buscarMetodosPagamentoAdmin() {
 }
 
 export async function salvarMetodosPagamentoAdmin(dados = {}) {
-  const response = await fetch(`${API_URL}/admin/financeiro/metodos-pagamento`, {
+  const response = await executarFetch(`${API_URL}/admin/financeiro/metodos-pagamento`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1092,7 +1160,7 @@ export async function salvarMetodosPagamentoAdmin(dados = {}) {
 }
 
 export async function buscarMetodosPagamentoAtivos() {
-  const response = await fetch(`${API_URL}/financeiro/metodos-pagamento-ativos`, {
+  const response = await executarFetch(`${API_URL}/financeiro/metodos-pagamento-ativos`, {
     headers: montarHeaders(),
   })
 
@@ -1100,7 +1168,7 @@ export async function buscarMetodosPagamentoAtivos() {
 }
 
 export async function buscarFaturasRecorrentes(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1108,7 +1176,7 @@ export async function buscarFaturasRecorrentes(filtros = {}) {
 }
 
 export async function buscarFaturaRecorrentePorId(id) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -1116,7 +1184,7 @@ export async function buscarFaturaRecorrentePorId(id) {
 }
 
 export async function buscarSugestaoFaturaRecorrente(empresaId) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/sugestao${montarQueryString({ empresaId })}`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes/sugestao${montarQueryString({ empresaId })}`, {
     headers: montarHeaders(),
   })
 
@@ -1124,7 +1192,7 @@ export async function buscarSugestaoFaturaRecorrente(empresaId) {
 }
 
 export async function criarFaturaRecorrente(dados = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1134,7 +1202,7 @@ export async function criarFaturaRecorrente(dados = {}) {
 }
 
 export async function atualizarFaturaRecorrente(id, dados = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1144,7 +1212,7 @@ export async function atualizarFaturaRecorrente(id, dados = {}) {
 }
 
 export async function ativarFaturaRecorrente(id) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}/ativar`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes/${id}/ativar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1153,7 +1221,7 @@ export async function ativarFaturaRecorrente(id) {
 }
 
 export async function desativarFaturaRecorrente(id) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}/desativar`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes/${id}/desativar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1162,7 +1230,7 @@ export async function desativarFaturaRecorrente(id) {
 }
 
 export async function gerarFaturasRecorrentes(dados = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/gerar`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes/gerar`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1180,7 +1248,7 @@ export async function gerarFaturasRecorrentesMes(dados = {}) {
 }
 
 export async function gerarProximaFaturaRecorrente(id) {
-  const response = await fetch(`${API_URL}/admin/faturas-recorrentes/${id}/gerar-proxima`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas-recorrentes/${id}/gerar-proxima`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -1189,7 +1257,7 @@ export async function gerarProximaFaturaRecorrente(id) {
 }
 
 export async function enviarComprovanteFatura(id, dados = {}) {
-  const response = await fetch(`${API_URL}/faturas/${id}/comprovante`, {
+  const response = await executarFetch(`${API_URL}/faturas/${id}/comprovante`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1199,7 +1267,7 @@ export async function enviarComprovanteFatura(id, dados = {}) {
 }
 
 export async function buscarComprovantesFaturas(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas/comprovantes${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas/comprovantes${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1207,7 +1275,7 @@ export async function buscarComprovantesFaturas(filtros = {}) {
 }
 
 export async function aprovarComprovanteFatura(id, dados = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas/${id}/comprovante/aprovar`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas/${id}/comprovante/aprovar`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1217,7 +1285,7 @@ export async function aprovarComprovanteFatura(id, dados = {}) {
 }
 
 export async function rejeitarComprovanteFatura(id, dados = {}) {
-  const response = await fetch(`${API_URL}/admin/faturas/${id}/comprovante/rejeitar`, {
+  const response = await executarFetch(`${API_URL}/admin/faturas/${id}/comprovante/rejeitar`, {
     method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1227,7 +1295,7 @@ export async function rejeitarComprovanteFatura(id, dados = {}) {
 }
 
 export async function buscarRelatorioOperacaonal(filtros = {}) {
-  const response = await fetch(`${API_URL}/relatorios/operacaonal${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/relatorios/operacaonal${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1235,7 +1303,7 @@ export async function buscarRelatorioOperacaonal(filtros = {}) {
 }
 
 export async function buscarRelatorioFinanceiro(filtros = {}) {
-  const response = await fetch(`${API_URL}/relatorios/financeiro${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/relatorios/financeiro${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1275,7 +1343,7 @@ export async function buscarRelatorioAgendamentos(filtros = {}) {
 }
 
 export async function baixarRelatorioAgendamentosCsv(filtros = {}) {
-  const response = await fetch(`${API_URL}/relatorios/agendamentos.csv${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/relatorios/agendamentos.csv${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1314,7 +1382,7 @@ export async function baixarRelatorioAgendamentosCsv(filtros = {}) {
 }
 
 async function buscarRelatorio(caminho, filtros = {}) {
-  const response = await fetch(`${API_URL}${caminho}${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}${caminho}${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1322,7 +1390,7 @@ async function buscarRelatorio(caminho, filtros = {}) {
 }
 
 export async function buscarPlanos() {
-  const response = await fetch(`${API_URL}/admin/planos`, {
+  const response = await executarFetch(`${API_URL}/admin/planos`, {
     headers: montarHeaders(),
   })
 
@@ -1330,7 +1398,7 @@ export async function buscarPlanos() {
 }
 
 export async function buscarPlanoPorId(id) {
-  const response = await fetch(`${API_URL}/admin/planos/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/planos/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -1338,7 +1406,7 @@ export async function buscarPlanoPorId(id) {
 }
 
 export async function criarPlano(dados) {
-  const response = await fetch(`${API_URL}/admin/planos`, {
+  const response = await executarFetch(`${API_URL}/admin/planos`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1348,7 +1416,7 @@ export async function criarPlano(dados) {
 }
 
 export async function atualizarPlano(id, dados) {
-  const response = await fetch(`${API_URL}/admin/planos/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/planos/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1358,7 +1426,7 @@ export async function atualizarPlano(id, dados) {
 }
 
 export async function ativarPlano(id) {
-  const response = await fetch(`${API_URL}/admin/planos/${id}/ativar`, {
+  const response = await executarFetch(`${API_URL}/admin/planos/${id}/ativar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1367,7 +1435,7 @@ export async function ativarPlano(id) {
 }
 
 export async function desativarPlano(id) {
-  const response = await fetch(`${API_URL}/admin/planos/${id}/desativar`, {
+  const response = await executarFetch(`${API_URL}/admin/planos/${id}/desativar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1376,7 +1444,7 @@ export async function desativarPlano(id) {
 }
 
 export async function buscarAssinaturas(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/assinaturas${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/assinaturas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1384,7 +1452,7 @@ export async function buscarAssinaturas(filtros = {}) {
 }
 
 export async function buscarAssinaturaEmpresa(empresaId) {
-  const response = await fetch(`${API_URL}/admin/assinaturas/empresa/${empresaId}`, {
+  const response = await executarFetch(`${API_URL}/admin/assinaturas/empresa/${empresaId}`, {
     headers: montarHeaders(),
   })
 
@@ -1392,7 +1460,7 @@ export async function buscarAssinaturaEmpresa(empresaId) {
 }
 
 export async function salvarAssinaturaEmpresa(empresaId, dados) {
-  const response = await fetch(`${API_URL}/admin/assinaturas/empresa/${empresaId}`, {
+  const response = await executarFetch(`${API_URL}/admin/assinaturas/empresa/${empresaId}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(dados),
@@ -1402,7 +1470,7 @@ export async function salvarAssinaturaEmpresa(empresaId, dados) {
 }
 
 export async function cadastrarEmpresaComOnboarding({ empresa, assinatura }) {
-  const response = await fetch(`${API_URL}/admin/empresas/onboarding`, {
+  const response = await executarFetch(`${API_URL}/admin/empresas/onboarding`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify({ empresa, assinatura }),
@@ -1413,7 +1481,7 @@ export async function cadastrarEmpresaComOnboarding({ empresa, assinatura }) {
 
 export async function buscarOpcoesCadastroGuiadoAdmin() {
   const urlPrincipal = `${API_URL}/admin/empresas/onboarding/opcoes`
-  const response = await fetch(urlPrincipal, {
+  const response = await executarFetch(urlPrincipal, {
     headers: montarHeaders(),
   })
 
@@ -1426,7 +1494,7 @@ export async function buscarOpcoesCadastroGuiadoAdmin() {
 }
 
 export async function validarSlugOnboardingAdmin(slug) {
-  const response = await fetch(
+  const response = await executarFetch(
     `${API_URL}/admin/empresas/onboarding/validar-slug${montarQueryString({ slug })}`,
     {
       headers: montarHeaders(),
@@ -1437,7 +1505,7 @@ export async function validarSlugOnboardingAdmin(slug) {
 }
 
 export async function validarEmailAdminOnboardingAdmin(email) {
-  const response = await fetch(
+  const response = await executarFetch(
     `${API_URL}/admin/empresas/onboarding/validar-email-admin${montarQueryString({ email })}`,
     {
       headers: montarHeaders(),
@@ -1448,7 +1516,7 @@ export async function validarEmailAdminOnboardingAdmin(email) {
 }
 
 export async function criarEmpresaCadastroGuiadoAdmin(payload) {
-  const response = await fetch(`${API_URL}/admin/empresas/onboarding`, {
+  const response = await executarFetch(`${API_URL}/admin/empresas/onboarding`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(payload),
@@ -1458,7 +1526,7 @@ export async function criarEmpresaCadastroGuiadoAdmin(payload) {
 }
 
 export async function buscarMinhaAssinatura() {
-  const response = await fetch(`${API_URL}/minha-empresa/assinatura`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/assinatura`, {
     headers: montarHeaders(),
   })
 
@@ -1466,7 +1534,7 @@ export async function buscarMinhaAssinatura() {
 }
 
 export async function buscarUsoPlano() {
-  const response = await fetch(`${API_URL}/minha-empresa/uso-plano`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/uso-plano`, {
     headers: montarHeaders(),
   })
 
@@ -1474,7 +1542,7 @@ export async function buscarUsoPlano() {
 }
 
 export async function buscarMinhasConfiguracoesNotificacoes() {
-  const response = await fetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
     headers: montarHeaders(),
   })
 
@@ -1482,7 +1550,7 @@ export async function buscarMinhasConfiguracoesNotificacoes() {
 }
 
 export async function salvarMinhasConfiguracoesNotificacoes(payload) {
-  const response = await fetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(payload),
@@ -1492,7 +1560,7 @@ export async function salvarMinhasConfiguracoesNotificacoes(payload) {
 }
 
 export async function buscarConfiguracoesNotificacoesEmpresa(empresaId) {
-  const response = await fetch(`${API_URL}/admin/empresas/${empresaId}/notificacoes/configuracoes`, {
+  const response = await executarFetch(`${API_URL}/admin/empresas/${empresaId}/notificacoes/configuracoes`, {
     headers: montarHeaders(),
   })
 
@@ -1500,7 +1568,7 @@ export async function buscarConfiguracoesNotificacoesEmpresa(empresaId) {
 }
 
 export async function salvarConfiguracoesNotificacoesEmpresa(empresaId, payload) {
-  const response = await fetch(`${API_URL}/admin/empresas/${empresaId}/notificacoes/configuracoes`, {
+  const response = await executarFetch(`${API_URL}/admin/empresas/${empresaId}/notificacoes/configuracoes`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(payload),
@@ -1510,7 +1578,7 @@ export async function salvarConfiguracoesNotificacoesEmpresa(empresaId, payload)
 }
 
 export async function buscarAgendamentosExcluidos(filtros = {}) {
-  const response = await fetch(
+  const response = await executarFetch(
     `${API_URL}/admin/lixeira/agendamentos${montarQueryString(filtros)}`,
     {
       headers: montarHeaders(),
@@ -1521,7 +1589,7 @@ export async function buscarAgendamentosExcluidos(filtros = {}) {
 }
 
 export async function restaurarAgendamento(id) {
-  const response = await fetch(`${API_URL}/admin/lixeira/agendamentos/${id}/restaurar`, {
+  const response = await executarFetch(`${API_URL}/admin/lixeira/agendamentos/${id}/restaurar`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -1530,7 +1598,7 @@ export async function restaurarAgendamento(id) {
 }
 
 export async function buscarNotificacoes(filtros = {}) {
-  const response = await fetch(`${API_URL}/notificacoes${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/notificacoes${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1538,7 +1606,7 @@ export async function buscarNotificacoes(filtros = {}) {
 }
 
 export async function buscarResumoNotificacoes() {
-  const response = await fetch(`${API_URL}/notificacoes/resumo`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/resumo`, {
     headers: montarHeaders(),
   })
 
@@ -1546,7 +1614,7 @@ export async function buscarResumoNotificacoes() {
 }
 
 export async function marcarNotificacaoComoLida(id) {
-  const response = await fetch(`${API_URL}/notificacoes/${id}/lida`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/lida`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1555,7 +1623,7 @@ export async function marcarNotificacaoComoLida(id) {
 }
 
 export async function marcarNotificacaoComoLidaAdmin(id) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/lida`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/${id}/lida`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1564,7 +1632,7 @@ export async function marcarNotificacaoComoLidaAdmin(id) {
 }
 
 export async function marcarTodasNotificacoesComoLidas() {
-  const response = await fetch(`${API_URL}/notificacoes/marcar-todas-lidas`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/marcar-todas-lidas`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1573,7 +1641,7 @@ export async function marcarTodasNotificacoesComoLidas() {
 }
 
 export async function arquivarNotificacao(id) {
-  const response = await fetch(`${API_URL}/notificacoes/${id}/arquivar`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/arquivar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1582,7 +1650,7 @@ export async function arquivarNotificacao(id) {
 }
 
 export async function desarquivarNotificacao(id) {
-  const response = await fetch(`${API_URL}/notificacoes/${id}/desarquivar`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/desarquivar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1591,7 +1659,7 @@ export async function desarquivarNotificacao(id) {
 }
 
 export async function excluirNotificacao(id) {
-  const response = await fetch(`${API_URL}/notificacoes/${id}/excluir`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/excluir`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1600,7 +1668,7 @@ export async function excluirNotificacao(id) {
 }
 
 export async function restaurarNotificacao(id) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/restaurar`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/${id}/restaurar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1609,7 +1677,7 @@ export async function restaurarNotificacao(id) {
 }
 
 export async function arquivarNotificacaoAdmin(id) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/arquivar`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/${id}/arquivar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1618,7 +1686,7 @@ export async function arquivarNotificacaoAdmin(id) {
 }
 
 export async function desarquivarNotificacaoAdmin(id) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/desarquivar`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/${id}/desarquivar`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1627,7 +1695,7 @@ export async function desarquivarNotificacaoAdmin(id) {
 }
 
 export async function excluirNotificacaoAdmin(id) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/${id}/excluir`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/${id}/excluir`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -1636,7 +1704,7 @@ export async function excluirNotificacaoAdmin(id) {
 }
 
 export async function buscarNotificacoesAdmin(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/notificacoes${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1644,7 +1712,7 @@ export async function buscarNotificacoesAdmin(filtros = {}) {
 }
 
 export async function listarNotificacoesLixeiraAdmin(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/lixeira${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/lixeira${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1652,7 +1720,7 @@ export async function listarNotificacoesLixeiraAdmin(filtros = {}) {
 }
 
 export async function editarNotificacaoAdmin(id, payload) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(payload),
@@ -1662,7 +1730,7 @@ export async function editarNotificacaoAdmin(id, payload) {
 }
 
 export async function buscarTemplatesNotificacao() {
-  const response = await fetch(`${API_URL}/admin/notificacoes/templates`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/templates`, {
     headers: montarHeaders(),
   })
 
@@ -1670,7 +1738,7 @@ export async function buscarTemplatesNotificacao() {
 }
 
 export async function atualizarTemplateNotificacao(id, payload) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/templates/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/templates/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(payload),
@@ -1680,7 +1748,7 @@ export async function atualizarTemplateNotificacao(id, payload) {
 }
 
 export async function enviarNotificacaoManual(payload) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/manual`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/manual`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(payload),
@@ -1690,7 +1758,7 @@ export async function enviarNotificacaoManual(payload) {
 }
 
 export async function buscarLogsNotificacao(filtros = {}) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/logs${montarQueryString(filtros)}`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/logs${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
@@ -1698,7 +1766,7 @@ export async function buscarLogsNotificacao(filtros = {}) {
 }
 
 export async function buscarOpcoesLogsNotificacao() {
-  const response = await fetch(`${API_URL}/admin/notificacoes/logs/opcoes`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/logs/opcoes`, {
     headers: montarHeaders(),
   })
 
@@ -1706,7 +1774,7 @@ export async function buscarOpcoesLogsNotificacao() {
 }
 
 export async function executarLembretesFinanceiros() {
-  const response = await fetch(`${API_URL}/admin/notificacoes/lembretes-financeiros/executar`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/lembretes-financeiros/executar`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -1715,7 +1783,7 @@ export async function executarLembretesFinanceiros() {
 }
 
 export async function executarLembretesAgendamentos() {
-  const response = await fetch(`${API_URL}/admin/notificacoes/lembretes-agendamentos/executar`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/lembretes-agendamentos/executar`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -1724,7 +1792,7 @@ export async function executarLembretesAgendamentos() {
 }
 
 export async function buscarResumoLembretesAgendamentos(params = {}) {
-  const response = await fetch(
+  const response = await executarFetch(
     `${API_URL}/admin/notificacoes/lembretes-agendamentos/resumo${montarQueryString(params)}`,
     {
       headers: montarHeaders(),
@@ -1735,7 +1803,7 @@ export async function buscarResumoLembretesAgendamentos(params = {}) {
 }
 
 export async function buscarLembretesAgendamentos(params = {}) {
-  const response = await fetch(`${API_URL}/admin/notificacoes/lembretes-agendamentos${montarQueryString(params)}`, {
+  const response = await executarFetch(`${API_URL}/admin/notificacoes/lembretes-agendamentos${montarQueryString(params)}`, {
     headers: montarHeaders(),
   })
 
@@ -1743,7 +1811,7 @@ export async function buscarLembretesAgendamentos(params = {}) {
 }
 
 export async function buscarAutomacoesDisponiveis() {
-  const response = await fetch(`${API_URL}/admin/automacoes`, {
+  const response = await executarFetch(`${API_URL}/admin/automacoes`, {
     headers: montarHeaders(),
   })
 
@@ -1751,7 +1819,7 @@ export async function buscarAutomacoesDisponiveis() {
 }
 
 export async function buscarResumoAutomacoes() {
-  const response = await fetch(`${API_URL}/admin/automacoes/resumo`, {
+  const response = await executarFetch(`${API_URL}/admin/automacoes/resumo`, {
     headers: montarHeaders(),
   })
 
@@ -1759,7 +1827,7 @@ export async function buscarResumoAutomacoes() {
 }
 
 export async function buscarExecucoesAutomacoes(params = {}) {
-  const response = await fetch(`${API_URL}/admin/automacoes/execucoes${montarQueryString(params)}`, {
+  const response = await executarFetch(`${API_URL}/admin/automacoes/execucoes${montarQueryString(params)}`, {
     headers: montarHeaders(),
   })
 
@@ -1767,7 +1835,7 @@ export async function buscarExecucoesAutomacoes(params = {}) {
 }
 
 export async function buscarExecucaoAutomacaoPorId(id) {
-  const response = await fetch(`${API_URL}/admin/automacoes/execucoes/${id}`, {
+  const response = await executarFetch(`${API_URL}/admin/automacoes/execucoes/${id}`, {
     headers: montarHeaders(),
   })
 
@@ -1775,7 +1843,7 @@ export async function buscarExecucaoAutomacaoPorId(id) {
 }
 
 export async function executarAutomacaoLembretesAgendamentos() {
-  const response = await fetch(`${API_URL}/admin/automacoes/lembretes-agendamentos/executar`, {
+  const response = await executarFetch(`${API_URL}/admin/automacoes/lembretes-agendamentos/executar`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -1784,7 +1852,7 @@ export async function executarAutomacaoLembretesAgendamentos() {
 }
 
 export async function executarAutomacaoLembretesFinanceiros() {
-  const response = await fetch(`${API_URL}/admin/automacoes/lembretes-financeiros/executar`, {
+  const response = await executarFetch(`${API_URL}/admin/automacoes/lembretes-financeiros/executar`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -1793,7 +1861,7 @@ export async function executarAutomacaoLembretesFinanceiros() {
 }
 
 export async function executarAutomacaoFaturasRecorrentes() {
-  const response = await fetch(`${API_URL}/admin/automacoes/faturas-recorrentes/gerar`, {
+  const response = await executarFetch(`${API_URL}/admin/automacoes/faturas-recorrentes/gerar`, {
     method: 'POST',
     headers: montarHeaders(),
   })
@@ -1802,7 +1870,7 @@ export async function executarAutomacaoFaturasRecorrentes() {
 }
 
 export async function login(email, senha) {
-  const response = await fetch(`${API_URL}/auth/login`, {
+  const response = await executarFetch(`${API_URL}/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1810,11 +1878,15 @@ export async function login(email, senha) {
     body: JSON.stringify({ email, senha }),
   })
 
-  return tratarResposta(response, { encerrarSessao401: false, emitir403: false })
+  return tratarResposta(response, {
+    encerrarSessao401: false,
+    emitir403: false,
+    mensagem401: 'Não foi possível fazer login. Confira e-mail e senha.',
+  })
 }
 
 export async function alterarSenha(senhaAtual, novaSenha) {
-  const response = await fetch(`${API_URL}/auth/alterar-senha`, {
+  const response = await executarFetch(`${API_URL}/auth/alterar-senha`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify({ senhaAtual, novaSenha }),
@@ -1824,7 +1896,7 @@ export async function alterarSenha(senhaAtual, novaSenha) {
 }
 
 export async function buscarEmpresas() {
-  const response = await fetch(`${API_URL}/empresas`, {
+  const response = await executarFetch(`${API_URL}/empresas`, {
     headers: montarHeaders(),
   })
 
@@ -1832,7 +1904,7 @@ export async function buscarEmpresas() {
 }
 
 export async function buscarMinhaEmpresa() {
-  const response = await fetch(`${API_URL}/minha-empresa`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa`, {
     headers: montarHeaders(),
   })
 
@@ -1840,7 +1912,7 @@ export async function buscarMinhaEmpresa() {
 }
 
 export async function atualizarMinhaEmpresa(empresa) {
-  const response = await fetch(`${API_URL}/minha-empresa`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(empresa),
@@ -1850,7 +1922,7 @@ export async function atualizarMinhaEmpresa(empresa) {
 }
 
 export async function cadastrarEmpresa(empresa) {
-  const response = await fetch(`${API_URL}/empresas`, {
+  const response = await executarFetch(`${API_URL}/empresas`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(empresa),
@@ -1860,7 +1932,7 @@ export async function cadastrarEmpresa(empresa) {
 }
 
 export async function atualizarEmpresa(id, empresa) {
-  const response = await fetch(`${API_URL}/empresas/${id}`, {
+  const response = await executarFetch(`${API_URL}/empresas/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(empresa),
@@ -1870,7 +1942,7 @@ export async function atualizarEmpresa(id, empresa) {
 }
 
 export async function atualizarAtivoEmpresa(id, ativo) {
-  const response = await fetch(`${API_URL}/empresas/${id}/ativo`, {
+  const response = await executarFetch(`${API_URL}/empresas/${id}/ativo`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify({ ativo }),
@@ -1880,7 +1952,7 @@ export async function atualizarAtivoEmpresa(id, ativo) {
 }
 
 export async function buscarUsuarios() {
-  const response = await fetch(`${API_URL}/usuarios`, {
+  const response = await executarFetch(`${API_URL}/usuarios`, {
     headers: montarHeaders(),
   })
 
@@ -1888,7 +1960,7 @@ export async function buscarUsuarios() {
 }
 
 export async function cadastrarUsuario(usuario) {
-  const response = await fetch(`${API_URL}/usuarios`, {
+  const response = await executarFetch(`${API_URL}/usuarios`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(usuario),
@@ -1898,7 +1970,7 @@ export async function cadastrarUsuario(usuario) {
 }
 
 export async function atualizarUsuario(id, usuario) {
-  const response = await fetch(`${API_URL}/usuarios/${id}`, {
+  const response = await executarFetch(`${API_URL}/usuarios/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(usuario),
@@ -1908,7 +1980,7 @@ export async function atualizarUsuario(id, usuario) {
 }
 
 export async function atualizarAtivoUsuario(id, ativo) {
-  const response = await fetch(`${API_URL}/usuarios/${id}/ativo`, {
+  const response = await executarFetch(`${API_URL}/usuarios/${id}/ativo`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify({ ativo }),
@@ -1918,7 +1990,7 @@ export async function atualizarAtivoUsuario(id, ativo) {
 }
 
 export async function cadastrarCliente(cliente) {
-  const response = await fetch(`${API_URL}/clientes`, {
+  const response = await executarFetch(`${API_URL}/clientes`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(cliente),
@@ -1928,7 +2000,7 @@ export async function cadastrarCliente(cliente) {
 }
 
 export async function atualizarCliente(id, cliente) {
-  const response = await fetch(`${API_URL}/clientes/${id}`, {
+  const response = await executarFetch(`${API_URL}/clientes/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(cliente),
@@ -1938,7 +2010,7 @@ export async function atualizarCliente(id, cliente) {
 }
 
 export async function cadastrarServico(servico) {
-  const response = await fetch(`${API_URL}/servicos`, {
+  const response = await executarFetch(`${API_URL}/servicos`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(servico),
@@ -1948,7 +2020,7 @@ export async function cadastrarServico(servico) {
 }
 
 export async function atualizarServico(id, servico) {
-  const response = await fetch(`${API_URL}/servicos/${id}`, {
+  const response = await executarFetch(`${API_URL}/servicos/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(servico),
@@ -1958,7 +2030,7 @@ export async function atualizarServico(id, servico) {
 }
 
 export async function atualizarAtivoServico(id, ativo) {
-  const response = await fetch(`${API_URL}/servicos/${id}/ativo`, {
+  const response = await executarFetch(`${API_URL}/servicos/${id}/ativo`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify({ ativo }),
@@ -1968,7 +2040,7 @@ export async function atualizarAtivoServico(id, ativo) {
 }
 
 export async function cadastrarFuncionario(funcionario) {
-  const response = await fetch(`${API_URL}/funcionarios`, {
+  const response = await executarFetch(`${API_URL}/funcionarios`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(funcionario),
@@ -1978,7 +2050,7 @@ export async function cadastrarFuncionario(funcionario) {
 }
 
 export async function atualizarFuncionario(id, funcionario) {
-  const response = await fetch(`${API_URL}/funcionarios/${id}`, {
+  const response = await executarFetch(`${API_URL}/funcionarios/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(funcionario),
@@ -1988,7 +2060,7 @@ export async function atualizarFuncionario(id, funcionario) {
 }
 
 export async function atualizarAtivoFuncionario(id, ativo) {
-  const response = await fetch(`${API_URL}/funcionarios/${id}/ativo`, {
+  const response = await executarFetch(`${API_URL}/funcionarios/${id}/ativo`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify({ ativo }),
@@ -1998,7 +2070,7 @@ export async function atualizarAtivoFuncionario(id, ativo) {
 }
 
 export async function cadastrarAgendamento(agendamento) {
-  const response = await fetch(`${API_URL}/agendamentos`, {
+  const response = await executarFetch(`${API_URL}/agendamentos`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(agendamento),
@@ -2008,7 +2080,7 @@ export async function cadastrarAgendamento(agendamento) {
 }
 
 export async function atualizarAgendamento(id, agendamento) {
-  const response = await fetch(`${API_URL}/agendamentos/${id}`, {
+  const response = await executarFetch(`${API_URL}/agendamentos/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(agendamento),
@@ -2018,7 +2090,7 @@ export async function atualizarAgendamento(id, agendamento) {
 }
 
 export async function atualizarStatusAgendamento(id, status) {
-  const response = await fetch(`${API_URL}/agendamentos/${id}/status`, {
+  const response = await executarFetch(`${API_URL}/agendamentos/${id}/status`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify({ status }),
@@ -2028,10 +2100,11 @@ export async function atualizarStatusAgendamento(id, status) {
 }
 
 export async function excluirAgendamento(id, motivo = '') {
-  const response = await fetch(`${API_URL}/agendamentos/${id}${montarQueryString({ motivo })}`, {
+  const response = await executarFetch(`${API_URL}/agendamentos/${id}${montarQueryString({ motivo })}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
 
   return tratarResposta(response)
 }
+

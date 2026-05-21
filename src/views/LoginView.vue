@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { login, salvarSessaoAutenticacao } from '@/services/api'
+import { login, obterMensagemAmigavelErro, salvarSessaoAutenticacao } from '@/services/api'
 
 const router = useRouter()
 const mensagemLogin = sessionStorage.getItem('mensagem-login') || ''
@@ -47,7 +47,10 @@ async function entrar() {
 
     router.push('/dashboard')
   } catch (error) {
-    erro.value = 'Não foi possível fazer login. Confira e-mail e senha.'
+    erro.value = obterMensagemAmigavelErro(
+      error,
+      'Não foi possível fazer login. Confira e-mail e senha.',
+    )
     console.error(error)
   } finally {
     carregando.value = false
@@ -61,7 +64,7 @@ async function entrar() {
       <div class="marca-login">
         <span class="marca-simbolo">LE</span>
         <div>
-          <strong>Gestao SaaS</strong>
+          <strong>Gestão SaaS</strong>
           <small>MicroSaaS empresarial</small>
         </div>
       </div>

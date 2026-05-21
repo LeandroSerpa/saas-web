@@ -5,7 +5,7 @@ import { RouterLink } from 'vue-router'
 <template>
   <main class="pagina-feedback">
     <section class="card-feedback erro">
-      <span class="selo">Acesso bloqueado</span>
+      <span class="selo">Acesso negado</span>
       <h1>Você não tem permissão para acessar esta área.</h1>
       <p>Verifique se está usando o perfil correto ou volte para uma área disponível para sua conta.</p>
       <RouterLink class="botao" to="/dashboard">Ir para o dashboard</RouterLink>
