@@ -7,6 +7,7 @@ import {
   criarPlano,
   desativarPlano,
 } from '@/services/api'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const tiposPlano = [
   { valor: 'COMERCIAL', rotulo: 'Comercial' },
@@ -21,6 +22,11 @@ const erro = ref('')
 const mensagemSucesso = ref('')
 const planoEditandoId = ref(null)
 const plano = ref(criarPlanoInicial())
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 
 const planosOrdenados = computed(() =>
   [...planos.value].sort((planoA, planoB) =>
@@ -54,7 +60,36 @@ async function carregarPlanos() {
   try {
     carregando.value = true
     erro.value = ''
-    planos.value = extrairLista(await buscarPlanos())
+    const resposta = await buscarPlanos({
+      page: paginacao.value.page,
+      size: paginacao.value.size,
+    })
+    const dadosPaginados = normalizarRespostaPaginada(resposta, paginacao.value)
+
+    planos.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarPlanos()
+      }
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar os planos.')
     console.error(error)
@@ -187,14 +222,6 @@ function obterLimite(objeto, campo, alternativo = '') {
   return valor === null || valor === undefined ? '' : valor
 }
 
-function extrairLista(resposta) {
-  if (Array.isArray(resposta)) {
-    return resposta
-  }
-
-  return resposta?.content || resposta?.items || resposta?.data || []
-}
-
 function estaAtivo(planoItem) {
   return planoItem.ativo !== false
 }
@@ -230,6 +257,29 @@ function obterMensagemErro(error, fallback) {
   const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
 
   return mensagem || fallback
+}
+
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page = Math.max(paginacao.value.page - 1, 0)
+  await carregarPlanos()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page += 1
+  await carregarPlanos()
+}
+
+async function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  await carregarPlanos()
 }
 
 onMounted(() => {
@@ -376,7 +426,7 @@ watch(
           <p>Lista de planos retornados pela API publicada.</p>
         </div>
 
-        <span class="contador">{{ planosOrdenados.length }} plano(s)</span>
+        <span class="contador">{{ paginacao.totalElements }} plano(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
@@ -439,6 +489,30 @@ watch(
             </button>
           </div>
         </article>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+        </p>
+
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+            Próxima
+          </button>
+        </div>
       </section>
     </section>
   </main>
@@ -653,6 +727,42 @@ label small {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 800;
+}
+
+.paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resumo-paginacao {
+  margin: 0;
+  color: #475569;
+  font-weight: 700;
+}
+
+.tamanho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-weight: 700;
+}
+
+.tamanho-pagina select {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: white;
+}
+
+.botoes-paginacao {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .botao:disabled {

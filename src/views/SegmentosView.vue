@@ -7,6 +7,7 @@ import {
   criarSegmento,
   desativarSegmento,
 } from '@/services/api'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const segmentos = ref([])
 const segmentoEditandoId = ref(null)
@@ -16,6 +17,11 @@ const atualizandoId = ref(null)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const segmento = ref(criarSegmentoInicial())
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 
 const segmentosOrdenados = computed(() =>
   [...segmentos.value].sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')),
@@ -37,7 +43,36 @@ async function carregarSegmentos() {
   try {
     carregando.value = true
     erro.value = ''
-    segmentos.value = extrairLista(await buscarSegmentos())
+    const resposta = await buscarSegmentos({
+      page: paginacao.value.page,
+      size: paginacao.value.size,
+    })
+    const dadosPaginados = normalizarRespostaPaginada(resposta, paginacao.value)
+
+    segmentos.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarSegmentos()
+      }
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar os segmentos.')
     console.error(error)
@@ -142,14 +177,6 @@ function cancelarEdicao(limparMensagens = true) {
   }
 }
 
-function extrairLista(resposta) {
-  if (Array.isArray(resposta)) {
-    return resposta
-  }
-
-  return resposta?.content || resposta?.items || resposta?.data || []
-}
-
 function estaAtivo(item) {
   return item.ativo !== false
 }
@@ -177,6 +204,29 @@ function atualizarCorVisual(event) {
 function usarCorPadrao() {
   segmento.value.cor = '#2563eb'
   erro.value = ''
+}
+
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page = Math.max(paginacao.value.page - 1, 0)
+  await carregarSegmentos()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page += 1
+  await carregarSegmentos()
+}
+
+async function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  await carregarSegmentos()
 }
 
 onMounted(() => {
@@ -237,7 +287,7 @@ onMounted(() => {
           <h2>Segmentos cadastrados</h2>
           <p>Lista de segmentos de negócio disponíveis para empresas.</p>
         </div>
-        <span class="contador">{{ segmentosOrdenados.length }} segmento(s)</span>
+        <span class="contador">{{ paginacao.totalElements }} segmento(s)</span>
       </div>
 
       <section v-if="carregando" class="card"><p>Carregando segmentos...</p></section>
@@ -267,6 +317,30 @@ onMounted(() => {
             </button>
           </div>
         </article>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+        </p>
+
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+            Próxima
+          </button>
+        </div>
       </section>
     </section>
   </main>
@@ -437,6 +511,42 @@ input[type='color'] {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 800;
+}
+
+.paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resumo-paginacao {
+  margin: 0;
+  color: #475569;
+  font-weight: 700;
+}
+
+.tamanho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-weight: 700;
+}
+
+.tamanho-pagina select {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: white;
+}
+
+.botoes-paginacao {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .principal { background: #2563eb; }

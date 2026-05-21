@@ -8,6 +8,7 @@ import {
   atualizarUsuario,
   atualizarAtivoUsuario,
 } from '@/services/api'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const usuarios = ref([])
 const empresas = ref([])
@@ -19,6 +20,8 @@ const atualizandoId = ref(null)
 const usuarioEditandoId = ref(null)
 const editandoUsuarioAtual = ref(false)
 const perfilOriginalEdicao = ref('')
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 
 const usuarioLogado = computed(() => obterUsuarioLogado())
 const perfilLogado = computed(() => usuarioLogado.value?.perfil || '')
@@ -27,6 +30,9 @@ const adminLogado = computed(() => perfilLogado.value === 'ADMIN')
 const perfisPermitidos = computed(() =>
   superAdminLogado.value ? ['SUPER_ADMIN', 'ADMIN', 'USUARIO'] : ['USUARIO'],
 )
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 const usuario = ref(criarUsuarioInicial())
 
 function criarUsuarioInicial() {
@@ -64,12 +70,49 @@ async function carregarDados() {
     carregando.value = true
     erro.value = ''
 
+    let respostaUsuarios
+
     if (superAdminLogado.value) {
-      const [usuariosApi, empresasApi] = await Promise.all([buscarUsuarios(), buscarEmpresas()])
-      usuarios.value = usuariosApi
+      const [usuariosApi, empresasApi] = await Promise.all([
+        buscarUsuarios({
+          page: paginacao.value.page,
+          size: paginacao.value.size,
+        }),
+        buscarEmpresas(),
+      ])
+      respostaUsuarios = usuariosApi
       empresas.value = empresasApi
     } else {
-      usuarios.value = await buscarUsuarios()
+      respostaUsuarios = await buscarUsuarios({
+        page: paginacao.value.page,
+        size: paginacao.value.size,
+      })
+    }
+
+    const dadosPaginados = normalizarRespostaPaginada(respostaUsuarios, paginacao.value)
+    usuarios.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarDados()
+      }
     }
   } catch (error) {
     erro.value = 'Não foi possível carregar os usuários.'
@@ -275,6 +318,29 @@ function normalizarTexto(valor) {
     .toLowerCase()
 }
 
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page = Math.max(paginacao.value.page - 1, 0)
+  await carregarDados()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page += 1
+  await carregarDados()
+}
+
+async function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  await carregarDados()
+}
+
 onMounted(() => {
   carregarDados()
 })
@@ -320,7 +386,7 @@ onMounted(() => {
           <p>Lista de usuários administrativos retornados pela API.</p>
         </div>
 
-        <span class="contador">{{ usuarios.length }} usuário(s)</span>
+        <span class="contador">{{ paginacao.totalElements }} usuário(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
@@ -377,6 +443,30 @@ onMounted(() => {
             Atualizando usuário...
           </p>
         </article>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+        </p>
+
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+            Próxima
+          </button>
+        </div>
       </section>
     </section>
   </main>
@@ -496,6 +586,42 @@ onMounted(() => {
 .acoes {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.paginacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resumo-paginacao {
+  margin: 0;
+  color: #475569;
+  font-weight: 700;
+}
+
+.tamanho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-weight: 700;
+}
+
+.tamanho-pagina select {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: white;
+}
+
+.botoes-paginacao {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
 }
 

@@ -154,6 +154,14 @@ function montarQueryString(filtros = {}) {
   return query ? `?${query}` : ''
 }
 
+function solicitouPaginacao(filtros = {}) {
+  if (!filtros || typeof filtros !== 'object') {
+    return false
+  }
+
+  return filtros.page !== undefined || filtros.size !== undefined
+}
+
 async function executarFetch(input, init) {
   try {
     return await fetch(input, init)
@@ -417,20 +425,22 @@ async function tratarRespostaPublica(response) {
   return response.text()
 }
 
-export async function buscarClientes() {
-  const response = await executarFetch(`${API_URL}/clientes`, {
+export async function buscarClientes(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/clientes${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
-export async function buscarServicos() {
-  const response = await executarFetch(`${API_URL}/servicos`, {
+export async function buscarServicos(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/servicos${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarFuncionarios(filtros = {}) {
@@ -438,7 +448,8 @@ export async function buscarFuncionarios(filtros = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarAgendamentos() {
@@ -923,12 +934,13 @@ export async function buscarEntidadesAuditoria() {
   return tratarResposta(response)
 }
 
-export async function buscarSegmentos() {
-  const response = await executarFetch(`${API_URL}/admin/segmentos`, {
+export async function buscarSegmentos(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/admin/segmentos${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarSegmentoPorId(id) {
@@ -1389,12 +1401,13 @@ async function buscarRelatorio(caminho, filtros = {}) {
   return tratarResposta(response)
 }
 
-export async function buscarPlanos() {
-  const response = await executarFetch(`${API_URL}/admin/planos`, {
+export async function buscarPlanos(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/admin/planos${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarPlanoPorId(id) {
@@ -1951,12 +1964,13 @@ export async function atualizarAtivoEmpresa(id, ativo) {
   return tratarResposta(response)
 }
 
-export async function buscarUsuarios() {
-  const response = await executarFetch(`${API_URL}/usuarios`, {
+export async function buscarUsuarios(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/usuarios${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function cadastrarUsuario(usuario) {
