@@ -142,7 +142,7 @@ onBeforeUnmount(() => {
       <div class="marca">
         <span class="marca-simbolo">LE</span>
         <div>
-          <strong>Gestao SaaS</strong>
+          <strong>Gestão SaaS</strong>
           <small>MicroSaaS empresarial</small>
         </div>
       </div>
@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
 
         <section v-if="superAdmin" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
-            <span>ADMINISTRAÇÃO SAAS</span>
+            <span>Administração SaaS</span>
             <span>{{ menuAdminAberto ? '−' : '+' }}</span>
           </button>
 
@@ -175,11 +175,11 @@ onBeforeUnmount(() => {
             <RouterLink to="/admin/empresas/onboarding">Novo cadastro guiado</RouterLink>
             <RouterLink to="/planos">Planos</RouterLink>
             <RouterLink to="/assinaturas">Assinaturas</RouterLink>
-            <RouterLink to="/admin/notificacoes">Notificações</RouterLink>
+            <RouterLink to="/admin/notificacoes">Notificações SaaS</RouterLink>
             <RouterLink to="/admin/automacoes">Automações</RouterLink>
             <RouterLink to="/admin/financeiro">Inadimplência</RouterLink>
             <RouterLink to="/faturas-recorrentes">Faturas recorrentes</RouterLink>
-            <RouterLink to="/configuracoes-pagamento">Config. pagamento</RouterLink>
+            <RouterLink to="/configuracoes-pagamento">Configuração de pagamento</RouterLink>
             <RouterLink to="/segmentos">Segmentos/Módulos</RouterLink>
             <RouterLink to="/solicitacoes">Solicitações</RouterLink>
             <RouterLink to="/auditoria">Auditoria</RouterLink>
