@@ -20,6 +20,7 @@ import {
   obterRotuloMetodoPagamento,
 } from '@/utils/metodosPagamento'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const STATUS = [
   { valor: '', rotulo: 'Todos' },
@@ -41,6 +42,8 @@ const empresas = ref([])
 const statusFinanceiro = ref(null)
 const metodosPagamento = ref([])
 const filtros = ref(criarFiltrosIniciais())
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 const formulario = ref(criarFormularioInicial())
 const pagamento = ref(criarPagamentoInicial())
 const comprovante = ref(criarComprovanteInicial())
@@ -87,6 +90,9 @@ const formasPagamentoDisponiveis = computed(() => {
 })
 
 const filtrosApi = computed(() => limparVazios(filtros.value))
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 const subtituloPagina = computed(() =>
   superAdmin.value
     ? 'Gerencie as cobranças das empresas da plataforma.'
@@ -119,7 +125,11 @@ async function carregarDados(opcoes = {}) {
     }
 
     const promessas = [
-      buscarFaturas(filtrosApi.value),
+      buscarFaturas({
+        ...filtrosApi.value,
+        page: paginacao.value.page,
+        size: paginacao.value.size,
+      }),
       buscarResumoFaturas(filtrosApi.value),
     ]
 
@@ -129,9 +139,33 @@ async function carregarDados(opcoes = {}) {
 
     const [faturasApi, resumoApi, statusApi] = await Promise.all(promessas)
 
-    faturas.value = normalizarLista(faturasApi)
+    const dadosPaginados = normalizarRespostaPaginada(faturasApi, paginacao.value)
+    faturas.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
     resumo.value = normalizarObjeto(resumoApi)
     statusFinanceiro.value = statusApi ? normalizarObjeto(statusApi) : statusFinanceiro.value
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarDados(opcoes)
+      }
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar as faturas.')
     console.error(error)
@@ -169,12 +203,38 @@ async function carregarEmpresasSeNecessario() {
 }
 
 function aplicarFiltros() {
+  paginacao.value.page = 0
   carregarDados()
 }
 
 function limparFiltros() {
+  paginacao.value.page = 0
+  paginacao.value.size = 10
   filtros.value = criarFiltrosIniciais()
   carregarDados()
+}
+
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page = Math.max(paginacao.value.page - 1, 0)
+  await carregarDados()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page += 1
+  await carregarDados()
+}
+
+async function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  await carregarDados()
 }
 
 function abrirNovaFatura() {
@@ -1336,7 +1396,7 @@ onUnmounted(() => {
           <h2>Faturas</h2>
           <p>Lista de cobranças retornadas pela API para os filtros aplicados.</p>
         </div>
-        <span class="contador">{{ faturas.length }} fatura(s)</span>
+        <span class="contador">{{ paginacao.totalElements }} fatura(s)</span>
       </div>
 
       <section v-if="carregando" class="card"><p>Carregando faturas...</p></section>
@@ -1464,6 +1524,28 @@ onUnmounted(() => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+        </p>
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+            Próxima
+          </button>
         </div>
       </section>
     </section>
@@ -1844,6 +1926,38 @@ a {
   border-color: #bbf7d0;
   background: #f0fdf4;
   color: #15803d;
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.resumo-paginacao {
+  margin: 0;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tamanho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tamanho-pagina select {
+  min-width: 84px;
+}
+
+.botoes-paginacao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 @media (max-width: 1100px) {

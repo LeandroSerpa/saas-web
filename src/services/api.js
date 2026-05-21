@@ -994,7 +994,8 @@ export async function buscarSolicitacoesCadastro(filtros = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarResumoSolicitacoesCadastro() {
@@ -1047,7 +1048,8 @@ export async function buscarFaturas(filtros = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarResumoFaturas(filtros = {}) {
@@ -1140,7 +1142,8 @@ export async function buscarEmpresasFinanceiro(filtros = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function alterarBloqueioFinanceiroEmpresa(empresaId, dados = {}) {
@@ -1461,7 +1464,8 @@ export async function buscarAssinaturas(filtros = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarAssinaturaEmpresa(empresaId) {
@@ -1721,7 +1725,8 @@ export async function buscarNotificacoesAdmin(filtros = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function listarNotificacoesLixeiraAdmin(filtros = {}) {
@@ -1729,7 +1734,8 @@ export async function listarNotificacoesLixeiraAdmin(filtros = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function editarNotificacaoAdmin(id, payload) {
@@ -1775,7 +1781,8 @@ export async function buscarLogsNotificacao(filtros = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarOpcoesLogsNotificacao() {
@@ -1820,7 +1827,8 @@ export async function buscarLembretesAgendamentos(params = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(params) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarAutomacoesDisponiveis() {
@@ -1844,7 +1852,8 @@ export async function buscarExecucoesAutomacoes(params = {}) {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(params) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarExecucaoAutomacaoPorId(id) {
@@ -1908,12 +1917,13 @@ export async function alterarSenha(senhaAtual, novaSenha) {
   return tratarResposta(response)
 }
 
-export async function buscarEmpresas() {
-  const response = await executarFetch(`${API_URL}/empresas`, {
+export async function buscarEmpresas(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/empresas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarMinhaEmpresa() {

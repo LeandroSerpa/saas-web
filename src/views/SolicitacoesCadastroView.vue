@@ -10,6 +10,7 @@ import {
   rejeitarSolicitacaoCadastro,
 } from '@/services/api'
 import { ehSuperAdmin } from '@/utils/permissoes'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const STATUS = [
   { valor: '', rotulo: 'Todos' },
@@ -36,6 +37,11 @@ const rejeitando = ref(null)
 const resultadoAprovacao = ref(null)
 const aprovacao = ref(criarAprovacaoInicial())
 const rejeicao = ref({ motivoRejeicao: '', observacaoInterna: '' })
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 
 const cardsResumo = computed(() => [
   { titulo: 'Total', valor: formatarNumero(numeroResumo('total', 'totalSolicitacoes', 'totalSolicitacoesCadastro')) },
@@ -50,13 +56,41 @@ async function carregarDados(opcoes = {}) {
     carregando.value = true
     if (!opcoes.manterMensagem) limparMensagens()
     const [listaApi, resumoApi, planosApi] = await Promise.all([
-      buscarSolicitacoesCadastro(montarFiltrosApi()),
+      buscarSolicitacoesCadastro({
+        ...montarFiltrosApi(),
+        page: paginacao.value.page,
+        size: paginacao.value.size,
+      }),
       buscarResumoSolicitacoesCadastro().catch(() => ({})),
       buscarPlanos().catch(() => []),
     ])
-    solicitacoes.value = extrairLista(listaApi)
+    const dadosPaginados = normalizarRespostaPaginada(listaApi, paginacao.value)
+    solicitacoes.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
     resumo.value = normalizarObjeto(resumoApi)
     planos.value = extrairLista(planosApi)
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarDados(opcoes)
+      }
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar as solicitações.')
     console.error(error)
@@ -183,12 +217,38 @@ function podeDecidir(item) {
 }
 
 function aplicarFiltros() {
+  paginacao.value.page = 0
   carregarDados()
 }
 
 function limparFiltros() {
+  paginacao.value.page = 0
+  paginacao.value.size = 10
   filtros.value = criarFiltrosIniciais()
   carregarDados()
+}
+
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page = Math.max(paginacao.value.page - 1, 0)
+  await carregarDados()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page += 1
+  await carregarDados()
+}
+
+async function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  await carregarDados()
 }
 
 function criarFiltrosIniciais() {
@@ -410,6 +470,14 @@ onMounted(carregarDados)
         </div>
       </section>
 
+      <section class="card cabecalho-card">
+        <div>
+          <h2>Solicitações</h2>
+          <p>Lista de solicitações retornadas pela API para os filtros aplicados.</p>
+        </div>
+        <span class="contador">{{ paginacao.totalElements }} solicitação(ões)</span>
+      </section>
+
       <section v-if="carregando" class="card"><p>Carregando solicitações...</p></section>
       <section v-else-if="!solicitacoes.length" class="card"><p>Nenhuma solicitação encontrada.</p></section>
 
@@ -441,6 +509,28 @@ onMounted(carregarDados)
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+        </p>
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+            Próxima
+          </button>
         </div>
       </section>
     </template>
@@ -493,4 +583,10 @@ onMounted(carregarDados)
 
 <style scoped>
 .pagina,.filtros,.painel,.modal{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:22px}.descricao,.cabecalho-card p{margin-top:6px;color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.grade-resumo{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:14px}.indicador{display:grid;gap:8px}.indicador span{color:#64748b;font-size:14px;font-weight:800}.indicador strong{font-size:24px}.campos,.detalhes-grid{display:grid;grid-template-columns:repeat(3,minmax(190px,1fr));gap:16px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit;box-sizing:border-box;background:white}.checkbox{display:flex;align-items:center}.checkbox input{width:auto}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800}.botao:disabled{cursor:not-allowed;opacity:.55}.compacto{padding:8px 10px;font-size:12px}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.sucesso-botao{background:#15803d}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.tabela-card{padding:0;overflow:hidden}.tabela-container{overflow-x:auto}table{width:100%;min-width:1160px;border-collapse:collapse}th,td{padding:14px 16px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;color:#374151}th{background:#f8fafc;color:#111827;font-size:12px;font-weight:800;text-transform:uppercase}.acoes-tabela{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.status{display:inline-flex;padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.status.pendente{background:#dbeafe;color:#1d4ed8}.status.aprovada{background:#dcfce7;color:#15803d}.status.rejeitada{background:#fee2e2;color:#b91c1c}.status.cancelada{background:#e5e7eb;color:#4b5563}.modal-fundo{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:24px;background:rgba(15,23,42,.45)}.modal{width:min(100%,920px);max-height:88vh;overflow:auto}.pequeno{width:min(100%,620px)}.alerta-acesso{display:grid;gap:8px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:8px;padding:16px}@media(max-width:1000px){.grade-resumo{grid-template-columns:repeat(2,minmax(150px,1fr))}.campos,.detalhes-grid{grid-template-columns:1fr}.cabecalho-pagina,.cabecalho-card,.acoes{align-items:flex-start;flex-direction:column}}
+.contador{background:#dbeafe;color:#1d4ed8;padding:8px 12px;border-radius:999px;font-weight:800;font-size:14px;white-space:nowrap}
+.paginacao{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.resumo-paginacao{margin:0;color:#334155;font-weight:700}
+.tamanho-pagina{display:flex;align-items:center;gap:8px;color:#334155;font-weight:700}
+.tamanho-pagina select{min-width:84px}
+.botoes-paginacao{display:flex;align-items:center;gap:10px}
 </style>

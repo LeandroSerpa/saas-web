@@ -9,6 +9,7 @@ import {
   executarAutomacaoLembretesAgendamentos,
   executarAutomacaoLembretesFinanceiros,
 } from '@/services/api'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const TIPOS = ['', 'LEMBRETES_AGENDAMENTOS', 'LEMBRETES_FINANCEIROS', 'FATURAS_RECORRENTES']
 const STATUS = ['', 'EM_EXECUCAO', 'SUCESSO', 'ERRO']
@@ -16,6 +17,8 @@ const STATUS = ['', 'EM_EXECUCAO', 'SUCESSO', 'ERRO']
 const automacoes = ref([])
 const resumo = ref({})
 const execucoes = ref([])
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 const detalhe = ref(null)
 const filtros = ref({ tipoAutomacao: '', status: '', dataInicio: '', dataFim: '' })
 const carregando = ref(true)
@@ -24,6 +27,9 @@ const carregandoDetalhe = ref(false)
 const executandoTipo = ref('')
 const erro = ref('')
 const sucesso = ref('')
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 
 const cardsResumo = computed(() => [
   { titulo: 'Total de execuções', valor: numeroResumo('totalExecucoes', 'total') },
@@ -43,11 +49,39 @@ async function carregarDados() {
     const [automacoesApi, resumoApi, execucoesApi] = await Promise.all([
       buscarAutomacoesDisponiveis(),
       buscarResumoAutomacoes(),
-      buscarExecucoesAutomacoes(limparVazios(filtros.value)),
+      buscarExecucoesAutomacoes({
+        ...limparVazios(filtros.value),
+        page: paginacao.value.page,
+        size: paginacao.value.size,
+      }),
     ])
     automacoes.value = normalizarLista(automacoesApi)
     resumo.value = normalizarObjeto(resumoApi)
-    execucoes.value = normalizarLista(execucoesApi)
+    const dadosPaginados = normalizarRespostaPaginada(execucoesApi, paginacao.value)
+    execucoes.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarDados()
+      }
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar a central de automações.')
     console.error(error)
@@ -62,10 +96,38 @@ async function carregarResumoEHistorico() {
     erro.value = ''
     const [resumoApi, execucoesApi] = await Promise.all([
       buscarResumoAutomacoes(),
-      buscarExecucoesAutomacoes(limparVazios(filtros.value)),
+      buscarExecucoesAutomacoes({
+        ...limparVazios(filtros.value),
+        page: paginacao.value.page,
+        size: paginacao.value.size,
+      }),
     ])
     resumo.value = normalizarObjeto(resumoApi)
-    execucoes.value = normalizarLista(execucoesApi)
+    const dadosPaginados = normalizarRespostaPaginada(execucoesApi, paginacao.value)
+    execucoes.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarResumoEHistorico()
+      }
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível atualizar o histórico de automações.')
     console.error(error)
@@ -116,14 +178,40 @@ async function abrirDetalhes(item) {
 }
 
 function limparFiltros() {
+  paginacao.value.page = 0
+  paginacao.value.size = 10
   filtros.value = { tipoAutomacao: '', status: '', dataInicio: '', dataFim: '' }
   detalhe.value = null
   carregarResumoEHistorico()
 }
 
 function aplicarFiltros() {
+  paginacao.value.page = 0
   detalhe.value = null
   carregarResumoEHistorico()
+}
+
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregandoHistorico.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page = Math.max(paginacao.value.page - 1, 0)
+  await carregarResumoEHistorico()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregandoHistorico.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page += 1
+  await carregarResumoEHistorico()
+}
+
+async function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  await carregarResumoEHistorico()
 }
 
 function obterAcaoExecucao(tipo) {
@@ -263,6 +351,7 @@ onMounted(carregarDados)
           <h2>Automações disponíveis</h2>
           <p>Rotinas internas que podem ser executadas manualmente pela administração SaaS.</p>
         </div>
+        <span class="contador">{{ paginacao.totalElements }} execução(ões)</span>
       </div>
       <section v-if="carregando" class="card">Carregando automações...</section>
       <section v-else-if="!automacoes.length" class="card">Nenhuma automação disponível.</section>
@@ -290,6 +379,27 @@ onMounted(carregarDados)
             {{ executandoTipo === tipoAutomacao(item) ? 'Executando...' : 'Executar' }}
           </button>
         </article>
+      </section>
+      <section v-if="!carregando && !carregandoHistorico" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+        </p>
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacao.size" :disabled="carregandoHistorico" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrParaAnterior || carregandoHistorico" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrParaProxima || carregandoHistorico" @click="irParaProximaPagina">
+            Próxima
+          </button>
+        </div>
       </section>
     </section>
 
@@ -392,4 +502,10 @@ onMounted(carregarDados)
 
 <style scoped>
 .pagina,.secao,.filtros,.detalhe{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-lista,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,h3,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:22px}h3{font-size:18px;font-weight:800}.descricao,.cabecalho-lista p,.automacao-card p,.observacao{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.grade-resumo{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:14px}.indicador{display:grid;gap:8px}.indicador span{color:#64748b;font-weight:800}.indicador strong{font-size:20px;font-weight:800}.grade-automacoes{display:grid;grid-template-columns:repeat(3,minmax(240px,1fr));gap:14px}.automacao-card{display:grid;gap:14px;align-content:start}.badges{display:flex;gap:8px;flex-wrap:wrap}.badge,.status{display:inline-flex;width:fit-content;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.sucesso-badge,.status.sucesso{background:#dcfce7;color:#15803d}.erro-badge,.status.erro{background:#fee2e2;color:#b91c1c}.neutra,.status.em_execucao{background:#fef3c7;color:#92400e}.campos,.detalhes-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:14px}label{display:grid;gap:7px;color:#334155;font-weight:800}input,select{border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{opacity:.55;cursor:not-allowed}.principal{background:#2563eb}.secundario{background:#0f172a}.compacto{width:100%;padding:7px 8px;font-size:11px;line-height:1.2}.tabela-card{padding:0;overflow:hidden}.tabela-container{overflow-x:auto}table{width:100%;min-width:980px;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:left;vertical-align:top;font-size:13px;word-break:break-word}th{background:#f8fafc;color:#111827;font-size:11px;font-weight:800;text-transform:uppercase}.campo-grande{grid-column:1/-1}.detalhes-json{margin:0;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:14px;overflow:auto}@media(max-width:900px){.cabecalho-pagina,.cabecalho-lista,.acoes{align-items:flex-start;flex-direction:column}.grade-resumo,.grade-automacoes,.campos,.detalhes-grid{grid-template-columns:1fr}}
+.contador{background:#dbeafe;color:#1d4ed8;padding:8px 12px;border-radius:999px;font-weight:800;font-size:14px;white-space:nowrap}
+.paginacao{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.resumo-paginacao{margin:0;color:#334155;font-weight:700}
+.tamanho-pagina{display:flex;align-items:center;gap:8px;color:#334155;font-weight:700}
+.tamanho-pagina select{min-width:84px}
+.botoes-paginacao{display:flex;align-items:center;gap:10px}
 </style>

@@ -6,6 +6,7 @@ import {
   buscarPlanos,
   salvarAssinaturaEmpresa,
 } from '@/services/api'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const statusAssinatura = ['ATIVA', 'TESTE', 'ATRASADA', 'BLOQUEADA', 'CANCELADA']
 const tiposPlano = [
@@ -21,12 +22,17 @@ const salvando = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const empresaEditandoId = ref(null)
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 const filtros = ref({
   empresaId: '',
   planoId: '',
   status: '',
 })
 const assinatura = ref(criarAssinaturaInicial())
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 
 const assinaturasOrdenadas = computed(() =>
   [...assinaturas.value].sort((assinaturaA, assinaturaB) =>
@@ -53,14 +59,44 @@ async function carregarDados() {
     erro.value = ''
 
     const [assinaturasApi, empresasApi, planosApi] = await Promise.all([
-      buscarAssinaturas(limparFiltrosVazios(filtros.value)),
+      buscarAssinaturas(
+        limparFiltrosVazios({
+          ...filtros.value,
+          page: paginacao.value.page,
+          size: paginacao.value.size,
+        }),
+      ),
       buscarEmpresas(),
       buscarPlanos(),
     ])
 
-    assinaturas.value = extrairLista(assinaturasApi)
+    const dadosPaginados = normalizarRespostaPaginada(assinaturasApi, paginacao.value)
+    assinaturas.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
     empresas.value = extrairLista(empresasApi)
     planos.value = extrairLista(planosApi)
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarDados()
+      }
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar as assinaturas.')
     console.error(error)
@@ -139,16 +175,42 @@ function limparFiltrosVazios(objeto) {
 }
 
 function aplicarFiltros() {
+  paginacao.value.page = 0
   carregarDados()
 }
 
 function limparFiltros() {
+  paginacao.value.page = 0
+  paginacao.value.size = 10
   filtros.value = {
     empresaId: '',
     planoId: '',
     status: '',
   }
   carregarDados()
+}
+
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page = Math.max(paginacao.value.page - 1, 0)
+  await carregarDados()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page += 1
+  await carregarDados()
+}
+
+async function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  await carregarDados()
 }
 
 function extrairLista(resposta) {
@@ -378,7 +440,7 @@ onMounted(() => {
           <h2>Assinaturas das empresas</h2>
           <p>Cards com plano, vencimento, limites e observações.</p>
         </div>
-        <span class="contador">{{ assinaturasOrdenadas.length }} assinatura(s)</span>
+        <span class="contador">{{ paginacao.totalElements }} assinatura(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
@@ -419,6 +481,30 @@ onMounted(() => {
             <button class="botao neutro" @click="editarAssinatura(item)">Editar</button>
           </div>
         </article>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+        </p>
+
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+            Próxima
+          </button>
+        </div>
       </section>
     </section>
   </main>
@@ -647,6 +733,38 @@ textarea:focus {
   border-color: #bbf7d0;
   background: #f0fdf4;
   color: #166534;
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.resumo-paginacao {
+  margin: 0;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tamanho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tamanho-pagina select {
+  min-width: 84px;
+}
+
+.botoes-paginacao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 @media (max-width: 900px) {

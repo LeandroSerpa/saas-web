@@ -13,6 +13,7 @@ import {
   buscarRelatorioStatus,
 } from '@/services/api'
 import { ehSuperAdmin } from '@/utils/permissoes'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const STATUS = [
   { valor: '', rotulo: 'Todos' },
@@ -34,10 +35,17 @@ const rankingFuncionarios = ref([])
 const clientesRecorrentes = ref([])
 const distribuicaoStatus = ref([])
 const agendamentos = ref([])
+const paginacaoAgendamentos = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 const carregando = ref(true)
 const exportando = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
+const paginaAtualHumana = computed(() => paginacaoAgendamentos.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacaoAgendamentos.value.first && paginacaoAgendamentos.value.page > 0)
+const podeIrParaProxima = computed(
+  () => !paginacaoAgendamentos.value.last && paginaAtualHumana.value < paginacaoAgendamentos.value.totalPages,
+)
 
 const filtrosApi = computed(() => limparFiltrosVazios(filtros.value))
 
@@ -171,7 +179,11 @@ async function carregarRelatorios() {
       buscarRelatorioFuncionarios(filtrosApi.value),
       buscarRelatorioClientesRecorrentes(filtrosApi.value),
       buscarRelatorioStatus(filtrosApi.value),
-      buscarRelatorioAgendamentos(filtrosApi.value),
+      buscarRelatorioAgendamentos({
+        ...filtrosApi.value,
+        page: paginacaoAgendamentos.value.page,
+        size: paginacaoAgendamentos.value.size,
+      }),
     ])
 
     resumo.value = normalizarObjeto(resumoApi)
@@ -181,7 +193,31 @@ async function carregarRelatorios() {
     rankingFuncionarios.value = normalizarLista(funcionariosApi)
     clientesRecorrentes.value = normalizarLista(clientesApi)
     distribuicaoStatus.value = normalizarLista(statusApi)
-    agendamentos.value = normalizarLista(agendamentosApi)
+    const dadosPaginadosAgendamentos = normalizarRespostaPaginada(agendamentosApi, paginacaoAgendamentos.value)
+    agendamentos.value = dadosPaginadosAgendamentos.content
+    paginacaoAgendamentos.value = {
+      page: dadosPaginadosAgendamentos.page,
+      size: dadosPaginadosAgendamentos.size,
+      totalElements: dadosPaginadosAgendamentos.totalElements,
+      totalPages: dadosPaginadosAgendamentos.totalPages,
+      first: dadosPaginadosAgendamentos.first,
+      last: dadosPaginadosAgendamentos.last,
+      numberOfElements: dadosPaginadosAgendamentos.numberOfElements,
+    }
+
+    if (
+      dadosPaginadosAgendamentos.paginada &&
+      dadosPaginadosAgendamentos.page > 0 &&
+      dadosPaginadosAgendamentos.content.length === 0 &&
+      dadosPaginadosAgendamentos.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginadosAgendamentos.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginadosAgendamentos.page) {
+        paginacaoAgendamentos.value.page = ultimaPaginaValida
+        await carregarRelatorios()
+      }
+    }
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar os relatórios. Verifique os filtros e tente novamente.')
     console.error(error)
@@ -204,12 +240,38 @@ async function carregarEmpresasSeNecessario() {
 }
 
 function aplicarFiltros() {
+  paginacaoAgendamentos.value.page = 0
   carregarRelatorios()
 }
 
 function limparFiltros() {
   filtros.value = criarFiltrosMesAtual()
+  paginacaoAgendamentos.value.page = 0
+  paginacaoAgendamentos.value.size = 10
   carregarRelatorios()
+}
+
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) {
+    return
+  }
+
+  paginacaoAgendamentos.value.page = Math.max(paginacaoAgendamentos.value.page - 1, 0)
+  await carregarRelatorios()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) {
+    return
+  }
+
+  paginacaoAgendamentos.value.page += 1
+  await carregarRelatorios()
+}
+
+async function alterarTamanhoPagina() {
+  paginacaoAgendamentos.value.page = 0
+  await carregarRelatorios()
 }
 
 async function exportarCsv() {
@@ -743,7 +805,7 @@ onMounted(async () => {
             <p>Registros retornados pela API para os filtros aplicados.</p>
           </div>
 
-          <span class="contador">{{ agendamentos.length }} agendamento(s)</span>
+          <span class="contador">{{ paginacaoAgendamentos.totalElements }} agendamento(s)</span>
         </div>
 
         <section v-if="!agendamentos.length" class="card">
@@ -784,6 +846,30 @@ onMounted(async () => {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section v-if="!carregando" class="card paginacao">
+          <p class="resumo-paginacao">
+            {{ paginacaoAgendamentos.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacaoAgendamentos.totalPages }}
+          </p>
+
+          <label class="tamanho-pagina">
+            Registros por página
+            <select v-model.number="paginacaoAgendamentos.size" :disabled="carregando" @change="alterarTamanhoPagina">
+              <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+                {{ opcao }}
+              </option>
+            </select>
+          </label>
+
+          <div class="botoes-paginacao">
+            <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+              Anterior
+            </button>
+            <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+              Próxima
+            </button>
           </div>
         </section>
       </section>
@@ -1025,6 +1111,38 @@ onMounted(async () => {
   font-size: 14px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.resumo-paginacao {
+  margin: 0;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tamanho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tamanho-pagina select {
+  min-width: 84px;
+}
+
+.botoes-paginacao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .tabela-card {

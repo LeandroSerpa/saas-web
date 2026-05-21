@@ -9,6 +9,7 @@ import {
   atualizarAtivoEmpresa,
   montarLinkPublicoAgendamento,
 } from '@/services/api'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const empresas = ref([])
 const segmentos = ref([])
@@ -18,12 +19,17 @@ const mensagemSucessoEmpresa = ref('')
 const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
 const empresaEditandoId = ref(null)
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 const filtros = ref({
   status: '',
   busca: '',
 })
 
 const empresa = ref(criarEmpresaInicial())
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 
 const empresasFiltradas = computed(() => {
   const termoBusca = normalizarTexto(filtros.value.busca)
@@ -85,16 +91,47 @@ async function carregarEmpresas() {
     carregando.value = true
     erro.value = ''
 
+    const filtrosApi = limparFiltrosVazios({
+      status: filtros.value.status,
+      busca: filtros.value.busca,
+      page: paginacao.value.page,
+      size: paginacao.value.size,
+    })
+
     const [empresasApi, segmentosApi] = await Promise.all([
-      buscarEmpresas(),
+      buscarEmpresas(filtrosApi),
       buscarSegmentos().catch((error) => {
         console.error('Erro ao carregar segmentos para empresas:', error)
         return []
       }),
     ])
 
-    empresas.value = empresasApi
+    const dadosPaginados = normalizarRespostaPaginada(empresasApi, paginacao.value)
+    empresas.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
     segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarEmpresas()
+      }
+    }
   } catch (error) {
     erro.value = 'Não foi possível carregar as empresas.'
     console.error(error)
@@ -242,10 +279,47 @@ function normalizarTexto(valor) {
 }
 
 function limparFiltros() {
+  paginacao.value.page = 0
+  paginacao.value.size = 10
   filtros.value = {
     status: '',
     busca: '',
   }
+  carregarEmpresas()
+}
+
+function limparFiltrosVazios(objeto = {}) {
+  return Object.fromEntries(
+    Object.entries(objeto).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim()),
+  )
+}
+
+function aplicarFiltros() {
+  paginacao.value.page = 0
+  carregarEmpresas()
+}
+
+async function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page = Math.max(paginacao.value.page - 1, 0)
+  await carregarEmpresas()
+}
+
+async function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) {
+    return
+  }
+
+  paginacao.value.page += 1
+  await carregarEmpresas()
+}
+
+async function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  await carregarEmpresas()
 }
 
 function exibirValor(valor) {
@@ -349,7 +423,7 @@ onMounted(() => {
         <div class="campos-filtros">
           <label>
             Status
-            <select v-model="filtros.status">
+            <select v-model="filtros.status" @change="aplicarFiltros">
               <option value="">Todas</option>
               <option value="ativas">Ativas</option>
               <option value="inativas">Inativas</option>
@@ -358,7 +432,12 @@ onMounted(() => {
 
           <label>
             Buscar
-            <input v-model="filtros.busca" type="text" placeholder="Busque por nome, documento ou email" />
+            <input
+              v-model="filtros.busca"
+              type="text"
+              placeholder="Busque por nome, documento ou email"
+              @input="aplicarFiltros"
+            />
           </label>
 
           <div class="acoes-filtros">
@@ -373,7 +452,7 @@ onMounted(() => {
           <p>Lista de empresas retornadas pela API.</p>
         </div>
 
-        <span class="contador">{{ empresasFiltradas.length }} empresa(s)</span>
+        <span class="contador">{{ paginacao.totalElements }} empresa(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
@@ -441,6 +520,30 @@ onMounted(() => {
             Atualizando empresa...
           </p>
         </article>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+        </p>
+
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+            Próxima
+          </button>
+        </div>
       </section>
     </section>
   </main>
@@ -790,6 +893,38 @@ onMounted(() => {
   margin: 0;
   color: #64748b;
   font-size: 14px;
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.resumo-paginacao {
+  margin: 0;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tamanho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tamanho-pagina select {
+  min-width: 84px;
+}
+
+.botoes-paginacao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 :deep(.sucesso-texto) {

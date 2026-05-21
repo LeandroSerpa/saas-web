@@ -26,6 +26,7 @@ import {
 } from '@/services/api'
 import { ehSuperAdmin } from '@/utils/permissoes'
 import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const abas = [
   { id: 'notificacoes', rotulo: 'Notificações' },
@@ -69,11 +70,42 @@ const filtrosNotificacoes = ref({ empresaId: '', status: '', tipo: '', busca: ''
 const filtrosLixeira = ref({ empresaId: '', tipo: '', busca: '', dataInicial: '', dataFinal: '' })
 const filtrosLogs = ref({ tipo: '', canal: '', destino: '', dataInicial: '', dataFinal: '' })
 const filtrosLembretesAgendamentos = ref({ empresaId: '', tipoLembrete: '' })
+const paginacaoNotificacoes = ref(criarPaginacaoInicial())
+const paginacaoLixeira = ref(criarPaginacaoInicial())
+const paginacaoLogs = ref(criarPaginacaoInicial())
+const paginacaoLembretes = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 const manual = ref(criarManualInicial())
 const carregando = ref(false)
 const processandoId = ref(null)
 const erro = ref('')
 const sucesso = ref('')
+const paginaNotificacoesAtualHumana = computed(() => paginacaoNotificacoes.value.page + 1)
+const paginaLixeiraAtualHumana = computed(() => paginacaoLixeira.value.page + 1)
+const paginaLogsAtualHumana = computed(() => paginacaoLogs.value.page + 1)
+const paginaLembretesAtualHumana = computed(() => paginacaoLembretes.value.page + 1)
+const podeIrNotificacoesAnterior = computed(
+  () => !paginacaoNotificacoes.value.first && paginacaoNotificacoes.value.page > 0,
+)
+const podeIrNotificacoesProxima = computed(
+  () =>
+    !paginacaoNotificacoes.value.last &&
+    paginaNotificacoesAtualHumana.value < paginacaoNotificacoes.value.totalPages,
+)
+const podeIrLixeiraAnterior = computed(() => !paginacaoLixeira.value.first && paginacaoLixeira.value.page > 0)
+const podeIrLixeiraProxima = computed(
+  () => !paginacaoLixeira.value.last && paginaLixeiraAtualHumana.value < paginacaoLixeira.value.totalPages,
+)
+const podeIrLogsAnterior = computed(() => !paginacaoLogs.value.first && paginacaoLogs.value.page > 0)
+const podeIrLogsProxima = computed(
+  () => !paginacaoLogs.value.last && paginaLogsAtualHumana.value < paginacaoLogs.value.totalPages,
+)
+const podeIrLembretesAnterior = computed(
+  () => !paginacaoLembretes.value.first && paginacaoLembretes.value.page > 0,
+)
+const podeIrLembretesProxima = computed(
+  () => !paginacaoLembretes.value.last && paginaLembretesAtualHumana.value < paginacaoLembretes.value.totalPages,
+)
 
 const empresasOptions = computed(() =>
   empresas.value
@@ -109,17 +141,71 @@ async function carregarAba() {
 
 async function carregarNotificacoes() {
   await executarComCarregamento(async () => {
-    notificacoes.value = normalizarLista(await buscarNotificacoesAdmin(limparVazios(filtrosNotificacoes.value))).filter(
-      (item) => statusValor(item) !== 'EXCLUIDA',
-    )
+    const resposta = await buscarNotificacoesAdmin({
+      ...limparVazios(filtrosNotificacoes.value),
+      page: paginacaoNotificacoes.value.page,
+      size: paginacaoNotificacoes.value.size,
+    })
+    const dadosPaginados = normalizarRespostaPaginada(resposta, paginacaoNotificacoes.value)
+    notificacoes.value = dadosPaginados.content.filter((item) => statusValor(item) !== 'EXCLUIDA')
+    paginacaoNotificacoes.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacaoNotificacoes.value.page = ultimaPaginaValida
+        await carregarNotificacoes()
+      }
+    }
   }, 'Não foi possível carregar as notificações administrativas.')
 }
 
 async function carregarLixeira() {
   await executarComCarregamento(async () => {
-    notificacoesLixeira.value = normalizarLista(await listarNotificacoesLixeiraAdmin(limparVazios(filtrosLixeira.value))).map(
-      (item) => ({ ...item, status: 'EXCLUIDA' }),
-    )
+    const resposta = await listarNotificacoesLixeiraAdmin({
+      ...limparVazios(filtrosLixeira.value),
+      page: paginacaoLixeira.value.page,
+      size: paginacaoLixeira.value.size,
+    })
+    const dadosPaginados = normalizarRespostaPaginada(resposta, paginacaoLixeira.value)
+    notificacoesLixeira.value = dadosPaginados.content.map((item) => ({ ...item, status: 'EXCLUIDA' }))
+    paginacaoLixeira.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacaoLixeira.value.page = ultimaPaginaValida
+        await carregarLixeira()
+      }
+    }
   }, 'Não foi possível carregar a lixeira de notificações.')
 }
 
@@ -131,7 +217,36 @@ async function carregarTemplates() {
 
 async function carregarLogs() {
   await executarComCarregamento(async () => {
-    logs.value = normalizarLista(await buscarLogsNotificacao(limparVazios(filtrosLogs.value)))
+    const resposta = await buscarLogsNotificacao({
+      ...limparVazios(filtrosLogs.value),
+      page: paginacaoLogs.value.page,
+      size: paginacaoLogs.value.size,
+    })
+    const dadosPaginados = normalizarRespostaPaginada(resposta, paginacaoLogs.value)
+    logs.value = dadosPaginados.content
+    paginacaoLogs.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacaoLogs.value.page = ultimaPaginaValida
+        await carregarLogs()
+      }
+    }
   }, 'Não foi possível carregar os logs.')
 }
 
@@ -153,10 +268,38 @@ async function carregarLembretesAgendamentos() {
     const filtros = limparVazios(filtrosLembretesAgendamentos.value)
     const [resumoApi, historicoApi] = await Promise.all([
       buscarResumoLembretesAgendamentos(limparVazios({ empresaId: filtros.empresaId })),
-      buscarLembretesAgendamentos(filtros),
+      buscarLembretesAgendamentos({
+        ...filtros,
+        page: paginacaoLembretes.value.page,
+        size: paginacaoLembretes.value.size,
+      }),
     ])
     resumoLembretesAgendamentos.value = normalizarObjeto(resumoApi)
-    historicoLembretesAgendamentos.value = normalizarLista(historicoApi)
+    const dadosPaginados = normalizarRespostaPaginada(historicoApi, paginacaoLembretes.value)
+    historicoLembretesAgendamentos.value = dadosPaginados.content
+    paginacaoLembretes.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacaoLembretes.value.page = ultimaPaginaValida
+        await carregarLembretesAgendamentos()
+      }
+    }
   } catch (error) {
     erro.value = obterStatusErro(error) === 403
       ? 'Você não tem permissão para executar lembretes de agendamentos.'
@@ -256,7 +399,7 @@ async function restaurar(item) {
     sucesso.value = ''
     await restaurarNotificacao(item.id)
     sucesso.value = 'Notificação restaurada com sucesso.'
-    notificacoesLixeira.value = notificacoesLixeira.value.filter((notificacao) => notificacao.id !== item.id)
+    await carregarLixeira()
     window.dispatchEvent(new Event('notificacoes-atualizadas'))
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível restaurar a notificação.')
@@ -567,18 +710,107 @@ function booleanoComPadrao(valor, padrao) {
 }
 
 function limparFiltrosNotificacoes() {
+  paginacaoNotificacoes.value.page = 0
+  paginacaoNotificacoes.value.size = 10
   filtrosNotificacoes.value = { empresaId: '', status: '', tipo: '', busca: '', dataInicial: '', dataFinal: '' }
   carregarNotificacoes()
 }
 
+function aplicarFiltrosNotificacoes() {
+  paginacaoNotificacoes.value.page = 0
+  carregarNotificacoes()
+}
+
 function limparFiltrosLixeira() {
+  paginacaoLixeira.value.page = 0
+  paginacaoLixeira.value.size = 10
   filtrosLixeira.value = { empresaId: '', tipo: '', busca: '', dataInicial: '', dataFinal: '' }
   carregarLixeira()
 }
 
+function aplicarFiltrosLixeira() {
+  paginacaoLixeira.value.page = 0
+  carregarLixeira()
+}
+
 function limparFiltrosLogs() {
+  paginacaoLogs.value.page = 0
+  paginacaoLogs.value.size = 10
   filtrosLogs.value = { tipo: '', canal: '', destino: '', dataInicial: '', dataFinal: '' }
   carregarLogs()
+}
+
+function aplicarFiltrosLogs() {
+  paginacaoLogs.value.page = 0
+  carregarLogs()
+}
+
+async function irParaPaginaAnteriorNotificacoes() {
+  if (!podeIrNotificacoesAnterior.value || carregando.value) return
+  paginacaoNotificacoes.value.page = Math.max(paginacaoNotificacoes.value.page - 1, 0)
+  await carregarNotificacoes()
+}
+
+async function irParaProximaPaginaNotificacoes() {
+  if (!podeIrNotificacoesProxima.value || carregando.value) return
+  paginacaoNotificacoes.value.page += 1
+  await carregarNotificacoes()
+}
+
+async function alterarTamanhoPaginaNotificacoes() {
+  paginacaoNotificacoes.value.page = 0
+  await carregarNotificacoes()
+}
+
+async function irParaPaginaAnteriorLixeira() {
+  if (!podeIrLixeiraAnterior.value || carregando.value) return
+  paginacaoLixeira.value.page = Math.max(paginacaoLixeira.value.page - 1, 0)
+  await carregarLixeira()
+}
+
+async function irParaProximaPaginaLixeira() {
+  if (!podeIrLixeiraProxima.value || carregando.value) return
+  paginacaoLixeira.value.page += 1
+  await carregarLixeira()
+}
+
+async function alterarTamanhoPaginaLixeira() {
+  paginacaoLixeira.value.page = 0
+  await carregarLixeira()
+}
+
+async function irParaPaginaAnteriorLogs() {
+  if (!podeIrLogsAnterior.value || carregando.value) return
+  paginacaoLogs.value.page = Math.max(paginacaoLogs.value.page - 1, 0)
+  await carregarLogs()
+}
+
+async function irParaProximaPaginaLogs() {
+  if (!podeIrLogsProxima.value || carregando.value) return
+  paginacaoLogs.value.page += 1
+  await carregarLogs()
+}
+
+async function alterarTamanhoPaginaLogs() {
+  paginacaoLogs.value.page = 0
+  await carregarLogs()
+}
+
+async function irParaPaginaAnteriorLembretes() {
+  if (!podeIrLembretesAnterior.value || carregandoLembretesAgendamentos.value) return
+  paginacaoLembretes.value.page = Math.max(paginacaoLembretes.value.page - 1, 0)
+  await carregarLembretesAgendamentos()
+}
+
+async function irParaProximaPaginaLembretes() {
+  if (!podeIrLembretesProxima.value || carregandoLembretesAgendamentos.value) return
+  paginacaoLembretes.value.page += 1
+  await carregarLembretesAgendamentos()
+}
+
+async function alterarTamanhoPaginaLembretes() {
+  paginacaoLembretes.value.page = 0
+  await carregarLembretesAgendamentos()
 }
 
 function destinosLogsFallback() {
@@ -905,9 +1137,17 @@ onMounted(() => {
           <label>Data final <input v-model="filtrosNotificacoes.dataFinal" type="date" /></label>
         </div>
         <div class="acoes">
-          <button class="botao principal" @click="carregarNotificacoes">Aplicar filtros</button>
+          <button class="botao principal" @click="aplicarFiltrosNotificacoes">Aplicar filtros</button>
           <button class="botao secundario" @click="limparFiltrosNotificacoes">Limpar</button>
         </div>
+      </section>
+
+      <section class="card cabecalho-card">
+        <div>
+          <h2>Histórico de notificações</h2>
+          <p>Notificações administrativas para os filtros aplicados.</p>
+        </div>
+        <span class="contador">{{ paginacaoNotificacoes.totalElements }} registro(s)</span>
       </section>
 
       <section v-if="carregando" class="card">Carregando notificações...</section>
@@ -951,6 +1191,28 @@ onMounted(() => {
           </table>
         </div>
       </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacaoNotificacoes.totalElements }} registro(s) - Página {{ paginaNotificacoesAtualHumana }} de {{ paginacaoNotificacoes.totalPages }}
+        </p>
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacaoNotificacoes.size" :disabled="carregando" @change="alterarTamanhoPaginaNotificacoes">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="`not-${opcao}`" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrNotificacoesAnterior || carregando" @click="irParaPaginaAnteriorNotificacoes">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrNotificacoesProxima || carregando" @click="irParaProximaPaginaNotificacoes">
+            Próxima
+          </button>
+        </div>
+      </section>
     </section>
 
     <section v-if="abaAtiva === 'lixeira'" class="secao">
@@ -968,9 +1230,17 @@ onMounted(() => {
           <label>Data final <input v-model="filtrosLixeira.dataFinal" type="date" /></label>
         </div>
         <div class="acoes">
-          <button class="botao principal" @click="carregarLixeira">Aplicar filtros</button>
+          <button class="botao principal" @click="aplicarFiltrosLixeira">Aplicar filtros</button>
           <button class="botao secundario" @click="limparFiltrosLixeira">Limpar</button>
         </div>
+      </section>
+
+      <section class="card cabecalho-card">
+        <div>
+          <h2>Lixeira de notificações</h2>
+          <p>Itens excluídos conforme filtros selecionados.</p>
+        </div>
+        <span class="contador">{{ paginacaoLixeira.totalElements }} registro(s)</span>
       </section>
 
       <section v-if="carregando" class="card">Carregando lixeira...</section>
@@ -1008,6 +1278,28 @@ onMounted(() => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacaoLixeira.totalElements }} registro(s) - Página {{ paginaLixeiraAtualHumana }} de {{ paginacaoLixeira.totalPages }}
+        </p>
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacaoLixeira.size" :disabled="carregando" @change="alterarTamanhoPaginaLixeira">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="`lix-${opcao}`" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrLixeiraAnterior || carregando" @click="irParaPaginaAnteriorLixeira">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrLixeiraProxima || carregando" @click="irParaProximaPaginaLixeira">
+            Próxima
+          </button>
         </div>
       </section>
     </section>
@@ -1139,9 +1431,17 @@ onMounted(() => {
           <label>Data final <input v-model="filtrosLogs.dataFinal" type="date" /></label>
         </div>
         <div class="acoes">
-          <button class="botao principal" @click="carregarLogs">Aplicar filtros</button>
+          <button class="botao principal" @click="aplicarFiltrosLogs">Aplicar filtros</button>
           <button class="botao secundario" @click="limparFiltrosLogs">Limpar</button>
         </div>
+      </section>
+
+      <section class="card cabecalho-card">
+        <div>
+          <h2>Logs de notificações</h2>
+          <p>Histórico técnico de envios e processamentos.</p>
+        </div>
+        <span class="contador">{{ paginacaoLogs.totalElements }} registro(s)</span>
       </section>
 
       <section v-if="carregando" class="card">Carregando logs...</section>
@@ -1160,6 +1460,28 @@ onMounted(() => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section v-if="!carregando" class="card paginacao">
+        <p class="resumo-paginacao">
+          {{ paginacaoLogs.totalElements }} registro(s) - Página {{ paginaLogsAtualHumana }} de {{ paginacaoLogs.totalPages }}
+        </p>
+        <label class="tamanho-pagina">
+          Registros por página
+          <select v-model.number="paginacaoLogs.size" :disabled="carregando" @change="alterarTamanhoPaginaLogs">
+            <option v-for="opcao in opcoesTamanhoPagina" :key="`log-${opcao}`" :value="opcao">
+              {{ opcao }}
+            </option>
+          </select>
+        </label>
+        <div class="botoes-paginacao">
+          <button class="botao secundario" :disabled="!podeIrLogsAnterior || carregando" @click="irParaPaginaAnteriorLogs">
+            Anterior
+          </button>
+          <button class="botao secundario" :disabled="!podeIrLogsProxima || carregando" @click="irParaProximaPaginaLogs">
+            Próxima
+          </button>
         </div>
       </section>
     </section>
@@ -1194,13 +1516,13 @@ onMounted(() => {
 
         <div class="campos">
           <label>Empresa
-            <select v-model="filtrosLembretesAgendamentos.empresaId" @change="carregarLembretesAgendamentos">
+            <select v-model="filtrosLembretesAgendamentos.empresaId" @change="paginacaoLembretes.page = 0; carregarLembretesAgendamentos()">
               <option value="">Todas</option>
               <option v-for="empresa in empresasOptions" :key="empresa.id" :value="empresa.id">{{ empresa.nome }}</option>
             </select>
           </label>
           <label>Tipo de lembrete
-            <select v-model="filtrosLembretesAgendamentos.tipoLembrete" @change="carregarLembretesAgendamentos">
+            <select v-model="filtrosLembretesAgendamentos.tipoLembrete" @change="paginacaoLembretes.page = 0; carregarLembretesAgendamentos()">
               <option v-for="tipo in tiposLembreteAgendamento" :key="tipo || 'TODOS'" :value="tipo">
                 {{ tipo || 'Todos' }}
               </option>
@@ -1292,6 +1614,36 @@ onMounted(() => {
             </table>
           </div>
         </section>
+
+        <section v-if="!carregandoLembretesAgendamentos" class="card paginacao">
+          <p class="resumo-paginacao">
+            {{ paginacaoLembretes.totalElements }} registro(s) - Página {{ paginaLembretesAtualHumana }} de {{ paginacaoLembretes.totalPages }}
+          </p>
+          <label class="tamanho-pagina">
+            Registros por página
+            <select v-model.number="paginacaoLembretes.size" :disabled="carregandoLembretesAgendamentos" @change="alterarTamanhoPaginaLembretes">
+              <option v-for="opcao in opcoesTamanhoPagina" :key="`lem-${opcao}`" :value="opcao">
+                {{ opcao }}
+              </option>
+            </select>
+          </label>
+          <div class="botoes-paginacao">
+            <button
+              class="botao secundario"
+              :disabled="!podeIrLembretesAnterior || carregandoLembretesAgendamentos"
+              @click="irParaPaginaAnteriorLembretes"
+            >
+              Anterior
+            </button>
+            <button
+              class="botao secundario"
+              :disabled="!podeIrLembretesProxima || carregandoLembretesAgendamentos"
+              @click="irParaProximaPaginaLembretes"
+            >
+              Próxima
+            </button>
+          </div>
+        </section>
       </section>
     </section>
   </main>
@@ -1299,4 +1651,10 @@ onMounted(() => {
 
 <style scoped>
 .pagina,.secao,.filtros,.formulario,.lembretes{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-card,.acoes{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:22px}.descricao,.cabecalho-card p,.ajuda{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.abas{display:flex;gap:8px;flex-wrap:wrap}.abas button{border:1px solid #cbd5e1;border-radius:8px;background:white;color:#334155;padding:10px 14px;cursor:pointer;font-weight:800}.abas button.ativa{background:#0f172a;color:white;border-color:#0f172a}.campos{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:14px}.campos.dois{grid-template-columns:1fr 180px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}.checkbox{display:flex;align-items:center;gap:8px}input,select,textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{opacity:.55;cursor:not-allowed}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.sucesso-botao{background:#15803d}.compacto{width:100%;padding:7px 8px;font-size:11px;line-height:1.2}.tabela-card{padding:0;overflow:hidden}.tabela-container{overflow-x:auto}table{width:100%;min-width:900px;border-collapse:collapse}th,td{padding:12px 10px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:left;vertical-align:top;font-size:13px;word-break:break-word}th{background:#f8fafc;color:#111827;font-size:11px;font-weight:800;text-transform:uppercase}.acoes-tabela{display:flex;flex-direction:column;gap:6px;min-width:130px}.prioridade,.status{display:inline-flex;width:fit-content;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.prioridade.critica{background:#fee2e2;color:#b91c1c}.prioridade.alta{background:#ffedd5;color:#c2410c}.prioridade.normal{background:#dbeafe;color:#1d4ed8}.prioridade.baixa{background:#e5e7eb;color:#4b5563}.status.criada{background:#fef3c7;color:#92400e}.status.lida,.status.enviada{background:#dbeafe;color:#1d4ed8}.status.arquivada{background:#e5e7eb;color:#374151}.status.falha,.status.cancelada,.status.excluida{background:#fee2e2;color:#b91c1c}.texto-acao{color:#64748b;font-weight:800}.resultado{color:#166534;font-weight:800}.estado-inline{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:16px;color:#64748b;font-weight:800}.tabela-card-interna{border:1px solid #e5e7eb;border-radius:8px;background:white}.grade-resultado{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px}.mini-card{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:14px;display:grid;gap:6px}.mini-card span{color:#64748b;font-size:13px;font-weight:800}.mini-card strong{font-size:24px;font-weight:800;color:#111827}@media(max-width:900px){.cabecalho-pagina,.cabecalho-card,.acoes{align-items:flex-start;flex-direction:column}.campos,.campos.dois,.grade-resultado{grid-template-columns:1fr}}
+.contador{background:#dbeafe;color:#1d4ed8;padding:8px 12px;border-radius:999px;font-weight:800;font-size:14px;white-space:nowrap}
+.paginacao{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.resumo-paginacao{margin:0;color:#334155;font-weight:700}
+.tamanho-pagina{display:flex;align-items:center;gap:8px;color:#334155;font-weight:700}
+.tamanho-pagina select{min-width:84px}
+.botoes-paginacao{display:flex;align-items:center;gap:10px}
 </style>
