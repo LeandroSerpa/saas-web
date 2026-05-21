@@ -1187,7 +1187,7 @@ onUnmounted(() => {
 
       <div class="acoes">
         <button class="botao principal" :disabled="salvando">
-          {{ salvando ? 'Salvando...' : faturaEditandoId ? 'Salvar alterações' : 'Criar fatura' }}
+          {{ salvando ? 'Salvando...' : faturaEditandoId ? 'Salvar' : 'Criar fatura' }}
         </button>
         <button type="button" class="botao secundario" :disabled="salvando" @click="cancelarEdicao">
           Cancelar

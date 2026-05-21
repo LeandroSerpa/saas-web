@@ -611,6 +611,28 @@ function destinoLogTexto(item) {
   return empresa?.nome || texto
 }
 
+function obterNomeEmpresa(item) {
+  const empresaDireta = obterCampo(item, 'empresaNome', 'nomeEmpresa')
+  if (empresaDireta) return empresaDireta
+
+  const empresa = item?.empresa
+  if (typeof empresa === 'string') {
+    return textoEmpresaVisivel(empresa)
+  }
+
+  if (empresa && typeof empresa === 'object') {
+    return obterCampo(empresa, 'nome', 'razaoSocial', 'nomeFantasia') || '-'
+  }
+
+  return '-'
+}
+
+function textoEmpresaVisivel(valor) {
+  const texto = String(valor || '').trim()
+  if (!texto || /^empresa\s*(id|#)?\s*\d+$/i.test(texto) || /^\d+$/.test(texto)) return '-'
+  return texto
+}
+
 function normalizarOpcoesLogs(dados) {
   const origem = normalizarObjeto(dados)
 
@@ -797,7 +819,7 @@ onMounted(() => {
         <h1>Notificações SaaS</h1>
         <p class="descricao">Gerencie notificações, templates e lembretes financeiros.</p>
       </div>
-      <button class="botao secundario" :disabled="carregando" @click="carregarAba">Atualizar</button>
+      <button class="botao secundario" :disabled="carregando" @click="carregarAba">Atualizar dados</button>
     </header>
 
     <section v-if="erro" class="card feedback erro">{{ erro }}</section>
@@ -908,7 +930,7 @@ onMounted(() => {
             <tbody>
               <tr v-for="item in notificacoes" :key="item.id">
                 <td>{{ formatarData(obterCampo(item, 'criadoEm', 'dataCriacao', 'data', 'createdAt')) }}</td>
-                <td>{{ obterCampo(item, 'empresaNome', 'empresa', 'nomeEmpresa') || '-' }}</td>
+                <td>{{ obterNomeEmpresa(item) }}</td>
                 <td>{{ obterCampo(item, 'destino', 'usuarioDestino', 'perfilDestino', 'emailDestino') || '-' }}</td>
                 <td>{{ obterCampo(item, 'tipo') || '-' }}</td>
                 <td><span :class="['prioridade', prioridadeClasse(obterCampo(item, 'prioridade'))]">{{ obterCampo(item, 'prioridade') || 'NORMAL' }}</span></td>
@@ -970,7 +992,7 @@ onMounted(() => {
             </thead>
             <tbody>
               <tr v-for="item in notificacoesLixeira" :key="item.id">
-                <td>{{ obterCampo(item, 'empresaNome', 'empresa', 'nomeEmpresa') || '-' }}</td>
+                <td>{{ obterNomeEmpresa(item) }}</td>
                 <td>{{ obterCampo(item, 'destino', 'usuarioDestino', 'perfilDestino', 'emailDestino') || '-' }}</td>
                 <td>{{ obterCampo(item, 'tipo') || '-' }}</td>
                 <td><span :class="['prioridade', prioridadeClasse(obterCampo(item, 'prioridade'))]">{{ obterCampo(item, 'prioridade') || 'NORMAL' }}</span></td>
@@ -1259,7 +1281,7 @@ onMounted(() => {
               <tbody>
                 <tr v-for="item in historicoLembretesAgendamentos" :key="item.id">
                   <td>{{ formatarData(obterCampo(item, 'criadoEm')) }}</td>
-                  <td>{{ obterCampo(item, 'empresaNome') || '-' }}</td>
+                  <td>{{ obterNomeEmpresa(item) }}</td>
                   <td>{{ formatarTipoLembrete(obterCampo(item, 'tipoLembrete')) }}</td>
                   <td>{{ obterCampo(item, 'clienteNome') || '-' }}</td>
                   <td>{{ obterCampo(item, 'servicoNome') || '-' }}</td>

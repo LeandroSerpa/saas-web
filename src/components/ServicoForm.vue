@@ -150,11 +150,11 @@ function solicitarSalvamento() {
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="solicitarSalvamento">
-        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar serviço' }}
+        Salvar
       </button>
 
       <button v-if="modoEdicao" class="botao neutro" @click="$emit('cancelar')">
-        Cancelar edição
+        Voltar
       </button>
 
       <p v-if="mensagemSucesso" class="sucesso-texto">

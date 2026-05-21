@@ -139,7 +139,7 @@ function solicitarSalvamento() {
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="solicitarSalvamento">
-        {{ modoEdicao ? 'Salvar alterações' : 'Cadastrar usuário' }}
+        Salvar
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">

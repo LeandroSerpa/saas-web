@@ -316,6 +316,28 @@ function obterCampo(item, ...campos) {
   return campos.map((campo) => item?.[campo]).find((valor) => valor !== null && valor !== undefined && String(valor).trim()) || '-'
 }
 
+function obterNomeEmpresa(item) {
+  const empresaDireta = obterCampo(item, 'empresaNome', 'nomeEmpresa')
+  if (empresaDireta !== '-') return empresaDireta
+
+  const empresa = item?.empresa
+  if (typeof empresa === 'string') {
+    return textoEmpresaVisivel(empresa)
+  }
+
+  if (empresa && typeof empresa === 'object') {
+    return obterCampo(empresa, 'nome', 'razaoSocial', 'nomeFantasia')
+  }
+
+  return '-'
+}
+
+function textoEmpresaVisivel(valor) {
+  const texto = String(valor || '').trim()
+  if (!texto || /^empresa\s*(id|#)?\s*\d+$/i.test(texto) || /^\d+$/.test(texto)) return '-'
+  return texto
+}
+
 function formatarJson(valor) {
   if (!valor) {
     return 'Sem dados.'
@@ -447,7 +469,7 @@ function formatarJson(valor) {
           <tbody>
             <tr v-for="log in logs" :key="log.id || `${log.dataHora}-${log.descricao}`">
               <td class="col-data texto-nowrap">{{ formatarDataHora(obterCampo(log, 'dataHora', 'criadoEm', 'createdAt')) }}</td>
-              <td class="col-empresa">{{ obterCampo(log, 'empresaNome', 'empresa') }}</td>
+              <td class="col-empresa">{{ obterNomeEmpresa(log) }}</td>
               <td class="col-usuario">{{ obterCampo(log, 'usuarioNome', 'usuarioEmail', 'usuario') }}</td>
               <td class="col-perfil texto-nowrap">{{ obterCampo(log, 'perfil', 'usuarioPerfil') }}</td>
               <td class="col-modulo texto-nowrap">{{ obterCampo(log, 'modulo') }}</td>
@@ -506,7 +528,7 @@ function formatarJson(valor) {
         <div class="detalhes-grid">
           <p><strong>ID:</strong> {{ detalhe.id || '-' }}</p>
           <p><strong>Data/hora:</strong> {{ formatarDataHora(obterCampo(detalhe, 'dataHora', 'criadoEm', 'createdAt')) }}</p>
-          <p><strong>Empresa:</strong> {{ obterCampo(detalhe, 'empresaNome', 'empresa') }}</p>
+          <p><strong>Empresa:</strong> {{ obterNomeEmpresa(detalhe) }}</p>
           <p><strong>Usuário:</strong> {{ obterCampo(detalhe, 'usuarioNome', 'usuarioEmail', 'usuario') }}</p>
           <p><strong>Perfil:</strong> {{ obterCampo(detalhe, 'perfil', 'usuarioPerfil') }}</p>
           <p><strong>Módulo:</strong> {{ obterCampo(detalhe, 'modulo') }}</p>

@@ -414,7 +414,7 @@ onMounted(carregarMinhaEmpresa)
         <div class="link-publico">
           <p v-if="linkPublico"><strong>Link público:</strong><span>{{ linkPublico }}</span></p>
           <p v-else>Preencha o slug para gerar o link público.</p>
-          <button class="botao secundario" :disabled="!linkPublico" @click="copiarLinkPublico">Copiar link</button>
+          <button class="botao secundario" :disabled="!linkPublico" @click="copiarLinkPublico">Copiar link público</button>
         </div>
 
         <p v-if="mensagemLinkCopiado" class="sucesso-texto">{{ mensagemLinkCopiado }}</p>

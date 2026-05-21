@@ -157,7 +157,7 @@ function validarEtapaAtual() {
     if (!validarCampoTelefone('telefoneEmpresa')) return false
     if (!validarCampoEmail('emailEmpresa')) return false
     if (!formulario.value.cidade.trim()) return falharValidacao('Informe a cidade da empresa.')
-    if (!formulario.value.estado.trim()) return falharValidacao('Selecione o Estado/UF da empresa.', 'estado')
+    if (!formulario.value.estado.trim()) return falharValidacao('Selecione a UF da empresa.', 'estado')
   }
 
   if (etapaAtual.value === 1) {
@@ -335,7 +335,7 @@ onMounted(carregarOpcoes)
             <label class="campo-grande">Endereço<input v-model="formulario.endereco" type="text" /></label>
             <label>Cidade *<input v-model="formulario.cidade" type="text" /></label>
             <label>
-              Estado/UF *
+              UF *
               <select :value="formulario.estado" @change="aplicarEstado($event.target.value)">
                 <option value="">Selecione</option>
                 <option v-for="uf in ufs" :key="uf" :value="uf">{{ uf }}</option>
@@ -352,7 +352,7 @@ onMounted(carregarOpcoes)
               <small v-if="errosCampos.emailResponsavel" class="erro-campo">{{ errosCampos.emailResponsavel }}</small>
             </label>
             <label>
-              Telefone/WhatsApp *
+              Telefone *
               <input :value="formulario.telefoneResponsavel" type="text" inputmode="numeric" @input="aplicarTelefone('telefoneResponsavel', $event)" @blur="validarCampoTelefone('telefoneResponsavel', true)" @paste.prevent="aplicarTelefone('telefoneResponsavel', $event)" />
               <small v-if="errosCampos.telefoneResponsavel" class="erro-campo">{{ errosCampos.telefoneResponsavel }}</small>
             </label>
@@ -385,9 +385,9 @@ onMounted(carregarOpcoes)
           </div>
 
           <div v-else class="revisao">
-            <article><h2>Empresa</h2><p><strong>Nome:</strong> {{ formulario.nomeEmpresa }}</p><p><strong>Documento:</strong> {{ formulario.documento }}</p><p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p><p><strong>Endereço:</strong> {{ formulario.endereco || '-' }}</p></article>
+            <article><h2>Empresa</h2><p><strong>Nome:</strong> {{ formulario.nomeEmpresa }}</p><p><strong>Documento (CPF/CNPJ):</strong> {{ formulario.documento }}</p><p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p><p><strong>Endereço:</strong> {{ formulario.endereco || '-' }}</p></article>
             <article><h2>Responsável</h2><p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p><p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p><p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p></article>
-            <article><h2>Localização</h2><p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p><p><strong>Estado/UF:</strong> {{ formulario.estado || '-' }}</p></article>
+            <article><h2>Localização</h2><p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p><p><strong>UF:</strong> {{ formulario.estado || '-' }}</p></article>
             <article><h2>Interesse</h2><p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p><p><strong>Mensagem:</strong> {{ formulario.interesse }}</p></article>
             <article><h2>Plano escolhido</h2><p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p></article>
           </div>

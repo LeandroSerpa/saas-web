@@ -17,6 +17,7 @@ const agendamentos = ref([])
 const carregando = ref(false)
 const carregandoEmpresas = ref(false)
 const restaurandoId = ref(null)
+const agendamentoParaRestaurar = ref(null)
 const erro = ref('')
 const erroEmpresas = ref('')
 const mensagemSucesso = ref('')
@@ -89,10 +90,18 @@ function limparFiltros() {
   carregarLixeira()
 }
 
-async function restaurar(item) {
-  if (!window.confirm('Deseja restaurar este agendamento?')) {
-    return
-  }
+function solicitarRestauracao(item) {
+  agendamentoParaRestaurar.value = item
+  erro.value = ''
+  mensagemSucesso.value = ''
+}
+
+function cancelarRestauracao() {
+  agendamentoParaRestaurar.value = null
+}
+
+async function restaurar(item = agendamentoParaRestaurar.value) {
+  if (!item?.id) return
 
   try {
     restaurandoId.value = item.id
@@ -102,6 +111,7 @@ async function restaurar(item) {
     await restaurarAgendamento(item.id)
     mensagemSucesso.value = 'Agendamento restaurado com sucesso.'
     agendamentos.value = agendamentos.value.filter((agendamento) => agendamento.id !== item.id)
+    agendamentoParaRestaurar.value = null
   } catch (error) {
     erro.value = limparMensagemBackend(error?.message) || 'Não foi possível restaurar o agendamento.'
     console.error('Erro ao restaurar agendamento:', error)
@@ -227,6 +237,28 @@ function obterResumoAgendamento(item) {
   return `Agendamento: ${data} às ${horario}`
 }
 
+function obterNomeEmpresa(item) {
+  const empresaDireta = obterCampo(item, 'empresaNome', 'nomeEmpresa')
+  if (empresaDireta) return empresaDireta
+
+  const empresa = item?.empresa
+  if (typeof empresa === 'string') {
+    return textoEmpresaVisivel(empresa)
+  }
+
+  if (empresa && typeof empresa === 'object') {
+    return obterCampo(empresa, 'nome', 'razaoSocial', 'nomeFantasia') || '-'
+  }
+
+  return '-'
+}
+
+function textoEmpresaVisivel(valor) {
+  const texto = String(valor || '').trim()
+  if (!texto || /^empresa\s*(id|#)?\s*\d+$/i.test(texto) || /^\d+$/.test(texto)) return '-'
+  return texto
+}
+
 function formatarData(valor) {
   const data = criarData(valor)
 
@@ -330,6 +362,22 @@ function obterSituacao(item) {
       <p>{{ erroEmpresas }}</p>
     </section>
 
+    <section v-if="agendamentoParaRestaurar" class="card confirmacao-card">
+      <div>
+        <h2>Restaurar agendamento?</h2>
+        <p>{{ obterResumoAgendamento(agendamentoParaRestaurar) }}</p>
+        <p><strong>Empresa:</strong> {{ obterNomeEmpresa(agendamentoParaRestaurar) }}</p>
+      </div>
+      <div class="acoes">
+        <button class="botao principal" :disabled="restaurandoId === agendamentoParaRestaurar.id" @click="restaurar()">
+          {{ restaurandoId === agendamentoParaRestaurar.id ? 'Restaurando...' : 'Restaurar' }}
+        </button>
+        <button class="botao secundario" :disabled="restaurandoId === agendamentoParaRestaurar.id" @click="cancelarRestauracao">
+          Voltar
+        </button>
+      </div>
+    </section>
+
     <section class="card filtros">
       <div class="campos">
         <label>
@@ -390,7 +438,7 @@ function obterSituacao(item) {
             <button
               class="botao principal"
               :disabled="restaurandoId === item.id"
-              @click="restaurar(item)"
+              @click="solicitarRestauracao(item)"
             >
               {{ restaurandoId === item.id ? 'Restaurando...' : 'Restaurar' }}
             </button>
@@ -399,7 +447,7 @@ function obterSituacao(item) {
           <dl>
             <div>
               <dt>Empresa</dt>
-              <dd>{{ obterCampo(item, 'empresaNome', 'empresa') || '-' }}</dd>
+              <dd>{{ obterNomeEmpresa(item) }}</dd>
             </div>
             <div>
               <dt>Cliente</dt>
@@ -605,6 +653,26 @@ select:focus {
   border-color: #fde68a;
   background: #fffbeb;
   color: #92400e;
+}
+
+.confirmacao-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.confirmacao-card h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.confirmacao-card p {
+  margin: 4px 0 0;
+  color: #1e3a8a;
+  font-weight: 700;
 }
 
 .periodo-aplicado {

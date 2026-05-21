@@ -739,7 +739,7 @@ onMounted(carregarDados)
       </div>
       <div class="acoes">
         <button class="botao secundario" :disabled="carregando || processandoMes" @click="carregarDados">
-          {{ carregando ? 'Carregando...' : 'Atualizar' }}
+          {{ carregando ? 'Carregando...' : 'Atualizar dados' }}
         </button>
         <button class="botao sucesso-botao" :disabled="carregando || processandoMes" @click="abrirGeracaoMes">
           {{ processandoMes ? 'Gerando...' : 'Gerar faturas do mês' }}
@@ -901,7 +901,7 @@ onMounted(carregarDados)
       <p v-if="erroSugestao" class="sugestao-feedback erro">{{ erroSugestao }}</p>
       <div class="acoes">
         <button class="botao principal" :disabled="!podeSalvarRecorrencia">
-          {{ salvando ? 'Salvando...' : editandoId ? 'Salvar edição' : 'Salvar recorrência' }}
+          {{ salvando ? 'Salvando...' : 'Salvar' }}
         </button>
         <button type="button" class="botao secundario" :disabled="salvando" @click="fecharFormulario">Cancelar</button>
       </div>

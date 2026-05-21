@@ -919,7 +919,7 @@ function obterCampoProfundo(objeto, caminho) {
         <h1>Novo cadastro guiado</h1>
         <p class="descricao">Crie uma empresa pelo SUPER_ADMIN em um fluxo claro, validado e seguro.</p>
       </div>
-      <RouterLink class="botao secundario" to="/empresas">Voltar para Empresas</RouterLink>
+      <RouterLink class="botao secundario" to="/empresas">Voltar</RouterLink>
     </header>
 
     <section v-if="erro" class="card erro"><p>{{ erro }}</p></section>
@@ -957,7 +957,7 @@ function obterCampoProfundo(objeto, caminho) {
         <article>
           <h3>Empresa</h3>
           <p><strong>Nome da empresa:</strong> {{ nomeEmpresaResultado }}</p>
-          <p><strong>E-mail do usuário admin:</strong> {{ emailAdminResultado }}</p>
+          <p><strong>E-mail do usuário administrador:</strong> {{ emailAdminResultado }}</p>
           <p class="credencial-destaque">
             <strong>Senha temporária:</strong>
             <span>{{ senhaTemporariaResultadoTexto }}</span>
@@ -982,7 +982,7 @@ function obterCampoProfundo(objeto, caminho) {
 
       <div class="acoes">
         <button class="botao principal" type="button" @click="copiarLinkPublico">Copiar link público</button>
-        <RouterLink class="botao secundario" to="/empresas">Ir para Empresas</RouterLink>
+        <RouterLink class="botao secundario" to="/empresas">Voltar</RouterLink>
         <button class="botao neutro" type="button" @click="criarOutraEmpresa">Criar outra empresa</button>
       </div>
     </section>
@@ -1172,7 +1172,7 @@ function obterCampoProfundo(objeto, caminho) {
         <article>
           <h2>Empresa</h2>
           <p><strong>Nome:</strong> {{ formulario.empresa.nome }}</p>
-          <p><strong>Documento:</strong> {{ formulario.empresa.documento || 'Não aplicável' }}</p>
+          <p><strong>Documento (CPF/CNPJ):</strong> {{ formulario.empresa.documento || 'Não aplicável' }}</p>
           <p><strong>Telefone:</strong> {{ formulario.empresa.telefone || 'Não aplicável' }}</p>
           <p><strong>E-mail:</strong> {{ formulario.empresa.email || 'Não aplicável' }}</p>
           <p><strong>Agendamento público:</strong> {{ formulario.empresa.permitirAgendamentoPublico ? 'Sim' : 'Não' }}</p>
@@ -1183,7 +1183,7 @@ function obterCampoProfundo(objeto, caminho) {
           <p><strong>Endereço:</strong> {{ formulario.empresa.endereco || 'Não aplicável' }}</p>
           <p><strong>Cidade:</strong> {{ formulario.empresa.cidade || 'Não aplicável' }}</p>
           <p><strong>UF:</strong> {{ formulario.empresa.estado || 'Não aplicável' }}</p>
-          <p><strong>Link da página pública:</strong> {{ linkPublicoPrevisto || 'Não aplicável' }}</p>
+          <p><strong>Link público:</strong> {{ linkPublicoPrevisto || 'Não aplicável' }}</p>
         </article>
 
         <article>
