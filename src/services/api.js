@@ -429,6 +429,15 @@ export async function buscarPlanosCadastroPublico() {
   return tratarRespostaPublica(response)
 }
 
+export async function buscarConteudoInstitucionalPublico(tipo) {
+  const tipoNormalizado = String(tipo || '').trim()
+  const response = await fetch(`${API_URL}/publico/institucional/${tipoNormalizado}`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return tratarRespostaPublica(response)
+}
+
 export async function enviarSolicitacaoCadastro(dados) {
   return criarSolicitacaoCadastroEmpresa(dados)
 }

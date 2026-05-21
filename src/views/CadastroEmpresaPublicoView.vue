@@ -57,6 +57,7 @@ function criarFormularioInicial() {
     segmentoNegocioId: '',
     interesse: '',
     planoId: '',
+    aceiteTermos: false,
   }
 }
 
@@ -175,6 +176,7 @@ function validarEtapaAtual() {
   }
 
   if (etapaAtual.value === 3 && !formulario.value.planoId) return falharValidacao('Selecione o plano desejado.')
+  if (etapaAtual.value === 4 && !formulario.value.aceiteTermos) return falharValidacao('Confirme a leitura dos Termos de Uso e da Política de Privacidade.')
   return true
 }
 
@@ -390,6 +392,7 @@ onMounted(carregarOpcoes)
             <article><h2>Localização</h2><p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p><p><strong>UF:</strong> {{ formulario.estado || '-' }}</p></article>
             <article><h2>Interesse</h2><p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p><p><strong>Mensagem:</strong> {{ formulario.interesse }}</p></article>
             <article><h2>Plano escolhido</h2><p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p></article>
+            <label class="aceite-termos"><input v-model="formulario.aceiteTermos" type="checkbox" /> <span>Li e aceito os <RouterLink to="/termos" target="_blank">Termos de Uso</RouterLink> e a <RouterLink to="/privacidade" target="_blank">Política de Privacidade</RouterLink>.</span></label>
           </div>
 
           <div class="acoes">
@@ -399,10 +402,16 @@ onMounted(carregarOpcoes)
           </div>
         </form>
       </template>
+
+      <nav class="links-institucionais" aria-label="Páginas públicas">
+        <RouterLink to="/sobre">Sobre</RouterLink>
+        <RouterLink to="/termos">Termos de Uso</RouterLink>
+        <RouterLink to="/privacidade">Política de Privacidade</RouterLink>
+      </nav>
     </section>
   </main>
 </template>
 
 <style scoped>
-.pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:980px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}}
+.pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:980px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}}
 </style>

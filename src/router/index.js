@@ -35,6 +35,9 @@ import ConfiguracoesNotificacoesView from '../views/ConfiguracoesNotificacoesVie
 import AdminAutomacoesView from '../views/AdminAutomacoesView.vue'
 import AcessoNegadoView from '../views/AcessoNegadoView.vue'
 import NaoEncontradoView from '../views/NaoEncontradoView.vue'
+import TermosView from '../views/TermosView.vue'
+import PrivacidadeView from '../views/PrivacidadeView.vue'
+import SobreView from '../views/SobreView.vue'
 import { carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
@@ -51,6 +54,8 @@ const rotasSuperAdmin = {
   requiresAuth: true,
   requiresSuperAdmin: true,
 }
+
+const caminhosPublicos = ['/cadastro', '/cadastro-empresa', '/comece-agora', '/termos', '/privacidade', '/sobre']
 
 function empresaPendente(usuario) {
   if (!usuario || typeof usuario !== 'object') return false
@@ -342,6 +347,21 @@ const router = createRouter({
       component: CadastroEmpresaPublicoView,
     },
     {
+      path: '/termos',
+      name: 'termos',
+      component: TermosView,
+    },
+    {
+      path: '/privacidade',
+      name: 'privacidade',
+      component: PrivacidadeView,
+    },
+    {
+      path: '/sobre',
+      name: 'sobre',
+      component: SobreView,
+    },
+    {
       path: '/cadastro-empresa',
       redirect: '/cadastro',
     },
@@ -382,7 +402,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.path.startsWith('/agendar') || ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(to.path)) {
+  if (to.path.startsWith('/agendar') || caminhosPublicos.includes(to.path)) {
     return true
   }
 

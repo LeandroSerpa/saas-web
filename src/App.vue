@@ -17,6 +17,7 @@ const router = useRouter()
 const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
 const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(route.path))
+const rotaInstitucionalPublica = computed(() => ['/termos', '/privacidade', '/sobre'].includes(route.path))
 const rotaCadastroPendente = computed(() => route.path === '/cadastro-pendente')
 const usuario = ref(carregarUsuarioSessao())
 const trocaSenhaObrigatoria = computed(() => usuario.value?.trocaSenhaObrigatoria === true)
@@ -24,6 +25,7 @@ const rotaSemLayout = computed(() =>
   rotaLogin.value ||
   rotaAgendamentoPublico.value ||
   rotaCadastroPublico.value ||
+  rotaInstitucionalPublica.value ||
   rotaCadastroPendente.value ||
   (route.path === '/alterar-senha' && trocaSenhaObrigatoria.value),
 )

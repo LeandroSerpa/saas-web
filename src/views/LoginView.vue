@@ -121,6 +121,12 @@ async function entrar() {
       </form>
 
       <RouterLink class="link-cadastro" to="/cadastro">Quero cadastrar minha empresa</RouterLink>
+
+      <nav class="links-institucionais" aria-label="Páginas públicas">
+        <RouterLink to="/sobre">Sobre</RouterLink>
+        <RouterLink to="/termos">Termos</RouterLink>
+        <RouterLink to="/privacidade">Privacidade</RouterLink>
+      </nav>
     </section>
   </main>
 </template>
@@ -318,6 +324,26 @@ input:focus {
 
 .link-cadastro:hover {
   color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.links-institucionais {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.links-institucionais a {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.links-institucionais a:hover {
+  color: #2563eb;
   text-decoration: underline;
 }
 

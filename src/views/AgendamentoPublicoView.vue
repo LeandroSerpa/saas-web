@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import {
   buscarDisponibilidadeDataPublica,
   buscarDisponibilidadePublica,
@@ -1126,6 +1126,12 @@ onMounted(() => {
         <h2>Política de cancelamento</h2>
         <p>{{ personalizacao.politicaCancelamento }}</p>
       </section>
+
+      <nav class="links-institucionais" aria-label="Páginas públicas">
+        <RouterLink to="/sobre">Sobre</RouterLink>
+        <RouterLink to="/termos">Termos de Uso</RouterLink>
+        <RouterLink to="/privacidade">Política de Privacidade</RouterLink>
+      </nav>
     </section>
   </main>
 </template>
@@ -1322,6 +1328,30 @@ onMounted(() => {
   background: var(--cor-secundaria-publica, #0f172a);
   text-decoration: none;
   font-weight: 800;
+}
+
+.links-institucionais {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 4px 0 10px;
+}
+
+.links-institucionais a {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.links-institucionais a:hover {
+  color: var(--cor-principal-publica, #2563eb);
+  text-decoration: underline;
+}
+
+.tema-escuro .links-institucionais a {
+  color: #cbd5e1;
 }
 
 .confirmacao-card {
