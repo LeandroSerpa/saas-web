@@ -52,6 +52,21 @@ export function carregarUsuarioSessao() {
   }
 }
 
+export function limparSessaoAutenticacao({ notificar = true } = {}) {
+  localStorage.removeItem('token')
+  localStorage.removeItem('usuario')
+  localStorage.removeItem('empresa')
+  localStorage.removeItem('empresaAtual')
+  localStorage.removeItem('trocaSenhaObrigatoria')
+  localStorage.removeItem('cadastroPendente')
+  sessionStorage.removeItem('origemOnboarding')
+  sessionStorage.removeItem('etapaOnboarding')
+
+  if (notificar) {
+    window.dispatchEvent(new Event('usuario-atualizado'))
+  }
+}
+
 export function salvarSessaoAutenticacao(respostaLoginOuSessao, usuarioBase = null) {
   const token = respostaLoginOuSessao?.token || localStorage.getItem('token')
   const usuario = normalizarUsuarioSessao(respostaLoginOuSessao, usuarioBase)
@@ -105,10 +120,20 @@ function montarQueryString(filtros = {}) {
   return query ? `?${query}` : ''
 }
 
-function encerrarSessao() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('usuario')
-  window.dispatchEvent(new Event('usuario-atualizado'))
+function emitirMensagemGlobal(mensagem, tipo = 'erro') {
+  window.dispatchEvent(
+    new CustomEvent('mensagem-global', {
+      detail: {
+        mensagem,
+        tipo,
+      },
+    }),
+  )
+}
+
+function encerrarSessao(mensagem = 'Sessão expirada. Faça login novamente.') {
+  limparSessaoAutenticacao()
+  sessionStorage.setItem('mensagem-login', mensagem)
 
   if (window.location.pathname !== '/login') {
     window.location.href = '/login'
@@ -116,7 +141,7 @@ function encerrarSessao() {
 }
 
 async function extrairMensagemErro(response) {
-  const mensagemPadrao = 'Não foi possível concluir a operação.'
+  const mensagemPadrao = mensagemPadraoPorStatus(response.status)
 
   const dados = await lerJsonErro(response)
 
@@ -135,6 +160,18 @@ async function extrairMensagemErro(response) {
   }
 
   return mensagemPadrao
+}
+
+function mensagemPadraoPorStatus(status) {
+  if (status === 401) {
+    return 'Sessão expirada. Faça login novamente.'
+  }
+
+  if (status === 403) {
+    return 'Você não tem permissão para acessar esta área.'
+  }
+
+  return 'Não foi possível carregar os dados. Tente novamente.'
 }
 
 async function lerJsonErro(response) {
@@ -233,14 +270,23 @@ async function extrairMensagemResposta(response) {
   return mensagemPadrao
 }
 
-async function tratarResposta(response) {
+async function tratarResposta(response, opcoes = {}) {
+  const { encerrarSessao401 = true, emitir403 = true } = opcoes
+
   if (!response.ok) {
     const mensagem = await extrairMensagemErro(response)
-    const erro = new Error(mensagem)
+    const mensagemTratada = [401, 403].includes(response.status)
+      ? mensagemPadraoPorStatus(response.status)
+      : mensagem
+    const erro = new Error(mensagemTratada)
     erro.status = response.status
 
-    if (response.status === 401) {
-      encerrarSessao()
+    if (response.status === 401 && encerrarSessao401) {
+      encerrarSessao(mensagemTratada)
+    }
+
+    if (response.status === 403 && emitir403) {
+      emitirMensagemGlobal(mensagemTratada)
     }
 
     throw erro
@@ -1201,13 +1247,22 @@ export async function baixarRelatorioAgendamentosCsv(filtros = {}) {
   })
 
   if (!response.ok) {
-    const mensagem = await extrairMensagemResposta(response)
+    const mensagemBackend = await extrairMensagemResposta(response)
+    const mensagem = [401, 403].includes(response.status)
+      ? mensagemPadraoPorStatus(response.status)
+      : mensagemBackend
+    const erro = new Error(mensagem || 'Não foi possível exportar o relatório.')
+    erro.status = response.status
 
     if (response.status === 401) {
-      encerrarSessao()
+      encerrarSessao(mensagem)
     }
 
-    throw new Error(mensagem || 'Não foi possível exportar o relatório.')
+    if (response.status === 403) {
+      emitirMensagemGlobal(mensagem)
+    }
+
+    throw erro
   }
 
   const blob = await response.blob()
@@ -1722,7 +1777,7 @@ export async function login(email, senha) {
     body: JSON.stringify({ email, senha }),
   })
 
-  return tratarResposta(response)
+  return tratarResposta(response, { encerrarSessao401: false, emitir403: false })
 }
 
 export async function alterarSenha(senhaAtual, novaSenha) {

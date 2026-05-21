@@ -1,11 +1,11 @@
 <script setup>
 import { RouterLink, useRouter } from 'vue-router'
+import { limparSessaoAutenticacao } from '@/services/api'
 
 const router = useRouter()
 
 function sair() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('usuario')
+  limparSessaoAutenticacao()
   router.push('/login')
 }
 </script>
@@ -15,7 +15,8 @@ function sair() {
     <section class="card-pendente">
       <span class="selo">Cadastro pendente</span>
       <h1>Acesso em análise</h1>
-      <p>Sua empresa está com cadastro pendente de aprovação. Assim que nossa equipe aprovar, seu acesso completo será liberado.</p>
+      <p>Sua empresa ainda está aguardando aprovação.</p>
+      <p>Assim que nossa equipe aprovar, seu acesso completo será liberado.</p>
       <div class="acoes">
         <RouterLink class="botao secundario" to="/login">Voltar para login</RouterLink>
         <button class="botao principal" type="button" @click="sair">Sair</button>

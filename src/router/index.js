@@ -33,7 +33,9 @@ import NotificacoesView from '../views/NotificacoesView.vue'
 import AdminNotificacoesView from '../views/AdminNotificacoesView.vue'
 import ConfiguracoesNotificacoesView from '../views/ConfiguracoesNotificacoesView.vue'
 import AdminAutomacoesView from '../views/AdminAutomacoesView.vue'
-import { carregarUsuarioSessao } from '@/services/api'
+import AcessoNegadoView from '../views/AcessoNegadoView.vue'
+import NaoEncontradoView from '../views/NaoEncontradoView.vue'
+import { carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -326,7 +328,8 @@ const router = createRouter({
     {
       path: '/admin/:pathMatch(.*)*',
       name: 'admin-nao-encontrado',
-      redirect: '/dashboard',
+      component: NaoEncontradoView,
+      meta: rotasSuperAdmin,
     },
     {
       path: '/agendar/:slug',
@@ -357,6 +360,12 @@ const router = createRouter({
       component: CadastroPendenteView,
     },
     {
+      path: '/acesso-negado',
+      name: 'acesso-negado',
+      component: AcessoNegadoView,
+      meta: rotasProtegidas,
+    },
+    {
       path: '/about',
       name: 'about',
       // route level code-splitting
@@ -364,16 +373,35 @@ const router = createRouter({
       // which is lazy-loaded when the route is visited.
       component: () => import('../views/AboutView.vue'),
     },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'nao-encontrado',
+      component: NaoEncontradoView,
+    },
   ],
 })
 
 router.beforeEach((to) => {
-  if (to.path.startsWith('/agendar') || ['/cadastro', '/cadastro-empresa', '/comece-agora', '/cadastro-pendente'].includes(to.path)) {
+  if (to.path.startsWith('/agendar') || ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(to.path)) {
     return true
   }
 
   const token = localStorage.getItem('token')
   const usuario = carregarUsuarioSessao()
+
+  if (token && !usuario) {
+    limparSessaoAutenticacao()
+    sessionStorage.setItem('mensagem-login', 'Sessão expirada. Faça login novamente.')
+    return to.name === 'login' ? true : '/login'
+  }
+
+  if (to.name === 'cadastro-pendente') {
+    if (!token || empresaPendente(usuario)) {
+      return true
+    }
+
+    return '/dashboard'
+  }
 
   if (token && empresaPendente(usuario)) {
     return to.name === 'cadastro-pendente' ? true : '/cadastro-pendente'
@@ -389,13 +417,13 @@ router.beforeEach((to) => {
 
   if (to.meta.requiresAdmin) {
     if (!ehAdmin(usuario)) {
-      return '/dashboard'
+      return { name: 'acesso-negado' }
     }
   }
 
   if (to.meta.requiresSuperAdmin) {
     if (!ehSuperAdmin(usuario)) {
-      return '/dashboard'
+      return { name: 'acesso-negado' }
     }
   }
 

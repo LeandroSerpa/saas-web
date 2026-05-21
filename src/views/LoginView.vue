@@ -4,12 +4,17 @@ import { RouterLink, useRouter } from 'vue-router'
 import { login, salvarSessaoAutenticacao } from '@/services/api'
 
 const router = useRouter()
+const mensagemLogin = sessionStorage.getItem('mensagem-login') || ''
 
 const email = ref('')
 const senha = ref('')
-const erro = ref('')
+const erro = ref(mensagemLogin)
 const carregando = ref(false)
 const mostrarSenha = ref(false)
+
+if (mensagemLogin) {
+  sessionStorage.removeItem('mensagem-login')
+}
 
 async function entrar() {
   try {

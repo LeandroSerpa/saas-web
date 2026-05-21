@@ -3,7 +3,11 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import NotificacoesBell from '@/components/NotificacoesBell.vue'
-import { buscarStatusFinanceiroMinhaEmpresa, carregarUsuarioSessao } from '@/services/api'
+import {
+  buscarStatusFinanceiroMinhaEmpresa,
+  carregarUsuarioSessao,
+  limparSessaoAutenticacao,
+} from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const route = useRoute()
@@ -40,10 +44,12 @@ const menuAdminAberto = ref(true)
 const statusFinanceiro = ref(null)
 const carregandoStatusFinanceiro = ref(false)
 const ultimaConsultaFinanceira = ref(0)
+const mensagemGlobal = ref('')
+const tipoMensagemGlobal = ref('erro')
+let timeoutMensagemGlobal = null
 
 function sair() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('usuario')
+  limparSessaoAutenticacao()
   statusFinanceiro.value = null
   router.push('/login')
 }
@@ -86,10 +92,26 @@ function atualizarStatusFinanceiroGlobal() {
   carregarStatusFinanceiro({ forcar: true })
 }
 
+function exibirMensagemGlobal(event) {
+  const detail = event?.detail || {}
+  mensagemGlobal.value = detail.mensagem || 'Não foi possível carregar os dados. Tente novamente.'
+  tipoMensagemGlobal.value = detail.tipo || 'erro'
+
+  if (timeoutMensagemGlobal) {
+    clearTimeout(timeoutMensagemGlobal)
+  }
+
+  timeoutMensagemGlobal = setTimeout(() => {
+    mensagemGlobal.value = ''
+    timeoutMensagemGlobal = null
+  }, 7000)
+}
+
 watch(
   () => route.fullPath,
   () => {
     atualizarUsuarioLogado()
+    mensagemGlobal.value = ''
   },
   { immediate: true },
 )
@@ -97,11 +119,17 @@ watch(
 onMounted(() => {
   window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
+  window.addEventListener('mensagem-global', exibirMensagemGlobal)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('usuario-atualizado', atualizarUsuarioLogado)
   window.removeEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
+  window.removeEventListener('mensagem-global', exibirMensagemGlobal)
+
+  if (timeoutMensagemGlobal) {
+    clearTimeout(timeoutMensagemGlobal)
+  }
 })
 </script>
 
@@ -183,6 +211,10 @@ onBeforeUnmount(() => {
       </header>
 
       <FinanceiroStatusBanner v-if="adminEmpresa" :status="statusFinanceiro" />
+
+      <section v-if="mensagemGlobal" class="mensagem-global" :class="tipoMensagemGlobal">
+        <p>{{ mensagemGlobal }}</p>
+      </section>
 
       <RouterView />
     </div>
@@ -374,6 +406,29 @@ onBeforeUnmount(() => {
 .botao-sair:hover {
   background: #1e293b;
   transform: translateY(-1px);
+}
+
+.mensagem-global {
+  margin: 0 0 18px;
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-weight: 700;
+}
+
+.mensagem-global p {
+  margin: 0;
+}
+
+.mensagem-global.erro {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.mensagem-global.sucesso {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
 }
 
 @media (max-width: 900px) {
