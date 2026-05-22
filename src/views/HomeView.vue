@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import AgendamentoCard from '@/components/AgendamentoCard.vue'
 import AgendamentoForm from '@/components/AgendamentoForm.vue'
@@ -31,6 +31,7 @@ const agendamentoEditandoId = ref(null)
 const agendamentoEditandoStatus = ref('agendado')
 const filtros = ref({
   status: 'agendado',
+  origem: '',
   dataInicial: '',
   dataFinal: '',
   busca: '',
@@ -89,6 +90,10 @@ const agendamentosFiltrados = computed(() => {
         return false
       }
 
+      if (filtros.value.origem && agendamento.origemNormalizada !== filtros.value.origem) {
+        return false
+      }
+
       const dataInicio = criarData(agendamento.dataHoraInicio)
 
       if (filtros.value.dataInicial) {
@@ -114,6 +119,8 @@ const agendamentosFiltrados = computed(() => {
           agendamento.cliente,
           agendamento.servico,
           agendamento.funcionario,
+          agendamento.protocoloVisual,
+          agendamento.origemNormalizada,
           agendamento.observacao,
         ].join(' '))
 
@@ -138,7 +145,7 @@ const agendamentosFiltrados = computed(() => {
 const textoFiltroStatus = computed(() => {
   const textos = {
     agendado: 'Exibindo apenas agendamentos em aberto.',
-    concluido: 'Exibindo agendamentos concluídos.',
+    concluido: 'Exibindo agendamentos concluÃ­dos.',
     cancelado: 'Exibindo agendamentos cancelados.',
     faltou: 'Exibindo agendamentos marcados como falta.',
     todos: 'Exibindo todos os agendamentos, incluindo cancelados e faltas.',
@@ -146,11 +153,33 @@ const textoFiltroStatus = computed(() => {
 
   return textos[filtros.value.status || 'todos']
 })
+const textoFiltroOrigem = computed(() => {
+  if (filtros.value.origem === 'INTERNO') {
+    return 'Origem: apenas internos.'
+  }
+
+  if (filtros.value.origem === 'PUBLICO') {
+    return 'Origem: apenas recebidos pelo link público.'
+  }
+
+  return 'Origem: internos e recebidos pelo link público.'
+})
+const textoFiltroAgenda = computed(() => `${textoFiltroStatus.value} ${textoFiltroOrigem.value}`.trim())
 
 watch(
   () => novoAgendamento.value.servicoId,
   () => {
     carregarFuncionariosDoServicoSelecionado()
+  },
+)
+watch(
+  () => filtros.value.origem,
+  (origemAtual, origemAnterior) => {
+    if (origemAtual === origemAnterior) {
+      return
+    }
+
+    carregarAgendamentos()
   },
 )
 
@@ -162,9 +191,16 @@ function prepararAgendamentoParaLista(agendamento) {
   const fimCalculado = inicio && duracaoServico ? calcularDataHoraFim(inicio, duracaoServico) : null
   const fimVisual = fimApi || fimCalculado
   const duracaoCalculada = calcularDuracaoMinutos(inicio, fimVisual)
+  const origemNormalizada = normalizarOrigemAgendamento(agendamento)
+  const protocoloBase = extrairProtocoloAgendamento(agendamento)
+  const protocoloVisual =
+    protocoloBase === undefined || protocoloBase === null ? '' : String(protocoloBase).trim()
 
   return {
     ...agendamento,
+    origemNormalizada,
+    ehPublico: origemNormalizada === 'PUBLICO',
+    protocoloVisual,
     dataHoraFimVisual: fimVisual ? formatarDataParaApi(fimVisual) : '',
     duracaoMinutosVisual: duracaoCalculada || duracaoServico,
   }
@@ -176,7 +212,7 @@ async function carregarDados() {
     erro.value = ''
 
     const [agendamentosApi, clientesApi, servicosApi, funcionariosApi] = await Promise.all([
-      buscarAgendamentos(),
+      buscarAgendamentos(montarFiltrosApiAgendamentos()),
       buscarClientes(),
       buscarServicos(),
       buscarFuncionarios(),
@@ -187,7 +223,7 @@ async function carregarDados() {
     servicos.value = servicosApi
     funcionarios.value = funcionariosApi
   } catch (error) {
-    erro.value = 'Não foi possível carregar os dados.'
+    erro.value = 'NÃ£o foi possÃ­vel carregar os dados.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -199,9 +235,9 @@ async function carregarAgendamentos() {
     carregando.value = true
     erro.value = ''
 
-    agendamentos.value = await buscarAgendamentos()
+    agendamentos.value = await buscarAgendamentos(montarFiltrosApiAgendamentos())
   } catch (error) {
-    erro.value = 'Não foi possível carregar os agendamentos.'
+    erro.value = 'NÃ£o foi possÃ­vel carregar os agendamentos.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -225,7 +261,7 @@ async function alterarStatus(id, status) {
 
     mensagemSucessoAgendamento.value = 'Status atualizado com sucesso.'
   } catch (error) {
-    erro.value = 'Não foi possível atualizar o status do agendamento.'
+    erro.value = 'NÃ£o foi possÃ­vel atualizar o status do agendamento.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -234,7 +270,7 @@ async function alterarStatus(id, status) {
 
 function obterMensagemConfirmacaoStatus(status) {
   const mensagens = {
-    concluido: 'Deseja marcar este agendamento como concluído?',
+    concluido: 'Deseja marcar este agendamento como concluÃ­do?',
     cancelado: 'Deseja cancelar este agendamento?',
     faltou: 'Deseja marcar este agendamento como falta?',
   }
@@ -244,7 +280,7 @@ function obterMensagemConfirmacaoStatus(status) {
 
 async function excluirAgendamentoAgenda(id) {
   const motivo = window.prompt(
-    'Informe o motivo da exclusão (opcional). Clique em Cancelar para desistir.',
+    'Informe o motivo da exclusÃ£o (opcional). Clique em Cancelar para desistir.',
   )
 
   if (motivo === null) {
@@ -252,7 +288,7 @@ async function excluirAgendamentoAgenda(id) {
   }
 
   const confirmado = window.confirm(
-    'Tem certeza que deseja excluir este agendamento? Esta ação o enviará para a lixeira.',
+    'Tem certeza que deseja excluir este agendamento? Esta aÃ§Ã£o o enviarÃ¡ para a lixeira.',
   )
 
   if (!confirmado) {
@@ -271,11 +307,21 @@ async function excluirAgendamentoAgenda(id) {
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'Não foi possível excluir o agendamento.'
+    erro.value = mensagemApi || 'NÃ£o foi possÃ­vel excluir o agendamento.'
     console.error(error)
   } finally {
     atualizandoId.value = null
   }
+}
+
+function tratarCopiaResumo(evento = {}) {
+  if (evento?.sucesso) {
+    erro.value = ''
+    mensagemSucessoAgendamento.value = 'Resumo copiado com sucesso.'
+    return
+  }
+
+  erro.value = 'Não foi possível copiar o resumo. Tente novamente.'
 }
 
 async function salvarAgendamento() {
@@ -284,7 +330,7 @@ async function salvarAgendamento() {
     mensagemSucessoAgendamento.value = ''
 
     if (!agendamentoEditandoId.value && empresaBloqueadaFinanceiro.value) {
-      erro.value = 'Sua empresa está temporariamente bloqueada por pendência financeira. Acesse Faturas para regularizar.'
+      erro.value = 'Sua empresa estÃ¡ temporariamente bloqueada por pendÃªncia financeira. Acesse Faturas para regularizar.'
       return
     }
 
@@ -294,12 +340,12 @@ async function salvarAgendamento() {
     }
 
     if (!novoAgendamento.value.servicoId) {
-      erro.value = 'Selecione um serviço.'
+      erro.value = 'Selecione um serviÃ§o.'
       return
     }
 
     if (!novoAgendamento.value.funcionarioId) {
-      erro.value = 'Selecione um funcionário.'
+      erro.value = 'Selecione um funcionÃ¡rio.'
       return
     }
 
@@ -309,7 +355,7 @@ async function salvarAgendamento() {
         .map(Number)
         .includes(Number(novoAgendamento.value.funcionarioId))
     ) {
-      erro.value = 'Este funcionário não está vinculado ao serviço selecionado.'
+      erro.value = 'Este funcionÃ¡rio nÃ£o estÃ¡ vinculado ao serviÃ§o selecionado.'
       return
     }
 
@@ -321,7 +367,7 @@ async function salvarAgendamento() {
     const duracaoMinutos = duracaoAgendamentoMinutos.value
 
     if (!duracaoMinutos) {
-      erro.value = 'O serviço selecionado não possui duração válida.'
+      erro.value = 'O serviÃ§o selecionado nÃ£o possui duraÃ§Ã£o vÃ¡lida.'
       return
     }
 
@@ -518,9 +564,69 @@ function criarData(dataHora) {
 function limparFiltros() {
   filtros.value = {
     status: 'agendado',
+    origem: '',
     dataInicial: '',
     dataFinal: '',
     busca: '',
+  }
+}
+
+function normalizarOrigemAgendamento(agendamento) {
+  const origem = String(agendamento?.origem || '')
+    .trim()
+    .toUpperCase()
+  const publico = normalizarBooleanoFlexivel(agendamento?.publico)
+
+  if (origem === 'PUBLICO' || publico) {
+    return 'PUBLICO'
+  }
+
+  if (origem === 'INTERNO') {
+    return 'INTERNO'
+  }
+
+  return 'INTERNO'
+}
+
+function extrairProtocoloAgendamento(agendamento) {
+  if (agendamento?.protocolo !== undefined && agendamento?.protocolo !== null) {
+    const protocolo = String(agendamento.protocolo).trim()
+
+    if (protocolo) {
+      return protocolo
+    }
+  }
+
+  if (agendamento?.id !== undefined && agendamento?.id !== null) {
+    return agendamento.id
+  }
+
+  return ''
+}
+
+function normalizarBooleanoFlexivel(valor) {
+  if (valor === true) {
+    return true
+  }
+
+  if (typeof valor === 'string') {
+    return valor.trim().toLowerCase() === 'true'
+  }
+
+  if (typeof valor === 'number') {
+    return valor === 1
+  }
+
+  return false
+}
+
+function montarFiltrosApiAgendamentos() {
+  if (!filtros.value.origem) {
+    return {}
+  }
+
+  return {
+    origem: filtros.value.origem,
   }
 }
 
@@ -560,25 +666,25 @@ function obterMensagemAgendamento(error) {
   const mensagemNormalizada = normalizarTexto(mensagemApi)
 
   if (mensagemNormalizada.includes('empresa') && mensagemNormalizada.includes('indispon')) {
-    return 'Empresa indisponível no período selecionado.'
+    return 'Empresa indisponÃ­vel no perÃ­odo selecionado.'
   }
 
   if (mensagemNormalizada.includes('funcionario') && mensagemNormalizada.includes('indispon')) {
-    return 'Funcionário indisponível no período selecionado.'
+    return 'FuncionÃ¡rio indisponÃ­vel no perÃ­odo selecionado.'
   }
 
   if (mensagemNormalizada.includes('servico') && mensagemNormalizada.includes('indispon')) {
-    return 'Serviço indisponível no período selecionado.'
+    return 'ServiÃ§o indisponÃ­vel no perÃ­odo selecionado.'
   }
 
   if (
     mensagemNormalizada.includes('vincul') ||
     (mensagemNormalizada.includes('funcionario') && mensagemNormalizada.includes('servico'))
   ) {
-    return 'Este funcionário não está vinculado ao serviço selecionado.'
+    return 'Este funcionÃ¡rio nÃ£o estÃ¡ vinculado ao serviÃ§o selecionado.'
   }
 
-  return mensagemApi || 'Não foi possível concluir a operação.'
+  return mensagemApi || 'NÃ£o foi possÃ­vel concluir a operaÃ§Ã£o.'
 }
 
 onMounted(() => {
@@ -591,7 +697,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Operação diária</p>
+        <p class="subtitulo">OperaÃ§Ã£o diÃ¡ria</p>
         <h1>Agenda</h1>
         <p class="descricao">Cadastre e acompanhe os agendamentos da empresa.</p>
       </div>
@@ -631,10 +737,19 @@ onMounted(() => {
             Status
             <select v-model="filtros.status">
               <option value="agendado">Agendados</option>
-              <option value="concluido">Concluídos</option>
+              <option value="concluido">ConcluÃ­dos</option>
               <option value="cancelado">Cancelados</option>
               <option value="faltou">Faltou</option>
               <option value="">Todos</option>
+            </select>
+          </label>
+
+          <label>
+            Origem
+            <select v-model="filtros.origem">
+              <option value="">Todas</option>
+              <option value="INTERNO">Interno</option>
+              <option value="PUBLICO">Público</option>
             </select>
           </label>
 
@@ -653,7 +768,7 @@ onMounted(() => {
             <input
               v-model="filtros.busca"
               type="search"
-              placeholder="Cliente, serviço, funcionário ou observação"
+              placeholder="Cliente, serviÃ§o, funcionÃ¡rio ou observaÃ§Ã£o"
             />
           </label>
 
@@ -662,13 +777,13 @@ onMounted(() => {
           </div>
         </div>
 
-        <p class="aviso-filtro">{{ textoFiltroStatus }}</p>
+        <p class="aviso-filtro">{{ textoFiltroAgenda }}</p>
       </section>
 
       <div class="cabecalho-lista">
         <div>
           <h2>Agendamentos</h2>
-          <p>Lista de horários cadastrados na API publicada no EasyPanel.</p>
+          <p>Lista de horÃ¡rios cadastrados na API publicada no EasyPanel.</p>
         </div>
 
         <span class="contador">{{ agendamentosFiltrados.length }} agendamento(s)</span>
@@ -695,6 +810,7 @@ onMounted(() => {
           @alterar-status="alterarStatus"
           @editar="editarAgendamento"
           @excluir="excluirAgendamentoAgenda"
+          @copiar-resumo="tratarCopiaResumo"
         />
       </section>
     </section>
@@ -1117,3 +1233,5 @@ onMounted(() => {
   }
 }
 </style>
+
+

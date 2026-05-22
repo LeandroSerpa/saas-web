@@ -557,8 +557,8 @@ export async function buscarFuncionarios(filtros = {}) {
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
-export async function buscarAgendamentos() {
-  const response = await executarFetch(`${API_URL}/agendamentos`, {
+export async function buscarAgendamentos(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/agendamentos${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
   })
 

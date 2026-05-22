@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
@@ -43,8 +43,8 @@ const cardFinanceiro = computed(() => {
   if (status === 'BLOQUEADA_FINANCEIRO') {
     return {
       classe: 'bloqueado',
-      titulo: 'Empresa bloqueada por pendência financeira.',
-      texto: 'Regularize as faturas para retomar as ações operacionais.',
+      titulo: 'Empresa bloqueada por pendÃªncia financeira.',
+      texto: 'Regularize as faturas para retomar as aÃ§Ãµes operacionais.',
     }
   }
   if (status === 'EM_ATRASO') {
@@ -56,8 +56,8 @@ const cardFinanceiro = computed(() => {
   }
   return {
     classe: 'adimplente',
-    titulo: 'Sua empresa está em dia.',
-    texto: 'Não há pendências financeiras no momento.',
+    titulo: 'Sua empresa estÃ¡ em dia.',
+    texto: 'NÃ£o hÃ¡ pendÃªncias financeiras no momento.',
   }
 })
 const empresaSemDados = computed(
@@ -74,12 +74,17 @@ const cardsResumo = computed(() => [
     destaque: 'hoje',
   },
   {
-    titulo: 'Concluídos hoje',
+    titulo: 'Recebidos pelo link público hoje',
+    valor: contarPublicos(agendamentosHoje.value),
+    destaque: 'publico',
+  },
+  {
+    titulo: 'ConcluÃ­dos hoje',
     valor: contarPorStatus('concluido', agendamentosHoje.value),
     destaque: 'concluido',
   },
   {
-    titulo: 'Receita concluída hoje',
+    titulo: 'Receita concluÃ­da hoje',
     valor: formatarMoeda(receitaPorStatus('concluido', agendamentosHoje.value)),
     destaque: 'receita',
   },
@@ -94,7 +99,7 @@ const cardsResumo = computed(() => [
     destaque: 'receita-prevista',
   },
   {
-    titulo: 'Receita concluída da semana',
+    titulo: 'Receita concluÃ­da da semana',
     valor: formatarMoeda(receitaPorStatus('concluido', agendamentosSemana.value)),
     destaque: 'receita',
   },
@@ -104,7 +109,7 @@ const cardsResumo = computed(() => [
     destaque: 'agendado',
   },
   {
-    titulo: 'Total concluído',
+    titulo: 'Total concluÃ­do',
     valor: contarPorStatus('concluido'),
     destaque: 'concluido',
   },
@@ -124,7 +129,7 @@ const cardsResumo = computed(() => [
     destaque: 'receita',
   },
   {
-    titulo: 'Receita concluída',
+    titulo: 'Receita concluÃ­da',
     valor: formatarMoeda(receitaPorStatus('concluido')),
     destaque: 'receita',
   },
@@ -136,11 +141,11 @@ const cardsBase = computed(() => [
     valor: clientes.value.length,
   },
   {
-    titulo: 'Serviços',
+    titulo: 'ServiÃ§os',
     valor: servicos.value.length,
   },
   {
-    titulo: 'Funcionários',
+    titulo: 'FuncionÃ¡rios',
     valor: funcionarios.value.length,
   },
   {
@@ -183,7 +188,7 @@ const resumoPorFuncionario = computed(() => {
   const resumo = new Map()
 
   agendamentos.value.forEach((agendamento) => {
-    const funcionario = agendamento.funcionario || 'Sem funcionário'
+    const funcionario = agendamento.funcionario || 'Sem funcionÃ¡rio'
     const item = resumo.get(funcionario) || {
       funcionario,
       quantidade: 0,
@@ -223,7 +228,7 @@ async function carregarDados() {
     servicos.value = servicosApi
     funcionarios.value = funcionariosApi
   } catch (error) {
-    erro.value = 'Não foi possível carregar os dados do dashboard.'
+    erro.value = 'NÃ£o foi possÃ­vel carregar os dados do dashboard.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -269,6 +274,36 @@ function receitaPorStatus(status, lista = agendamentos.value) {
   return lista
     .filter((agendamento) => agendamento.status === status)
     .reduce((total, agendamento) => total + obterPreco(agendamento.preco), 0)
+}
+
+function contarPublicos(lista = agendamentos.value) {
+  return lista.filter((agendamento) => origemPublicaAgendamento(agendamento)).length
+}
+
+function origemPublicaAgendamento(agendamento) {
+  const origem = String(agendamento?.origem || '')
+    .trim()
+    .toUpperCase()
+
+  if (origem === 'PUBLICO') {
+    return true
+  }
+
+  const publico = agendamento?.publico
+
+  if (publico === true) {
+    return true
+  }
+
+  if (typeof publico === 'string') {
+    return publico.trim().toLowerCase() === 'true'
+  }
+
+  if (typeof publico === 'number') {
+    return publico === 1
+  }
+
+  return false
 }
 
 function obterPreco(preco) {
@@ -370,7 +405,7 @@ function formatarPeriodo(agendamento) {
     return inicio
   }
 
-  return `${inicio} às ${fim}`
+  return `${inicio} Ã s ${fim}`
 }
 
 function exibirValor(valor) {
@@ -396,7 +431,7 @@ function statusClasse(status) {
 function statusTexto(status) {
   const statusFormatados = {
     agendado: 'Agendado',
-    concluido: 'Concluído',
+    concluido: 'ConcluÃ­do',
     cancelado: 'Cancelado',
     faltou: 'Faltou',
   }
@@ -439,9 +474,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Visão geral</p>
+        <p class="subtitulo">VisÃ£o geral</p>
         <h1>Dashboard</h1>
-        <p class="descricao">Acompanhe os principais números da operação.</p>
+        <p class="descricao">Acompanhe os principais nÃºmeros da operaÃ§Ã£o.</p>
       </div>
 
       <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
@@ -475,22 +510,22 @@ onMounted(() => {
     <section v-if="mostrarCardOnboarding" class="card onboarding-card">
       <div>
         <p class="subtitulo">Configure sua empresa</p>
-        <h2>Seu onboarding está {{ onboardingPercentual }}% concluído.</h2>
-        <p>Finalize os primeiros passos para começar a receber agendamentos com mais segurança.</p>
+        <h2>Seu onboarding estÃ¡ {{ onboardingPercentual }}% concluÃ­do.</h2>
+        <p>Finalize os primeiros passos para comeÃ§ar a receber agendamentos com mais seguranÃ§a.</p>
       </div>
-      <RouterLink class="botao principal link-botao" to="/onboarding">Continuar configuração</RouterLink>
+      <RouterLink class="botao principal link-botao" to="/onboarding">Continuar configuraÃ§Ã£o</RouterLink>
     </section>
 
     <section v-if="empresaSemDados" class="card estado-vazio">
-      <p>Sua empresa ainda não possui dados cadastrados. Comece configurando seus serviços e funcionários.</p>
+      <p>Sua empresa ainda nÃ£o possui dados cadastrados. Comece configurando seus serviÃ§os e funcionÃ¡rios.</p>
     </section>
 
     <section v-if="resumoNotificacoes" class="card notificacoes-card">
       <div>
-        <p class="subtitulo">Notificações</p>
-        <h2>{{ notificacoesNaoLidas }} notificação(ões) não lida(s)</h2>
+        <p class="subtitulo">NotificaÃ§Ãµes</p>
+        <h2>{{ notificacoesNaoLidas }} notificaÃ§Ã£o(Ãµes) nÃ£o lida(s)</h2>
       </div>
-      <RouterLink class="botao principal link-botao" to="/notificacoes">Ver notificações</RouterLink>
+      <RouterLink class="botao principal link-botao" to="/notificacoes">Ver notificaÃ§Ãµes</RouterLink>
     </section>
 
     <section class="grade-resumo">
@@ -514,8 +549,8 @@ onMounted(() => {
     <section class="secao-proximos">
       <div class="cabecalho-lista">
         <div>
-          <h2>Próximos agendamentos</h2>
-          <p>Os 5 próximos horários ordenados por data e hora.</p>
+          <h2>PrÃ³ximos agendamentos</h2>
+          <p>Os 5 prÃ³ximos horÃ¡rios ordenados por data e hora.</p>
         </div>
       </div>
 
@@ -524,7 +559,7 @@ onMounted(() => {
       </section>
 
       <section v-else-if="proximosAgendamentos.length === 0" class="card">
-        <p>Nenhum próximo agendamento em aberto. A agenda está tranquila por enquanto.</p>
+        <p>Nenhum prÃ³ximo agendamento em aberto. A agenda estÃ¡ tranquila por enquanto.</p>
       </section>
 
       <section v-else class="lista-proximos">
@@ -545,10 +580,10 @@ onMounted(() => {
           </div>
 
           <div class="detalhes">
-            <p><strong>Funcionário:</strong> {{ exibirValor(agendamento.funcionario) }}</p>
+            <p><strong>FuncionÃ¡rio:</strong> {{ exibirValor(agendamento.funcionario) }}</p>
             <p><strong>Data:</strong> {{ formatarData(agendamento.dataHoraInicio) }}</p>
-            <p><strong>Horário:</strong> {{ formatarPeriodo(agendamento) }}</p>
-            <p><strong>Preço:</strong> {{ formatarMoeda(agendamento.preco) }}</p>
+            <p><strong>HorÃ¡rio:</strong> {{ formatarPeriodo(agendamento) }}</p>
+            <p><strong>PreÃ§o:</strong> {{ formatarMoeda(agendamento.preco) }}</p>
             <p><strong>Status:</strong> {{ statusTexto(agendamento.status) }}</p>
           </div>
         </article>
@@ -558,17 +593,17 @@ onMounted(() => {
     <section class="secao-resumo-funcionarios">
       <div class="cabecalho-lista">
         <div>
-          <h2>Resumo por funcionário</h2>
-          <p>Quantidade de agendamentos, concluídos e receita concluída por profissional.</p>
+          <h2>Resumo por funcionÃ¡rio</h2>
+          <p>Quantidade de agendamentos, concluÃ­dos e receita concluÃ­da por profissional.</p>
         </div>
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando resumo por funcionário...</p>
+        <p>Carregando resumo por funcionÃ¡rio...</p>
       </section>
 
       <section v-else-if="resumoPorFuncionario.length === 0" class="card">
-        <p>Nenhum agendamento encontrado para montar o resumo por funcionário.</p>
+        <p>Nenhum agendamento encontrado para montar o resumo por funcionÃ¡rio.</p>
       </section>
 
       <section v-else class="card tabela-card">
@@ -576,10 +611,10 @@ onMounted(() => {
           <table>
             <thead>
               <tr>
-                <th>Funcionário</th>
+                <th>FuncionÃ¡rio</th>
                 <th>Agendamentos</th>
-                <th>Concluídos</th>
-                <th>Receita concluída</th>
+                <th>ConcluÃ­dos</th>
+                <th>Receita concluÃ­da</th>
               </tr>
             </thead>
             <tbody>
@@ -781,6 +816,10 @@ onMounted(() => {
   border-left-color: #0f766e;
 }
 
+.resumo-card.publico {
+  border-left-color: #0891b2;
+}
+
 .resumo-card.cancelado {
   border-left-color: #dc2626;
 }
@@ -974,3 +1013,6 @@ tbody tr:last-child td {
   }
 }
 </style>
+
+
+

@@ -1,5 +1,5 @@
-<script setup>
-defineProps({
+﻿<script setup>
+const props = defineProps({
   agendamento: {
     type: Object,
     required: true,
@@ -10,7 +10,7 @@ defineProps({
   },
 })
 
-defineEmits(['alterar-status', 'editar', 'excluir'])
+const emit = defineEmits(['alterar-status', 'editar', 'excluir', 'copiar-resumo'])
 
 function criarData(dataHora) {
   if (!dataHora) {
@@ -40,7 +40,7 @@ function formatarData(dataHora) {
   })
 }
 
-function formatarHorario(dataHora) {
+function formatarHorário(dataHora) {
   const data = criarData(dataHora)
 
   if (!data) {
@@ -54,8 +54,8 @@ function formatarHorario(dataHora) {
 }
 
 function formatarPeriodo(agendamento) {
-  const inicio = formatarHorario(agendamento.dataHoraInicio)
-  const fim = formatarHorario(agendamento.dataHoraFimVisual || agendamento.dataHoraFim)
+  const inicio = formatarHorário(agendamento.dataHoraInicio)
+  const fim = formatarHorário(agendamento.dataHoraFimVisual || agendamento.dataHoraFim)
 
   if (inicio === '-' && fim === '-') {
     return '-'
@@ -68,7 +68,7 @@ function formatarPeriodo(agendamento) {
   return `${inicio} as ${fim}`
 }
 
-function formatarPreco(preco) {
+function formatarPreço(preco) {
   if (preco === null || preco === undefined) {
     return 'R$ 0,00'
   }
@@ -109,74 +109,192 @@ function statusTexto(status) {
 function podeExcluir(status) {
   return status !== 'concluido'
 }
+
+function origemTexto(agendamento) {
+  return agendamento?.ehPublico ? 'Público' : 'Interno'
+}
+
+function origemClasse(agendamento) {
+  return agendamento?.ehPublico ? 'origem-badge publico' : 'origem-badge interno'
+}
+
+function origemMensagem(agendamento) {
+  return agendamento?.ehPublico ? 'Recebido pelo link público' : 'Criado internamente'
+}
+
+function formatarProtocolo(agendamento) {
+  const protocolo = String(agendamento?.protocoloVisual || '')
+    .trim()
+    .replace(/^#/, '')
+
+  return protocolo ? `#${protocolo}` : '-'
+}
+
+function montarResumoCopiavel(agendamento) {
+  return [
+    `Cliente: ${agendamento?.cliente || '-'}`,
+    `Serviço: ${agendamento?.servico || '-'}`,
+    `Funcionário: ${agendamento?.funcionario || '-'}`,
+    `Data: ${formatarData(agendamento?.dataHoraInicio)}`,
+    `Horário: ${formatarPeriodo(agendamento)}`,
+    `Status: ${statusTexto(agendamento?.status)}`,
+    `Protocolo: ${formatarProtocolo(agendamento)}`,
+  ].join('\n')
+}
+
+async function copiarResumo(agendamento) {
+  const texto = montarResumoCopiavel(agendamento)
+
+  if (!navigator?.clipboard?.writeText) {
+    emit('copiar-resumo', { sucesso: false })
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(texto)
+    emit('copiar-resumo', { sucesso: true })
+  } catch (error) {
+    console.error(error)
+    emit('copiar-resumo', { sucesso: false })
+  }
+}
 </script>
 
 <template>
-  <article class="card agendamento">
+  <article :class="['card', 'agendamento', { 'origem-publica-card': props.agendamento.ehPublico }]">
     <div class="topo-card">
       <div>
-        <h3>{{ agendamento.cliente }}</h3>
-        <p class="servico">{{ agendamento.servico }}</p>
+        <h3>{{ props.agendamento.cliente }}</h3>
+        <p class="servico">{{ props.agendamento.servico }}</p>
       </div>
 
-      <span :class="statusClasse(agendamento.status)">
-        {{ statusTexto(agendamento.status) }}
-      </span>
+      <div class="topo-status">
+        <span :class="origemClasse(props.agendamento)">
+          {{ origemTexto(props.agendamento) }}
+        </span>
+        <span :class="statusClasse(props.agendamento.status)">
+          {{ statusTexto(props.agendamento.status) }}
+        </span>
+      </div>
     </div>
 
+    <p class="origem-descricao">{{ origemMensagem(props.agendamento) }}</p>
+
     <div class="detalhes">
-      <p><strong>Cliente:</strong> {{ agendamento.cliente }}</p>
-      <p><strong>Serviço:</strong> {{ agendamento.servico }}</p>
-      <p><strong>Funcionário:</strong> {{ agendamento.funcionario }}</p>
-      <p><strong>Data:</strong> {{ formatarData(agendamento.dataHoraInicio) }}</p>
-      <p><strong>Horário:</strong> {{ formatarPeriodo(agendamento) }}</p>
-      <p v-if="agendamento.duracaoMinutosVisual">
-        <strong>Duração:</strong> {{ agendamento.duracaoMinutosVisual }} minutos
+      <p><strong>Cliente:</strong> {{ props.agendamento.cliente }}</p>
+      <p><strong>Serviço:</strong> {{ props.agendamento.servico }}</p>
+      <p><strong>Funcionário:</strong> {{ props.agendamento.funcionario }}</p>
+      <p><strong>Data:</strong> {{ formatarData(props.agendamento.dataHoraInicio) }}</p>
+      <p><strong>Horário:</strong> {{ formatarPeriodo(props.agendamento) }}</p>
+      <p v-if="props.agendamento.protocoloVisual">
+        <strong>Protocolo:</strong> {{ formatarProtocolo(props.agendamento) }}
       </p>
-      <p><strong>Preço:</strong> {{ formatarPreco(agendamento.preco) }}</p>
-      <p><strong>Status:</strong> {{ statusTexto(agendamento.status) }}</p>
-      <p v-if="agendamento.observacao">
-        <strong>Observação:</strong> {{ agendamento.observacao }}
+      <p v-if="props.agendamento.duracaoMinutosVisual">
+        <strong>Duração:</strong> {{ props.agendamento.duracaoMinutosVisual }} minutos
+      </p>
+      <p><strong>Preço:</strong> {{ formatarPreço(props.agendamento.preco) }}</p>
+      <p><strong>Status:</strong> {{ statusTexto(props.agendamento.status) }}</p>
+      <p v-if="props.agendamento.observacao">
+        <strong>Observação:</strong> {{ props.agendamento.observacao }}
       </p>
     </div>
 
     <div class="acoes">
-      <button class="botao secundario" @click="$emit('editar', agendamento)">Editar</button>
+      <button class="botao secundario" @click="emit('editar', props.agendamento)">Editar</button>
+
+      <button class="botao copiar" @click="copiarResumo(props.agendamento)">Copiar resumo</button>
 
       <button
         class="botao sucesso"
-        :disabled="atualizando || agendamento.status === 'concluido'"
-        @click="$emit('alterar-status', agendamento.id, 'concluido')"
+        :disabled="props.atualizando || props.agendamento.status === 'concluido'"
+        @click="emit('alterar-status', props.agendamento.id, 'concluido')"
       >
         Concluir
       </button>
 
       <button
         class="botao perigo"
-        :disabled="atualizando || agendamento.status === 'cancelado'"
-        @click="$emit('alterar-status', agendamento.id, 'cancelado')"
+        :disabled="props.atualizando || props.agendamento.status === 'cancelado'"
+        @click="emit('alterar-status', props.agendamento.id, 'cancelado')"
       >
         Cancelar
       </button>
 
       <button
         class="botao alerta"
-        :disabled="atualizando || agendamento.status === 'faltou'"
-        @click="$emit('alterar-status', agendamento.id, 'faltou')"
+        :disabled="props.atualizando || props.agendamento.status === 'faltou'"
+        @click="emit('alterar-status', props.agendamento.id, 'faltou')"
       >
         Faltou
       </button>
 
       <button
-        v-if="podeExcluir(agendamento.status)"
+        v-if="podeExcluir(props.agendamento.status)"
         class="botao excluir"
-        :disabled="atualizando"
-        @click="$emit('excluir', agendamento.id)"
+        :disabled="props.atualizando"
+        @click="emit('excluir', props.agendamento.id)"
       >
         Excluir
       </button>
     </div>
 
-    <p v-if="atualizando" class="atualizando">Atualizando status...</p>
+    <p v-if="props.atualizando" class="atualizando">Atualizando status...</p>
   </article>
 </template>
+
+<style scoped>
+.origem-publica-card {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #f8fcff 0%, #ffffff 42%);
+}
+
+.topo-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.origem-badge {
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.origem-badge.publico {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.origem-badge.interno {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.origem-descricao {
+  margin: -2px 0 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.copiar {
+  background: #1f2937;
+}
+
+.copiar:hover {
+  background: #111827;
+}
+
+@media (max-width: 900px) {
+  .topo-status {
+    justify-content: flex-start;
+  }
+}
+</style>
+
+
