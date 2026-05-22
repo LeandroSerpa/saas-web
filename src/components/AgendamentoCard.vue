@@ -135,10 +135,12 @@ function montarResumoCopiavel(agendamento) {
     `Cliente: ${agendamento?.cliente || '-'}`,
     `Serviço: ${agendamento?.servico || '-'}`,
     `Funcionário: ${agendamento?.funcionario || '-'}`,
+    `Origem: ${origemTexto(agendamento)}`,
     `Data: ${formatarData(agendamento?.dataHoraInicio)}`,
     `Horário: ${formatarPeriodo(agendamento)}`,
     `Status: ${statusTexto(agendamento?.status)}`,
     `Protocolo: ${formatarProtocolo(agendamento)}`,
+    agendamento?.observacao ? `Observação: ${agendamento.observacao}` : '',
   ].join('\n')
 }
 

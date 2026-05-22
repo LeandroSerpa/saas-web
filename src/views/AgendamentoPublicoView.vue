@@ -10,6 +10,8 @@ import {
   buscarServicosPublicos,
   criarAgendamentoPublico,
 } from '@/services/api'
+import { emitirAtualizacaoEmpresa } from '@/utils/atualizacoesEmpresa'
+import { debugLog } from '@/utils/devDebug'
 import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
 
 const route = useRoute()
@@ -320,67 +322,204 @@ function normalizarTemaPublico(tema) {
   return ['PADRAO', 'MODERNO', 'ESCURO', 'SUAVE'].includes(tema) ? tema : 'PADRAO'
 }
 
-function criarDadosConfirmacaoFormulario() {
-  return {
-    empresaNome: empresa.value?.nome || '',
+function criarPayloadAgendamentoPublico() {
+  return Object.freeze({
     clienteNome: agendamento.value.nomeCliente.trim(),
     clienteTelefone: agendamento.value.telefoneCliente.trim(),
     clienteEmail: agendamento.value.emailCliente.trim(),
-    servicoNome: servicoSelecionado.value?.nome || '',
-    funcionarioNome: funcionarioSelecionado.value?.nome || '',
-    dataAtendimento: dataAtendimentoFormatada.value,
-    horarioInicio: inicioSelecionado.value,
-    horarioTermino: formatarHorarioSeguro(dataHoraFimSelecionada.value),
-    duracao: duracaoMinutos.value ? `${duracaoMinutos.value} minutos` : '',
-    preco: formatarPreco(servicoSelecionado.value?.preco),
+    servicoId: Number(agendamento.value.servicoId),
+    funcionarioId: Number(agendamento.value.funcionarioId),
+    dataHoraInicio: String(agendamento.value.dataHoraInicio || '').trim(),
     observacao: agendamento.value.observacao.trim(),
-    dataHoraInicio: agendamento.value.dataHoraInicio,
-    dataHoraFim: dataHoraFimSelecionada.value,
+  })
+}
+
+function criarDadosConfirmacaoFormulario(payload) {
+  const servico = servicos.value.find((item) => Number(item.id) === Number(payload.servicoId))
+  const funcionario = [...funcionariosServico.value, ...funcionarios.value].find(
+    (item) => Number(item.id) === Number(payload.funcionarioId),
+  )
+  const duracao = obterDuracaoValida(servico)
+  const dataHoraFim = payload.dataHoraInicio && duracao ? calcularDataHoraFim(payload.dataHoraInicio, duracao) : null
+
+  return {
+    empresaNome: empresa.value?.nome || '',
+    clienteNome: payload.clienteNome,
+    clienteTelefone: payload.clienteTelefone,
+    clienteEmail: payload.clienteEmail,
+    servicoNome: servico?.nome || '',
+    funcionarioNome: funcionario?.nome || '',
+    dataAtendimento: formatarDataAtendimento(String(payload.dataHoraInicio || '').slice(0, 10)),
+    horarioInicio: formatarHorarioSeguro(payload.dataHoraInicio),
+    horarioTermino: formatarHorarioSeguro(dataHoraFim),
+    duracao: duracao ? `${duracao} minutos` : '',
+    preco: servico ? formatarPreco(servico.preco) : '',
+    observacao: payload.observacao,
+    dataHoraInicio: payload.dataHoraInicio,
+    dataHoraFim,
   }
 }
 
 function criarConfirmacaoAgendamento(respostaApi, dadosFormulario) {
-  const dadosApi = respostaApi && typeof respostaApi === 'object' ? respostaApi : {}
+  const dadosApi = normalizarRespostaAgendamentoPublico(respostaApi)
   const dataHoraInicioApi = obterPrimeiroValor(dadosApi.dataHoraInicio, dadosApi.inicio)
   const dataHoraFimApi = obterPrimeiroValor(dadosApi.dataHoraFim, dadosApi.fim)
-  const id = obterPrimeiroValor(dadosApi.id, dadosApi.agendamentoId, dadosApi.codigo, dadosApi.protocolo)
+  const id = obterPrimeiroValor(
+    dadosApi.protocolo,
+    dadosApi.numeroProtocolo,
+    dadosApi.codigo,
+    dadosApi.id,
+    dadosApi.agendamentoId,
+  )
+  const camposComFallback = []
+  const origem = normalizarOrigemConfirmacao(dadosApi)
 
   return {
     id,
     status: obterPrimeiroValor(dadosApi.status, ''),
-    mensagem: obterPrimeiroValor(dadosApi.mensagem, 'Agendamento solicitado com sucesso.'),
-    empresaNome: obterPrimeiroValor(dadosApi.empresaNome, dadosApi.nomeEmpresa, dadosFormulario.empresaNome),
-    clienteNome: obterPrimeiroValor(dadosApi.clienteNome, dadosApi.nomeCliente, dadosFormulario.clienteNome),
-    clienteTelefone: obterPrimeiroValor(
-      dadosApi.clienteTelefone,
-      dadosApi.telefoneCliente,
+    mensagem: obterPrimeiroValor(dadosApi.mensagem, dadosApi.message, 'Agendamento solicitado com sucesso.'),
+    empresaNome: obterValorConfirmacao(
+      dadosApi,
+      ['empresaNome', 'nomeEmpresa'],
+      dadosFormulario.empresaNome,
+      camposComFallback,
+      'empresa',
+    ),
+    clienteNome: obterValorConfirmacao(
+      dadosApi,
+      ['clienteNome', 'nomeCliente', 'cliente'],
+      dadosFormulario.clienteNome,
+      camposComFallback,
+      'cliente',
+    ),
+    clienteTelefone: obterValorConfirmacao(
+      dadosApi,
+      ['clienteTelefone', 'telefoneCliente', 'telefone'],
       dadosFormulario.clienteTelefone,
+      camposComFallback,
+      'telefone',
     ),
-    clienteEmail: obterPrimeiroValor(
-      dadosApi.clienteEmail,
-      dadosApi.emailCliente,
+    clienteEmail: obterValorConfirmacao(
+      dadosApi,
+      ['clienteEmail', 'emailCliente', 'email'],
       dadosFormulario.clienteEmail,
+      camposComFallback,
+      'email',
     ),
-    servicoNome: obterPrimeiroValor(dadosApi.servicoNome, dadosApi.nomeServico, dadosFormulario.servicoNome),
-    funcionarioNome: obterPrimeiroValor(
-      dadosApi.funcionarioNome,
-      dadosApi.nomeFuncionario,
+    servicoNome: obterValorConfirmacao(
+      dadosApi,
+      ['servicoNome', 'nomeServico', 'servico'],
+      dadosFormulario.servicoNome,
+      camposComFallback,
+      'serviço',
+    ),
+    funcionarioNome: obterValorConfirmacao(
+      dadosApi,
+      ['funcionarioNome', 'nomeFuncionario', 'funcionario'],
       dadosFormulario.funcionarioNome,
+      camposComFallback,
+      'funcionário',
     ),
-    dataAtendimento: formatarDataDaConfirmacao(dataHoraInicioApi) || dadosFormulario.dataAtendimento,
+    dataAtendimento:
+      formatarDataDaConfirmacao(dataHoraInicioApi) ||
+      registrarFallbackConfirmacao(dadosFormulario.dataAtendimento, camposComFallback, 'data'),
     horarioInicio:
       formatarHorarioSeguro(dataHoraInicioApi) ||
-      formatarHorarioSeguro(dadosFormulario.dataHoraInicio) ||
-      dadosFormulario.horarioInicio,
+      registrarFallbackConfirmacao(
+        formatarHorarioSeguro(dadosFormulario.dataHoraInicio) || dadosFormulario.horarioInicio,
+        camposComFallback,
+        'início',
+      ),
     horarioTermino:
       formatarHorarioSeguro(dataHoraFimApi) ||
-      formatarHorarioSeguro(dadosFormulario.dataHoraFim) ||
-      formatarHorarioSeguro(dadosFormulario.horarioTermino) ||
-      dadosFormulario.horarioTermino,
-    duracao: dadosFormulario.duracao,
-    preco: obterPrimeiroValor(formatarPrecoConfirmacao(dadosApi.preco), dadosFormulario.preco),
-    observacao: obterPrimeiroValor(dadosApi.observacao, dadosFormulario.observacao),
+      registrarFallbackConfirmacao(
+        formatarHorarioSeguro(dadosFormulario.dataHoraFim) || dadosFormulario.horarioTermino,
+        camposComFallback,
+        'término',
+      ),
+    duracao:
+      formatarDuracaoConfirmacao(obterPrimeiroValor(dadosApi.duracao, dadosApi.duracaoMinutos)) ||
+      registrarFallbackConfirmacao(dadosFormulario.duracao, camposComFallback, 'duração'),
+    preco:
+      obterPrimeiroValor(
+        formatarPrecoConfirmacao(
+          obterPrimeiroValor(dadosApi.preco, dadosApi.valorServico, dadosApi.valor),
+        ),
+      ) || registrarFallbackConfirmacao(dadosFormulario.preco, camposComFallback, 'preço'),
+    observacao:
+      obterPrimeiroValor(dadosApi.observacao, dadosApi.observacoes) ||
+      registrarFallbackConfirmacao(dadosFormulario.observacao, camposComFallback, 'observação'),
+    origem,
+    origemTexto: origem === 'PUBLICO' ? 'Origem pública' : '',
+    camposComFallback,
+    avisoFallback: camposComFallback.length
+      ? 'Alguns dados não vieram completos na resposta da API e foram complementados com o formulário enviado.'
+      : '',
   }
+}
+
+function normalizarRespostaAgendamentoPublico(respostaApi) {
+  if (!respostaApi || typeof respostaApi !== 'object') {
+    return {}
+  }
+
+  if (respostaApi.data && typeof respostaApi.data === 'object' && !Array.isArray(respostaApi.data)) {
+    return respostaApi.data
+  }
+
+  if (
+    respostaApi.resultado &&
+    typeof respostaApi.resultado === 'object' &&
+    !Array.isArray(respostaApi.resultado)
+  ) {
+    return respostaApi.resultado
+  }
+
+  return respostaApi
+}
+
+function normalizarOrigemConfirmacao(dadosApi) {
+  const origem = String(
+    obterPrimeiroValor(dadosApi.origem, dadosApi.tipoOrigem, dadosApi.canalOrigem, dadosApi.origemAgendamento),
+  )
+    .trim()
+    .toUpperCase()
+
+  if (origem === 'PUBLICO') {
+    return 'PUBLICO'
+  }
+
+  if (dadosApi.publico === true) {
+    return 'PUBLICO'
+  }
+
+  if (typeof dadosApi.publico === 'string') {
+    return dadosApi.publico.trim().toLowerCase() === 'true' ? 'PUBLICO' : ''
+  }
+
+  if (typeof dadosApi.publico === 'number') {
+    return dadosApi.publico === 1 ? 'PUBLICO' : ''
+  }
+
+  return ''
+}
+
+function obterValorConfirmacao(dadosApi, camposApi, fallback, camposComFallback, identificador) {
+  const valorApi = obterPrimeiroValor(...camposApi.map((campo) => dadosApi[campo]))
+
+  if (valorApi) {
+    return valorApi
+  }
+
+  return registrarFallbackConfirmacao(fallback, camposComFallback, identificador)
+}
+
+function registrarFallbackConfirmacao(valor, camposComFallback, identificador) {
+  if (valor) {
+    camposComFallback.push(identificador)
+  }
+
+  return valor || ''
 }
 
 function obterPrimeiroValor(...valores) {
@@ -388,6 +527,10 @@ function obterPrimeiroValor(...valores) {
 }
 
 function fazerNovoAgendamento() {
+  agendamento.value = criarAgendamentoInicial()
+  disponibilidade.value = null
+  disponibilidadeData.value = null
+  funcionariosServico.value = []
   confirmacaoAgendamento.value = null
   mensagemSucesso.value = ''
   mensagemCopia.value = ''
@@ -427,6 +570,7 @@ function montarTextoConfirmacao(confirmacao) {
     `Término previsto: ${confirmacao.horarioTermino}`,
     `Duração: ${confirmacao.duracao}`,
     personalizacao.value.mostrarPreco ? `Preço: ${confirmacao.preco}` : '',
+    confirmacao.origemTexto ? `Origem: ${confirmacao.origemTexto}` : '',
     confirmacao.observacao ? `Observação: ${confirmacao.observacao}` : '',
     confirmacao.id ? `Código/Protocolo: ${confirmacao.id}` : '',
   ]
@@ -635,22 +779,27 @@ async function enviarAgendamento() {
 
     enviando.value = true
 
-    const dadosConfirmacao = criarDadosConfirmacaoFormulario()
-    const respostaApi = await criarAgendamentoPublico(slug.value, {
-      clienteNome: agendamento.value.nomeCliente.trim(),
-      clienteTelefone: agendamento.value.telefoneCliente.trim(),
-      clienteEmail: agendamento.value.emailCliente.trim(),
-      servicoId: Number(agendamento.value.servicoId),
-      funcionarioId: Number(agendamento.value.funcionarioId),
-      dataHoraInicio: agendamento.value.dataHoraInicio,
-      observacao: agendamento.value.observacao.trim(),
-    })
+    const payload = criarPayloadAgendamentoPublico()
+    const dadosConfirmacao = criarDadosConfirmacaoFormulario(payload)
+
+    debugLog('agendamento-publico', 'Payload enviado', payload)
+
+    const respostaApi = await criarAgendamentoPublico(slug.value, payload)
+
+    debugLog('agendamento-publico', 'Resposta recebida', respostaApi)
 
     confirmacaoAgendamento.value = criarConfirmacaoAgendamento(respostaApi, dadosConfirmacao)
     agendamento.value = criarAgendamentoInicial()
     disponibilidade.value = null
+    disponibilidadeData.value = null
+    funcionariosServico.value = []
     mensagemSucesso.value = confirmacaoAgendamento.value.mensagem
     mensagemCopia.value = ''
+
+    emitirAtualizacaoEmpresa({
+      origem: 'agendamento-publico',
+      escopos: ['agenda', 'notificacoes', 'dashboard'],
+    })
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
@@ -822,6 +971,20 @@ function formatarPrecoConfirmacao(preco) {
   return preco === null || preco === undefined || preco === '' ? '' : formatarPreco(preco)
 }
 
+function formatarDuracaoConfirmacao(valor) {
+  if (valor === null || valor === undefined || valor === '') {
+    return ''
+  }
+
+  const duracao = Number(valor)
+
+  if (Number.isFinite(duracao) && duracao > 0) {
+    return `${duracao} minutos`
+  }
+
+  return String(valor || '').trim()
+}
+
 onMounted(() => {
   carregarDadosPublicos()
 })
@@ -950,11 +1113,16 @@ onMounted(() => {
               <div><dt>Término previsto</dt><dd>{{ confirmacaoAgendamento.horarioTermino || 'Não informado' }}</dd></div>
               <div><dt>Duração</dt><dd>{{ confirmacaoAgendamento.duracao || 'Não informado' }}</dd></div>
               <div v-if="personalizacao.mostrarPreco"><dt>Preço</dt><dd>{{ confirmacaoAgendamento.preco || 'Não informado' }}</dd></div>
+              <div v-if="confirmacaoAgendamento.origemTexto"><dt>Origem</dt><dd>{{ confirmacaoAgendamento.origemTexto }}</dd></div>
               <div v-if="confirmacaoAgendamento.observacao" class="item-largo">
                 <dt>Observação</dt>
                 <dd>{{ confirmacaoAgendamento.observacao }}</dd>
               </div>
             </dl>
+
+            <p v-if="confirmacaoAgendamento.avisoFallback" class="aviso-fallback">
+              {{ confirmacaoAgendamento.avisoFallback }}
+            </p>
 
             <p v-if="mensagemCopia" class="mensagem-copia">{{ mensagemCopia }}</p>
 
@@ -975,24 +1143,24 @@ onMounted(() => {
 
               <label>
                 Nome do cliente *
-                <input v-model="agendamento.nomeCliente" type="text" placeholder="Ex: Ana Costa" />
+                <input v-model="agendamento.nomeCliente" :disabled="enviando" type="text" placeholder="Ex: Ana Costa" />
               </label>
 
               <label>
                 Telefone *
-                <input :value="agendamento.telefoneCliente" type="text" inputmode="numeric" placeholder="Ex: (21) 99999-9999" @input="aplicarTelefoneCliente" @paste.prevent="aplicarTelefoneCliente" />
+                <input :value="agendamento.telefoneCliente" :disabled="enviando" type="text" inputmode="numeric" placeholder="Ex: (21) 99999-9999" @input="aplicarTelefoneCliente" @paste.prevent="aplicarTelefoneCliente" />
               </label>
 
               <label>
                 E-mail
-                <input v-model="agendamento.emailCliente" type="email" placeholder="Ex: cliente@email.com" />
+                <input v-model="agendamento.emailCliente" :disabled="enviando" type="email" placeholder="Ex: cliente@email.com" />
               </label>
 
               <section class="campo-grande etapa-formulario"><p class="etapa-tag">2. Atendimento</p></section>
 
               <label>
                 Serviço *
-                <select v-model="agendamento.servicoId">
+                <select v-model="agendamento.servicoId" :disabled="enviando">
                   <option value="">Selecione um serviço</option>
                   <option v-for="servico in servicos" :key="servico.id" :value="servico.id">{{ montarLabelServico(servico) }}</option>
                 </select>
@@ -1000,7 +1168,7 @@ onMounted(() => {
 
               <label v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
                 Funcionário *
-                <select v-model="agendamento.funcionarioId" :disabled="dataBloqueada">
+                <select v-model="agendamento.funcionarioId" :disabled="dataBloqueada || enviando">
                   <option value="">Selecione um funcionário</option>
                   <option v-for="funcionario in funcionariosDisponiveis" :key="funcionario.id" :value="funcionario.id">{{ funcionario.nome }}</option>
                 </select>
@@ -1008,7 +1176,7 @@ onMounted(() => {
 
               <label>
                 Data do atendimento *
-                <input v-model="agendamento.dataAtendimento" type="date" />
+                <input v-model="agendamento.dataAtendimento" :disabled="enviando" type="date" />
               </label>
 
               <section class="campo-grande etapa-formulario"><p class="etapa-tag">3. Horário</p></section>
@@ -1025,7 +1193,7 @@ onMounted(() => {
                 </div>
 
                 <div v-if="horariosDisponiveis.length" class="grade-horarios">
-                  <button v-for="horario in horariosDisponiveis" :key="horario.valor" type="button" class="horario" :class="{ selecionado: horarioSelecionado(horario) }" @click="selecionarHorario(horario)">
+                  <button v-for="horario in horariosDisponiveis" :key="horario.valor" type="button" class="horario" :class="{ selecionado: horarioSelecionado(horario) }" :disabled="enviando" @click="selecionarHorario(horario)">
                     {{ horario.label }}
                   </button>
                 </div>
@@ -1069,7 +1237,7 @@ onMounted(() => {
 
               <label class="campo-grande">
                 Observação
-                <textarea v-model="agendamento.observacao" rows="4" placeholder="Ex: Preferência por horário pontual"></textarea>
+                <textarea v-model="agendamento.observacao" :disabled="enviando" rows="4" placeholder="Ex: Preferência por horário pontual"></textarea>
               </label>
             </div>
 
@@ -1143,6 +1311,7 @@ onMounted(() => {
 .resumo-confirmacao dt { color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; }
 .resumo-confirmacao dd { display: grid; gap: 3px; margin: 0; color: #111827; font-size: 15px; font-weight: 800; word-break: break-word; }
 .resumo-confirmacao dd span { color: #64748b; font-size: 13px; font-weight: 700; }
+.aviso-fallback { margin: 0; color: #92400e; font-size: 13px; font-weight: 700; }
 .mensagem-copia { margin: 0; color: #166534; font-size: 14px; font-weight: 800; }
 .acoes-confirmacao { display: flex; gap: 12px; flex-wrap: wrap; }
 .formulario { display: grid; gap: 16px; }
@@ -1173,6 +1342,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .tema-suave .horario { background: #ffffff; border-color: #dbeafe; }
 .horario:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--cor-principal-publica, #2563eb); background: #eff6ff; }
 .horario.selecionado { background: var(--cor-principal-publica, #2563eb); border-color: var(--cor-principal-publica, #2563eb); color: white; }
+.horario:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
 .estado-horarios { display: grid; gap: 4px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; color: #475569; font-size: 14px; }
 .estado-horarios strong { color: #111827; }
 .bloqueio-data, .estado-horarios.bloqueado { display: grid; gap: 6px; padding: 14px; border: 1px solid #fecaca; border-radius: 8px; background: #fef2f2; color: #991b1b; font-size: 14px; }

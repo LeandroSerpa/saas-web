@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AgendamentoCard from '@/components/AgendamentoCard.vue'
 import AgendamentoForm from '@/components/AgendamentoForm.vue'
 import {
@@ -14,6 +14,13 @@ import {
   excluirAgendamento,
   buscarStatusFinanceiroMinhaEmpresa,
 } from '@/services/api'
+import {
+  atualizarEscopoSolicitado,
+  emitirAtualizacaoEmpresa,
+  EVENTO_ATUALIZACAO_EMPRESA,
+  lerAtualizacaoEmpresaStorage,
+} from '@/utils/atualizacoesEmpresa'
+import { debugLog } from '@/utils/devDebug'
 
 const agendamentos = ref([])
 const clientes = ref([])
@@ -198,6 +205,12 @@ function prepararAgendamentoParaLista(agendamento) {
 
   return {
     ...agendamento,
+    cliente: obterTextoAgendamento(agendamento, 'cliente', 'clienteNome', 'nomeCliente') || 'Cliente não informado',
+    servico: obterTextoAgendamento(agendamento, 'servico', 'servicoNome', 'nomeServico') || 'Serviço não informado',
+    funcionario:
+      obterTextoAgendamento(agendamento, 'funcionario', 'funcionarioNome', 'nomeFuncionario') ||
+      'Funcionário não informado',
+    observacao: obterTextoAgendamento(agendamento, 'observacao', 'observacoes'),
     origemNormalizada,
     ehPublico: origemNormalizada === 'PUBLICO',
     protocoloVisual,
@@ -210,6 +223,8 @@ async function carregarDados() {
   try {
     carregando.value = true
     erro.value = ''
+
+    debugLog('agenda-interna', 'Refresh da agenda e catálogos', montarFiltrosApiAgendamentos())
 
     const [agendamentosApi, clientesApi, servicosApi, funcionariosApi] = await Promise.all([
       buscarAgendamentos(montarFiltrosApiAgendamentos()),
@@ -235,6 +250,8 @@ async function carregarAgendamentos() {
     carregando.value = true
     erro.value = ''
 
+    debugLog('agenda-interna', 'Refresh da agenda', montarFiltrosApiAgendamentos())
+
     agendamentos.value = await buscarAgendamentos(montarFiltrosApiAgendamentos())
   } catch (error) {
     erro.value = 'Não foi possível carregar os agendamentos.'
@@ -258,6 +275,7 @@ async function alterarStatus(id, status) {
 
     await atualizarStatusAgendamento(id, status)
     await carregarAgendamentos()
+    emitirAtualizacaoEmpresa({ origem: 'agenda-status', escopos: ['dashboard'] })
 
     mensagemSucessoAgendamento.value = 'Status atualizado com sucesso.'
   } catch (error) {
@@ -302,6 +320,7 @@ async function excluirAgendamentoAgenda(id) {
 
     await excluirAgendamento(id, motivo)
     await carregarAgendamentos()
+    emitirAtualizacaoEmpresa({ origem: 'agenda-exclusao', escopos: ['dashboard'] })
 
     mensagemSucessoAgendamento.value = 'Agendamento excluído com sucesso.'
   } catch (error) {
@@ -401,6 +420,7 @@ async function salvarAgendamento() {
     cancelarEdicaoAgendamento(false)
 
     await carregarAgendamentos()
+    emitirAtualizacaoEmpresa({ origem: 'agenda-salvar', escopos: ['dashboard'] })
   } catch (error) {
     erro.value = obterMensagemAgendamento(error)
     console.error(error)
@@ -477,6 +497,18 @@ function cancelarEdicaoAgendamento(limparMensagens = true) {
 function buscarPorNome(lista, nome) {
   const nomeNormalizado = normalizarTexto(nome)
   return lista.find((item) => normalizarTexto(item.nome) === nomeNormalizado)
+}
+
+function obterTextoAgendamento(agendamento, ...campos) {
+  for (const campo of campos) {
+    const valor = agendamento?.[campo]
+
+    if (valor !== null && valor !== undefined && String(valor).trim()) {
+      return String(valor).trim()
+    }
+  }
+
+  return ''
 }
 
 function buscarServicoSelecionado() {
@@ -572,7 +604,9 @@ function limparFiltros() {
 }
 
 function normalizarOrigemAgendamento(agendamento) {
-  const origem = String(agendamento?.origem || '')
+  const origem = String(
+    obterTextoAgendamento(agendamento, 'origem', 'origemAgendamento', 'tipoOrigem', 'canalOrigem'),
+  )
     .trim()
     .toUpperCase()
   const publico = normalizarBooleanoFlexivel(agendamento?.publico)
@@ -589,8 +623,10 @@ function normalizarOrigemAgendamento(agendamento) {
 }
 
 function extrairProtocoloAgendamento(agendamento) {
-  if (agendamento?.protocolo !== undefined && agendamento?.protocolo !== null) {
-    const protocolo = String(agendamento.protocolo).trim()
+  const protocoloBruto = obterTextoAgendamento(agendamento, 'protocolo', 'numeroProtocolo', 'codigo')
+
+  if (protocoloBruto) {
+    const protocolo = String(protocoloBruto).trim()
 
     if (protocolo) {
       return protocolo
@@ -687,9 +723,48 @@ function obterMensagemAgendamento(error) {
   return mensagemApi || 'Não foi possível concluir a operação.'
 }
 
+async function atualizarDadosAgenda() {
+  await Promise.all([carregarDados(), carregarStatusFinanceiro()])
+
+  emitirAtualizacaoEmpresa({
+    origem: 'agenda-atualizar-dados',
+    escopos: ['notificacoes', 'dashboard'],
+  })
+}
+
+async function processarAtualizacaoCompartilhada(detalhe) {
+  if (!atualizarEscopoSolicitado(detalhe, 'agenda')) {
+    return
+  }
+
+  debugLog('agenda-interna', 'Refresh solicitado por outro fluxo', detalhe)
+  await carregarAgendamentos()
+}
+
+function aoReceberAtualizacaoEmpresa(evento) {
+  processarAtualizacaoCompartilhada(evento?.detail)
+}
+
+function aoReceberAtualizacaoEmpresaStorage(evento) {
+  const detalhe = lerAtualizacaoEmpresaStorage(evento)
+
+  if (!detalhe) {
+    return
+  }
+
+  processarAtualizacaoCompartilhada(detalhe)
+}
+
 onMounted(() => {
   carregarDados()
   carregarStatusFinanceiro()
+  window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.removeEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
 </script>
 
@@ -702,7 +777,7 @@ onMounted(() => {
         <p class="descricao">Cadastre e acompanhe os agendamentos da empresa.</p>
       </div>
 
-      <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
+      <button class="botao secundario" @click="atualizarDadosAgenda">Atualizar dados</button>
     </header>
 
     <section v-if="erro" class="card erro">
@@ -1233,4 +1308,3 @@ onMounted(() => {
   }
 }
 </style>
-

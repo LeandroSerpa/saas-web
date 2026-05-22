@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   arquivarNotificacao,
@@ -9,6 +9,13 @@ import {
   excluirNotificacao,
   marcarNotificacaoComoLida,
 } from '@/services/api'
+import {
+  atualizarEscopoSolicitado,
+  emitirAtualizacaoEmpresa,
+  EVENTO_ATUALIZACAO_EMPRESA,
+  lerAtualizacaoEmpresaStorage,
+} from '@/utils/atualizacoesEmpresa'
+import { debugLog } from '@/utils/devDebug'
 
 const STATUS = [
   { valor: '', rotulo: 'Todas' },
@@ -42,6 +49,7 @@ async function carregarDados() {
   try {
     carregando.value = true
     erro.value = ''
+    debugLog('notificacoes-view', 'Refresh das notificações da empresa', limparVazios(filtros.value))
     const [listaApi, resumoApi] = await Promise.all([
       buscarNotificacoes(limparVazios(filtros.value)),
       buscarResumoNotificacoes(),
@@ -65,6 +73,7 @@ async function marcarComoLida(item) {
     await marcarNotificacaoComoLida(item.id)
     sucesso.value = 'Notificação marcada como lida.'
     await carregarDados()
+    emitirAtualizacaoEmpresa({ origem: 'notificacoes-view-lida', escopos: ['notificacoes', 'dashboard'] })
     window.dispatchEvent(new Event('notificacoes-atualizadas'))
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível marcar como lida.')
@@ -83,6 +92,7 @@ async function arquivar(item) {
     await arquivarNotificacao(item.id)
     sucesso.value = 'Notificação arquivada.'
     await carregarDados()
+    emitirAtualizacaoEmpresa({ origem: 'notificacoes-view-arquivar', escopos: ['notificacoes', 'dashboard'] })
     window.dispatchEvent(new Event('notificacoes-atualizadas'))
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível arquivar a notificação.')
@@ -101,6 +111,7 @@ async function desarquivar(item) {
     await desarquivarNotificacao(item.id)
     sucesso.value = 'Notificação desarquivada.'
     await carregarDados()
+    emitirAtualizacaoEmpresa({ origem: 'notificacoes-view-desarquivar', escopos: ['notificacoes', 'dashboard'] })
     window.dispatchEvent(new Event('notificacoes-atualizadas'))
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível desarquivar a notificação.')
@@ -119,6 +130,7 @@ async function excluir(item) {
     await excluirNotificacao(item.id)
     sucesso.value = 'Notificação movida para a lixeira.'
     await carregarDados()
+    emitirAtualizacaoEmpresa({ origem: 'notificacoes-view-excluir', escopos: ['notificacoes', 'dashboard'] })
     window.dispatchEvent(new Event('notificacoes-atualizadas'))
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível mover a notificação para a lixeira.')
@@ -129,7 +141,7 @@ async function excluir(item) {
 }
 
 function abrir(item) {
-  const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url'))
+  const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url', 'rota', 'path', 'acaoLink'))
   if (!link) return
 
   if (ehLinkExterno(link)) {
@@ -282,7 +294,38 @@ function obterMensagemErro(error, fallback) {
   return String(error?.message || '').trim() || fallback
 }
 
-onMounted(carregarDados)
+async function processarAtualizacaoCompartilhada(detalhe) {
+  if (!atualizarEscopoSolicitado(detalhe, 'notificacoes')) {
+    return
+  }
+
+  await carregarDados()
+}
+
+function aoReceberAtualizacaoEmpresa(evento) {
+  processarAtualizacaoCompartilhada(evento?.detail)
+}
+
+function aoReceberAtualizacaoEmpresaStorage(evento) {
+  const detalhe = lerAtualizacaoEmpresaStorage(evento)
+
+  if (!detalhe) {
+    return
+  }
+
+  processarAtualizacaoCompartilhada(detalhe)
+}
+
+onMounted(() => {
+  carregarDados()
+  window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.removeEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
+})
 </script>
 
 <template>
@@ -360,7 +403,7 @@ onMounted(carregarDados)
               <td>
                 <div class="acoes-tabela">
                   <button
-                    v-if="obterCampo(item, 'linkAcao', 'link', 'url')"
+                    v-if="obterCampo(item, 'linkAcao', 'link', 'url', 'rota', 'path', 'acaoLink')"
                     class="botao compacto secundario"
                     @click="abrir(item)"
                   >

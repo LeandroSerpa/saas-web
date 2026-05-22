@@ -1,14 +1,22 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   buscarNotificacoes,
   buscarResumoNotificacoes,
   marcarNotificacaoComoLida,
   marcarTodasNotificacoesComoLidas,
 } from '@/services/api'
+import {
+  atualizarEscopoSolicitado,
+  emitirAtualizacaoEmpresa,
+  EVENTO_ATUALIZACAO_EMPRESA,
+  lerAtualizacaoEmpresaStorage,
+} from '@/utils/atualizacoesEmpresa'
+import { debugLog } from '@/utils/devDebug'
 
 const router = useRouter()
+const route = useRoute()
 const aberto = ref(false)
 const resumo = ref({})
 const notificacoes = ref([])
@@ -26,6 +34,7 @@ const notificacoesRecentes = computed(() => notificacoes.value.slice(0, 5))
 async function carregarResumo() {
   try {
     erro.value = ''
+    debugLog('notificacoes', 'Refresh do resumo', { rota: route.path })
     resumo.value = normalizarObjeto(await buscarResumoNotificacoes())
   } catch (error) {
     erro.value = ''
@@ -37,7 +46,8 @@ async function carregarNotificacoes() {
   try {
     carregando.value = true
     erro.value = ''
-    const dados = await buscarNotificacoes({ limite: 5, status: 'CRIADA' })
+    debugLog('notificacoes', 'Refresh da lista recente', { rota: route.path })
+    const dados = await buscarNotificacoes({ limite: 5, size: 5, status: 'CRIADA' })
     notificacoes.value = normalizarLista(dados).filter((item) => statusValor(item) === 'CRIADA')
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível carregar notificações.')
@@ -51,8 +61,24 @@ async function alternarPainel() {
   aberto.value = !aberto.value
 
   if (aberto.value) {
-    await Promise.all([carregarResumo(), carregarNotificacoes()])
+    await atualizarNotificacoes('painel')
   }
+}
+
+async function atualizarNotificacoes(origem = 'manual') {
+  debugLog('notificacoes', 'Refresh solicitado', {
+    origem,
+    rota: route.path,
+    painelAberto: aberto.value,
+  })
+
+  const tarefas = [carregarResumo()]
+
+  if (aberto.value || origem === 'painel') {
+    tarefas.push(carregarNotificacoes())
+  }
+
+  await Promise.all(tarefas)
 }
 
 async function marcarComoLida(item) {
@@ -65,6 +91,7 @@ async function marcarComoLida(item) {
       notificacao.id === item.id ? { ...notificacao, status: 'LIDA', lida: true } : notificacao,
     )
     await carregarResumo()
+    emitirAtualizacaoEmpresa({ origem: 'notificacoes-lida', escopos: ['notificacoes', 'dashboard'] })
     window.dispatchEvent(new Event('notificacoes-atualizadas'))
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível marcar como lida.')
@@ -80,6 +107,7 @@ async function marcarTodasComoLidas() {
     await marcarTodasNotificacoesComoLidas()
     notificacoes.value = notificacoes.value.map((item) => ({ ...item, status: 'LIDA', lida: true }))
     await carregarResumo()
+    emitirAtualizacaoEmpresa({ origem: 'notificacoes-todas-lidas', escopos: ['notificacoes', 'dashboard'] })
     window.dispatchEvent(new Event('notificacoes-atualizadas'))
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível marcar todas como lidas.')
@@ -90,7 +118,7 @@ async function marcarTodasComoLidas() {
 }
 
 function abrirNotificacao(item) {
-  const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url'))
+  const link = normalizarLinkAcao(obterCampo(item, 'linkAcao', 'link', 'url', 'rota', 'path', 'acaoLink'))
   if (!link) return
 
   if (ehLinkExterno(link)) {
@@ -118,8 +146,14 @@ function statusNaoLida(item) {
 }
 
 function statusValor(item) {
-  const status = normalizar(obterCampo(item, 'status', 'situacao') || (item.lida ? 'LIDA' : 'CRIADA'))
+  const status = normalizar(
+    obterCampo(item, 'status', 'statusNotificacao', 'situacao', 'estado') || (item.lida ? 'LIDA' : 'CRIADA'),
+  )
   if (status === 'NOVA' || status === 'NOVO' || status === 'NAO_LIDA') return 'CRIADA'
+  if (status === 'CRIADO') return 'CRIADA'
+  if (status === 'LIDO') return 'LIDA'
+  if (status === 'ARQUIVADO') return 'ARQUIVADA'
+  if (status === 'EXCLUIDO') return 'EXCLUIDA'
   return status || 'CRIADA'
 }
 
@@ -210,16 +244,69 @@ function obterMensagemErro(error, fallback) {
   return String(error?.message || '').trim() || fallback
 }
 
+function rotaPrioritariaNotificacoes() {
+  return ['/dashboard', '/agenda', '/notificacoes', '/minha-empresa/notificacoes'].includes(route.path)
+}
+
+function aoReceberAtualizacaoEmpresa(evento) {
+  if (!atualizarEscopoSolicitado(evento?.detail, 'notificacoes')) {
+    return
+  }
+
+  atualizarNotificacoes('evento')
+}
+
+function aoReceberAtualizacaoEmpresaStorage(evento) {
+  const detalhe = lerAtualizacaoEmpresaStorage(evento)
+
+  if (!atualizarEscopoSolicitado(detalhe, 'notificacoes')) {
+    return
+  }
+
+  atualizarNotificacoes('storage')
+}
+
+function aoRetornarParaTela() {
+  if (document.visibilityState === 'hidden' || !rotaPrioritariaNotificacoes()) {
+    return
+  }
+
+  atualizarNotificacoes('foco')
+}
+
+function aoReceberEventoLegadoNotificacoes() {
+  atualizarNotificacoes('evento-legado')
+}
+
 onMounted(() => {
-  carregarResumo()
+  atualizarNotificacoes('montagem')
   window.addEventListener('click', fecharAoClicarFora)
-  window.addEventListener('notificacoes-atualizadas', carregarResumo)
+  window.addEventListener('notificacoes-atualizadas', aoReceberEventoLegadoNotificacoes)
+  window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
+  window.addEventListener('focus', aoRetornarParaTela)
+  document.addEventListener('visibilitychange', aoRetornarParaTela)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('click', fecharAoClicarFora)
-  window.removeEventListener('notificacoes-atualizadas', carregarResumo)
+  window.removeEventListener('notificacoes-atualizadas', aoReceberEventoLegadoNotificacoes)
+  window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.removeEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
+  window.removeEventListener('focus', aoRetornarParaTela)
+  document.removeEventListener('visibilitychange', aoRetornarParaTela)
 })
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (!rotaPrioritariaNotificacoes()) {
+      return
+    }
+
+    atualizarNotificacoes('navegacao')
+  },
+)
 </script>
 
 <template>
@@ -263,7 +350,11 @@ onBeforeUnmount(() => {
           <p>{{ obterCampo(item, 'mensagemCurta', 'mensagem', 'descricao') || '-' }}</p>
           <small>{{ formatarData(obterCampo(item, 'criadoEm', 'dataCriacao', 'data', 'createdAt')) }}</small>
           <div class="acoes">
-            <button v-if="obterCampo(item, 'linkAcao', 'link', 'url')" type="button" @click="abrirNotificacao(item)">
+            <button
+              v-if="obterCampo(item, 'linkAcao', 'link', 'url', 'rota', 'path', 'acaoLink')"
+              type="button"
+              @click="abrirNotificacao(item)"
+            >
               Abrir
             </button>
             <button v-if="statusNaoLida(item)" type="button" :disabled="processando" @click="marcarComoLida(item)">

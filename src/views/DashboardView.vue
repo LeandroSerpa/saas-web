@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   buscarAgendamentos,
@@ -10,6 +10,13 @@ import {
   buscarServicos,
   buscarStatusFinanceiroMinhaEmpresa,
 } from '@/services/api'
+import {
+  atualizarEscopoSolicitado,
+  emitirAtualizacaoEmpresa,
+  EVENTO_ATUALIZACAO_EMPRESA,
+  lerAtualizacaoEmpresaStorage,
+} from '@/utils/atualizacoesEmpresa'
+import { debugLog } from '@/utils/devDebug'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const agendamentos = ref([])
@@ -216,6 +223,8 @@ async function carregarDados() {
     carregando.value = true
     erro.value = ''
 
+    debugLog('dashboard', 'Refresh do dashboard', {})
+
     const [agendamentosApi, clientesApi, servicosApi, funcionariosApi] = await Promise.all([
       buscarAgendamentos(),
       buscarClientes(),
@@ -223,7 +232,7 @@ async function carregarDados() {
       buscarFuncionarios(),
     ])
 
-    agendamentos.value = agendamentosApi
+    agendamentos.value = normalizarAgendamentosDashboard(agendamentosApi)
     clientes.value = clientesApi
     servicos.value = servicosApi
     funcionarios.value = funcionariosApi
@@ -259,6 +268,7 @@ async function carregarStatusFinanceiroDashboard() {
 
 async function carregarResumoNotificacoesDashboard() {
   try {
+    debugLog('dashboard', 'Refresh do resumo de notificações', {})
     resumoNotificacoes.value = normalizarObjeto(await buscarResumoNotificacoes())
   } catch (error) {
     resumoNotificacoes.value = null
@@ -281,7 +291,7 @@ function contarPublicos(lista = agendamentos.value) {
 }
 
 function origemPublicaAgendamento(agendamento) {
-  const origem = String(agendamento?.origem || '')
+  const origem = String(obterTextoAgendamento(agendamento, 'origem', 'origemAgendamento', 'tipoOrigem', 'canalOrigem'))
     .trim()
     .toUpperCase()
 
@@ -439,6 +449,35 @@ function statusTexto(status) {
   return statusFormatados[status] || status || '-'
 }
 
+function obterTextoAgendamento(agendamento, ...campos) {
+  for (const campo of campos) {
+    const valor = agendamento?.[campo]
+
+    if (valor !== null && valor !== undefined && String(valor).trim()) {
+      return String(valor).trim()
+    }
+  }
+
+  return ''
+}
+
+function normalizarAgendamentosDashboard(lista) {
+  const origem = Array.isArray(lista)
+    ? lista
+    : Array.isArray(lista?.content)
+      ? lista.content
+      : Array.isArray(lista?.data)
+        ? lista.data
+        : []
+
+  return origem.map((agendamento) => ({
+        ...agendamento,
+        cliente: obterTextoAgendamento(agendamento, 'cliente', 'clienteNome', 'nomeCliente'),
+        servico: obterTextoAgendamento(agendamento, 'servico', 'servicoNome', 'nomeServico'),
+        funcionario: obterTextoAgendamento(agendamento, 'funcionario', 'funcionarioNome', 'nomeFuncionario'),
+      }))
+}
+
 function obterUsuarioLogado() {
   try {
     return JSON.parse(localStorage.getItem('usuario') || 'null')
@@ -462,11 +501,60 @@ function obterCampo(item, ...campos) {
   return ''
 }
 
+async function atualizarDashboard() {
+  await Promise.all([
+    carregarDados(),
+    carregarOnboardingDashboard(),
+    carregarStatusFinanceiroDashboard(),
+    carregarResumoNotificacoesDashboard(),
+  ])
+
+  emitirAtualizacaoEmpresa({
+    origem: 'dashboard-atualizar-dados',
+    escopos: ['notificacoes'],
+  })
+}
+
+async function processarAtualizacaoCompartilhada(detalhe) {
+  if (!atualizarEscopoSolicitado(detalhe, 'dashboard')) {
+    return
+  }
+
+  debugLog('dashboard', 'Refresh solicitado por outro fluxo', detalhe)
+  await Promise.all([
+    carregarDados(),
+    carregarStatusFinanceiroDashboard(),
+    carregarResumoNotificacoesDashboard(),
+    carregarOnboardingDashboard(),
+  ])
+}
+
+function aoReceberAtualizacaoEmpresa(evento) {
+  processarAtualizacaoCompartilhada(evento?.detail)
+}
+
+function aoReceberAtualizacaoEmpresaStorage(evento) {
+  const detalhe = lerAtualizacaoEmpresaStorage(evento)
+
+  if (!detalhe) {
+    return
+  }
+
+  processarAtualizacaoCompartilhada(detalhe)
+}
+
 onMounted(() => {
   carregarDados()
   carregarOnboardingDashboard()
   carregarStatusFinanceiroDashboard()
   carregarResumoNotificacoesDashboard()
+  window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.removeEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
 </script>
 
@@ -479,7 +567,7 @@ onMounted(() => {
         <p class="descricao">Acompanhe os principais números da operação.</p>
       </div>
 
-      <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
+      <button class="botao secundario" @click="atualizarDashboard">Atualizar dados</button>
     </header>
 
     <section v-if="erro" class="card erro">
@@ -1013,5 +1101,3 @@ tbody tr:last-child td {
   }
 }
 </style>
-
-
