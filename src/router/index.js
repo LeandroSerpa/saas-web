@@ -8,6 +8,7 @@ import DisponibilidadeView from '../views/DisponibilidadeView.vue'
 import LoginView from '../views/LoginView.vue'
 import CadastroPendenteView from '../views/CadastroPendenteView.vue'
 import AlterarSenhaView from '../views/AlterarSenhaView.vue'
+import MinhaContaView from '../views/MinhaContaView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
 import EmpresasView from '../views/EmpresasView.vue'
 import EmpresaOnboardingAdminView from '../views/EmpresaOnboardingAdminView.vue'
@@ -120,6 +121,12 @@ const router = createRouter({
       path: '/alterar-senha',
       name: 'alterar-senha',
       component: AlterarSenhaView,
+      meta: rotasProtegidas,
+    },
+    {
+      path: '/minha-conta',
+      name: 'minha-conta',
+      component: MinhaContaView,
       meta: rotasProtegidas,
     },
     {

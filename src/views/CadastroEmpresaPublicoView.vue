@@ -14,6 +14,7 @@ import {
   sanitizarDocumento,
   sanitizarTelefoneDoEvento,
   telefoneBasicoValido,
+  validarLoginCurto,
 } from '@/utils/validacoes'
 
 const etapas = [{ titulo: 'Empresa' }, { titulo: 'Responsável' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'Revisão' }]
@@ -50,6 +51,7 @@ function criarFormularioInicial() {
     estado: '',
     nomeResponsavel: '',
     emailResponsavel: '',
+    loginResponsavel: '',
     telefoneResponsavel: '',
     cargoResponsavel: '',
     senhaResponsavel: '',
@@ -68,6 +70,7 @@ function criarErrosCamposIniciais() {
     emailEmpresa: '',
     estado: '',
     emailResponsavel: '',
+    loginResponsavel: '',
     telefoneResponsavel: '',
   }
 }
@@ -148,6 +151,13 @@ function validarCampoEmail(campo) {
   return true
 }
 
+function validarCampoLoginResponsavel() {
+  const mensagem = validarLoginCurto(formulario.value.loginResponsavel)
+  if (mensagem) return falharValidacao(mensagem, 'loginResponsavel')
+  errosCampos.value.loginResponsavel = ''
+  return true
+}
+
 function validarEtapaAtual() {
   erro.value = ''
   errosCampos.value = criarErrosCamposIniciais()
@@ -164,6 +174,7 @@ function validarEtapaAtual() {
   if (etapaAtual.value === 1) {
     if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsável.')
     if (!validarCampoEmail('emailResponsavel')) return false
+    if (!validarCampoLoginResponsavel()) return false
     if (!validarCampoTelefone('telefoneResponsavel', true)) return false
     if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsável.')
     if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no mínimo 6 caracteres.')
@@ -228,6 +239,9 @@ function montarPayload() {
       email: formulario.value.emailResponsavel,
       emailResponsavel: formulario.value.emailResponsavel,
       responsavelEmail: formulario.value.emailResponsavel,
+      ...(String(formulario.value.loginResponsavel || '').trim()
+        ? { login: formulario.value.loginResponsavel.trim() }
+        : {}),
       telefone: formulario.value.telefoneResponsavel,
       telefoneResponsavel: formulario.value.telefoneResponsavel,
       responsavelTelefone: formulario.value.telefoneResponsavel,
@@ -302,7 +316,7 @@ onMounted(carregarOpcoes)
         <span class="selo">Solicitação pendente</span>
         <h2>{{ sucesso }}</h2>
         <p v-if="protocolo"><strong>Protocolo:</strong> {{ protocolo }}</p>
-        <p>O responsável já pode tentar acessar com o e-mail e a senha cadastrados, mas a empresa ficará pendente até aprovação.</p>
+        <p>O responsável já pode tentar acessar com e-mail/usuário e senha cadastrados, mas a empresa ficará pendente até aprovação.</p>
         <div class="acoes"><RouterLink class="botao principal" to="/login">Voltar para login</RouterLink></div>
       </section>
 
@@ -354,6 +368,12 @@ onMounted(carregarOpcoes)
               <small v-if="errosCampos.emailResponsavel" class="erro-campo">{{ errosCampos.emailResponsavel }}</small>
             </label>
             <label>
+              Usuário/Login
+              <input v-model="formulario.loginResponsavel" type="text" placeholder="Ex: admin.empresa" @blur="validarCampoLoginResponsavel" />
+              <small>Você poderá usar este usuário para entrar no sistema no lugar do e-mail.</small>
+              <small v-if="errosCampos.loginResponsavel" class="erro-campo">{{ errosCampos.loginResponsavel }}</small>
+            </label>
+            <label>
               Telefone *
               <input :value="formulario.telefoneResponsavel" type="text" inputmode="numeric" @input="aplicarTelefone('telefoneResponsavel', $event)" @blur="validarCampoTelefone('telefoneResponsavel', true)" @paste.prevent="aplicarTelefone('telefoneResponsavel', $event)" />
               <small v-if="errosCampos.telefoneResponsavel" class="erro-campo">{{ errosCampos.telefoneResponsavel }}</small>
@@ -388,7 +408,7 @@ onMounted(carregarOpcoes)
 
           <div v-else class="revisao">
             <article><h2>Empresa</h2><p><strong>Nome:</strong> {{ formulario.nomeEmpresa }}</p><p><strong>Documento (CPF/CNPJ):</strong> {{ formulario.documento }}</p><p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p><p><strong>Endereço:</strong> {{ formulario.endereco || '-' }}</p></article>
-            <article><h2>Responsável</h2><p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p><p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p><p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p></article>
+            <article><h2>Responsável</h2><p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p><p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p><p><strong>Usuário/Login:</strong> {{ formulario.loginResponsavel || '-' }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p><p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p></article>
             <article><h2>Localização</h2><p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p><p><strong>UF:</strong> {{ formulario.estado || '-' }}</p></article>
             <article><h2>Interesse</h2><p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p><p><strong>Mensagem:</strong> {{ formulario.interesse }}</p></article>
             <article><h2>Plano escolhido</h2><p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p></article>

@@ -21,7 +21,7 @@ async function entrar() {
     erro.value = ''
 
     if (!email.value.trim()) {
-      erro.value = 'Informe o e-mail.'
+      erro.value = 'Informe o e-mail ou usuário.'
       return
     }
 
@@ -81,8 +81,13 @@ async function entrar() {
 
       <form class="formulario-login" @submit.prevent="entrar">
         <label>
-          E-mail
-          <input v-model="email" type="email" autocomplete="email" placeholder="admin@saas.com" />
+          E-mail ou usuário
+          <input
+            v-model="email"
+            type="text"
+            autocomplete="username"
+            placeholder="Ex: admin@empresa.com ou serpalhss"
+          />
         </label>
 
         <label>

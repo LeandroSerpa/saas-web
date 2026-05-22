@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref } from 'vue'
-import { emailBasicoValido, limparEspacos } from '@/utils/validacoes'
+import { emailBasicoValido, limparEspacos, validarLoginCurto } from '@/utils/validacoes'
 
 const usuario = defineModel({
   type: Object,
@@ -42,6 +42,7 @@ const emit = defineEmits(['salvar', 'cancelar'])
 const erroValidacao = ref('')
 const errosCampos = reactive({
   email: '',
+  login: '',
 })
 
 function normalizarEmail(valor) {
@@ -62,9 +63,29 @@ function validarEmail() {
   return true
 }
 
+function normalizarLogin(valor) {
+  usuario.value.login = String(valor || '')
+  errosCampos.login = ''
+  erroValidacao.value = ''
+}
+
+function validarLogin() {
+  const mensagem = validarLoginCurto(usuario.value.login)
+
+  if (mensagem) {
+    errosCampos.login = mensagem
+    erroValidacao.value = mensagem
+    return false
+  }
+
+  errosCampos.login = ''
+  return true
+}
+
 function solicitarSalvamento() {
   erroValidacao.value = ''
   if (!validarEmail()) return
+  if (!validarLogin()) return
   emit('salvar')
 }
 </script>
@@ -99,6 +120,19 @@ function solicitarSalvamento() {
           @blur="validarEmail"
         />
         <span v-if="errosCampos.email" class="erro-texto">{{ errosCampos.email }}</span>
+      </label>
+
+      <label>
+        Usuário/Login
+        <input
+          :value="usuario.login"
+          type="text"
+          placeholder="Ex: admin, joao, maria.silva"
+          @input="normalizarLogin($event.target.value)"
+          @blur="validarLogin"
+        />
+        <small>Pode ser usado para entrar no sistema no lugar do e-mail.</small>
+        <span v-if="errosCampos.login" class="erro-texto">{{ errosCampos.login }}</span>
       </label>
 
       <label>

@@ -40,6 +40,20 @@ const empresaLogada = computed(() => {
 
   return 'Empresa'
 })
+const identificacaoConta = computed(() => {
+  const email = String(usuario.value?.email || '').trim()
+  const login = String(usuario.value?.login || '').trim()
+
+  if (email && login) {
+    return `${email} - @${login}`
+  }
+
+  if (login) {
+    return `@${login}`
+  }
+
+  return email || 'Sessão ativa'
+})
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
@@ -265,6 +279,7 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+        <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
         <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
       </nav>
     </aside>
@@ -282,7 +297,7 @@ onBeforeUnmount(() => {
           <div>
             <strong>{{ empresaLogada }}</strong>
             <span>Usuário: {{ usuario?.nome || 'Usuário' }}</span>
-            <small>{{ usuario?.email || 'Sessão ativa' }}</small>
+            <small>{{ identificacaoConta }}</small>
           </div>
 
           <button class="botao-sair" @click="sair">Sair</button>

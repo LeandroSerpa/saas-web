@@ -38,6 +38,41 @@ function normalizarBooleano(valor) {
   return valor === true
 }
 
+function valorPreenchido(valor) {
+  if (valor === undefined || valor === null) {
+    return false
+  }
+
+  if (typeof valor === 'string') {
+    return valor.trim() !== ''
+  }
+
+  return true
+}
+
+function primeiroValorPreenchido(...valores) {
+  for (const valor of valores) {
+    if (valorPreenchido(valor)) {
+      return valor
+    }
+  }
+
+  return undefined
+}
+
+function extrairUsuarioResposta(dados) {
+  const candidatos = [
+    dados?.usuario,
+    dados?.user,
+    dados?.data?.usuario,
+    dados?.data?.user,
+    dados?.resultado?.usuario,
+    dados?.resultado?.user,
+  ]
+
+  return candidatos.find((candidato) => candidato && typeof candidato === 'object') || {}
+}
+
 function normalizarTrocaSenhaObrigatoria(dados) {
   if (!dados || typeof dados !== 'object') {
     return false
@@ -53,20 +88,90 @@ function normalizarTrocaSenhaObrigatoria(dados) {
 
 function normalizarUsuarioSessao(dados = {}, usuarioBase = null) {
   const origem = dados && typeof dados === 'object' ? dados : {}
+  const origemUsuario = extrairUsuarioResposta(origem)
   const base = usuarioBase && typeof usuarioBase === 'object' ? usuarioBase : {}
-  const statusEmpresa = String(origem.statusEmpresa || origem.empresaStatus || base.statusEmpresa || '').trim().toUpperCase()
-  const cadastroPendente = origem.cadastroPendente === true || base.cadastroPendente === true || statusEmpresa === 'PENDENTE'
+  const statusEmpresa = String(
+    primeiroValorPreenchido(
+      origem.statusEmpresa,
+      origem.empresaStatus,
+      origemUsuario.statusEmpresa,
+      origemUsuario.empresaStatus,
+      base.statusEmpresa,
+      base.empresaStatus,
+    ) || '',
+  )
+    .trim()
+    .toUpperCase()
+  const cadastroPendente =
+    origem.cadastroPendente === true ||
+    origemUsuario.cadastroPendente === true ||
+    base.cadastroPendente === true ||
+    statusEmpresa === 'PENDENTE'
 
   return {
     ...base,
-    nome: origem.nome ?? origem.usuarioNome ?? base.nome ?? '',
-    email: origem.email ?? origem.usuarioEmail ?? base.email ?? '',
-    perfil: origem.perfil ?? origem.role ?? base.perfil ?? '',
-    empresaId: origem.empresaId ?? base.empresaId ?? null,
-    empresaNome: origem.empresaNome ?? base.empresaNome ?? '',
+    id:
+      primeiroValorPreenchido(
+        origem.id,
+        origem.usuarioId,
+        origem.userId,
+        origemUsuario.id,
+        origemUsuario.usuarioId,
+        origemUsuario.userId,
+        base.id,
+      ) ?? null,
+    nome:
+      primeiroValorPreenchido(
+        origem.nome,
+        origem.usuarioNome,
+        origemUsuario.nome,
+        origemUsuario.usuarioNome,
+        base.nome,
+      ) || '',
+    email:
+      primeiroValorPreenchido(
+        origem.email,
+        origem.usuarioEmail,
+        origemUsuario.email,
+        origemUsuario.usuarioEmail,
+        base.email,
+      ) || '',
+    login:
+      primeiroValorPreenchido(
+        origem.login,
+        origem.usuarioLogin,
+        origem.username,
+        origem.userName,
+        origemUsuario.login,
+        origemUsuario.usuarioLogin,
+        origemUsuario.username,
+        origemUsuario.userName,
+        base.login,
+        base.usuarioLogin,
+      ) || '',
+    perfil:
+      primeiroValorPreenchido(
+        origem.perfil,
+        origem.role,
+        origemUsuario.perfil,
+        origemUsuario.role,
+        base.perfil,
+      ) || '',
+    empresaId:
+      primeiroValorPreenchido(
+        origem.empresaId,
+        origemUsuario.empresaId,
+        base.empresaId,
+      ) ?? null,
+    empresaNome:
+      primeiroValorPreenchido(
+        origem.empresaNome,
+        origemUsuario.empresaNome,
+        base.empresaNome,
+      ) || '',
     cadastroPendente,
     statusEmpresa,
-    trocaSenhaObrigatoria: normalizarTrocaSenhaObrigatoria(origem) || false,
+    trocaSenhaObrigatoria: normalizarTrocaSenhaObrigatoria(origem) || normalizarTrocaSenhaObrigatoria(origemUsuario) || false,
   }
 }
 
@@ -1910,6 +2015,34 @@ export async function login(email, senha) {
 export async function alterarSenha(senhaAtual, novaSenha) {
   const response = await executarFetch(`${API_URL}/auth/alterar-senha`, {
     method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify({ senhaAtual, novaSenha }),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMinhaConta() {
+  const response = await executarFetch(`${API_URL}/minha-conta`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarMinhaConta(payload) {
+  const response = await executarFetch(`${API_URL}/minha-conta`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function alterarSenhaMinhaConta(senhaAtual, novaSenha) {
+  const response = await executarFetch(`${API_URL}/minha-conta/senha`, {
+    method: 'PATCH',
     headers: montarHeaders(true),
     body: JSON.stringify({ senhaAtual, novaSenha }),
   })

@@ -15,6 +15,7 @@ import {
   sanitizarDocumento,
   sanitizarTelefone,
   telefoneBasicoValido,
+  validarLoginCurto,
 } from '@/utils/validacoes'
 
 const ETAPAS = [
@@ -148,6 +149,13 @@ watch(
   },
 )
 
+watch(
+  () => formulario.value.admin.login,
+  () => {
+    definirErroCampo('admin.login', '')
+  },
+)
+
 onMounted(carregarOpcoes)
 
 function criarFormularioInicial() {
@@ -181,6 +189,7 @@ function criarFormularioInicial() {
     admin: {
       nome: '',
       email: '',
+      login: '',
       telefone: '',
       cargo: '',
       senhaTemporaria: '',
@@ -266,6 +275,10 @@ async function validarEmailAdminBlur() {
   await validarEmailAdminRemotoSeNecessario()
 }
 
+function validarLoginAdminBlur() {
+  validarCampoLoginAdmin()
+}
+
 function validarCampoEmail(tipo) {
   if (tipo === 'empresa') {
     const valor = formulario.value.empresa.email
@@ -275,6 +288,12 @@ function validarCampoEmail(tipo) {
 
   const valor = formulario.value.admin.email
   definirErroCampo('admin.email', valor && !emailBasicoValido(valor) ? 'Informe um e-mail válido.' : '')
+}
+
+function validarCampoLoginAdmin() {
+  const mensagem = validarLoginCurto(formulario.value.admin.login)
+  definirErroCampo('admin.login', mensagem)
+  return !mensagem
 }
 
 async function validarSlugBlur() {
@@ -362,6 +381,9 @@ function montarPayload() {
     usuarioAdmin: {
       nome: textoOuNulo(formulario.value.admin.nome),
       email: textoOuNulo(formulario.value.admin.email),
+      ...(String(formulario.value.admin.login || '').trim()
+        ? { login: textoOuNulo(formulario.value.admin.login) }
+        : {}),
       telefone: textoOuNulo(formulario.value.admin.telefone),
       cargo: textoOuNulo(formulario.value.admin.cargo),
       senhaTemporaria: textoOuNulo(formulario.value.admin.senhaTemporaria),
@@ -421,6 +443,7 @@ function validarEtapaAtual() {
     if (!formulario.value.admin.nome.trim()) return falharCampo('admin.nome', 'Informe o nome do usuário administrador.')
     if (!formulario.value.admin.email.trim()) return falharCampo('admin.email', 'Informe o e-mail do usuário administrador.')
     if (!emailBasicoValido(formulario.value.admin.email)) return falharCampo('admin.email', 'Informe um e-mail válido.')
+    if (!validarCampoLoginAdmin()) return falharCampo('admin.login', errosCampos.value['admin.login'])
     if (formulario.value.admin.telefone && !telefoneBasicoValido(formulario.value.admin.telefone)) {
       return falharCampo('admin.telefone', 'Informe um telefone com 10 ou 11 dígitos.')
     }
@@ -869,6 +892,13 @@ function obterMensagemErro(error, fallback) {
     return 'Já existe usuário com este e-mail de login.'
   }
 
+  if (
+    mensagemNormalizada.includes('login') &&
+    (mensagemNormalizada.includes('duplic') || mensagemNormalizada.includes('ja existe'))
+  ) {
+    return 'Já existe usuário com este login.'
+  }
+
   return mensagem || fallback
 }
 
@@ -1142,6 +1172,18 @@ function obterCampoProfundo(objeto, caminho) {
         </label>
 
         <label>
+          Usuário/Login
+          <input
+            v-model="formulario.admin.login"
+            type="text"
+            placeholder="Ex: admin.empresa"
+            @blur="validarLoginAdminBlur"
+          />
+          <small>Se ficar vazio, o sistema gera automaticamente a partir do e-mail.</small>
+          <small v-if="errosCampos['admin.login']" class="mensagem-erro">{{ errosCampos['admin.login'] }}</small>
+        </label>
+
+        <label>
           Telefone
           <input
             :value="formulario.admin.telefone"
@@ -1210,6 +1252,7 @@ function obterCampoProfundo(objeto, caminho) {
           <h2>Usuário administrador</h2>
           <p><strong>Nome:</strong> {{ formulario.admin.nome }}</p>
           <p><strong>E-mail:</strong> {{ formulario.admin.email }}</p>
+          <p><strong>Usuário/Login:</strong> {{ formulario.admin.login || 'Não aplicável' }}</p>
           <p><strong>Telefone:</strong> {{ formulario.admin.telefone || 'Não aplicável' }}</p>
           <p><strong>Cargo:</strong> {{ formulario.admin.cargo || 'Não aplicável' }}</p>
         </article>

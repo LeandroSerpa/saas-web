@@ -7,8 +7,10 @@ import {
   cadastrarUsuario,
   atualizarUsuario,
   atualizarAtivoUsuario,
+  obterMensagemAmigavelErro,
 } from '@/services/api'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
+import { validarLoginCurto } from '@/utils/validacoes'
 
 const usuarios = ref([])
 const empresas = ref([])
@@ -39,6 +41,7 @@ function criarUsuarioInicial() {
   return {
     nome: '',
     email: '',
+    login: '',
     senha: '',
     perfil: 'USUARIO',
     empresaId: superAdminLogado.value ? '' : obterEmpresaId(),
@@ -138,6 +141,13 @@ async function salvarUsuario() {
       return
     }
 
+    const erroLogin = validarLoginCurto(usuario.value.login)
+
+    if (erroLogin) {
+      erro.value = erroLogin
+      return
+    }
+
     if (!usuarioEditandoId.value && !usuario.value.senha) {
       erro.value = 'Informe a senha do usuário.'
       return
@@ -165,12 +175,19 @@ async function salvarUsuario() {
       perfil: usuario.value.perfil,
       ativo: Boolean(usuario.value.ativo),
     }
+    const loginNormalizado = String(usuario.value.login || '').trim()
 
     if (editandoUsuarioAtual.value) {
       dadosUsuario.perfil = perfilOriginalEdicao.value || perfilLogado.value
       dadosUsuario.ativo = true
     } else if (adminLogado.value) {
       dadosUsuario.perfil = 'USUARIO'
+    }
+
+    if (loginNormalizado) {
+      dadosUsuario.login = loginNormalizado
+    } else if (usuarioEditandoId.value) {
+      dadosUsuario.login = null
     }
 
     if (usuario.value.senha) {
@@ -189,9 +206,10 @@ async function salvarUsuario() {
 
     await carregarDados()
   } catch (error) {
-    erro.value = usuarioEditandoId.value
-      ? 'Não foi possível atualizar o usuário.'
-      : 'Não foi possível cadastrar o usuário.'
+    erro.value = obterMensagemErroUsuario(
+      error,
+      usuarioEditandoId.value ? 'Não foi possível atualizar o usuário.' : 'Não foi possível cadastrar o usuário.',
+    )
     console.error(error)
   }
 }
@@ -206,6 +224,7 @@ function editarUsuario(usuarioItem) {
   usuario.value = {
     nome: usuarioItem.nome || '',
     email: usuarioItem.email || '',
+    login: usuarioItem.login || '',
     senha: '',
     perfil: usuarioItem.perfil || 'USUARIO',
     empresaId: usuarioItem.empresaId || buscarEmpresaIdPorNome(usuarioItem.empresaNome) || '',
@@ -298,11 +317,46 @@ function usuarioAtual(usuarioItem) {
     return Number(usuarioLogado.id) === Number(usuarioItem.id)
   }
 
-  return usuarioLogado.email && usuarioLogado.email === usuarioItem.email
+  return (
+    (usuarioLogado.email && usuarioLogado.email === usuarioItem.email) ||
+    (usuarioLogado.login && usuarioItem.login && usuarioLogado.login === usuarioItem.login)
+  )
 }
 
 function exibirValor(valor) {
   return valor || '-'
+}
+
+function exibirIdentificacao(usuarioItem) {
+  return usuarioItem.login ? `@${usuarioItem.login}` : exibirValor(usuarioItem.email)
+}
+
+function obterMensagemErroUsuario(error, fallback) {
+  const mensagem = obterMensagemAmigavelErro(error, fallback)
+  const mensagemNormalizada = normalizarMensagem(mensagem)
+
+  if (
+    mensagemNormalizada.includes('login') &&
+    (mensagemNormalizada.includes('duplic') || mensagemNormalizada.includes('ja existe'))
+  ) {
+    return 'Este usuário/login já está em uso. Informe outro login.'
+  }
+
+  if (
+    mensagemNormalizada.includes('email') &&
+    (mensagemNormalizada.includes('duplic') || mensagemNormalizada.includes('ja existe'))
+  ) {
+    return 'Este e-mail já está em uso. Informe outro e-mail.'
+  }
+
+  return mensagem
+}
+
+function normalizarMensagem(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 }
 
 function buscarEmpresaIdPorNome(nome) {
@@ -402,7 +456,7 @@ onMounted(() => {
           <div class="topo-card">
             <div>
               <h3>{{ usuarioItem.nome }}</h3>
-              <p class="email">{{ exibirValor(usuarioItem.email) }}</p>
+              <p class="email">{{ exibirIdentificacao(usuarioItem) }}</p>
             </div>
 
             <span :class="['status', estaAtivo(usuarioItem) ? 'ativo' : 'inativo']">
@@ -412,6 +466,7 @@ onMounted(() => {
 
           <div class="detalhes">
             <p><strong>E-mail:</strong> {{ exibirValor(usuarioItem.email) }}</p>
+            <p><strong>Usuário/Login:</strong> {{ exibirValor(usuarioItem.login) }}</p>
             <p><strong>Perfil:</strong> {{ exibirValor(usuarioItem.perfil) }}</p>
             <p>
               <strong>Empresa:</strong>

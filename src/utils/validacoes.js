@@ -2,8 +2,40 @@ export function emailBasicoValido(valor) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim())
 }
 
+const REGEX_LOGIN_CURTO = /^[A-Za-z0-9._-]+$/
+
 export function limparEspacos(valor) {
   return String(valor || '').replace(/\s/g, '')
+}
+
+export function validarLoginCurto(valor, obrigatorio = false) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) {
+    return obrigatorio ? 'Informe o usuário/login.' : ''
+  }
+
+  if (texto.length < 3) {
+    return 'O usuário/login deve ter no mínimo 3 caracteres.'
+  }
+
+  if (texto.length > 50) {
+    return 'O usuário/login deve ter no máximo 50 caracteres.'
+  }
+
+  if (/\s/.test(texto)) {
+    return 'O usuário/login não pode conter espaços.'
+  }
+
+  if (!REGEX_LOGIN_CURTO.test(texto)) {
+    return 'Use apenas letras, números, ponto, underline e hífen no usuário/login.'
+  }
+
+  return ''
+}
+
+export function loginCurtoValido(valor, obrigatorio = false) {
+  return !validarLoginCurto(valor, obrigatorio)
 }
 
 export function sanitizarSomenteDigitos(valor) {
