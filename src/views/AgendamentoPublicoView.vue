@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
@@ -71,6 +71,15 @@ const estilosPersonalizados = computed(() => ({
 const classeTemaPublico = computed(() => `tema-${normalizarTemaPublico(personalizacao.value.tema).toLowerCase()}`)
 
 const tituloPublico = computed(() => personalizacao.value.tituloPagina || empresa.value?.nome || 'Agendamento')
+const empresaIniciais = computed(() =>
+  String(empresa.value?.nome || tituloPublico.value || 'AG')
+    .split(' ')
+    .map((parte) => parte.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase() || '')
+    .join('') || 'AG',
+)
 
 const subtituloPublico = computed(
   () => personalizacao.value.subtituloPagina || empresa.value?.mensagemPublica || '',
@@ -79,7 +88,7 @@ const subtituloPublico = computed(
 const mensagemConfirmacaoPublica = computed(
   () =>
     personalizacao.value.mensagemConfirmacao ||
-    'Guarde essas informações. A empresa poderá entrar em contato para confirmação do atendimento.',
+    'Guarde essas informaÃ§Ãµes. A empresa poderÃ¡ entrar em contato para confirmaÃ§Ã£o do atendimento.',
 )
 
 const dataAtendimentoFormatada = computed(() =>
@@ -123,7 +132,7 @@ const mensagemBloqueioData = computed(() => {
 
   return (
     String(disponibilidadeData.value?.mensagem || '').trim() ||
-    'A empresa não realizará atendimentos nesta data. Escolha outro dia para continuar.'
+    'A empresa nÃ£o realizarÃ¡ atendimentos nesta data. Escolha outro dia para continuar.'
   )
 })
 
@@ -139,17 +148,17 @@ const mensagemDisponibilidade = computed(() => {
   const mensagem = String(disponibilidade.value.mensagem || '').trim()
 
   if (disponibilidade.value.empresaAtendeNoDia === false) {
-    return mensagem || `A empresa ${empresa.value?.nome || ''} não atende neste dia.`
+    return mensagem || `A empresa ${empresa.value?.nome || ''} nÃ£o atende neste dia.`
   }
 
   if (disponibilidade.value.funcionarioAtendeNoDia === false) {
-    return mensagem || `O funcionário ${funcionarioSelecionado.value?.nome || ''} não atende neste dia.`
+    return mensagem || `O funcionÃ¡rio ${funcionarioSelecionado.value?.nome || ''} nÃ£o atende neste dia.`
   }
 
   if (horariosDisponiveis.value.length === 0) {
     return (
       mensagem ||
-      'Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.'
+      'Nenhum horÃ¡rio disponÃ­vel para esta data. Escolha outro dia, serviÃ§o ou funcionÃ¡rio.'
     )
   }
 
@@ -166,19 +175,19 @@ const mensagemOrientacaoHorarios = computed(() => {
   }
 
   if (!agendamento.value.servicoId) {
-    return 'Escolha um serviço para consultar os horários.'
+    return 'Escolha um serviÃ§o para consultar os horÃ¡rios.'
   }
 
   if (!agendamento.value.funcionarioId) {
-    return 'Escolha um funcionário para consultar os horários.'
+    return 'Escolha um funcionÃ¡rio para consultar os horÃ¡rios.'
   }
 
   if (!agendamento.value.dataAtendimento) {
-    return 'Escolha uma data para consultar os horários.'
+    return 'Escolha uma data para consultar os horÃ¡rios.'
   }
 
   if (carregandoDisponibilidade.value) {
-    return 'Buscando horários disponíveis...'
+    return 'Buscando horÃ¡rios disponÃ­veis...'
   }
 
   if (mensagemDisponibilidade.value) {
@@ -187,11 +196,11 @@ const mensagemOrientacaoHorarios = computed(() => {
 
   if (horariosDisponiveis.value.length > 0) {
     return agendamento.value.dataHoraInicio
-      ? 'Horário selecionado. Você já pode confirmar o agendamento.'
-      : 'Escolha um dos horários disponíveis abaixo.'
+      ? 'HorÃ¡rio selecionado. VocÃª jÃ¡ pode confirmar o agendamento.'
+      : 'Escolha um dos horÃ¡rios disponÃ­veis abaixo.'
   }
 
-  return 'Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.'
+  return 'Nenhum horÃ¡rio disponÃ­vel para esta data. Escolha outro dia, serviÃ§o ou funcionÃ¡rio.'
 })
 
 const resumoVisivel = computed(() =>
@@ -392,14 +401,14 @@ async function copiarResumoConfirmacao() {
 
   try {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-      throw new Error('Clipboard indisponível')
+      throw new Error('Clipboard indisponÃ­vel')
     }
 
     await navigator.clipboard.writeText(montarTextoConfirmacao(confirmacaoAgendamento.value))
-    mensagemCopia.value = 'Resumo copiado para a área de transferência.'
+    mensagemCopia.value = 'Resumo copiado para a Ã¡rea de transferÃªncia.'
   } catch (error) {
     mensagemCopia.value =
-      'Não foi possível copiar automaticamente. Você pode tirar um print desta confirmação.'
+      'NÃ£o foi possÃ­vel copiar automaticamente. VocÃª pode tirar um print desta confirmaÃ§Ã£o.'
     console.error(error)
   }
 }
@@ -411,15 +420,15 @@ function montarTextoConfirmacao(confirmacao) {
     `Cliente: ${confirmacao.clienteNome}`,
     confirmacao.clienteTelefone ? `Telefone: ${confirmacao.clienteTelefone}` : '',
     confirmacao.clienteEmail ? `E-mail: ${confirmacao.clienteEmail}` : '',
-    `Serviço: ${confirmacao.servicoNome}`,
-    `Funcionário: ${confirmacao.funcionarioNome}`,
+    `ServiÃ§o: ${confirmacao.servicoNome}`,
+    `FuncionÃ¡rio: ${confirmacao.funcionarioNome}`,
     `Data: ${confirmacao.dataAtendimento}`,
-    `Início: ${confirmacao.horarioInicio}`,
-    `Término previsto: ${confirmacao.horarioTermino}`,
-    `Duração: ${confirmacao.duracao}`,
-    personalizacao.value.mostrarPreco ? `Preço: ${confirmacao.preco}` : '',
-    confirmacao.observacao ? `Observação: ${confirmacao.observacao}` : '',
-    confirmacao.id ? `Código/Protocolo: ${confirmacao.id}` : '',
+    `InÃ­cio: ${confirmacao.horarioInicio}`,
+    `TÃ©rmino previsto: ${confirmacao.horarioTermino}`,
+    `DuraÃ§Ã£o: ${confirmacao.duracao}`,
+    personalizacao.value.mostrarPreco ? `PreÃ§o: ${confirmacao.preco}` : '',
+    confirmacao.observacao ? `ObservaÃ§Ã£o: ${confirmacao.observacao}` : '',
+    confirmacao.id ? `CÃ³digo/Protocolo: ${confirmacao.id}` : '',
   ]
     .filter(Boolean)
     .join('\n')
@@ -441,7 +450,7 @@ async function carregarDadosPublicos() {
     const [empresaApi, personalizacaoApi] = await Promise.all([
       buscarEmpresaPublica(slug.value),
       buscarPersonalizacaoPublica(slug.value).catch((error) => {
-        console.error('Não foi possível carregar a personalização pública.', error)
+        console.error('NÃ£o foi possÃ­vel carregar a personalizaÃ§Ã£o pÃºblica.', error)
         return null
       }),
     ])
@@ -567,7 +576,7 @@ async function carregarDisponibilidade() {
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'Não foi possível buscar os horários disponíveis.'
+    erro.value = mensagemApi || 'NÃ£o foi possÃ­vel buscar os horÃ¡rios disponÃ­veis.'
     console.error(error)
   } finally {
     carregandoDisponibilidade.value = false
@@ -600,12 +609,12 @@ async function enviarAgendamento() {
     }
 
     if (!agendamento.value.servicoId) {
-      erro.value = 'Selecione um serviço.'
+      erro.value = 'Selecione um serviÃ§o.'
       return
     }
 
     if (!agendamento.value.funcionarioId) {
-      erro.value = 'Selecione um funcionário.'
+      erro.value = 'Selecione um funcionÃ¡rio.'
       return
     }
 
@@ -620,7 +629,7 @@ async function enviarAgendamento() {
     }
 
     if (!agendamento.value.dataHoraInicio) {
-      erro.value = 'Selecione um horário disponível.'
+      erro.value = 'Selecione um horÃ¡rio disponÃ­vel.'
       return
     }
 
@@ -645,7 +654,7 @@ async function enviarAgendamento() {
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'Não foi possível realizar o agendamento.'
+    erro.value = mensagemApi || 'NÃ£o foi possÃ­vel realizar o agendamento.'
     console.error(error)
   } finally {
     enviando.value = false
@@ -830,304 +839,249 @@ onMounted(() => {
     </section>
 
     <section v-else class="conteudo-publico">
-      <section v-if="personalizacao.bannerUrl" class="banner-publico">
-        <img :src="personalizacao.bannerUrl" alt="" />
-      </section>
+      <section class="hero-publico card">
+        <section v-if="personalizacao.bannerUrl" class="banner-publico">
+          <img :src="personalizacao.bannerUrl" alt="" />
+        </section>
 
-      <header class="cabecalho-publico card">
-        <div>
-          <img v-if="personalizacao.logoUrl" class="logo-publico" :src="personalizacao.logoUrl" alt="" />
-          <p class="subtitulo">Agendamento online</p>
-          <h1>{{ tituloPublico }}</h1>
-          <p v-if="subtituloPublico" class="mensagem-publica">
-            {{ subtituloPublico }}
-          </p>
-        </div>
+        <header class="cabecalho-publico">
+          <div class="identidade-empresa">
+            <img v-if="personalizacao.logoUrl" class="logo-publico" :src="personalizacao.logoUrl" alt="" />
+            <div v-else class="logo-fallback" aria-hidden="true">{{ empresaIniciais }}</div>
+            <div>
+              <p class="subtitulo">Agende seu atendimento</p>
+              <h1>{{ tituloPublico }}</h1>
+              <p class="texto-apoio">Escolha o serviço, profissional, data e horário.</p>
+              <p v-if="subtituloPublico" class="mensagem-publica">{{ subtituloPublico }}</p>
+            </div>
+          </div>
 
-        <div class="dados-empresa">
-          <p v-if="personalizacao.mostrarTelefone && empresa?.telefone">
-            <strong>Telefone:</strong> {{ empresa.telefone }}
-          </p>
-          <p v-if="empresa?.email"><strong>E-mail:</strong> {{ empresa.email }}</p>
-          <p v-if="personalizacao.mostrarEndereco && empresa?.endereco">
-            <strong>Endereço:</strong> {{ empresa.endereco }}
-          </p>
-        </div>
-      </header>
-
-      <section
-        v-if="
-          personalizacao.textoSobre ||
-          personalizacao.textoInstrucoes ||
-          personalizacao.whatsapp ||
-          personalizacao.instagram ||
-          personalizacao.site
-        "
-        class="card bloco-publico"
-      >
-        <p v-if="personalizacao.textoSobre">{{ personalizacao.textoSobre }}</p>
-        <p v-if="personalizacao.textoInstrucoes" class="instrucoes-publicas">
-          {{ personalizacao.textoInstrucoes }}
-        </p>
-        <div class="links-publicos">
-          <a v-if="personalizacao.whatsapp" :href="personalizacao.whatsapp" target="_blank" rel="noreferrer">
-            WhatsApp
-          </a>
-          <a v-if="personalizacao.instagram" :href="personalizacao.instagram" target="_blank" rel="noreferrer">
-            Instagram
-          </a>
-          <a v-if="personalizacao.site" :href="personalizacao.site" target="_blank" rel="noreferrer">
-            Site
-          </a>
-        </div>
-      </section>
-
-      <section v-if="erro" class="card erro">
-        <p>{{ erro }}</p>
-      </section>
-
-      <section v-if="mensagemSucesso && !confirmacaoAgendamento" class="card sucesso-card">
-        <p>{{ mensagemSucesso }}</p>
-      </section>
-
-      <section v-if="confirmacaoAgendamento" class="card confirmacao-card">
-        <div class="confirmacao-topo">
-          <div>
-            <p class="subtitulo">Confirmação</p>
-            <h2>Agendamento solicitado com sucesso!</h2>
-            <p>
-              {{ mensagemConfirmacaoPublica }}
+          <div class="dados-empresa">
+            <p v-if="personalizacao.mostrarTelefone && empresa?.telefone">
+              <strong>Telefone:</strong> {{ empresa.telefone }}
             </p>
+            <p v-if="empresa?.email"><strong>E-mail:</strong> {{ empresa.email }}</p>
+            <p v-if="personalizacao.mostrarEndereco && empresa?.endereco">
+              <strong>Endereço:</strong> {{ empresa.endereco }}
+            </p>
+            <p v-if="personalizacao.whatsapp"><strong>WhatsApp:</strong> Atendimento disponível</p>
           </div>
-          <div v-if="confirmacaoAgendamento.id" class="protocolo">
-            <span>Código/Protocolo</span>
-            <strong>{{ confirmacaoAgendamento.id }}</strong>
-          </div>
-        </div>
-
-        <dl class="resumo-confirmacao">
-          <div>
-            <dt>Empresa</dt>
-            <dd>{{ confirmacaoAgendamento.empresaNome || 'Não informado' }}</dd>
-          </div>
-          <div>
-            <dt>Cliente</dt>
-            <dd>
-              {{ confirmacaoAgendamento.clienteNome || 'Não informado' }}
-              <span v-if="confirmacaoAgendamento.clienteTelefone">
-                {{ confirmacaoAgendamento.clienteTelefone }}
-              </span>
-              <span v-if="confirmacaoAgendamento.clienteEmail">
-                {{ confirmacaoAgendamento.clienteEmail }}
-              </span>
-            </dd>
-          </div>
-          <div>
-            <dt>Serviço</dt>
-            <dd>{{ confirmacaoAgendamento.servicoNome || 'Não informado' }}</dd>
-          </div>
-          <div>
-            <dt>Funcionário</dt>
-            <dd>{{ confirmacaoAgendamento.funcionarioNome || 'Não informado' }}</dd>
-          </div>
-          <div>
-            <dt>Data</dt>
-            <dd>{{ confirmacaoAgendamento.dataAtendimento || 'Não informado' }}</dd>
-          </div>
-          <div>
-            <dt>Início</dt>
-            <dd>{{ confirmacaoAgendamento.horarioInicio || 'Não informado' }}</dd>
-          </div>
-          <div>
-            <dt>Término previsto</dt>
-            <dd>{{ confirmacaoAgendamento.horarioTermino || 'Não informado' }}</dd>
-          </div>
-          <div>
-            <dt>Duração</dt>
-            <dd>{{ confirmacaoAgendamento.duracao || 'Não informado' }}</dd>
-          </div>
-          <div v-if="personalizacao.mostrarPreco">
-            <dt>Preço</dt>
-            <dd>{{ confirmacaoAgendamento.preco || 'Não informado' }}</dd>
-          </div>
-          <div v-if="confirmacaoAgendamento.observacao" class="item-largo">
-            <dt>Observação</dt>
-            <dd>{{ confirmacaoAgendamento.observacao }}</dd>
-          </div>
-        </dl>
-
-        <p v-if="mensagemCopia" class="mensagem-copia">{{ mensagemCopia }}</p>
-
-        <div class="acoes-confirmacao">
-          <button class="botao principal" type="button" @click="fazerNovoAgendamento">
-            Fazer novo agendamento
-          </button>
-          <button class="botao secundario" type="button" @click="copiarResumoConfirmacao">
-            Copiar resumo
-          </button>
-        </div>
+        </header>
       </section>
 
-      <section v-else class="card formulario">
-        <div class="titulo-card">
-          <h2>Dados do agendamento</h2>
-          <p>Preencha os dados abaixo para solicitar seu atendimento.</p>
-        </div>
-
-        <div class="campos">
-          <label>
-            Nome do cliente *
-            <input v-model="agendamento.nomeCliente" type="text" placeholder="Ex: Ana Costa" />
-          </label>
-
-          <label>
-            Telefone *
-            <input
-              :value="agendamento.telefoneCliente"
-              type="text"
-              inputmode="numeric"
-              placeholder="Ex: (21) 99999-9999"
-              @input="aplicarTelefoneCliente"
-              @paste.prevent="aplicarTelefoneCliente"
-            />
-          </label>
-
-          <label>
-            E-mail
-            <input
-              v-model="agendamento.emailCliente"
-              type="email"
-              placeholder="Ex: cliente@email.com"
-            />
-          </label>
-
-          <label>
-            Serviço *
-            <select v-model="agendamento.servicoId">
-              <option value="">Selecione um serviço</option>
-              <option v-for="servico in servicos" :key="servico.id" :value="servico.id">
-                {{ montarLabelServico(servico) }}
-              </option>
-            </select>
-          </label>
-
-          <label v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
-            Funcionário *
-            <select v-model="agendamento.funcionarioId" :disabled="dataBloqueada">
-              <option value="">Selecione um funcionário</option>
-              <option
-                v-for="funcionario in funcionariosDisponiveis"
-                :key="funcionario.id"
-                :value="funcionario.id"
-              >
-                {{ funcionario.nome }}
-              </option>
-            </select>
-          </label>
-
-          <label>
-            Data do atendimento *
-            <input v-model="agendamento.dataAtendimento" type="date" />
-          </label>
-
-          <section v-if="dataBloqueada" class="campo-grande bloqueio-data">
-            <strong>{{ mensagemBloqueioData }}</strong>
-            <span v-if="disponibilidadeData?.motivo">Motivo: {{ disponibilidadeData.motivo }}</span>
+      <section class="layout-publico">
+        <aside
+          v-if="
+            personalizacao.textoSobre ||
+            personalizacao.textoInstrucoes ||
+            personalizacao.politicaCancelamento ||
+            personalizacao.whatsapp ||
+            personalizacao.instagram ||
+            personalizacao.site
+          "
+          class="coluna-info"
+        >
+          <section v-if="personalizacao.textoSobre" class="card bloco-publico">
+            <h2>Sobre a empresa</h2>
+            <p>{{ personalizacao.textoSobre }}</p>
           </section>
 
-          <section class="campo-grande horarios">
-            <div class="titulo-horarios">
-              <h3>Horários disponíveis</h3>
-              <p>{{ mensagemOrientacaoHorarios }}</p>
-            </div>
+          <section v-if="personalizacao.textoInstrucoes" class="card bloco-publico">
+            <h2>Instruções</h2>
+            <p class="instrucoes-publicas">{{ personalizacao.textoInstrucoes }}</p>
+          </section>
 
-            <div v-if="horariosDisponiveis.length" class="grade-horarios">
-              <button
-                v-for="horario in horariosDisponiveis"
-                :key="horario.valor"
-                type="button"
-                class="horario"
-                :class="{ selecionado: horarioSelecionado(horario) }"
-                @click="selecionarHorario(horario)"
-              >
-                {{ horario.label }}
-              </button>
-            </div>
+          <section v-if="personalizacao.politicaCancelamento" class="card politica-publica">
+            <h2>Política de cancelamento</h2>
+            <p>{{ personalizacao.politicaCancelamento }}</p>
+          </section>
 
-            <div v-if="dataBloqueada" class="estado-horarios bloqueado">
-              <strong>Não há atendimento nesta data.</strong>
-              <span>{{ mensagemBloqueioData }}</span>
-              <span v-if="disponibilidadeData?.motivo">Motivo: {{ disponibilidadeData.motivo }}</span>
+          <section
+            v-if="personalizacao.whatsapp || personalizacao.instagram || personalizacao.site"
+            class="card bloco-publico"
+          >
+            <h2>Links úteis</h2>
+            <div class="links-publicos">
+              <a v-if="personalizacao.whatsapp" :href="personalizacao.whatsapp" target="_blank" rel="noreferrer">WhatsApp</a>
+              <a v-if="personalizacao.instagram" :href="personalizacao.instagram" target="_blank" rel="noreferrer">Instagram</a>
+              <a v-if="personalizacao.site" :href="personalizacao.site" target="_blank" rel="noreferrer">Site</a>
             </div>
+          </section>
+        </aside>
 
-            <div
-              v-else-if="
-                agendamento.servicoId &&
-                agendamento.funcionarioId &&
-                agendamento.dataAtendimento &&
-                !carregandoDisponibilidade
-              "
-              class="estado-horarios"
-            >
-              <strong>Nenhum horário livre nesta data.</strong>
-              <span>Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.</span>
-            </div>
+        <section class="coluna-formulario">
+          <section v-if="erro" class="card erro">
+            <p>{{ erro }}</p>
+          </section>
 
-            <div v-if="horariosOcupados.length" class="legenda-horarios">
-              <strong>Horários ocupados</strong>
-              <div class="lista-ocupados" aria-label="Horários ocupados">
-                <span v-for="horario in horariosOcupados" :key="horario.valor">
-                  {{ horario.label }}
-                </span>
+          <section v-if="mensagemSucesso && !confirmacaoAgendamento" class="card sucesso-card">
+            <h3>Agendamento solicitado com sucesso!</h3>
+            <p>{{ mensagemSucesso }}</p>
+            <p>Você receberá a confirmação conforme as orientações da empresa.</p>
+          </section>
+
+          <section v-if="confirmacaoAgendamento" class="card confirmacao-card">
+            <div class="confirmacao-topo">
+              <div>
+                <p class="subtitulo">Confirmação</p>
+                <h2>Agendamento solicitado com sucesso!</h2>
+                <p>{{ mensagemConfirmacaoPublica }}</p>
+              </div>
+              <div v-if="confirmacaoAgendamento.id" class="protocolo">
+                <span>Código/Protocolo</span>
+                <strong>{{ confirmacaoAgendamento.id }}</strong>
               </div>
             </div>
+
+            <dl class="resumo-confirmacao">
+              <div><dt>Empresa</dt><dd>{{ confirmacaoAgendamento.empresaNome || 'Não informado' }}</dd></div>
+              <div>
+                <dt>Cliente</dt>
+                <dd>
+                  {{ confirmacaoAgendamento.clienteNome || 'Não informado' }}
+                  <span v-if="confirmacaoAgendamento.clienteTelefone">{{ confirmacaoAgendamento.clienteTelefone }}</span>
+                  <span v-if="confirmacaoAgendamento.clienteEmail">{{ confirmacaoAgendamento.clienteEmail }}</span>
+                </dd>
+              </div>
+              <div><dt>Serviço</dt><dd>{{ confirmacaoAgendamento.servicoNome || 'Não informado' }}</dd></div>
+              <div><dt>Funcionário</dt><dd>{{ confirmacaoAgendamento.funcionarioNome || 'Não informado' }}</dd></div>
+              <div><dt>Data</dt><dd>{{ confirmacaoAgendamento.dataAtendimento || 'Não informado' }}</dd></div>
+              <div><dt>Início</dt><dd>{{ confirmacaoAgendamento.horarioInicio || 'Não informado' }}</dd></div>
+              <div><dt>Término previsto</dt><dd>{{ confirmacaoAgendamento.horarioTermino || 'Não informado' }}</dd></div>
+              <div><dt>Duração</dt><dd>{{ confirmacaoAgendamento.duracao || 'Não informado' }}</dd></div>
+              <div v-if="personalizacao.mostrarPreco"><dt>Preço</dt><dd>{{ confirmacaoAgendamento.preco || 'Não informado' }}</dd></div>
+              <div v-if="confirmacaoAgendamento.observacao" class="item-largo">
+                <dt>Observação</dt>
+                <dd>{{ confirmacaoAgendamento.observacao }}</dd>
+              </div>
+            </dl>
+
+            <p v-if="mensagemCopia" class="mensagem-copia">{{ mensagemCopia }}</p>
+
+            <div class="acoes-confirmacao">
+              <button class="botao principal" type="button" @click="fazerNovoAgendamento">Fazer novo agendamento</button>
+              <button class="botao secundario" type="button" @click="copiarResumoConfirmacao">Copiar resumo</button>
+            </div>
           </section>
 
-          <div v-if="resumoVisivel" class="campo-grande previa">
-            <h3>Resumo do agendamento</h3>
-            <p><strong>Serviço:</strong> {{ servicoSelecionado?.nome || 'A selecionar' }}</p>
-            <p v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
-              <strong>Funcionário:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}
-            </p>
-            <p><strong>Data:</strong> {{ dataAtendimentoFormatada || 'A selecionar' }}</p>
-            <p v-if="dataBloqueada">
-              <strong>Atendimento:</strong> Não há atendimento nesta data.
-            </p>
-            <p><strong>Início:</strong> {{ inicioSelecionado || 'Selecione um horário' }}</p>
-            <p><strong>Término previsto:</strong> {{ terminoPrevisto || 'Selecione um horário' }}</p>
-            <p v-if="personalizacao.mostrarPreco"><strong>Preço:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
-          </div>
+          <section v-else class="card formulario">
+            <div class="titulo-card">
+              <h2>Solicite seu agendamento</h2>
+              <p>Preencha os dados abaixo para enviar sua solicitação.</p>
+            </div>
 
-          <label class="campo-grande">
-            Observação
-            <textarea
-              v-model="agendamento.observacao"
-              rows="4"
-              placeholder="Ex: Preferência por horário pontual"
-            ></textarea>
-          </label>
-        </div>
+            <div class="campos">
+              <section class="campo-grande etapa-formulario"><p class="etapa-tag">1. Seus dados</p></section>
 
-        <div class="rodape-formulario">
-          <button
-            class="botao principal"
-            :disabled="enviando || !formularioCompleto"
-            @click="enviarAgendamento"
-          >
-            {{ enviando ? 'Enviando...' : 'Agendar' }}
-          </button>
-          <p v-if="!agendamento.dataHoraInicio" class="aviso-horario">
-            {{ dataBloqueada ? mensagemBloqueioData : 'Selecione um horário disponível para liberar o agendamento.' }}
-          </p>
-        </div>
+              <label>
+                Nome do cliente *
+                <input v-model="agendamento.nomeCliente" type="text" placeholder="Ex: Ana Costa" />
+              </label>
+
+              <label>
+                Telefone *
+                <input :value="agendamento.telefoneCliente" type="text" inputmode="numeric" placeholder="Ex: (21) 99999-9999" @input="aplicarTelefoneCliente" @paste.prevent="aplicarTelefoneCliente" />
+              </label>
+
+              <label>
+                E-mail
+                <input v-model="agendamento.emailCliente" type="email" placeholder="Ex: cliente@email.com" />
+              </label>
+
+              <section class="campo-grande etapa-formulario"><p class="etapa-tag">2. Atendimento</p></section>
+
+              <label>
+                Serviço *
+                <select v-model="agendamento.servicoId">
+                  <option value="">Selecione um serviço</option>
+                  <option v-for="servico in servicos" :key="servico.id" :value="servico.id">{{ montarLabelServico(servico) }}</option>
+                </select>
+              </label>
+
+              <label v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1">
+                Funcionário *
+                <select v-model="agendamento.funcionarioId" :disabled="dataBloqueada">
+                  <option value="">Selecione um funcionário</option>
+                  <option v-for="funcionario in funcionariosDisponiveis" :key="funcionario.id" :value="funcionario.id">{{ funcionario.nome }}</option>
+                </select>
+              </label>
+
+              <label>
+                Data do atendimento *
+                <input v-model="agendamento.dataAtendimento" type="date" />
+              </label>
+
+              <section class="campo-grande etapa-formulario"><p class="etapa-tag">3. Horário</p></section>
+
+              <section v-if="dataBloqueada" class="campo-grande bloqueio-data">
+                <strong>{{ mensagemBloqueioData }}</strong>
+                <span v-if="disponibilidadeData?.motivo">Motivo: {{ disponibilidadeData.motivo }}</span>
+              </section>
+
+              <section class="campo-grande horarios">
+                <div class="titulo-horarios">
+                  <h3>Horários disponíveis</h3>
+                  <p>{{ mensagemOrientacaoHorarios }}</p>
+                </div>
+
+                <div v-if="horariosDisponiveis.length" class="grade-horarios">
+                  <button v-for="horario in horariosDisponiveis" :key="horario.valor" type="button" class="horario" :class="{ selecionado: horarioSelecionado(horario) }" @click="selecionarHorario(horario)">
+                    {{ horario.label }}
+                  </button>
+                </div>
+
+                <div v-if="dataBloqueada" class="estado-horarios bloqueado">
+                  <strong>Não há atendimento nesta data.</strong>
+                  <span>{{ mensagemBloqueioData }}</span>
+                  <span v-if="disponibilidadeData?.motivo">Motivo: {{ disponibilidadeData.motivo }}</span>
+                </div>
+
+                <div v-else-if="agendamento.servicoId && agendamento.funcionarioId && agendamento.dataAtendimento && !carregandoDisponibilidade" class="estado-horarios">
+                  <strong>Nenhum horário livre nesta data.</strong>
+                  <span>Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.</span>
+                </div>
+
+                <div v-else-if="!agendamento.servicoId || !agendamento.funcionarioId || !agendamento.dataAtendimento" class="estado-horarios">
+                  <strong>Escolha um serviço, funcionário e data para ver os horários disponíveis.</strong>
+                </div>
+
+                <div v-if="horariosOcupados.length" class="legenda-horarios">
+                  <strong>Horários ocupados</strong>
+                  <div class="lista-ocupados" aria-label="Horários ocupados">
+                    <span v-for="horario in horariosOcupados" :key="horario.valor">{{ horario.label }}</span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="campo-grande etapa-formulario"><p class="etapa-tag">4. Confirmação</p></section>
+
+              <div v-if="resumoVisivel" class="campo-grande previa">
+                <h3>Resumo do agendamento</h3>
+                <p><strong>Serviço:</strong> {{ servicoSelecionado?.nome || 'A selecionar' }}</p>
+                <p v-if="personalizacao.mostrarFuncionario || funcionariosDisponiveis.length !== 1"><strong>Funcionário:</strong> {{ funcionarioSelecionado?.nome || 'A selecionar' }}</p>
+                <p><strong>Data:</strong> {{ dataAtendimentoFormatada || 'A selecionar' }}</p>
+                <p v-if="dataBloqueada"><strong>Atendimento:</strong> Não há atendimento nesta data.</p>
+                <p><strong>Início:</strong> {{ inicioSelecionado || 'Selecione um horário' }}</p>
+                <p><strong>Término previsto:</strong> {{ terminoPrevisto || 'Selecione um horário' }}</p>
+                <p><strong>Duração:</strong> {{ duracaoMinutos ? duracaoMinutos + ' minutos' : 'A definir' }}</p>
+                <p v-if="personalizacao.mostrarPreco"><strong>Preço:</strong> {{ formatarPreco(servicoSelecionado?.preco) }}</p>
+              </div>
+
+              <label class="campo-grande">
+                Observação
+                <textarea v-model="agendamento.observacao" rows="4" placeholder="Ex: Preferência por horário pontual"></textarea>
+              </label>
+            </div>
+
+            <div class="rodape-formulario">
+              <button class="botao principal" :disabled="enviando || !formularioCompleto" @click="enviarAgendamento">{{ enviando ? 'Enviando...' : 'Agendar' }}</button>
+              <p v-if="!agendamento.dataHoraInicio" class="aviso-horario">{{ dataBloqueada ? mensagemBloqueioData : 'Selecione um horário disponível para liberar o agendamento.' }}</p>
+            </div>
+          </section>
+        </section>
       </section>
 
-      <section v-if="personalizacao.politicaCancelamento" class="card politica-publica">
-        <h2>Política de cancelamento</h2>
-        <p>{{ personalizacao.politicaCancelamento }}</p>
-      </section>
-
-      <nav class="links-institucionais" aria-label="Páginas públicas">
+      <nav class="links-institucionais card" aria-label="Páginas públicas">
         <RouterLink to="/sobre">Sobre</RouterLink>
         <RouterLink to="/termos">Termos de Uso</RouterLink>
         <RouterLink to="/privacidade">Política de Privacidade</RouterLink>
@@ -1137,724 +1091,131 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.pagina-publica {
-  min-height: 100vh;
-  display: grid;
-  place-items: start center;
-  padding: 32px 18px;
-  background: #eef2f7;
-  color: #111827;
-}
-
-.pagina-publica.tema-moderno {
-  background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 34%),
-    linear-gradient(135deg, #f8fafc 0%, #e0f2fe 48%, #eef2ff 100%);
-}
-
-.pagina-publica.tema-escuro {
-  background: #020617;
-  color: #e5e7eb;
-}
-
-.pagina-publica.tema-suave {
-  background: #f7fbff;
-  color: #1f2937;
-}
-
-.conteudo-publico {
-  width: 100%;
-  max-width: 980px;
-  display: grid;
-  gap: 18px;
-}
-
-.card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 22px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.tema-moderno .card {
-  border-radius: 18px;
-  border-color: rgba(37, 99, 235, 0.16);
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
-}
-
-.tema-escuro .card {
-  background: #111827;
-  border-color: rgba(148, 163, 184, 0.22);
-  color: #e5e7eb;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
-}
-
-.tema-suave .card {
-  background: #ffffff;
-  border-color: #dbeafe;
-  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.07);
-}
-
-.banner-publico {
-  height: 230px;
-  overflow: hidden;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.tema-moderno .banner-publico {
-  border-radius: 22px;
-  box-shadow: 0 24px 52px rgba(15, 23, 42, 0.2);
-}
-
-.tema-suave .banner-publico {
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.1);
-}
-
-.banner-publico img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.estado {
-  width: min(100%, 620px);
-  text-align: center;
-}
-
-.estado h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-  font-weight: 800;
-}
-
-.estado p {
-  margin: 0;
-  color: #64748b;
-}
-
-.tema-escuro .estado p,
-.tema-escuro .mensagem-publica,
-.tema-escuro .dados-empresa p,
-.tema-escuro .titulo-card p,
-.tema-escuro .titulo-horarios p,
-.tema-escuro .aviso-horario,
-.tema-escuro .previa,
-.tema-escuro .bloco-publico p,
-.tema-escuro .politica-publica p {
-  color: #cbd5e1;
-}
-
-.cabecalho-publico {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-}
-
-.subtitulo {
-  margin: 0 0 4px;
-  color: var(--cor-principal-publica, #2563eb);
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.logo-publico {
-  width: 72px;
-  height: 72px;
-  margin-bottom: 12px;
-  border-radius: 8px;
-  object-fit: cover;
-  border: 1px solid #e5e7eb;
-}
-
-.cabecalho-publico h1 {
-  margin: 0;
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: 0;
-  color: var(--cor-secundaria-publica, #0f172a);
-}
-
-.mensagem-publica {
-  margin: 8px 0 0;
-  color: #475569;
-}
-
-.dados-empresa {
-  display: grid;
-  gap: 6px;
-  min-width: 240px;
-}
-
-.dados-empresa p {
-  margin: 0;
-  color: #374151;
-  word-break: break-word;
-}
-
-.dados-empresa strong {
-  font-weight: 800;
-}
-
-.bloco-publico {
-  display: grid;
-  gap: 12px;
-}
-
-.bloco-publico p {
-  margin: 0;
-  color: #475569;
-}
-
-.instrucoes-publicas {
-  padding: 12px;
-  border-left: 4px solid var(--cor-principal-publica, #2563eb);
-  background: #f8fafc;
-}
-
-.links-publicos {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.links-publicos a {
-  padding: 9px 12px;
-  border-radius: 8px;
-  color: white;
-  background: var(--cor-secundaria-publica, #0f172a);
-  text-decoration: none;
-  font-weight: 800;
-}
-
-.links-institucionais {
-  display: flex;
-  justify-content: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  padding: 4px 0 10px;
-}
-
-.links-institucionais a {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.links-institucionais a:hover {
-  color: var(--cor-principal-publica, #2563eb);
-  text-decoration: underline;
-}
-
-.tema-escuro .links-institucionais a {
-  color: #cbd5e1;
-}
-
-.confirmacao-card {
-  display: grid;
-  gap: 18px;
-  border-color: #bbf7d0;
-  background: #fbfffd;
-}
-
-.confirmacao-topo {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: flex-start;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #dcfce7;
-}
-
-.confirmacao-topo h2 {
-  margin: 0;
-  color: #14532d;
-  font-size: 26px;
-  font-weight: 800;
-}
-
-.confirmacao-topo p:not(.subtitulo) {
-  margin: 8px 0 0;
-  color: #475569;
-}
-
-.protocolo {
-  display: grid;
-  gap: 4px;
-  min-width: 180px;
-  padding: 12px;
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  background: #f0fdf4;
-  color: #166534;
-}
-
-.protocolo span {
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.protocolo strong {
-  font-size: 20px;
-  word-break: break-word;
-}
-
-.resumo-confirmacao {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 12px;
-  margin: 0;
-}
-
-.resumo-confirmacao div {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: white;
-}
-
-.resumo-confirmacao .item-largo {
-  grid-column: 1 / -1;
-}
-
-.resumo-confirmacao dt {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.resumo-confirmacao dd {
-  display: grid;
-  gap: 3px;
-  margin: 0;
-  color: #111827;
-  font-size: 15px;
-  font-weight: 800;
-  word-break: break-word;
-}
-
-.resumo-confirmacao dd span {
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.mensagem-copia {
-  margin: 0;
-  color: #166534;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.acoes-confirmacao {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.formulario {
-  display: grid;
-  gap: 16px;
-}
-
-.titulo-card h2 {
-  margin: 0;
-  font-size: 22px;
-  color: #111827;
-  font-weight: 800;
-}
-
-.tema-escuro .titulo-card h2,
-.tema-escuro .titulo-horarios h3,
-.tema-escuro .estado-horarios strong,
-.tema-escuro .politica-publica h2 {
-  color: #f8fafc;
-}
-
-.titulo-card p {
-  margin: 6px 0 0;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.campos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 16px;
-}
-
-label {
-  display: grid;
-  gap: 6px;
-  color: #374151;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 11px 12px;
-  font-size: 15px;
-  background: white;
-  box-sizing: border-box;
-}
-
-.tema-escuro input,
-.tema-escuro select,
-.tema-escuro textarea {
-  background: #0f172a;
-  border-color: #334155;
-  color: #f8fafc;
-}
-
-.tema-moderno input,
-.tema-moderno select,
-.tema-moderno textarea,
-.tema-moderno .horarios,
-.tema-moderno .previa {
-  border-radius: 14px;
-}
-
-.tema-suave input,
-.tema-suave select,
-.tema-suave textarea {
-  border-color: #bfdbfe;
-  background: #fbfdff;
-}
-
-textarea {
-  min-height: 110px;
-  resize: vertical;
-  font-family: inherit;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-
-.campo-grande {
-  grid-column: 1 / -1;
-}
-
-.horarios {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.tema-escuro .horarios,
-.tema-escuro .estado-horarios,
-.tema-escuro .previa,
-.tema-escuro .resumo-confirmacao div,
-.tema-escuro .lista-ocupados span {
-  background: #0f172a;
-  border-color: #334155;
-}
-
-.tema-suave .horarios,
-.tema-suave .previa {
-  background: #f1f8ff;
-  border-color: #dbeafe;
-}
-
-.titulo-horarios h3,
-.titulo-horarios p {
-  margin: 0;
-}
-
-.titulo-horarios h3 {
-  font-size: 16px;
-  font-weight: 800;
-  color: #111827;
-}
-
-.titulo-horarios p {
-  margin-top: 4px;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.grade-horarios {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 12px;
-}
-
-.horario {
-  min-height: 60px;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  background: white;
-  color: var(--cor-principal-publica, #1d4ed8);
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 800;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    transform 0.15s ease;
-}
-
-.tema-moderno .horario {
-  min-height: 64px;
-  border-radius: 16px;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.1);
-}
-
-.tema-escuro .horario {
-  background: #1f2937;
-  border-color: #334155;
-}
-
-.tema-suave .horario {
-  background: #ffffff;
-  border-color: #dbeafe;
-}
-
-.horario:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: var(--cor-principal-publica, #2563eb);
-  background: #eff6ff;
-}
-
-.horario.selecionado {
-  background: var(--cor-principal-publica, #2563eb);
-  border-color: var(--cor-principal-publica, #2563eb);
-  color: white;
-}
-
-.estado-horarios {
-  display: grid;
-  gap: 4px;
-  padding: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: white;
-  color: #475569;
-  font-size: 14px;
-}
-
-.estado-horarios strong {
-  color: #111827;
-}
-
-.bloqueio-data,
-.estado-horarios.bloqueado {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #fef2f2;
-  color: #991b1b;
-  font-size: 14px;
-}
-
-.bloqueio-data strong,
-.estado-horarios.bloqueado strong {
-  color: #7f1d1d;
-}
-
-.bloqueio-data span,
-.estado-horarios.bloqueado span {
-  color: #991b1b;
-  font-weight: 700;
-}
-
-.legenda-horarios {
-  display: grid;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid #e5e7eb;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.legenda-horarios strong {
-  color: #475569;
-}
-
-.lista-ocupados {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.lista-ocupados span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 6px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #f1f5f9;
-  color: #64748b;
-  text-decoration: line-through;
-}
-
-.previa {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 10px 14px;
-  padding: 14px;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  background: #eff6ff;
-  color: #1e3a8a;
-  font-size: 14px;
-}
-
-.previa h3 {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: #1e3a8a;
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.previa p {
-  margin: 0;
-}
-
-.rodape-formulario {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.aviso-horario {
-  margin: 0;
-  color: #64748b;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.botao {
-  border: none;
-  color: white;
-  padding: 10px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 800;
-  transition:
-    transform 0.15s ease,
-    opacity 0.15s ease,
-    background 0.15s ease;
-}
-
-.tema-moderno .botao {
-  border-radius: 999px;
-  padding: 12px 18px;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
-}
-
-.tema-suave .botao {
-  color: var(--cor-secundaria-publica, #0f172a);
-  background: color-mix(in srgb, var(--cor-principal-publica), white 74%);
-}
-
-.tema-escuro .secundario {
-  background: #334155;
-  color: #f8fafc;
-}
-
-.botao:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.botao:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.principal {
-  background: var(--cor-principal-publica, #2563eb);
-}
-
-.principal:hover:not(:disabled) {
-  background: var(--cor-secundaria-publica, #1d4ed8);
-}
-
-.politica-publica {
-  display: grid;
-  gap: 8px;
-}
-
-.politica-publica h2 {
-  margin: 0;
-  color: var(--cor-secundaria-publica, #0f172a);
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.politica-publica p {
-  margin: 0;
-  color: #475569;
-}
-
-.secundario {
-  border: 1px solid #d1d5db;
-  background: white;
-  color: #1f2937;
-}
-
-.secundario:hover:not(:disabled) {
-  background: #f8fafc;
-}
-
-.erro {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.sucesso-card {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-  color: #15803d;
-}
-
-@media (max-width: 800px) {
-  .cabecalho-publico {
-    flex-direction: column;
-  }
-
-  .confirmacao-topo {
-    flex-direction: column;
-  }
-
-  .dados-empresa {
-    min-width: 0;
-  }
-
-  .campos,
-  .previa,
-  .resumo-confirmacao {
-    grid-template-columns: 1fr;
-  }
+.pagina-publica { min-height: 100vh; padding: 30px 16px 24px; background: radial-gradient(circle at 8% -5%, rgba(37, 99, 235, 0.16), transparent 32%), linear-gradient(180deg, #f8fbff 0%, #eef3f9 45%, #f3f6fb 100%); color: #111827; }
+.pagina-publica.tema-moderno { background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 34%), linear-gradient(135deg, #f8fafc 0%, #e0f2fe 48%, #eef2ff 100%); }
+.pagina-publica.tema-escuro { background: #020617; color: #e5e7eb; }
+.pagina-publica.tema-suave { background: #f7fbff; color: #1f2937; }
+.conteudo-publico { width: 100%; max-width: 1160px; margin: 0 auto; display: grid; gap: 20px; }
+.card { background: white; border: 1px solid #e5e7eb; border-radius: 18px; padding: 22px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
+.tema-moderno .card { border-radius: 18px; border-color: rgba(37, 99, 235, 0.16); box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14); }
+.tema-escuro .card { background: #111827; border-color: rgba(148, 163, 184, 0.22); color: #e5e7eb; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32); }
+.tema-suave .card { background: #ffffff; border-color: #dbeafe; box-shadow: 0 10px 26px rgba(37, 99, 235, 0.07); }
+.hero-publico { display: grid; gap: 18px; }
+.banner-publico { height: 210px; overflow: hidden; border-radius: 14px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
+.banner-publico img { width: 100%; height: 100%; object-fit: cover; }
+.estado { width: min(100%, 620px); text-align: center; margin: 0 auto; }
+.estado h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; }
+.estado p { margin: 0; color: #64748b; }
+.tema-escuro .estado p, .tema-escuro .mensagem-publica, .tema-escuro .dados-empresa p, .tema-escuro .titulo-card p, .tema-escuro .titulo-horarios p, .tema-escuro .aviso-horario, .tema-escuro .previa, .tema-escuro .bloco-publico p, .tema-escuro .politica-publica p { color: #cbd5e1; }
+.cabecalho-publico { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 22px; align-items: flex-start; }
+.identidade-empresa { display: flex; align-items: flex-start; gap: 20px; }
+.subtitulo { margin: 0 0 4px; color: var(--cor-principal-publica, #2563eb); font-size: 14px; font-weight: 700; text-transform: uppercase; }
+.logo-publico { width: 78px; height: 78px; border-radius: 16px; object-fit: cover; border: 1px solid #e5e7eb; }
+.logo-fallback { width: 78px; height: 78px; border-radius: 16px; display: grid; place-items: center; background: linear-gradient(145deg, var(--cor-principal-publica, #2563eb), #0f172a); color: white; font-size: 28px; font-weight: 800; }
+.cabecalho-publico h1 { margin: 0; font-size: clamp(30px, 4vw, 42px); font-weight: 800; letter-spacing: 0; color: var(--cor-secundaria-publica, #0f172a); }
+.mensagem-publica { margin: 8px 0 0; color: #475569; }
+.texto-apoio { margin: 8px 0 0; color: #334155; font-size: 16px; font-weight: 600; }
+.dados-empresa { display: grid; gap: 6px; min-width: 240px; }
+.dados-empresa p { margin: 0; color: #374151; word-break: break-word; }
+.dados-empresa strong { font-weight: 800; }
+.layout-publico { display: grid; grid-template-columns: minmax(280px, 0.95fr) minmax(0, 1.45fr); gap: 20px; align-items: start; }
+.coluna-info, .coluna-formulario { display: grid; gap: 16px; }
+.bloco-publico { display: grid; gap: 12px; }
+.bloco-publico h2 { margin: 0; font-size: 18px; }
+.bloco-publico p { margin: 0; color: #475569; }
+.instrucoes-publicas { padding: 12px; border-left: 4px solid var(--cor-principal-publica, #2563eb); background: #f8fafc; }
+.links-publicos { display: flex; gap: 10px; flex-wrap: wrap; }
+.links-publicos a { padding: 9px 12px; border-radius: 10px; color: white; background: var(--cor-secundaria-publica, #0f172a); text-decoration: none; font-weight: 800; }
+.links-institucionais { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 14px; }
+.links-institucionais a { color: #64748b; font-size: 13px; font-weight: 700; text-decoration: none; }
+.links-institucionais a:hover { color: var(--cor-principal-publica, #2563eb); text-decoration: underline; }
+.tema-escuro .links-institucionais a { color: #cbd5e1; }
+.confirmacao-card { display: grid; gap: 18px; border-color: #bbf7d0; background: #fbfffd; }
+.confirmacao-topo { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; padding-bottom: 16px; border-bottom: 1px solid #dcfce7; }
+.confirmacao-topo h2 { margin: 0; color: #14532d; font-size: 26px; font-weight: 800; }
+.confirmacao-topo p:not(.subtitulo) { margin: 8px 0 0; color: #475569; }
+.protocolo { display: grid; gap: 4px; min-width: 180px; padding: 12px; border: 1px solid #bbf7d0; border-radius: 8px; background: #f0fdf4; color: #166534; }
+.protocolo span { font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.protocolo strong { font-size: 20px; word-break: break-word; }
+.resumo-confirmacao { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 12px; margin: 0; }
+.resumo-confirmacao div { display: grid; gap: 4px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; }
+.resumo-confirmacao .item-largo { grid-column: 1 / -1; }
+.resumo-confirmacao dt { color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.resumo-confirmacao dd { display: grid; gap: 3px; margin: 0; color: #111827; font-size: 15px; font-weight: 800; word-break: break-word; }
+.resumo-confirmacao dd span { color: #64748b; font-size: 13px; font-weight: 700; }
+.mensagem-copia { margin: 0; color: #166534; font-size: 14px; font-weight: 800; }
+.acoes-confirmacao { display: flex; gap: 12px; flex-wrap: wrap; }
+.formulario { display: grid; gap: 16px; }
+.titulo-card h2 { margin: 0; font-size: 22px; color: #111827; font-weight: 800; }
+.tema-escuro .titulo-card h2, .tema-escuro .titulo-horarios h3, .tema-escuro .estado-horarios strong, .tema-escuro .politica-publica h2 { color: #f8fafc; }
+.titulo-card p { margin: 6px 0 0; color: #64748b; font-size: 14px; }
+.campos { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 16px; }
+.etapa-formulario { padding-top: 2px; }
+.etapa-tag { margin: 0; display: inline-flex; align-items: center; min-height: 32px; padding: 6px 12px; border-radius: 999px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+label { display: grid; gap: 6px; color: #374151; font-weight: 700; font-size: 14px; }
+input, select, textarea { width: 100%; min-width: 0; border: 1px solid #d1d5db; border-radius: 10px; padding: 11px 12px; font-size: 15px; background: white; box-sizing: border-box; }
+.tema-escuro input, .tema-escuro select, .tema-escuro textarea { background: #0f172a; border-color: #334155; color: #f8fafc; }
+.tema-moderno input, .tema-moderno select, .tema-moderno textarea, .tema-moderno .horarios, .tema-moderno .previa { border-radius: 14px; }
+.tema-suave input, .tema-suave select, .tema-suave textarea { border-color: #bfdbfe; background: #fbfdff; }
+textarea { min-height: 110px; resize: vertical; font-family: inherit; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+.campo-grande { grid-column: 1 / -1; }
+.horarios { display: grid; gap: 14px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc; }
+.tema-escuro .horarios, .tema-escuro .estado-horarios, .tema-escuro .previa, .tema-escuro .resumo-confirmacao div, .tema-escuro .lista-ocupados span { background: #0f172a; border-color: #334155; }
+.tema-suave .horarios, .tema-suave .previa { background: #f1f8ff; border-color: #dbeafe; }
+.titulo-horarios h3, .titulo-horarios p { margin: 0; }
+.titulo-horarios h3 { font-size: 16px; font-weight: 800; color: #111827; }
+.titulo-horarios p { margin-top: 4px; color: #64748b; font-size: 14px; }
+.grade-horarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 12px; }
+.horario { min-height: 56px; border: 1px solid #bfdbfe; border-radius: 10px; background: white; color: var(--cor-principal-publica, #1d4ed8); cursor: pointer; font-size: 16px; font-weight: 800; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease; }
+.tema-moderno .horario { min-height: 62px; border-radius: 14px; box-shadow: 0 10px 22px rgba(37, 99, 235, 0.1); }
+.tema-escuro .horario { background: #1f2937; border-color: #334155; }
+.tema-suave .horario { background: #ffffff; border-color: #dbeafe; }
+.horario:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--cor-principal-publica, #2563eb); background: #eff6ff; }
+.horario.selecionado { background: var(--cor-principal-publica, #2563eb); border-color: var(--cor-principal-publica, #2563eb); color: white; }
+.estado-horarios { display: grid; gap: 4px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; color: #475569; font-size: 14px; }
+.estado-horarios strong { color: #111827; }
+.bloqueio-data, .estado-horarios.bloqueado { display: grid; gap: 6px; padding: 14px; border: 1px solid #fecaca; border-radius: 8px; background: #fef2f2; color: #991b1b; font-size: 14px; }
+.bloqueio-data strong, .estado-horarios.bloqueado strong { color: #7f1d1d; }
+.bloqueio-data span, .estado-horarios.bloqueado span { color: #991b1b; font-weight: 700; }
+.legenda-horarios { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid #e5e7eb; color: #64748b; font-size: 13px; font-weight: 700; }
+.legenda-horarios strong { color: #475569; }
+.lista-ocupados { display: flex; gap: 8px; flex-wrap: wrap; }
+.lista-ocupados span { display: inline-flex; align-items: center; min-height: 32px; padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f1f5f9; color: #64748b; text-decoration: line-through; }
+.previa { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 10px 14px; padding: 14px; border: 1px solid #bfdbfe; border-radius: 10px; background: #eff6ff; color: #1e3a8a; font-size: 14px; }
+.previa h3 { grid-column: 1 / -1; margin: 0; color: #1e3a8a; font-size: 16px; font-weight: 800; }
+.previa p { margin: 0; }
+.rodape-formulario { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.aviso-horario { margin: 0; color: #64748b; font-size: 14px; font-weight: 700; }
+.botao { border: none; color: white; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: 800; transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease; }
+.tema-moderno .botao { border-radius: 999px; padding: 12px 18px; box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18); }
+.tema-suave .botao { color: var(--cor-secundaria-publica, #0f172a); background: #dbeafe; }
+.tema-escuro .secundario { background: #334155; color: #f8fafc; }
+.botao:hover:not(:disabled) { transform: translateY(-1px); }
+.botao:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.principal { background: var(--cor-principal-publica, #2563eb); }
+.principal:hover:not(:disabled) { background: var(--cor-secundaria-publica, #1d4ed8); }
+.politica-publica { display: grid; gap: 8px; }
+.politica-publica h2 { margin: 0; color: var(--cor-secundaria-publica, #0f172a); font-size: 20px; font-weight: 800; }
+.politica-publica p { margin: 0; color: #475569; }
+.secundario { border: 1px solid #d1d5db; background: white; color: #1f2937; }
+.secundario:hover:not(:disabled) { background: #f8fafc; }
+.erro { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+.sucesso-card { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; display: grid; gap: 8px; }
+.sucesso-card h3, .sucesso-card p { margin: 0; }
+@media (max-width: 900px) {
+  .layout-publico, .cabecalho-publico { grid-template-columns: 1fr; }
+  .cabecalho-publico { gap: 16px; }
+  .identidade-empresa, .confirmacao-topo { flex-direction: column; }
+  .dados-empresa { min-width: 0; }
+  .campos, .previa, .resumo-confirmacao { grid-template-columns: 1fr; }
+  .rodape-formulario .botao { width: 100%; min-height: 48px; }
+  .grade-horarios { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .pagina-publica { padding: 20px 12px 18px; }
+  .card { padding: 16px; border-radius: 14px; }
+  .logo-publico, .logo-fallback { width: 68px; height: 68px; border-radius: 14px; }
+  .grade-horarios { grid-template-columns: 1fr; }
 }
 </style>
