@@ -88,7 +88,7 @@ const subtituloPublico = computed(
 const mensagemConfirmacaoPublica = computed(
   () =>
     personalizacao.value.mensagemConfirmacao ||
-    'Guarde essas informaÃ§Ãµes. A empresa poderÃ¡ entrar em contato para confirmaÃ§Ã£o do atendimento.',
+    'Guarde essas informações. A empresa poderá entrar em contato para confirmação do atendimento.',
 )
 
 const dataAtendimentoFormatada = computed(() =>
@@ -132,7 +132,7 @@ const mensagemBloqueioData = computed(() => {
 
   return (
     String(disponibilidadeData.value?.mensagem || '').trim() ||
-    'A empresa nÃ£o realizarÃ¡ atendimentos nesta data. Escolha outro dia para continuar.'
+    'A empresa não realizará atendimentos nesta data. Escolha outro dia para continuar.'
   )
 })
 
@@ -148,17 +148,17 @@ const mensagemDisponibilidade = computed(() => {
   const mensagem = String(disponibilidade.value.mensagem || '').trim()
 
   if (disponibilidade.value.empresaAtendeNoDia === false) {
-    return mensagem || `A empresa ${empresa.value?.nome || ''} nÃ£o atende neste dia.`
+    return mensagem || `A empresa ${empresa.value?.nome || ''} não atende neste dia.`
   }
 
   if (disponibilidade.value.funcionarioAtendeNoDia === false) {
-    return mensagem || `O funcionÃ¡rio ${funcionarioSelecionado.value?.nome || ''} nÃ£o atende neste dia.`
+    return mensagem || `O funcionário ${funcionarioSelecionado.value?.nome || ''} não atende neste dia.`
   }
 
   if (horariosDisponiveis.value.length === 0) {
     return (
       mensagem ||
-      'Nenhum horÃ¡rio disponÃ­vel para esta data. Escolha outro dia, serviÃ§o ou funcionÃ¡rio.'
+      'Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.'
     )
   }
 
@@ -175,19 +175,19 @@ const mensagemOrientacaoHorarios = computed(() => {
   }
 
   if (!agendamento.value.servicoId) {
-    return 'Escolha um serviÃ§o para consultar os horÃ¡rios.'
+    return 'Escolha um serviço para consultar os horários.'
   }
 
   if (!agendamento.value.funcionarioId) {
-    return 'Escolha um funcionÃ¡rio para consultar os horÃ¡rios.'
+    return 'Escolha um funcionário para consultar os horários.'
   }
 
   if (!agendamento.value.dataAtendimento) {
-    return 'Escolha uma data para consultar os horÃ¡rios.'
+    return 'Escolha uma data para consultar os horários.'
   }
 
   if (carregandoDisponibilidade.value) {
-    return 'Buscando horÃ¡rios disponÃ­veis...'
+    return 'Buscando horários disponíveis...'
   }
 
   if (mensagemDisponibilidade.value) {
@@ -196,11 +196,11 @@ const mensagemOrientacaoHorarios = computed(() => {
 
   if (horariosDisponiveis.value.length > 0) {
     return agendamento.value.dataHoraInicio
-      ? 'HorÃ¡rio selecionado. VocÃª jÃ¡ pode confirmar o agendamento.'
-      : 'Escolha um dos horÃ¡rios disponÃ­veis abaixo.'
+      ? 'Horário selecionado. Você já pode confirmar o agendamento.'
+      : 'Escolha um dos horários disponíveis abaixo.'
   }
 
-  return 'Nenhum horÃ¡rio disponÃ­vel para esta data. Escolha outro dia, serviÃ§o ou funcionÃ¡rio.'
+  return 'Nenhum horário disponível para esta data. Escolha outro dia, serviço ou funcionário.'
 })
 
 const resumoVisivel = computed(() =>
@@ -401,14 +401,14 @@ async function copiarResumoConfirmacao() {
 
   try {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-      throw new Error('Clipboard indisponÃ­vel')
+      throw new Error('Clipboard indisponível')
     }
 
     await navigator.clipboard.writeText(montarTextoConfirmacao(confirmacaoAgendamento.value))
-    mensagemCopia.value = 'Resumo copiado para a Ã¡rea de transferÃªncia.'
+    mensagemCopia.value = 'Resumo copiado para a área de transferência.'
   } catch (error) {
     mensagemCopia.value =
-      'NÃ£o foi possÃ­vel copiar automaticamente. VocÃª pode tirar um print desta confirmaÃ§Ã£o.'
+      'Não foi possível copiar automaticamente. Você pode tirar um print desta confirmação.'
     console.error(error)
   }
 }
@@ -420,15 +420,15 @@ function montarTextoConfirmacao(confirmacao) {
     `Cliente: ${confirmacao.clienteNome}`,
     confirmacao.clienteTelefone ? `Telefone: ${confirmacao.clienteTelefone}` : '',
     confirmacao.clienteEmail ? `E-mail: ${confirmacao.clienteEmail}` : '',
-    `ServiÃ§o: ${confirmacao.servicoNome}`,
-    `FuncionÃ¡rio: ${confirmacao.funcionarioNome}`,
+    `Serviço: ${confirmacao.servicoNome}`,
+    `Funcionário: ${confirmacao.funcionarioNome}`,
     `Data: ${confirmacao.dataAtendimento}`,
-    `InÃ­cio: ${confirmacao.horarioInicio}`,
-    `TÃ©rmino previsto: ${confirmacao.horarioTermino}`,
-    `DuraÃ§Ã£o: ${confirmacao.duracao}`,
-    personalizacao.value.mostrarPreco ? `PreÃ§o: ${confirmacao.preco}` : '',
-    confirmacao.observacao ? `ObservaÃ§Ã£o: ${confirmacao.observacao}` : '',
-    confirmacao.id ? `CÃ³digo/Protocolo: ${confirmacao.id}` : '',
+    `Início: ${confirmacao.horarioInicio}`,
+    `Término previsto: ${confirmacao.horarioTermino}`,
+    `Duração: ${confirmacao.duracao}`,
+    personalizacao.value.mostrarPreco ? `Preço: ${confirmacao.preco}` : '',
+    confirmacao.observacao ? `Observação: ${confirmacao.observacao}` : '',
+    confirmacao.id ? `Código/Protocolo: ${confirmacao.id}` : '',
   ]
     .filter(Boolean)
     .join('\n')
@@ -450,7 +450,7 @@ async function carregarDadosPublicos() {
     const [empresaApi, personalizacaoApi] = await Promise.all([
       buscarEmpresaPublica(slug.value),
       buscarPersonalizacaoPublica(slug.value).catch((error) => {
-        console.error('NÃ£o foi possÃ­vel carregar a personalizaÃ§Ã£o pÃºblica.', error)
+        console.error('Não foi possível carregar a personalização pública.', error)
         return null
       }),
     ])
@@ -576,7 +576,7 @@ async function carregarDisponibilidade() {
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'NÃ£o foi possÃ­vel buscar os horÃ¡rios disponÃ­veis.'
+    erro.value = mensagemApi || 'Não foi possível buscar os horários disponíveis.'
     console.error(error)
   } finally {
     carregandoDisponibilidade.value = false
@@ -609,12 +609,12 @@ async function enviarAgendamento() {
     }
 
     if (!agendamento.value.servicoId) {
-      erro.value = 'Selecione um serviÃ§o.'
+      erro.value = 'Selecione um serviço.'
       return
     }
 
     if (!agendamento.value.funcionarioId) {
-      erro.value = 'Selecione um funcionÃ¡rio.'
+      erro.value = 'Selecione um funcionário.'
       return
     }
 
@@ -629,7 +629,7 @@ async function enviarAgendamento() {
     }
 
     if (!agendamento.value.dataHoraInicio) {
-      erro.value = 'Selecione um horÃ¡rio disponÃ­vel.'
+      erro.value = 'Selecione um horário disponível.'
       return
     }
 
@@ -654,7 +654,7 @@ async function enviarAgendamento() {
   } catch (error) {
     const mensagemApi = typeof error?.message === 'string' ? error.message.trim() : ''
 
-    erro.value = mensagemApi || 'NÃ£o foi possÃ­vel realizar o agendamento.'
+    erro.value = mensagemApi || 'Não foi possível realizar o agendamento.'
     console.error(error)
   } finally {
     enviando.value = false
@@ -1219,3 +1219,4 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
   .grade-horarios { grid-template-columns: 1fr; }
 }
 </style>
+
