@@ -65,7 +65,7 @@ function formatarPeriodo(agendamento) {
     return inicio
   }
 
-  return `${inicio} as ${fim}`
+  return `${inicio} às ${fim}`
 }
 
 function formatarPreço(preco) {
@@ -98,7 +98,7 @@ function statusClasse(status) {
 function statusTexto(status) {
   const statusFormatados = {
     agendado: 'Agendado',
-    concluido: 'Concluido',
+    concluido: 'Concluído',
     cancelado: 'Cancelado',
     faltou: 'Faltou',
   }

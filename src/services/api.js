@@ -2264,4 +2264,3 @@ export async function excluirAgendamento(id, motivo = '') {
 
   return tratarResposta(response)
 }
-
