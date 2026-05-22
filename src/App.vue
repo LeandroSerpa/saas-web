@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
@@ -44,6 +44,7 @@ const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
 const menuAdminAberto = ref(true)
+const menuMobileAberto = ref(false)
 const statusFinanceiro = ref(null)
 const carregandoStatusFinanceiro = ref(false)
 const ultimaConsultaFinanceira = ref(0)
@@ -55,6 +56,7 @@ let timeoutMensagemGlobal = null
 function sair() {
   limparSessaoAutenticacao()
   statusFinanceiro.value = null
+  menuMobileAberto.value = false
   router.push('/login')
 }
 
@@ -115,15 +117,30 @@ function recarregarAplicacao() {
   window.location.reload()
 }
 
+function abrirMenuMobile() {
+  menuMobileAberto.value = true
+}
+
+function fecharMenuMobile() {
+  menuMobileAberto.value = false
+}
+
 watch(
   () => route.fullPath,
   () => {
     atualizarUsuarioLogado()
     mensagemGlobal.value = ''
     erroInesperado.value = false
+    menuMobileAberto.value = false
   },
   { immediate: true },
 )
+
+watch(menuMobileAberto, (aberto) => {
+  if (typeof document !== 'undefined') {
+    document.body.classList.toggle('menu-mobile-aberto', aberto)
+  }
+})
 
 onErrorCaptured((error) => {
   console.error(error)
@@ -147,6 +164,10 @@ onBeforeUnmount(() => {
   if (timeoutMensagemGlobal) {
     clearTimeout(timeoutMensagemGlobal)
   }
+
+  if (typeof document !== 'undefined') {
+    document.body.classList.remove('menu-mobile-aberto')
+  }
 })
 </script>
 
@@ -167,7 +188,35 @@ onBeforeUnmount(() => {
   <RouterView v-else-if="rotaSemLayout" />
 
   <div v-else class="app-shell">
-    <aside class="barra-lateral">
+    <header class="topo-mobile">
+      <button class="botao-hamburguer" type="button" aria-label="Abrir menu" @click="abrirMenuMobile">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <div class="topo-mobile-texto">
+        <strong>Gestão SaaS</strong>
+        <small>{{ empresaLogada }}</small>
+      </div>
+
+      <button class="botao-sair mobile" @click="sair">Sair</button>
+    </header>
+
+    <button
+      v-if="menuMobileAberto"
+      class="menu-overlay"
+      type="button"
+      aria-label="Fechar menu"
+      @click="fecharMenuMobile"
+    ></button>
+
+    <aside class="barra-lateral" :class="{ aberta: menuMobileAberto }">
+      <div class="topo-menu-mobile">
+        <span>Menu</span>
+        <button class="botao-fechar-menu" type="button" aria-label="Fechar menu" @click="fecharMenuMobile">×</button>
+      </div>
+
       <div class="marca">
         <span class="marca-simbolo">LE</span>
         <div>
@@ -177,20 +226,20 @@ onBeforeUnmount(() => {
       </div>
 
       <nav class="menu-principal" aria-label="Navegação principal">
-        <RouterLink to="/dashboard">Dashboard</RouterLink>
-        <RouterLink to="/agenda">Agenda</RouterLink>
-        <RouterLink to="/clientes">Clientes</RouterLink>
-        <RouterLink to="/servicos">Serviços</RouterLink>
-        <RouterLink to="/funcionarios">Funcionários</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade">Disponibilidade</RouterLink>
-        <RouterLink v-if="adminEmpresa" to="/onboarding">Primeiros passos</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios">Relatórios</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa">Minha empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes">Notificações da empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao">Personalização</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano">Meu plano</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/faturas">Faturas</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios">Usuários</RouterLink>
+        <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
+        <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
+        <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
+        <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
+        <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">Disponibilidade</RouterLink>
+        <RouterLink v-if="adminEmpresa" to="/onboarding" @click="fecharMenuMobile">Primeiros passos</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">Relatórios</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa" @click="fecharMenuMobile">Minha empresa</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">Notificações da empresa</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano" @click="fecharMenuMobile">Meu plano</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/faturas" @click="fecharMenuMobile">Faturas</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
 
         <section v-if="superAdmin" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
@@ -199,24 +248,24 @@ onBeforeUnmount(() => {
           </button>
 
           <div v-if="menuAdminAberto" class="submenu">
-            <RouterLink to="/admin-dashboard">Dashboard SaaS</RouterLink>
-            <RouterLink to="/empresas">Empresas</RouterLink>
-            <RouterLink to="/admin/empresas/onboarding">Novo cadastro guiado</RouterLink>
-            <RouterLink to="/planos">Planos</RouterLink>
-            <RouterLink to="/assinaturas">Assinaturas</RouterLink>
-            <RouterLink to="/admin/notificacoes">Notificações SaaS</RouterLink>
-            <RouterLink to="/admin/automacoes">Automações</RouterLink>
-            <RouterLink to="/admin/financeiro">Inadimplência</RouterLink>
-            <RouterLink to="/faturas-recorrentes">Faturas recorrentes</RouterLink>
-            <RouterLink to="/configuracoes-pagamento">Configuração de pagamento</RouterLink>
-            <RouterLink to="/segmentos">Segmentos/Módulos</RouterLink>
-            <RouterLink to="/solicitacoes">Solicitações</RouterLink>
-            <RouterLink to="/auditoria">Auditoria</RouterLink>
-            <RouterLink to="/lixeira">Lixeira</RouterLink>
+            <RouterLink to="/admin-dashboard" @click="fecharMenuMobile">Dashboard SaaS</RouterLink>
+            <RouterLink to="/empresas" @click="fecharMenuMobile">Empresas</RouterLink>
+            <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
+            <RouterLink to="/planos" @click="fecharMenuMobile">Planos</RouterLink>
+            <RouterLink to="/assinaturas" @click="fecharMenuMobile">Assinaturas</RouterLink>
+            <RouterLink to="/admin/notificacoes" @click="fecharMenuMobile">Notificações SaaS</RouterLink>
+            <RouterLink to="/admin/automacoes" @click="fecharMenuMobile">Automações</RouterLink>
+            <RouterLink to="/admin/financeiro" @click="fecharMenuMobile">Inadimplência</RouterLink>
+            <RouterLink to="/faturas-recorrentes" @click="fecharMenuMobile">Faturas recorrentes</RouterLink>
+            <RouterLink to="/configuracoes-pagamento" @click="fecharMenuMobile">Configuração de pagamento</RouterLink>
+            <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/Módulos</RouterLink>
+            <RouterLink to="/solicitacoes" @click="fecharMenuMobile">Solicitações</RouterLink>
+            <RouterLink to="/auditoria" @click="fecharMenuMobile">Auditoria</RouterLink>
+            <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
           </div>
         </section>
 
-        <RouterLink to="/alterar-senha">Alterar senha</RouterLink>
+        <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
       </nav>
     </aside>
 
@@ -319,6 +368,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 260px minmax(0, 1fr);
   background: #eef2f7;
   color: #111827;
+  position: relative;
 }
 
 .barra-lateral {
@@ -328,6 +378,12 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 28px;
+}
+
+.topo-mobile,
+.topo-menu-mobile,
+.menu-overlay {
+  display: none;
 }
 
 .marca {
@@ -499,6 +555,38 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
 }
 
+.botao-hamburguer {
+  border: none;
+  background: #0f172a;
+  color: white;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.botao-hamburguer span {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.botao-fechar-menu {
+  border: none;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  background: rgba(148, 163, 184, 0.16);
+  color: #e2e8f0;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .mensagem-global {
   margin: 0 0 18px;
   border-radius: 8px;
@@ -527,12 +615,82 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
+  .topo-mobile {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .topo-mobile-texto {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .topo-mobile-texto strong,
+  .topo-mobile-texto small {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topo-mobile-texto small {
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .botao-sair.mobile {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .menu-overlay {
+    position: fixed;
+    inset: 0;
+    border: none;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 35;
+    display: block;
+  }
+
   .barra-lateral {
-    padding: 18px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: min(82vw, 320px);
+    padding: 16px;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    overflow-y: auto;
+  }
+
+  .barra-lateral.aberta {
+    transform: translateX(0);
+  }
+
+  .topo-menu-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .area-principal {
-    padding: 18px;
+    padding: 16px;
   }
 
   .topo-app,
@@ -540,6 +698,31 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     flex-direction: column;
     text-align: left;
+  }
+}
+
+@media (max-width: 768px) {
+  .area-principal {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .topo-app {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-erro-interno {
+    padding: 20px;
+  }
+
+  .card-erro-interno h1 {
+    font-size: 24px;
+  }
+
+  .area-principal {
+    padding: 12px;
   }
 }
 </style>

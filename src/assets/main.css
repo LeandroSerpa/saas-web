@@ -8,3 +8,106 @@
 a {
   transition: background 0.2s ease;
 }
+
+body.menu-mobile-aberto {
+  overflow: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .pagina,
+  .page,
+  .content,
+  .main-content {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .card,
+  .resumo-card,
+  .base-card,
+  .metrica,
+  .agendamento-card,
+  .automacao-card {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .grade-resumo,
+  .grade-base,
+  .cards,
+  .listas,
+  .lista,
+  .lista-proximos,
+  .grade-automacoes,
+  .grade-resumo,
+  .grade-resultado,
+  .campos,
+  .campos-filtros,
+  .filtros,
+  .filters,
+  .acoes-filtros {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cabecalho-pagina,
+  .cabecalho-card,
+  .cabecalho-lista,
+  .acoes,
+  .acoes-filtros,
+  .usuario-logado,
+  .topo-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  label,
+  input,
+  select,
+  textarea,
+  .botao,
+  .acoes .botao,
+  .acoes-filtros .botao {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .contador,
+  .status,
+  .badge {
+    white-space: normal;
+  }
+
+  .tabela-container,
+  .table-wrapper,
+  .tabela-wrapper,
+  .auditoria-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tabela-container table,
+  .table-wrapper table,
+  .tabela-wrapper table,
+  .auditoria-table-wrapper table,
+  table {
+    min-width: 640px;
+  }
+}
+
+@media (max-width: 480px) {
+  #app {
+    font-size: 15px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+}
