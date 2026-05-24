@@ -9,7 +9,13 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     port: 4173,
-    allowedHosts: ['automacao-le-saas-web.1mweab.easypanel.host'],
+    allowedHosts: [
+      'automacao-le-saas-web.1mweab.easypanel.host',
+      'gestao.nuvemmais.com.br',
+      'www.gestao.nuvemmais.com.br',
+      'app.nuvemmais.com.br',
+      'www.app.nuvemmais.com.br',
+    ],
   },
   resolve: {
     alias: {
