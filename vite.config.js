@@ -13,8 +13,6 @@ export default defineConfig({
       'automacao-le-saas-web.1mweab.easypanel.host',
       'gestao.nuvemmais.com.br',
       'www.gestao.nuvemmais.com.br',
-      'app.nuvemmais.com.br',
-      'www.app.nuvemmais.com.br',
     ],
   },
   resolve: {
