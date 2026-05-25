@@ -1,5 +1,5 @@
-const API_URL_FALLBACK = 'https://automacao-le-saas-api.1mweab.easypanel.host'
-const PUBLIC_APP_URL_FALLBACK = 'https://automacao-le-saas-web.1mweab.easypanel.host'
+const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
+const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : 'https://gestao.nuvemmais.com.br'
 const MENSAGENS_PADRAO = {
   sessaoExpirada: 'Sessão expirada. Faça login novamente.',
   acessoNegado: 'Acesso negado. Você não tem permissão para acessar esta área.',
