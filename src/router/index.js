@@ -39,6 +39,7 @@ import NaoEncontradoView from '../views/NaoEncontradoView.vue'
 import TermosView from '../views/TermosView.vue'
 import PrivacidadeView from '../views/PrivacidadeView.vue'
 import SobreView from '../views/SobreView.vue'
+import AjudaView from '../views/AjudaView.vue'
 import { carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
@@ -151,6 +152,12 @@ const router = createRouter({
       path: '/meu-plano',
       name: 'meu-plano',
       component: MeuPlanoView,
+      meta: rotasAdmin,
+    },
+    {
+      path: '/ajuda',
+      name: 'ajuda',
+      component: AjudaView,
       meta: rotasAdmin,
     },
     {

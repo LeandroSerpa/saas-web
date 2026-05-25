@@ -74,6 +74,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Meu plano',
     descricao: 'Acompanhe recursos e limites do plano atual.',
   },
+  ajuda: {
+    subtitulo: 'Ajuda interna',
+    titulo: 'Central de Ajuda',
+    descricao: 'Aprenda a usar as principais funcionalidades do NuvemMais Gestão.',
+  },
   onboarding: {
     subtitulo: 'Implantação',
     titulo: 'Primeiros passos',
@@ -524,6 +529,7 @@ onBeforeUnmount(() => {
         <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano" @click="fecharMenuMobile">Meu plano</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/faturas" @click="fecharMenuMobile">Faturas</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
 
         <section v-if="superAdmin" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
