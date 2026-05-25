@@ -1,8 +1,8 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
-import NotificacoesBell from '@/components/NotificacoesBell.vue'
 import {
   buscarStatusFinanceiroMinhaEmpresa,
   carregarUsuarioSessao,
@@ -156,7 +156,7 @@ const CABECALHOS_PADRAO = {
   },
   'configuracoes-pagamento': {
     subtitulo: 'Administração SaaS',
-    titulo: 'Configuração de pagamento',
+    titulo: 'Configurações de pagamento',
     descricao: 'Defina regras e métodos de pagamento da plataforma.',
   },
   auditoria: {
@@ -212,6 +212,7 @@ const identificacaoConta = computed(() => {
 
   return email || 'Sessão ativa'
 })
+const nomeUsuario = computed(() => usuario.value?.nome || 'Usuário')
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
@@ -485,20 +486,6 @@ onBeforeUnmount(() => {
   <RouterView v-else-if="rotaSemLayout" />
 
   <div v-else class="app-shell">
-    <header class="topo-mobile">
-      <button class="botao-hamburguer" type="button" aria-label="Abrir menu" @click="abrirMenuMobile">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-
-      <div class="topo-mobile-texto">
-        <strong>Gestão SaaS</strong>
-        <small>{{ empresaLogada }}</small>
-      </div>
-
-      <button class="botao-sair mobile" @click="sair">Sair</button>
-    </header>
 
     <button
       v-if="menuMobileAberto"
@@ -508,7 +495,7 @@ onBeforeUnmount(() => {
       @click="fecharMenuMobile"
     ></button>
 
-    <aside class="barra-lateral" :class="{ aberta: menuMobileAberto }">
+    <aside class="app-sidebar" :class="{ aberta: menuMobileAberto }">
       <div class="topo-menu-mobile">
         <span>Menu</span>
         <button class="botao-fechar-menu" type="button" aria-label="Fechar menu" @click="fecharMenuMobile">×</button>
@@ -567,42 +554,19 @@ onBeforeUnmount(() => {
       </nav>
     </aside>
 
-    <div class="area-principal">
-      <header class="app-header-compacto">
-        <div class="app-header-info">
-          <span class="app-header-etiqueta">{{ cabecalhoExibido.subtitulo }}</span>
-          <div class="app-header-texto">
-            <h1>{{ cabecalhoExibido.titulo }}</h1>
-            <p v-if="cabecalhoExibido.descricao">{{ cabecalhoExibido.descricao }}</p>
-          </div>
-        </div>
-
-        <div class="app-header-acoes">
-          <div class="app-header-notificacoes">
-            <NotificacoesBell />
-          </div>
-
-          <div class="app-header-conta-info">
-            <strong>{{ empresaLogada }}</strong>
-            <span>Usuário: {{ usuario?.nome || 'Usuário' }}</span>
-            <small>{{ identificacaoConta }}</small>
-          </div>
-
-          <div class="app-header-conta-botoes">
-            <button
-              v-if="cabecalhoPagina.acaoDisponivel"
-              class="app-header-botao-acao"
-              :disabled="cabecalhoPagina.acaoDesabilitada"
-              @click="executarAcaoPagina"
-            >
-              {{ cabecalhoPagina.acaoRotulo }}
-            </button>
-
-            <button class="app-header-botao-sair" @click="sair">Sair</button>
-          </div>
-        </div>
-      </header>
-
+    <div class="app-main">
+      <AppHeaderCompacto
+        :cabecalho="cabecalhoExibido"
+        :empresa-logada="empresaLogada"
+        :nome-usuario="nomeUsuario"
+        :identificacao-conta="identificacaoConta"
+        :acao-rotulo="cabecalhoPagina.acaoRotulo"
+        :acao-disponivel="cabecalhoPagina.acaoDisponivel"
+        :acao-desabilitada="cabecalhoPagina.acaoDesabilitada"
+        @abrir-menu="abrirMenuMobile"
+        @executar-acao="executarAcaoPagina"
+        @sair="sair"
+      />
       <FinanceiroStatusBanner v-if="adminEmpresa" :status="statusFinanceiro" />
 
       <section v-if="mensagemGlobal" class="mensagem-global" :class="tipoMensagemGlobal">
@@ -687,7 +651,7 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.barra-lateral {
+.app-sidebar {
   background: #0f172a;
   color: white;
   padding: 24px;
@@ -696,7 +660,6 @@ onBeforeUnmount(() => {
   gap: 28px;
 }
 
-.topo-mobile,
 .topo-menu-mobile,
 .menu-overlay {
   display: none;
@@ -789,221 +752,17 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.area-principal {
+.app-main {
   min-width: 0;
   max-width: none;
   width: 100%;
   padding: 24px;
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: 12px;
 }
 
-.app-header-compacto {
-  min-height: 0 !important;
-  height: auto !important;
-  margin: 0 0 2px;
-  padding: 18px 22px !important;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: white;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
-}
-
-.app-header-info {
-  min-width: 0;
-  flex: 1 1 440px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-}
-
-.app-header-etiqueta {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 8px;
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.app-header-texto {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-}
-
-.app-header-texto h1 {
-  margin: 0;
-  font-size: clamp(22px, 2.2vw, 28px);
-  font-weight: 800;
-  line-height: 1.08;
-  color: #0f172a;
-}
-
-.app-header-texto p {
-  margin: 0;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.35;
-  max-width: 58ch;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.app-header-acoes {
-  min-height: 0 !important;
-  height: auto !important;
-  flex: 0 1 auto;
-  max-width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 8px 10px !important;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #f8fafc;
-}
-
-.app-header-notificacoes {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-}
-
-.app-header-conta-info {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-  text-align: left;
-}
-
-.app-header-conta-info strong,
-.app-header-conta-info span,
-.app-header-conta-info small {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.app-header-conta-info strong {
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.app-header-conta-info span {
-  color: #334155;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.app-header-conta-info small {
-  color: #64748b;
-  font-size: 11px;
-}
-
-.app-header-conta-botoes {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.app-header-botao-acao,
-.app-header-botao-sair {
-  border: none;
-  color: white;
-  padding: 8px 12px;
-  border-radius: 9px;
-  cursor: pointer;
-  font-weight: 800;
-  font-size: 12px;
-  line-height: 1.2;
-  transition:
-    transform 0.15s ease,
-    background 0.15s ease,
-    opacity 0.15s ease;
-}
-
-.app-header-botao-acao {
-  background: #2563eb;
-}
-
-.app-header-botao-acao:hover {
-  background: #1d4ed8;
-  transform: translateY(-1px);
-}
-
-.app-header-botao-acao:disabled,
-.app-header-botao-sair:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.app-header-botao-sair {
-  background: #0f172a;
-}
-
-.app-header-botao-sair:hover {
-  background: #1e293b;
-  transform: translateY(-1px);
-}
-
-.botao-sair {
-  border: none;
-  color: white;
-  background: #0f172a;
-  padding: 10px 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 800;
-  transition:
-    transform 0.15s ease,
-    background 0.15s ease;
-}
-
-.botao-sair:hover {
-  background: #1e293b;
-  transform: translateY(-1px);
-}
-
-.botao-hamburguer {
-  border: none;
-  background: #0f172a;
-  color: white;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  display: grid;
-  place-content: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.botao-hamburguer span {
-  width: 18px;
-  height: 2px;
-  border-radius: 999px;
-  background: currentColor;
-}
 
 .botao-fechar-menu {
   border: none;
@@ -1045,49 +804,12 @@ onBeforeUnmount(() => {
 }
 
 :deep(.conteudo-rota > .pagina > .cabecalho-pagina:first-child) {
-  display: none;
+  display: none !important;
 }
 
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;
-  }
-
-  .topo-mobile {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    background: white;
-    border-bottom: 1px solid #e5e7eb;
-  }
-
-  .topo-mobile-texto {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .topo-mobile-texto strong,
-  .topo-mobile-texto small {
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .topo-mobile-texto small {
-    margin-top: 2px;
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .botao-sair.mobile {
-    padding: 8px 12px;
-    font-size: 13px;
   }
 
   .menu-overlay {
@@ -1099,7 +821,7 @@ onBeforeUnmount(() => {
     display: block;
   }
 
-  .barra-lateral {
+  .app-sidebar {
     position: fixed;
     top: 0;
     left: 0;
@@ -1112,7 +834,7 @@ onBeforeUnmount(() => {
     overflow-y: auto;
   }
 
-  .barra-lateral.aberta {
+  .app-sidebar.aberta {
     transform: translateX(0);
   }
 
@@ -1127,58 +849,8 @@ onBeforeUnmount(() => {
     letter-spacing: 0.03em;
   }
 
-  .area-principal {
+  .app-main {
     padding: 16px;
-  }
-
-  .app-header-compacto {
-    padding: 16px !important;
-    align-items: flex-start;
-  }
-
-  .app-header-info {
-    flex-basis: 100%;
-  }
-
-  .app-header-acoes {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .app-header-conta-botoes {
-    width: 100%;
-    margin-left: 0;
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 768px) {
-  .area-principal {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .app-header-compacto {
-    padding: 14px !important;
-  }
-
-  .app-header-texto h1 {
-    font-size: 24px;
-  }
-
-  .app-header-acoes {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .app-header-conta-botoes {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .app-header-botao-acao,
-  .app-header-botao-sair {
-    width: 100%;
   }
 }
 
@@ -1191,7 +863,7 @@ onBeforeUnmount(() => {
     font-size: 24px;
   }
 
-  .area-principal {
+  .app-main {
     padding: 12px;
   }
 }
