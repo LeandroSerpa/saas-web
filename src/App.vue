@@ -793,28 +793,28 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: 24px;
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .topo-app {
   margin: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px 20px;
+  gap: 10px 16px;
   align-items: center;
-  padding: 16px 18px;
+  padding: 12px 18px;
   border: 1px solid #dbe4f0;
-  border-radius: 18px;
+  border-radius: 14px;
   background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 34%),
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.06), transparent 28%),
     linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
 }
 
 .topo-contexto {
   min-width: 0;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .topo-contexto-selo {
@@ -822,7 +822,7 @@ onBeforeUnmount(() => {
   width: fit-content;
   align-items: center;
   border-radius: 999px;
-  padding: 5px 9px;
+  padding: 4px 8px;
   background: rgba(37, 99, 235, 0.1);
   color: #1d4ed8;
   font-size: 11px;
@@ -833,35 +833,35 @@ onBeforeUnmount(() => {
 
 .topo-contexto-texto {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .topo-contexto-texto h1 {
   margin: 0;
-  font-size: clamp(26px, 3.2vw, 34px);
+  font-size: clamp(24px, 2.8vw, 30px);
   font-weight: 800;
-  line-height: 1.08;
+  line-height: 1.04;
   color: #0f172a;
 }
 
 .topo-contexto-texto p {
   margin: 0;
   color: #475569;
-  font-size: 14px;
-  line-height: 1.4;
-  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.35;
+  max-width: 56ch;
 }
 
 .usuario-logado {
   display: flex;
   align-items: center;
   align-self: center;
-  gap: 12px;
-  padding: 9px 12px;
+  gap: 10px;
+  padding: 8px 10px;
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .usuario-logado-identidade {
@@ -881,25 +881,25 @@ onBeforeUnmount(() => {
 }
 
 .usuario-logado-identidade strong {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .usuario-logado-identidade span {
   color: #334155;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .usuario-logado-identidade small {
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .usuario-logado-acoes {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-left: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -909,11 +909,11 @@ onBeforeUnmount(() => {
 .botao-sair {
   border: none;
   color: white;
-  padding: 9px 13px;
-  border-radius: 10px;
+  padding: 8px 12px;
+  border-radius: 9px;
   cursor: pointer;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
   transition:
     transform 0.15s ease,
@@ -1094,8 +1094,8 @@ onBeforeUnmount(() => {
 
   .topo-app {
     grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 15px 16px;
+    gap: 10px;
+    padding: 14px 15px;
   }
 
   .usuario-logado {
@@ -1117,11 +1117,11 @@ onBeforeUnmount(() => {
   }
 
   .topo-app {
-    padding: 14px;
+    padding: 13px 14px;
   }
 
   .topo-contexto-texto h1 {
-    font-size: 26px;
+    font-size: 24px;
   }
 
   .usuario-logado {
