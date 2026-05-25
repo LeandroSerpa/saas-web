@@ -4,6 +4,15 @@ import { computed, ref, watch } from 'vue'
 const busca = ref('')
 const topicoAtivoId = ref('comecando')
 
+const roteiroRecomendado = [
+  'Cadastre os serviços oferecidos.',
+  'Cadastre os funcionários.',
+  'Cadastre ou importe os clientes.',
+  'Confira os horários e disponibilidades.',
+  'Faça um agendamento interno de teste.',
+  'Copie o link público e teste um agendamento como cliente.',
+]
+
 const perguntasFrequentes = [
   {
     pergunta: 'Como faço um novo agendamento?',
@@ -61,6 +70,7 @@ const topicos = [
       'Depois ajuste dados da empresa, horários e página pública para facilitar o atendimento.',
     ],
     destaque: 'Bom ponto de partida para quem está começando a usar o sistema.',
+    roteiro: roteiroRecomendado,
   },
   {
     id: 'dashboard',
@@ -75,6 +85,7 @@ const topicos = [
       'Use essa área para ter uma leitura rápida da rotina da empresa.',
     ],
     destaque: 'Ideal para começar o dia e acompanhar o andamento da operação.',
+    rota: '/dashboard',
   },
   {
     id: 'agenda',
@@ -89,6 +100,7 @@ const topicos = [
       'Acompanhe também os agendamentos recebidos pelo link público da empresa.',
     ],
     destaque: 'É a área principal para organizar horários e acompanhar atendimentos.',
+    rota: '/agenda',
   },
   {
     id: 'clientes',
@@ -103,6 +115,7 @@ const topicos = [
       'Use essa base para facilitar a criação de novos agendamentos.',
     ],
     destaque: 'Um cadastro bem organizado deixa a agenda mais rápida e confiável.',
+    rota: '/clientes',
   },
   {
     id: 'servicos',
@@ -117,6 +130,7 @@ const topicos = [
       'Use o status ativo ou inativo para controlar o que continua disponível.',
     ],
     destaque: 'Essa configuração ajuda o sistema a montar agendamentos com mais consistência.',
+    rota: '/servicos',
   },
   {
     id: 'funcionarios',
@@ -131,6 +145,7 @@ const topicos = [
       'Quando existir esse vínculo, associe os serviços que cada profissional pode atender.',
     ],
     destaque: 'Muito útil para distribuir a agenda e evitar conflitos de atendimento.',
+    rota: '/funcionarios',
   },
   {
     id: 'disponibilidade',
@@ -145,6 +160,7 @@ const topicos = [
       'Use essa área para manter a agenda alinhada com a realidade da operação.',
     ],
     destaque: 'Ajuda a reduzir conflitos e horários que não podem ser usados.',
+    rota: '/disponibilidade',
   },
   {
     id: 'link-publico',
@@ -173,6 +189,7 @@ const topicos = [
       'Acompanhe especialmente os novos agendamentos recebidos pelo link público.',
     ],
     destaque: 'Uma boa forma de não perder acontecimentos importantes da rotina.',
+    rota: '/notificacoes',
   },
   {
     id: 'relatorios',
@@ -187,6 +204,7 @@ const topicos = [
       'Use os relatórios para tomar decisões com mais clareza.',
     ],
     destaque: 'Ideal para analisar resultados e enxergar oportunidades de melhoria.',
+    rota: '/relatorios',
   },
   {
     id: 'minha-empresa',
@@ -201,6 +219,7 @@ const topicos = [
       'Consulte e organize o link público da empresa nessa área.',
     ],
     destaque: 'Essa tela concentra dados essenciais para o funcionamento da empresa.',
+    rota: '/minha-empresa',
   },
   {
     id: 'personalizacao',
@@ -215,6 +234,7 @@ const topicos = [
       'Use essa área para deixar a experiência mais alinhada com a sua empresa.',
     ],
     destaque: 'Ajuda a apresentar a empresa com mais clareza para o cliente final.',
+    rota: '/personalizacao',
   },
   {
     id: 'usuarios',
@@ -229,11 +249,12 @@ const topicos = [
       'Mantenha os dados dos usuários atualizados para facilitar o uso diário.',
     ],
     destaque: 'Importante para controlar quem acessa o sistema da empresa.',
+    rota: '/usuarios',
   },
   {
     id: 'minha-conta',
     titulo: 'Minha conta',
-    resumo: 'Atualização dos dados pessoais do usuário logado.',
+    resumo: 'Atualização dos seus dados pessoais.',
     palavrasChave: ['nome', 'e-mail', 'login', 'dados pessoais'],
     introducao:
       'A área Minha conta foi criada para você manter seus dados pessoais atualizados dentro do sistema.',
@@ -243,6 +264,7 @@ const topicos = [
       'Use essa área sempre que precisar atualizar suas informações pessoais.',
     ],
     destaque: 'É o lugar certo para cuidar dos seus dados de acesso.',
+    rota: '/minha-conta',
   },
   {
     id: 'alterar-senha',
@@ -257,6 +279,7 @@ const topicos = [
       'Depois de confirmar, use a nova senha nos próximos acessos.',
     ],
     destaque: 'Recomendado sempre que você quiser reforçar a segurança do acesso.',
+    rota: '/alterar-senha',
   },
   {
     id: 'faturas-plano',
@@ -271,6 +294,7 @@ const topicos = [
       'Use essas informações para manter a assinatura em dia.',
     ],
     destaque: 'Essas telas ajudam no controle financeiro da assinatura da empresa.',
+    rota: '/meu-plano',
   },
   {
     id: 'perguntas-frequentes',
@@ -292,7 +316,7 @@ const topicos = [
 const estatisticas = computed(() => [
   { rotulo: 'Tópicos principais', valor: topicos.length - 1 },
   { rotulo: 'Perguntas frequentes', valor: perguntasFrequentes.length },
-  { rotulo: 'Busca rápida', valor: busca.value.trim() ? 'Ativa' : 'Pronta' },
+  { rotulo: 'Busca rápida', valor: 'Disponível' },
 ])
 
 const topicosFiltrados = computed(() => {
@@ -401,11 +425,23 @@ function selecionarTopico(topicoId) {
               <p class="subtitulo">Tópico selecionado</p>
               <h2>{{ topicoAtivo.titulo }}</h2>
             </div>
-            <span class="selo-topico">Ajuda</span>
+            <div class="acoes-topico">
+              <RouterLink v-if="topicoAtivo.rota" class="botao-tela" :to="topicoAtivo.rota">
+                Ir para esta tela
+              </RouterLink>
+              <span class="selo-topico">Ajuda</span>
+            </div>
           </header>
 
           <p class="texto-principal">{{ topicoAtivo.introducao }}</p>
           <p class="texto-destaque">{{ topicoAtivo.destaque }}</p>
+
+          <section v-if="topicoAtivo.roteiro?.length" class="roteiro-recomendado">
+            <h3>Roteiro recomendado</h3>
+            <ol>
+              <li v-for="passo in topicoAtivo.roteiro" :key="passo">{{ passo }}</li>
+            </ol>
+          </section>
 
           <section class="secao-texto">
             <h3>O que você encontra nessa área</h3>
@@ -414,13 +450,12 @@ function selecionarTopico(topicoId) {
             </ul>
           </section>
 
-          <section class="area-print" aria-label="Espaço reservado para prints">
-            <span>Área reservada para imagem</span>
-            <strong>Print da tela será adicionado aqui</strong>
-            <p>Este espaço já está preparado para receber capturas da tela futuramente.</p>
-          </section>
+          <figure v-if="topicoAtivo.imagem?.src && topicoAtivo.id !== 'perguntas-frequentes'" class="imagem-topico">
+            <img :src="topicoAtivo.imagem.src" :alt="topicoAtivo.imagem.alt || `Imagem da tela ${topicoAtivo.titulo}`" />
+            <figcaption v-if="topicoAtivo.imagem.legenda">{{ topicoAtivo.imagem.legenda }}</figcaption>
+          </figure>
 
-          <section v-if="topicoAtivo.perguntas?.length" class="secao-texto">
+          <section v-if="topicoAtivo.perguntas?.length" class="secao-texto faq-secao">
             <h3>Perguntas frequentes</h3>
 
             <details v-for="item in topicoAtivo.perguntas" :key="item.pergunta" class="faq-item">
@@ -615,7 +650,7 @@ function selecionarTopico(topicoId) {
 .estado-vazio,
 .texto-principal,
 .texto-destaque,
-.area-print p,
+.imagem-topico figcaption,
 .faq-item p,
 .topico-vazio p {
   margin: 0;
@@ -646,6 +681,39 @@ function selecionarTopico(topicoId) {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.acoes-topico {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.botao-tela {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.botao-tela:hover {
+  transform: translateY(-1px);
+  border-color: #60a5fa;
+  background: #eff6ff;
 }
 
 .texto-principal {
@@ -679,39 +747,61 @@ function selecionarTopico(topicoId) {
   gap: 10px;
 }
 
-.area-print {
+.roteiro-recomendado {
   display: grid;
-  place-items: center;
-  gap: 8px;
-  min-height: 220px;
-  padding: 24px;
-  border: 2px dashed #cbd5e1;
-  border-radius: 8px;
-  background: #f8fafc;
-  text-align: center;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
 }
 
-.area-print span {
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.area-print strong {
+.roteiro-recomendado h3 {
+  margin: 0;
   color: #0f172a;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
+}
+
+.roteiro-recomendado ol {
+  margin: 0;
+  padding-left: 22px;
+  color: #334155;
+  display: grid;
+  gap: 9px;
+}
+
+.roteiro-recomendado li::marker {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.imagem-topico {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.imagem-topico img {
+  width: 100%;
+  max-height: 460px;
+  object-fit: contain;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f8fafc;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
 .faq-item {
-  padding: 14px 0;
-  border-top: 1px solid #e5e7eb;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 .faq-item:first-of-type {
-  border-top: none;
-  padding-top: 0;
+  border-top: 1px solid #e5e7eb;
 }
 
 .faq-item summary {
@@ -719,6 +809,23 @@ function selecionarTopico(topicoId) {
   color: #111827;
   font-weight: 800;
   list-style: none;
+  padding: 14px 16px;
+}
+
+.faq-item summary::after {
+  content: '+';
+  float: right;
+  color: #2563eb;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.faq-item[open] summary {
+  background: #f8fafc;
+}
+
+.faq-item[open] summary::after {
+  content: '-';
 }
 
 .faq-item summary::-webkit-details-marker {
@@ -726,7 +833,7 @@ function selecionarTopico(topicoId) {
 }
 
 .faq-item p {
-  padding-top: 10px;
+  padding: 0 16px 16px;
 }
 
 .topico-vazio {
@@ -758,6 +865,10 @@ function selecionarTopico(topicoId) {
     align-items: flex-start;
   }
 
+  .acoes-topico {
+    justify-content: flex-start;
+  }
+
   .resumo-ajuda {
     grid-template-columns: 1fr;
   }
@@ -776,12 +887,9 @@ function selecionarTopico(topicoId) {
     font-size: 24px;
   }
 
-  .area-print {
-    min-height: 180px;
-  }
-
-  .area-print strong {
-    font-size: 18px;
+  .botao-tela,
+  .selo-topico {
+    width: 100%;
   }
 }
 </style>
