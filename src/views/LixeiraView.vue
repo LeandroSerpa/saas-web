@@ -337,14 +337,14 @@ function obterSituacao(item) {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Super admin</p>
+        <p class="subtitulo">Administração NuvemMais</p>
         <h1>Lixeira de agendamentos</h1>
         <p class="descricao">
-          Agendamentos excluídos não são apagados definitivamente. O SUPER_ADMIN pode consultar e
+          Agendamentos excluídos não são apagados definitivamente. O Administrador NuvemMais pode consultar e
           restaurar registros quando não houver conflito de horário.
         </p>
         <p class="observacao-super-admin">
-          Como SUPER_ADMIN, você está visualizando agendamentos excluídos de todas as empresas.
+          Como Administrador NuvemMais, você está visualizando agendamentos excluídos de todas as empresas.
           Use o filtro Empresa para visualizar uma empresa específica.
         </p>
       </div>

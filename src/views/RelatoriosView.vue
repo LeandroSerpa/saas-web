@@ -802,7 +802,7 @@ onMounted(async () => {
         <div class="cabecalho-lista">
           <div>
             <h2>Tabela detalhada de agendamentos</h2>
-            <p>Registros retornados pela API para os filtros aplicados.</p>
+            <p>Registros encontrados para os filtros aplicados.</p>
           </div>
 
           <span class="contador">{{ paginacaoAgendamentos.totalElements }} agendamento(s)</span>

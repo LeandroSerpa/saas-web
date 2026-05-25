@@ -465,7 +465,7 @@ onMounted(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Funcionários cadastrados</h2>
-          <p>Lista de funcionários retornados pela API publicada.</p>
+          <p>Consulte e gerencie os profissionais disponíveis para atendimento.</p>
         </div>
 
         <span class="contador">{{ paginacao.totalElements }} funcionário(s)</span>

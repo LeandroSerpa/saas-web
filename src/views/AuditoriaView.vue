@@ -359,7 +359,7 @@ function formatarJson(valor) {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Super admin</p>
+        <p class="subtitulo">Administração NuvemMais</p>
         <h1>Auditoria do sistema</h1>
         <p class="descricao">Acompanhe ações realizadas por usuários, empresas e clientes públicos.</p>
       </div>
@@ -375,7 +375,7 @@ function formatarJson(valor) {
 
     <section class="card filtros">
       <p class="observacao-super-admin">
-        Como SUPER_ADMIN, você pode consultar logs de todas as empresas ou filtrar uma empresa
+        Como Administrador NuvemMais, você pode consultar logs de todas as empresas ou filtrar uma empresa
         específica.
       </p>
 

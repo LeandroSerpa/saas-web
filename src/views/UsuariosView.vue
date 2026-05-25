@@ -437,7 +437,7 @@ onMounted(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Usuários cadastrados</h2>
-          <p>Lista de usuários administrativos retornados pela API.</p>
+          <p>Usuários cadastrados com acesso ao sistema.</p>
         </div>
 
         <span class="contador">{{ paginacao.totalElements }} usuário(s)</span>

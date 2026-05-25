@@ -291,7 +291,7 @@ function normalizarMensagem(valor) {
 
           <label>
             Usuário/Login
-            <input v-model="dadosConta.login" type="text" placeholder="Ex: admin, joao, maria.silva" />
+            <input v-model="dadosConta.login" type="text" placeholder="Ex: joao, maria.silva" />
           </label>
         </div>
 

@@ -369,7 +369,7 @@ onMounted(carregarOpcoes)
             </label>
             <label>
               Usuário/Login
-              <input v-model="formulario.loginResponsavel" type="text" placeholder="Ex: admin.empresa" @blur="validarCampoLoginResponsavel" />
+              <input v-model="formulario.loginResponsavel" type="text" placeholder="Ex: responsavel.empresa" @blur="validarCampoLoginResponsavel" />
               <small>Você poderá usar este usuário para entrar no sistema no lugar do e-mail.</small>
               <small v-if="errosCampos.loginResponsavel" class="erro-campo">{{ errosCampos.loginResponsavel }}</small>
             </label>

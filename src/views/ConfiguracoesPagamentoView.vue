@@ -84,7 +84,7 @@ onMounted(carregarDados)
 
     <section class="card painel">
       <h2>Métodos ativos</h2>
-      <p>SUPER_ADMIN pode marcar os métodos exibidos na criação manual de faturas.</p>
+      <p>O Administrador NuvemMais pode marcar os métodos exibidos na criação manual de faturas.</p>
 
       <div class="lista-metodos">
         <label v-for="metodo in metodosBase" :key="metodo.codigo" class="metodo">

@@ -858,7 +858,7 @@ onBeforeUnmount(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Agendamentos</h2>
-          <p>Lista de horários cadastrados na API publicada no EasyPanel.</p>
+          <p>Acompanhe os agendamentos cadastrados da empresa.</p>
         </div>
 
         <span class="contador">{{ agendamentosFiltrados.length }} agendamento(s)</span>

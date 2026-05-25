@@ -82,6 +82,13 @@ function validarLogin() {
   return true
 }
 
+function rotuloPerfil(perfil) {
+  if (perfil === 'SUPER_ADMIN') return 'Administrador NuvemMais'
+  if (perfil === 'ADMIN') return 'Administrador'
+  if (perfil === 'USUARIO') return 'Usuário'
+  return perfil
+}
+
 function solicitarSalvamento() {
   erroValidacao.value = ''
   if (!validarEmail()) return
@@ -127,7 +134,7 @@ function solicitarSalvamento() {
         <input
           :value="usuario.login"
           type="text"
-          placeholder="Ex: admin, joao, maria.silva"
+          placeholder="Ex: joao, maria.silva"
           @input="normalizarLogin($event.target.value)"
           @blur="validarLogin"
         />
@@ -147,9 +154,9 @@ function solicitarSalvamento() {
 
       <label>
         Perfil *
-        <input v-if="bloquearPerfil" v-model="usuario.perfil" type="text" disabled />
+        <input v-if="bloquearPerfil" :value="rotuloPerfil(usuario.perfil)" type="text" disabled />
         <select v-else v-model="usuario.perfil">
-          <option v-for="perfil in perfis" :key="perfil" :value="perfil">{{ perfil }}</option>
+          <option v-for="perfil in perfis" :key="perfil" :value="perfil">{{ rotuloPerfil(perfil) }}</option>
         </select>
       </label>
 

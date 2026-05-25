@@ -86,7 +86,7 @@ async function entrar() {
             v-model="email"
             type="text"
             autocomplete="username"
-            placeholder="Ex: admin@empresa.com ou serpalhss"
+            placeholder="Ex: usuario@empresa.com ou serpalhss"
           />
         </label>
 

@@ -815,8 +815,8 @@ async function alterarTamanhoPaginaLembretes() {
 
 function destinosLogsFallback() {
   return [
-    { valor: 'ADMIN', rotulo: 'ADMIN' },
-    { valor: 'SUPER_ADMIN', rotulo: 'SUPER_ADMIN' },
+    { valor: 'ADMIN', rotulo: rotuloPerfilDestino('ADMIN') },
+    { valor: 'SUPER_ADMIN', rotulo: rotuloPerfilDestino('SUPER_ADMIN') },
     ...empresasOptions.value.map((empresa) => ({
       valor: `empresa:${empresa.id}`,
       rotulo: empresa.nome,
@@ -826,13 +826,13 @@ function destinosLogsFallback() {
 
 function destinoLogTexto(item) {
   const descricao = obterCampo(item, 'destinoDescricao', 'destinoNome', 'descricaoDestino')
-  if (descricao) return descricao
+  if (descricao) return rotuloPerfilDestino(descricao)
 
   const destino = obterCampo(item, 'destino', 'usuarioDestino', 'perfilDestino', 'emailDestino')
   const texto = String(destino || '').trim()
   if (!texto) return '-'
-  if (normalizar(texto) === 'ADMIN') return 'ADMIN'
-  if (normalizar(texto) === 'SUPER_ADMIN') return 'SUPER_ADMIN'
+  if (normalizar(texto) === 'ADMIN') return rotuloPerfilDestino('ADMIN')
+  if (normalizar(texto) === 'SUPER_ADMIN') return rotuloPerfilDestino('SUPER_ADMIN')
 
   const opcao = destinosLogs.value.find((destinoOpcao) => destinoOpcao.valor === texto)
   if (opcao?.rotulo) return opcao.rotulo
@@ -841,6 +841,14 @@ function destinoLogTexto(item) {
   if (!match) return texto
   const empresa = empresasOptions.value.find((opcao) => String(opcao.id) === String(match[1]))
   return empresa?.nome || texto
+}
+
+function rotuloPerfilDestino(perfil) {
+  const texto = String(perfil || '').trim()
+  const valorNormalizado = normalizar(texto)
+  if (valorNormalizado === 'SUPER_ADMIN') return 'Administrador NuvemMais'
+  if (valorNormalizado === 'ADMIN') return 'Administrador'
+  return texto
 }
 
 function obterNomeEmpresa(item) {
@@ -879,7 +887,7 @@ function normalizarOpcoesLogs(dados) {
 
 function normalizarOpcaoDestinoLog(item) {
   if (typeof item === 'string') {
-    return { valor: item, rotulo: item }
+    return { valor: item, rotulo: rotuloPerfilDestino(item) }
   }
 
   if (!item || typeof item !== 'object') {
@@ -887,7 +895,7 @@ function normalizarOpcaoDestinoLog(item) {
   }
 
   const valor = obterCampo(item, 'valor', 'value', 'destino', 'codigo')
-  const rotulo = obterCampo(item, 'label', 'rotulo', 'descricao', 'nome', 'texto', 'destinoDescricao') || valor
+  const rotulo = rotuloPerfilDestino(obterCampo(item, 'label', 'rotulo', 'descricao', 'nome', 'texto', 'destinoDescricao') || valor)
 
   return { valor, rotulo }
 }
@@ -1171,7 +1179,7 @@ onMounted(() => {
               <tr v-for="item in notificacoes" :key="item.id">
                 <td>{{ formatarData(obterCampo(item, 'criadoEm', 'dataCriacao', 'data', 'createdAt')) }}</td>
                 <td>{{ obterNomeEmpresa(item) }}</td>
-                <td>{{ obterCampo(item, 'destino', 'usuarioDestino', 'perfilDestino', 'emailDestino') || '-' }}</td>
+                <td>{{ rotuloPerfilDestino(obterCampo(item, 'destino', 'usuarioDestino', 'perfilDestino', 'emailDestino')) || '-' }}</td>
                 <td>{{ obterCampo(item, 'tipo') || '-' }}</td>
                 <td><span :class="['prioridade', prioridadeClasse(obterCampo(item, 'prioridade'))]">{{ obterCampo(item, 'prioridade') || 'NORMAL' }}</span></td>
                 <td>{{ obterCampo(item, 'titulo', 'title') || '-' }}</td>
@@ -1263,7 +1271,7 @@ onMounted(() => {
             <tbody>
               <tr v-for="item in notificacoesLixeira" :key="item.id">
                 <td>{{ obterNomeEmpresa(item) }}</td>
-                <td>{{ obterCampo(item, 'destino', 'usuarioDestino', 'perfilDestino', 'emailDestino') || '-' }}</td>
+                <td>{{ rotuloPerfilDestino(obterCampo(item, 'destino', 'usuarioDestino', 'perfilDestino', 'emailDestino')) || '-' }}</td>
                 <td>{{ obterCampo(item, 'tipo') || '-' }}</td>
                 <td><span :class="['prioridade', prioridadeClasse(obterCampo(item, 'prioridade'))]">{{ obterCampo(item, 'prioridade') || 'NORMAL' }}</span></td>
                 <td>{{ obterCampo(item, 'titulo', 'title') || '-' }}</td>
@@ -1354,7 +1362,7 @@ onMounted(() => {
         </label>
         <label>Perfil destino
           <select v-model="manual.perfilDestino">
-            <option v-for="perfil in perfisDestino" :key="perfil" :value="perfil">{{ perfil }}</option>
+            <option v-for="perfil in perfisDestino" :key="perfil" :value="perfil">{{ rotuloPerfilDestino(perfil) }}</option>
           </select>
         </label>
         <label>Prioridade
@@ -1372,7 +1380,7 @@ onMounted(() => {
             placeholder="/faturas ou https://..."
             @blur="manual.linkAcao = normalizarLinkAcao(manual.linkAcao)"
           />
-          <small class="ajuda">Exemplos: /faturas, /notificacoes, /dashboard, https://site.com. Se usar /admin/fatura, o sistema ajusta para /faturas.</small>
+          <small class="ajuda">Exemplos: /faturas, /notificacoes, /dashboard ou https://site.com.</small>
         </label>
         <label class="checkbox campo-grande"><input v-model="manual.gerarLinkWhatsapp" type="checkbox" /> Gerar link WhatsApp manual?</label>
       </div>

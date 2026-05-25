@@ -96,7 +96,7 @@ const senhaTemporariaResultado = computed(() =>
   ),
 )
 const senhaTemporariaResultadoTexto = computed(() =>
-  senhaTemporariaResultado.value || 'Senha temporária não retornada pelo backend.',
+  senhaTemporariaResultado.value || 'Senha temporária indisponível no momento.',
 )
 const emailAdminResultado = computed(() =>
   obterCampo(
@@ -863,7 +863,7 @@ function normalizarRespostaValidacao(resposta) {
 
   return {
     valido: normalizarBooleanoValidacao(valorValido),
-    mensagem: mensagem || (normalizarBooleanoValidacao(valorValido) ? '' : 'Validação recusada pelo backend.'),
+    mensagem: mensagem || (normalizarBooleanoValidacao(valorValido) ? '' : 'Não foi possível validar esta informação.'),
   }
 }
 
@@ -944,9 +944,9 @@ function obterCampoProfundo(objeto, caminho) {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">ADMINISTRAÇÃO NUVEMMAIS</p>
+        <p class="subtitulo">Administração NuvemMais</p>
         <h1>Novo cadastro guiado</h1>
-        <p class="descricao">Crie uma empresa pelo SUPER_ADMIN em um fluxo claro, validado e seguro.</p>
+        <p class="descricao">Crie uma empresa pela Administração NuvemMais em um fluxo claro, validado e seguro.</p>
       </div>
       <RouterLink class="botao secundario" to="/empresas">Voltar</RouterLink>
     </header>
@@ -1167,7 +1167,7 @@ function obterCampoProfundo(objeto, caminho) {
 
         <label>
           E-mail do usuário administrador *
-          <input v-model="formulario.admin.email" type="email" placeholder="admin@empresa.com" @blur="validarEmailAdminBlur" />
+          <input v-model="formulario.admin.email" type="email" placeholder="responsavel@empresa.com" @blur="validarEmailAdminBlur" />
           <small v-if="errosCampos['admin.email']" class="mensagem-erro">{{ errosCampos['admin.email'] }}</small>
         </label>
 
@@ -1176,7 +1176,7 @@ function obterCampoProfundo(objeto, caminho) {
           <input
             v-model="formulario.admin.login"
             type="text"
-            placeholder="Ex: admin.empresa"
+            placeholder="Ex: responsavel.empresa"
             @blur="validarLoginAdminBlur"
           />
           <small>Se ficar vazio, o sistema gera automaticamente a partir do e-mail.</small>
@@ -1203,10 +1203,10 @@ function obterCampoProfundo(objeto, caminho) {
 
         <label class="campo-grande">
           Senha temporária
-          <input v-model="formulario.admin.senhaTemporaria" type="text" placeholder="Se ficar vazio, o backend gera a senha temporária" />
+          <input v-model="formulario.admin.senhaTemporaria" type="text" placeholder="Se ficar vazio, o sistema gera a senha temporária" />
         </label>
 
-        <p class="dica campo-grande">Se deixar vazio, o backend gera uma senha temporária.</p>
+        <p class="dica campo-grande">Se deixar vazio, o sistema gera uma senha temporária.</p>
       </div>
 
       <div v-else class="revisao">

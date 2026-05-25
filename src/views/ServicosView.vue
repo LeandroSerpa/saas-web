@@ -398,7 +398,7 @@ onMounted(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Serviços cadastrados</h2>
-          <p>Lista de serviços retornados pela API publicada.</p>
+          <p>Consulte e gerencie os serviços disponíveis para agendamento.</p>
         </div>
 
         <span class="contador">{{ paginacao.totalElements }} serviço(s)</span>

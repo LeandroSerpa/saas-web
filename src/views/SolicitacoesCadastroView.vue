@@ -473,7 +473,7 @@ onMounted(carregarDados)
       <section class="card cabecalho-card">
         <div>
           <h2>Solicitações</h2>
-          <p>Lista de solicitações retornadas pela API para os filtros aplicados.</p>
+          <p>Solicitações encontradas para os filtros aplicados.</p>
         </div>
         <span class="contador">{{ paginacao.totalElements }} solicitação(ões)</span>
       </section>
@@ -545,9 +545,9 @@ onMounted(carregarDados)
           <label>Nome da empresa <input v-model="aprovacao.nomeEmpresa" type="text" /></label>
           <label>Slug da empresa <input v-model="aprovacao.slugEmpresa" type="text" /></label>
           <label>Plano <select v-model="aprovacao.planoId"><option value="">Selecione</option><option v-for="plano in planos" :key="plano.id" :value="plano.id">{{ plano.nome }}</option></select></label>
-          <label>Nome do usuário admin <input v-model="aprovacao.adminNome" type="text" /></label>
-          <label>E-mail do usuário admin <input v-model="aprovacao.adminEmail" type="email" /></label>
-          <label>Senha temporária <input v-model="aprovacao.senhaTemporaria" type="text" placeholder="Será gerada pelo backend se ficar em branco" /></label>
+          <label>Nome do administrador <input v-model="aprovacao.adminNome" type="text" /></label>
+          <label>E-mail do administrador <input v-model="aprovacao.adminEmail" type="email" /></label>
+          <label>Senha temporária <input v-model="aprovacao.senhaTemporaria" type="text" placeholder="Será gerada automaticamente se ficar em branco" /></label>
           <label class="checkbox"><input v-model="aprovacao.ativarAgendamentoPublico" type="checkbox" /> Ativar agendamento público</label>
           <label class="campo-grande">Observação interna <textarea v-model="aprovacao.observacaoInterna" rows="3"></textarea></label>
         </div>
@@ -558,7 +558,7 @@ onMounted(carregarDados)
           <strong v-else-if="solicitacaoJaTemSenha(aprovando)">A responsável já definiu a própria senha no cadastro. O acesso será liberado após a aprovação.</strong>
           <strong v-else>Empresa aprovada com sucesso.</strong>
           <p>Empresa criada: {{ obterCampo(resultadoAprovacao, 'empresaNome') || aprovacao.nomeEmpresa }}</p>
-          <p>Admin: {{ obterCampo(resultadoAprovacao, 'adminEmail', 'usuarioAdminEmail') || aprovacao.adminEmail }}</p>
+          <p>Administrador: {{ obterCampo(resultadoAprovacao, 'adminEmail', 'usuarioAdminEmail') || aprovacao.adminEmail }}</p>
           <p v-if="senhaTemporariaResultado(resultadoAprovacao) || aprovacao.senhaTemporaria">
             Senha temporária: {{ senhaTemporariaResultado(resultadoAprovacao) || aprovacao.senhaTemporaria }}
           </p>

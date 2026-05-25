@@ -352,7 +352,7 @@ watch(
             rows="3"
             placeholder="Ex: Permuta por banho e tosa mensal."
           ></textarea>
-          <small>Visível apenas para o SUPER_ADMIN. Use para registrar detalhes comerciais, permutas ou acordos internos.</small>
+          <small>Visível apenas para o Administrador NuvemMais. Use para registrar detalhes comerciais, permutas ou acordos internos.</small>
         </label>
         <label>
           Limite de usuários
@@ -423,7 +423,7 @@ watch(
       <div class="cabecalho-lista">
         <div>
           <h2>Planos cadastrados</h2>
-          <p>Lista de planos retornados pela API publicada.</p>
+          <p>Planos cadastrados na plataforma.</p>
         </div>
 
         <span class="contador">{{ paginacao.totalElements }} plano(s)</span>

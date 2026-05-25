@@ -810,7 +810,7 @@ onMounted(carregarDados)
     </section>
 
     <section v-if="resumoGeracao" class="card resumo-geracao">
-      <h2>Resumo retornado pelo backend</h2>
+      <h2>Resumo da geração de faturas</h2>
       <div class="resumo-grid">
         <p><strong>Criadas:</strong> {{ obterNumeroCampo(resumoGeracao, 'criadas', 'faturasCriadas', 'totalCriadas', 'criadasCount') }}</p>
         <p><strong>Ignoradas:</strong> {{ obterNumeroCampo(resumoGeracao, 'ignoradas', 'faturasIgnoradas', 'totalIgnoradas', 'ignoradasCount') }}</p>

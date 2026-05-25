@@ -604,7 +604,7 @@ function podeCancelarFatura(item) {
 }
 
 function textoCancelarFatura(item) {
-  return statusValor(item) === 'PAGA' ? 'Cancelar admin.' : 'Cancelar'
+  return statusValor(item) === 'PAGA' ? 'Cancelar como administrador' : 'Cancelar'
 }
 
 function podeReativarFatura(item) {
@@ -1394,7 +1394,7 @@ onUnmounted(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Faturas</h2>
-          <p>Lista de cobranças retornadas pela API para os filtros aplicados.</p>
+          <p>Cobranças encontradas para os filtros aplicados.</p>
         </div>
         <span class="contador">{{ paginacao.totalElements }} fatura(s)</span>
       </div>

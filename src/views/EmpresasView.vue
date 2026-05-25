@@ -449,7 +449,7 @@ onMounted(() => {
       <div class="cabecalho-lista">
         <div>
           <h2>Empresas cadastradas</h2>
-          <p>Lista de empresas retornadas pela API.</p>
+          <p>Empresas cadastradas na plataforma.</p>
         </div>
 
         <span class="contador">{{ paginacao.totalElements }} empresa(s)</span>
