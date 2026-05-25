@@ -300,7 +300,7 @@ watch(
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO NUVEMMAIS</p>
         <h1>Planos</h1>
         <p class="descricao">Gerencie planos comerciais, parcerias, cortesias e limites de uso das empresas.</p>
       </div>

@@ -518,7 +518,7 @@ onMounted(async () => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">{{ superAdmin ? 'Visão administrativa SaaS' : 'Visão da sua empresa' }}</p>
+        <p class="subtitulo">{{ superAdmin ? 'Visão administrativa NuvemMais' : 'Visão da sua empresa' }}</p>
         <h1>Relatórios</h1>
         <p class="descricao">Acompanhe o desempenho financeiro e operacional da empresa.</p>
       </div>

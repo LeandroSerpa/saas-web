@@ -149,8 +149,8 @@ onMounted(carregarOpcoes)
   <main class="pagina-publica">
     <section class="conteudo">
       <header class="cabecalho">
-        <span class="marca">Gestão SaaS</span>
-        <h1>Comece agora com o Gestão SaaS</h1>
+        <span class="marca">NuvemMais</span>
+        <h1>Comece agora com a NuvemMais Gestão</h1>
         <p>Preencha os dados da sua empresa para solicitar acesso à plataforma.</p>
       </header>
 

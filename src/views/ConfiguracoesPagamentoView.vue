@@ -67,7 +67,7 @@ onMounted(carregarDados)
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
+        <p class="subtitulo">Administração NuvemMais</p>
         <h1>Configurações de pagamento</h1>
         <p class="descricao">Escolha quais métodos aparecem ao criar faturas manualmente.</p>
       </div>

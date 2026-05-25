@@ -328,9 +328,9 @@ onMounted(carregarDados)
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
+        <p class="subtitulo">Administração NuvemMais</p>
         <h1>Central de Automações</h1>
-        <p class="descricao">Execute e acompanhe rotinas internas do SaaS, como lembretes, notificações e processos recorrentes.</p>
+        <p class="descricao">Execute e acompanhe rotinas internas da plataforma, como lembretes, notificações e processos recorrentes.</p>
       </div>
       <button class="botao secundario" :disabled="carregando" @click="carregarDados">Atualizar</button>
     </header>
@@ -349,7 +349,7 @@ onMounted(carregarDados)
       <div class="cabecalho-lista">
         <div>
           <h2>Automações disponíveis</h2>
-          <p>Rotinas internas que podem ser executadas manualmente pela administração SaaS.</p>
+          <p>Rotinas internas que podem ser executadas manualmente pela administração NuvemMais.</p>
         </div>
         <span class="contador">{{ paginacao.totalElements }} execução(ões)</span>
       </div>
@@ -359,7 +359,7 @@ onMounted(carregarDados)
         <article v-for="item in automacoes" :key="tipoAutomacao(item) || item.id" class="card automacao-card">
           <div>
             <h3>{{ obterCampo(item, 'titulo', 'nome') || tipoAutomacao(item) || 'Automação' }}</h3>
-            <p>{{ obterCampo(item, 'descricao') || 'Rotina interna do SaaS.' }}</p>
+            <p>{{ obterCampo(item, 'descricao') || 'Rotina interna da plataforma.' }}</p>
           </div>
           <div class="badges">
             <span class="badge neutra">{{ tipoAutomacao(item) || '-' }}</span>

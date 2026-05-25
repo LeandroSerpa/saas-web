@@ -228,7 +228,7 @@ onMounted(carregarDados)
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
+        <p class="subtitulo">Administração NuvemMais</p>
         <h1>Inadimplência</h1>
         <p class="descricao">Acompanhe empresas em atraso e bloqueios financeiros.</p>
       </div>

@@ -414,7 +414,7 @@ onMounted(carregarDados)
     <template v-else>
       <header class="cabecalho-pagina">
         <div>
-          <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
+          <p class="subtitulo">ADMINISTRAÇÃO NUVEMMAIS</p>
           <h1>Solicitações de cadastro</h1>
           <p class="descricao">Analise empresas interessadas em usar a plataforma.</p>
         </div>

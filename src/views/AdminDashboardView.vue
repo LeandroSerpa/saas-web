@@ -54,7 +54,7 @@ async function carregarDashboard(mostrarSucesso = false) {
     dadosCarregados.value = true
 
     if (mostrarSucesso) {
-      sucesso.value = 'Dashboard SaaS atualizado com sucesso.'
+      sucesso.value = 'Dashboard NuvemMais atualizado com sucesso.'
     }
   } catch (error) {
     if (obterStatusErro(error) === 403) {
@@ -62,7 +62,7 @@ async function carregarDashboard(mostrarSucesso = false) {
       return
     }
 
-    erro.value = 'Não foi possível carregar o Dashboard SaaS no momento.'
+    erro.value = 'Não foi possível carregar o Dashboard NuvemMais no momento.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -312,8 +312,8 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
-        <h1>Dashboard SaaS</h1>
+        <p class="subtitulo">Administração NuvemMais</p>
+        <h1>Dashboard NuvemMais</h1>
         <p class="descricao">Acompanhe a saúde geral da plataforma.</p>
       </div>
 
@@ -324,7 +324,7 @@ onMounted(() => {
 
     <section v-if="erro" class="card feedback erro">{{ erro }}</section>
     <section v-if="sucesso" class="card feedback sucesso">{{ sucesso }}</section>
-    <section v-if="carregando" class="card">Carregando Dashboard SaaS...</section>
+    <section v-if="carregando" class="card">Carregando Dashboard NuvemMais...</section>
 
     <template v-else>
       <section class="grupo">

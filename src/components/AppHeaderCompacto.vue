@@ -46,7 +46,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
         </button>
 
         <div class="app-topbar-titulo">
-          <strong>Gestão SaaS</strong>
+          <strong>NuvemMais Gestão</strong>
           <small>{{ empresaLogada }}</small>
         </div>
       </div>

@@ -1047,8 +1047,8 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
-        <h1>Notificações SaaS</h1>
+        <p class="subtitulo">Administração NuvemMais</p>
+        <h1>Notificações NuvemMais</h1>
         <p class="descricao">Gerencie notificações, templates e lembretes financeiros.</p>
       </div>
       <button class="botao secundario" :disabled="carregando" @click="carregarAba">Atualizar dados</button>

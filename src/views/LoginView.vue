@@ -64,8 +64,8 @@ async function entrar() {
       <div class="marca-login">
         <span class="marca-simbolo">LE</span>
         <div>
-          <strong>Gestão SaaS</strong>
-          <small>MicroSaaS empresarial</small>
+          <strong>NuvemMais Gestão</strong>
+          <small>Gestão empresarial na nuvem</small>
         </div>
       </div>
 

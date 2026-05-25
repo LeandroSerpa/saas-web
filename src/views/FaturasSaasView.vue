@@ -146,7 +146,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO NUVEMMAIS</p>
         <h1>Faturas</h1>
         <p class="descricao">Controle cobranças manuais e prepare a operação para Asaas, Mercado Pago ou Stripe.</p>
       </div>

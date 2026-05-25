@@ -428,7 +428,7 @@ function fecharFormulario() {
 function criarFormulario() {
   return {
     empresaId: '',
-    descricao: 'Mensalidade Gestão SaaS',
+    descricao: 'Mensalidade NuvemMais Gestão',
     valor: '',
     diaVencimento: '10',
     competenciaInicio: new Date().toISOString().slice(0, 7),
@@ -733,7 +733,7 @@ onMounted(carregarDados)
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração SaaS</p>
+        <p class="subtitulo">Administração NuvemMais</p>
         <h1>Faturas recorrentes</h1>
         <p class="descricao">Configure cobranças mensais automáticas para empresas ativas.</p>
       </div>

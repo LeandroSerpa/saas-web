@@ -1024,7 +1024,7 @@ onUnmounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">{{ superAdmin ? 'ADMINISTRAÇÃO SAAS' : 'MINHA EMPRESA' }}</p>
+        <p class="subtitulo">{{ superAdmin ? 'ADMINISTRAÇÃO NUVEMMAIS' : 'MINHA EMPRESA' }}</p>
         <h1>Faturas</h1>
         <p class="descricao">{{ subtituloPagina }}</p>
       </div>

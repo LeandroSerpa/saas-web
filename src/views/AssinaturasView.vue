@@ -310,7 +310,7 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO NUVEMMAIS</p>
         <h1>Assinaturas</h1>
         <p class="descricao">Vincule empresas aos planos e acompanhe status comerciais.</p>
       </div>

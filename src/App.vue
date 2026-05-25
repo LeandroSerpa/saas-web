@@ -80,32 +80,32 @@ const CABECALHOS_PADRAO = {
     descricao: 'Conclua a configuração inicial da empresa.',
   },
   empresas: {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Empresas',
     descricao: 'Gerencie as empresas da plataforma.',
   },
   'admin-dashboard': {
-    subtitulo: 'Administração SaaS',
-    titulo: 'Dashboard SaaS',
+    subtitulo: 'Administração NuvemMais',
+    titulo: 'Dashboard NuvemMais',
     descricao: 'Monitore indicadores gerais da plataforma.',
   },
   planos: {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Planos',
     descricao: 'Gerencie planos e módulos disponíveis.',
   },
   assinaturas: {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Assinaturas',
     descricao: 'Acompanhe o status das assinaturas ativas.',
   },
   solicitacoes: {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Solicitações de cadastro',
     descricao: 'Analise novos pedidos de entrada na plataforma.',
   },
   'solicitacoes-cadastro': {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Solicitações de cadastro',
     descricao: 'Analise novos pedidos de entrada na plataforma.',
   },
@@ -125,47 +125,47 @@ const CABECALHOS_PADRAO = {
     descricao: 'Defina como sua empresa recebe notificações.',
   },
   'admin-financeiro': {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Inadimplência',
     descricao: 'Acompanhe bloqueios e pendências financeiras.',
   },
   'admin-notificacoes': {
-    subtitulo: 'Administração SaaS',
-    titulo: 'Notificações SaaS',
+    subtitulo: 'Administração NuvemMais',
+    titulo: 'Notificações NuvemMais',
     descricao: 'Gerencie envios e filas de notificações da plataforma.',
   },
   'admin-automacoes': {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Central de Automações',
     descricao: 'Monitore rotinas automáticas e execuções.',
   },
   'admin-empresas-onboarding': {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Novo cadastro guiado',
     descricao: 'Cadastre e acompanhe a implantação de empresas.',
   },
   inadimplencia: {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Inadimplência',
     descricao: 'Acompanhe bloqueios e pendências financeiras.',
   },
   'faturas-recorrentes': {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Faturas recorrentes',
     descricao: 'Gerencie a geração recorrente de cobranças.',
   },
   'configuracoes-pagamento': {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Configurações de pagamento',
     descricao: 'Defina regras e métodos de pagamento da plataforma.',
   },
   auditoria: {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Auditoria',
     descricao: 'Consulte o histórico de eventos administrativos.',
   },
   lixeira: {
-    subtitulo: 'Administração SaaS',
+    subtitulo: 'Administração NuvemMais',
     titulo: 'Lixeira',
     descricao: 'Revise e restaure registros excluídos.',
   },
@@ -253,7 +253,7 @@ function criarCabecalhoPagina() {
 function obterCabecalhoPadrao(nomeRota) {
   return (
     CABECALHOS_PADRAO[nomeRota] || {
-      subtitulo: superAdmin.value ? 'Administração SaaS' : 'Painel interno',
+      subtitulo: superAdmin.value ? 'Administração NuvemMais' : 'Painel interno',
       titulo: formatarNomeRota(nomeRota),
       descricao: 'Acompanhe os dados desta área da plataforma.',
     }
@@ -504,8 +504,8 @@ onBeforeUnmount(() => {
       <div class="marca">
         <span class="marca-simbolo">LE</span>
         <div>
-          <strong>Gestão SaaS</strong>
-          <small>MicroSaaS empresarial</small>
+          <strong>NuvemMais Gestão</strong>
+          <small>Gestão empresarial na nuvem</small>
         </div>
       </div>
 
@@ -527,17 +527,17 @@ onBeforeUnmount(() => {
 
         <section v-if="superAdmin" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
-            <span>Administração SaaS</span>
+            <span>Administração NuvemMais</span>
             <span>{{ menuAdminAberto ? '−' : '+' }}</span>
           </button>
 
           <div v-if="menuAdminAberto" class="submenu">
-            <RouterLink to="/admin-dashboard" @click="fecharMenuMobile">Dashboard SaaS</RouterLink>
+            <RouterLink to="/admin-dashboard" @click="fecharMenuMobile">Dashboard NuvemMais</RouterLink>
             <RouterLink to="/empresas" @click="fecharMenuMobile">Empresas</RouterLink>
             <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
             <RouterLink to="/planos" @click="fecharMenuMobile">Planos</RouterLink>
             <RouterLink to="/assinaturas" @click="fecharMenuMobile">Assinaturas</RouterLink>
-            <RouterLink to="/admin/notificacoes" @click="fecharMenuMobile">Notificações SaaS</RouterLink>
+            <RouterLink to="/admin/notificacoes" @click="fecharMenuMobile">Notificações NuvemMais</RouterLink>
             <RouterLink to="/admin/automacoes" @click="fecharMenuMobile">Automações</RouterLink>
             <RouterLink to="/admin/financeiro" @click="fecharMenuMobile">Inadimplência</RouterLink>
             <RouterLink to="/faturas-recorrentes" @click="fecharMenuMobile">Faturas recorrentes</RouterLink>

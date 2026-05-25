@@ -238,10 +238,10 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">ADMINISTRAÇÃO SAAS</p>
+        <p class="subtitulo">ADMINISTRAÇÃO NUVEMMAIS</p>
         <h1>Segmentos/Módulos</h1>
         <p class="descricao">
-          Segmentos permitem adaptar o SaaS para nichos diferentes, como Barbearia, PetShop,
+          Segmentos permitem adaptar a plataforma para nichos diferentes, como Barbearia, PetShop,
           Condomínio, Clínica e outros.
         </p>
       </div>
