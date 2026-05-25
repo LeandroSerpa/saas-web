@@ -1,3 +1,5 @@
+import { debugLog } from '@/utils/devDebug'
+
 const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
 const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : 'https://gestao.nuvemmais.com.br'
 const MENSAGENS_PADRAO = {
@@ -19,7 +21,30 @@ function normalizarUrlBase(url, fallback = '') {
   return (valor || fallback).replace(/\/+$/, '')
 }
 
-export const API_URL = normalizarUrlBase(import.meta.env.VITE_API_URL, API_URL_FALLBACK)
+function resolverApiUrl() {
+  const fallback = normalizarUrlBase(API_URL_FALLBACK)
+  const configurada = normalizarUrlBase(import.meta.env.VITE_API_URL, fallback)
+
+  if (import.meta.env.DEV) {
+    return configurada
+  }
+
+  try {
+    const origemAtual = new URL(window.location.origin)
+    const origemApi = new URL(configurada)
+    const origemFallback = new URL(fallback)
+
+    if (origemApi.host === origemAtual.host) {
+      return origemFallback.toString().replace(/\/+$/, '')
+    }
+  } catch (error) {
+    debugLog('api', 'Falha ao validar origem da API; mantendo URL configurada.', error)
+  }
+
+  return configurada
+}
+
+export const API_URL = resolverApiUrl()
 const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PUBLIC_APP_URL_FALLBACK)
 
 export function obterUrlPublicaFrontend() {
@@ -658,8 +683,14 @@ export async function buscarPlanosPublicos() {
 }
 
 export async function buscarPlanosCadastroPublico() {
-  const response = await executarFetch(`${API_URL}/publico/planos-cadastro`, {
+  const url = `${API_URL}/publico/planos-cadastro`
+  const response = await executarFetch(url, {
     headers: montarHeadersPublicos(),
+  })
+  debugLog('cadastro-publico-planos', 'Requisicao de planos executada', {
+    url,
+    status: response.status,
+    ok: response.ok,
   })
 
   return tratarRespostaPublica(response)

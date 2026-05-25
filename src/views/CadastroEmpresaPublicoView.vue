@@ -6,6 +6,7 @@ import {
   buscarSegmentosCadastroPublico,
   cadastrarEmpresaInteressadaPublico,
 } from '@/services/api'
+import { debugLog } from '@/utils/devDebug'
 import {
   criarManipuladorPasteNumerico,
   documentoBasicoValido,
@@ -87,15 +88,18 @@ async function carregarOpcoes() {
   try {
     carregando.value = true
     erro.value = ''
-    const [segmentosApi, planosApi] = await Promise.all([
-      buscarSegmentosCadastroPublico().catch(() => []),
-      buscarPlanosCadastroPublico().catch(() => []),
-    ])
+    const [segmentosApi, planosApi] = await Promise.all([buscarSegmentosCadastroPublico(), buscarPlanosCadastroPublico()])
 
     segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
-    planos.value = extrairLista(planosApi).filter(planoPublicoAtivo)
+    planos.value = extrairLista(planosApi).filter((plano) => plano?.ativo !== false)
+    debugLog('cadastro-publico-planos', 'Planos recebidos para etapa Plano', {
+      quantidade: planos.value.length,
+    })
   } catch (errorAtual) {
-    erro.value = obterMensagemErro(errorAtual, 'Não foi possível carregar as opções do cadastro.')
+    erro.value = obterMensagemErro(
+      errorAtual,
+      'Não foi possível carregar os planos agora. Verifique sua conexão e tente novamente em instantes.',
+    )
     console.error(errorAtual)
   } finally {
     carregando.value = false
@@ -310,12 +314,6 @@ function obterMensagemErro(errorAtual, fallback) {
 function selecionarPlano(plano) {
   formulario.value.planoId = plano?.id || ''
   erro.value = ''
-}
-
-function planoPublicoAtivo(plano) {
-  if (!plano || plano.ativo === false) return false
-
-  return plano.publico === true || plano.visivelPublico === true || plano.exibirNoCadastroPublico === true
 }
 
 function formatarMoeda(valor) {
