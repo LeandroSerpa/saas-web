@@ -1,10 +1,9 @@
-﻿<script setup>
-import { computed, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
+<script setup>
+import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import NotificacoesBell from '@/components/NotificacoesBell.vue'
 import {
-  API_URL,
   buscarStatusFinanceiroMinhaEmpresa,
   carregarUsuarioSessao,
   limparSessaoAutenticacao,
@@ -14,6 +13,165 @@ import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 const route = useRoute()
 const router = useRouter()
 
+const CABECALHOS_PADRAO = {
+  dashboard: {
+    subtitulo: 'Visão geral',
+    titulo: 'Dashboard',
+    descricao: 'Acompanhe os principais números da operação.',
+  },
+  agenda: {
+    subtitulo: 'Operação diária',
+    titulo: 'Agenda',
+    descricao: 'Cadastre e acompanhe os agendamentos da empresa.',
+  },
+  clientes: {
+    subtitulo: 'Relacionamento',
+    titulo: 'Clientes',
+    descricao: 'Gerencie os clientes cadastrados na sua operação.',
+  },
+  servicos: {
+    subtitulo: 'Catálogo operacional',
+    titulo: 'Serviços',
+    descricao: 'Organize os serviços oferecidos pela empresa.',
+  },
+  funcionarios: {
+    subtitulo: 'Time',
+    titulo: 'Funcionários',
+    descricao: 'Acompanhe os profissionais vinculados à operação.',
+  },
+  disponibilidade: {
+    subtitulo: 'Planejamento',
+    titulo: 'Disponibilidade',
+    descricao: 'Defina horários, bloqueios e regras de atendimento.',
+  },
+  relatorios: {
+    subtitulo: 'Análise',
+    titulo: 'Relatórios',
+    descricao: 'Consulte indicadores e exporte dados da operação.',
+  },
+  'minha-conta': {
+    subtitulo: 'Perfil',
+    titulo: 'Minha conta',
+    descricao: 'Atualize os dados do seu acesso.',
+  },
+  usuarios: {
+    subtitulo: 'Acessos',
+    titulo: 'Usuários',
+    descricao: 'Administre os usuários com acesso ao sistema.',
+  },
+  'minha-empresa': {
+    subtitulo: 'Configuração empresarial',
+    titulo: 'Minha empresa',
+    descricao: 'Revise as informações institucionais da empresa.',
+  },
+  personalizacao: {
+    subtitulo: 'Experiência pública',
+    titulo: 'Personalização',
+    descricao: 'Ajuste a apresentação da página pública da empresa.',
+  },
+  'meu-plano': {
+    subtitulo: 'Assinatura',
+    titulo: 'Meu plano',
+    descricao: 'Acompanhe recursos e limites do plano atual.',
+  },
+  onboarding: {
+    subtitulo: 'Implantação',
+    titulo: 'Primeiros passos',
+    descricao: 'Conclua a configuração inicial da empresa.',
+  },
+  empresas: {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Empresas',
+    descricao: 'Gerencie as empresas da plataforma.',
+  },
+  'admin-dashboard': {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Dashboard SaaS',
+    descricao: 'Monitore indicadores gerais da plataforma.',
+  },
+  planos: {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Planos',
+    descricao: 'Gerencie planos e módulos disponíveis.',
+  },
+  assinaturas: {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Assinaturas',
+    descricao: 'Acompanhe o status das assinaturas ativas.',
+  },
+  solicitacoes: {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Solicitações de cadastro',
+    descricao: 'Analise novos pedidos de entrada na plataforma.',
+  },
+  'solicitacoes-cadastro': {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Solicitações de cadastro',
+    descricao: 'Analise novos pedidos de entrada na plataforma.',
+  },
+  faturas: {
+    subtitulo: 'Financeiro',
+    titulo: 'Faturas',
+    descricao: 'Consulte cobranças e pagamentos da empresa.',
+  },
+  notificacoes: {
+    subtitulo: 'Comunicação',
+    titulo: 'Notificações',
+    descricao: 'Acompanhe avisos e mensagens da plataforma.',
+  },
+  'configuracoes-notificacoes': {
+    subtitulo: 'Comunicação',
+    titulo: 'Notificações da empresa',
+    descricao: 'Defina como sua empresa recebe notificações.',
+  },
+  'admin-financeiro': {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Inadimplência',
+    descricao: 'Acompanhe bloqueios e pendências financeiras.',
+  },
+  'admin-notificacoes': {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Notificações SaaS',
+    descricao: 'Gerencie envios e filas de notificações da plataforma.',
+  },
+  'admin-automacoes': {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Central de Automações',
+    descricao: 'Monitore rotinas automáticas e execuções.',
+  },
+  'admin-empresas-onboarding': {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Novo cadastro guiado',
+    descricao: 'Cadastre e acompanhe a implantação de empresas.',
+  },
+  inadimplencia: {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Inadimplência',
+    descricao: 'Acompanhe bloqueios e pendências financeiras.',
+  },
+  'faturas-recorrentes': {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Faturas recorrentes',
+    descricao: 'Gerencie a geração recorrente de cobranças.',
+  },
+  'configuracoes-pagamento': {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Configuração de pagamento',
+    descricao: 'Defina regras e métodos de pagamento da plataforma.',
+  },
+  auditoria: {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Auditoria',
+    descricao: 'Consulte o histórico de eventos administrativos.',
+  },
+  lixeira: {
+    subtitulo: 'Administração SaaS',
+    titulo: 'Lixeira',
+    descricao: 'Revise e restaure registros excluídos.',
+  },
+}
+
+const routeName = computed(() => (typeof route.name === 'string' ? route.name : ''))
 const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
 const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(route.path))
@@ -57,7 +215,6 @@ const identificacaoConta = computed(() => {
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
-const exibirInfoApi = import.meta.env.DEV
 const menuAdminAberto = ref(true)
 const menuMobileAberto = ref(false)
 const statusFinanceiro = ref(null)
@@ -66,7 +223,59 @@ const ultimaConsultaFinanceira = ref(0)
 const mensagemGlobal = ref('')
 const tipoMensagemGlobal = ref('erro')
 const erroInesperado = ref(false)
+const conteudoRotaRef = ref(null)
+const cabecalhoPagina = ref(criarCabecalhoPagina())
 let timeoutMensagemGlobal = null
+let observadorCabecalhoPagina = null
+let elementoAcaoCabecalhoPagina = null
+
+const cabecalhoExibido = computed(() => {
+  const fallback = obterCabecalhoPadrao(routeName.value)
+  return {
+    subtitulo: cabecalhoPagina.value.subtitulo || fallback.subtitulo,
+    titulo: cabecalhoPagina.value.titulo || fallback.titulo,
+    descricao: cabecalhoPagina.value.descricao || fallback.descricao,
+  }
+})
+
+function criarCabecalhoPagina() {
+  return {
+    subtitulo: '',
+    titulo: '',
+    descricao: '',
+    acaoRotulo: '',
+    acaoDisponivel: false,
+    acaoDesabilitada: false,
+  }
+}
+
+function obterCabecalhoPadrao(nomeRota) {
+  return (
+    CABECALHOS_PADRAO[nomeRota] || {
+      subtitulo: superAdmin.value ? 'Administração SaaS' : 'Painel interno',
+      titulo: formatarNomeRota(nomeRota),
+      descricao: 'Acompanhe os dados desta área da plataforma.',
+    }
+  )
+}
+
+function formatarNomeRota(nomeRota) {
+  if (!nomeRota) {
+    return 'Painel'
+  }
+
+  return String(nomeRota)
+    .split('-')
+    .filter(Boolean)
+    .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
+    .join(' ')
+}
+
+function obterTextoCabecalho(elemento) {
+  return String(elemento?.textContent || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 function sair() {
   limparSessaoAutenticacao()
@@ -140,13 +349,80 @@ function fecharMenuMobile() {
   menuMobileAberto.value = false
 }
 
+function sincronizarCabecalhoPagina() {
+  const pagina = conteudoRotaRef.value?.querySelector('.pagina')
+  const cabecalho = pagina?.querySelector(':scope > .cabecalho-pagina:first-child')
+
+  if (!cabecalho) {
+    elementoAcaoCabecalhoPagina = null
+    cabecalhoPagina.value = criarCabecalhoPagina()
+    return
+  }
+
+  const subtitulo = obterTextoCabecalho(cabecalho.querySelector('.subtitulo'))
+  const titulo = obterTextoCabecalho(cabecalho.querySelector('h1'))
+  const descricao = obterTextoCabecalho(
+    cabecalho.querySelector('.descricao') ||
+      [...cabecalho.querySelectorAll('p')].find((paragrafo) => !paragrafo.classList.contains('subtitulo')),
+  )
+  const acao = cabecalho.querySelector('button, a.botao')
+
+  elementoAcaoCabecalhoPagina = acao instanceof HTMLElement ? acao : null
+
+  cabecalhoPagina.value = {
+    subtitulo,
+    titulo,
+    descricao,
+    acaoRotulo: obterTextoCabecalho(acao),
+    acaoDisponivel: Boolean(elementoAcaoCabecalhoPagina),
+    acaoDesabilitada:
+      elementoAcaoCabecalhoPagina?.matches(':disabled') ||
+      elementoAcaoCabecalhoPagina?.getAttribute('aria-disabled') === 'true',
+  }
+}
+
+function observarCabecalhoPagina() {
+  if (observadorCabecalhoPagina) {
+    observadorCabecalhoPagina.disconnect()
+    observadorCabecalhoPagina = null
+  }
+
+  if (!conteudoRotaRef.value) {
+    return
+  }
+
+  observadorCabecalhoPagina = new MutationObserver(() => {
+    sincronizarCabecalhoPagina()
+  })
+
+  observadorCabecalhoPagina.observe(conteudoRotaRef.value, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['disabled', 'aria-disabled', 'class'],
+  })
+}
+
+function executarAcaoPagina() {
+  if (!elementoAcaoCabecalhoPagina || cabecalhoPagina.value.acaoDesabilitada) {
+    return
+  }
+
+  elementoAcaoCabecalhoPagina.click()
+}
+
 watch(
   () => route.fullPath,
-  () => {
+  async () => {
     atualizarUsuarioLogado()
     mensagemGlobal.value = ''
     erroInesperado.value = false
     menuMobileAberto.value = false
+
+    await nextTick()
+    observarCabecalhoPagina()
+    sincronizarCabecalhoPagina()
   },
   { immediate: true },
 )
@@ -169,6 +445,8 @@ onMounted(() => {
   window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.addEventListener('mensagem-global', exibirMensagemGlobal)
+  observarCabecalhoPagina()
+  sincronizarCabecalhoPagina()
 })
 
 onBeforeUnmount(() => {
@@ -178,6 +456,10 @@ onBeforeUnmount(() => {
 
   if (timeoutMensagemGlobal) {
     clearTimeout(timeoutMensagemGlobal)
+  }
+
+  if (observadorCabecalhoPagina) {
+    observadorCabecalhoPagina.disconnect()
   }
 
   if (typeof document !== 'undefined') {
@@ -286,22 +568,36 @@ onBeforeUnmount(() => {
     </aside>
 
     <div class="area-principal">
-      <header class="topo-app" :class="{ 'topo-app--compacto': !exibirInfoApi }">
-        <div v-if="exibirInfoApi" class="topo-app-api">
-          <span class="ambiente">API publicada</span>
-          <p>{{ API_URL }}</p>
+      <header class="topo-app">
+        <div class="topo-contexto">
+          <span class="topo-contexto-selo">{{ cabecalhoExibido.subtitulo }}</span>
+          <div class="topo-contexto-texto">
+            <h1>{{ cabecalhoExibido.titulo }}</h1>
+            <p v-if="cabecalhoExibido.descricao">{{ cabecalhoExibido.descricao }}</p>
+          </div>
         </div>
 
         <div class="usuario-logado">
           <NotificacoesBell />
 
-          <div>
+          <div class="usuario-logado-identidade">
             <strong>{{ empresaLogada }}</strong>
             <span>Usuário: {{ usuario?.nome || 'Usuário' }}</span>
             <small>{{ identificacaoConta }}</small>
           </div>
 
-          <button class="botao-sair" @click="sair">Sair</button>
+          <div class="usuario-logado-acoes">
+            <button
+              v-if="cabecalhoPagina.acaoDisponivel"
+              class="botao-acao-pagina"
+              :disabled="cabecalhoPagina.acaoDesabilitada"
+              @click="executarAcaoPagina"
+            >
+              {{ cabecalhoPagina.acaoRotulo }}
+            </button>
+
+            <button class="botao-sair" @click="sair">Sair</button>
+          </div>
         </div>
       </header>
 
@@ -311,7 +607,9 @@ onBeforeUnmount(() => {
         <p>{{ mensagemGlobal }}</p>
       </section>
 
-      <RouterView />
+      <div ref="conteudoRotaRef" class="conteudo-rota">
+        <RouterView />
+      </div>
     </div>
   </div>
 </template>
@@ -494,94 +792,151 @@ onBeforeUnmount(() => {
   max-width: none;
   width: 100%;
   padding: 24px;
+  display: grid;
+  gap: 18px;
 }
 
 .topo-app {
-  margin: 0 0 24px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 16px 20px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
-  display: flex;
-  justify-content: space-between;
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px 24px;
+  align-items: start;
+  padding: 20px 22px;
+  border: 1px solid #dbe4f0;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 34%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.topo-contexto {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.topo-contexto-selo {
+  display: inline-flex;
+  width: fit-content;
   align-items: center;
-  gap: 16px;
-}
-
-.topo-app--compacto {
-  margin-bottom: 12px;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  justify-content: flex-end;
-}
-
-.topo-app p {
-  margin: 4px 0 0;
-  color: #475569;
-  word-break: break-word;
-}
-
-.ambiente {
-  color: #2563eb;
-  font-size: 13px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  font-size: 12px;
   font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.topo-contexto-texto {
+  display: grid;
+  gap: 6px;
+}
+
+.topo-contexto-texto h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 800;
+  line-height: 1.05;
+  color: #0f172a;
+}
+
+.topo-contexto-texto p {
+  margin: 0;
+  color: #475569;
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 68ch;
 }
 
 .usuario-logado {
   display: flex;
   align-items: center;
-  gap: 12px;
-  text-align: right;
-}
-
-.topo-app--compacto .usuario-logado {
-  margin-left: auto;
+  gap: 14px;
+  min-height: 100%;
+  padding: 12px 14px;
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px 12px;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
-.usuario-logado strong,
-.usuario-logado span,
-.usuario-logado small {
+.usuario-logado-identidade {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+
+.usuario-logado-identidade strong,
+.usuario-logado-identidade span,
+.usuario-logado-identidade small {
   display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.usuario-logado strong {
+.usuario-logado-identidade strong {
   font-size: 14px;
   font-weight: 800;
 }
 
-.usuario-logado span {
-  margin-top: 3px;
+.usuario-logado-identidade span {
   color: #334155;
   font-size: 13px;
   font-weight: 700;
 }
 
-.usuario-logado small {
-  margin-top: 3px;
+.usuario-logado-identidade small {
   color: #64748b;
   font-size: 13px;
 }
 
+.usuario-logado-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.botao-acao-pagina,
 .botao-sair {
   border: none;
   color: white;
-  background: #0f172a;
   padding: 10px 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: 800;
   transition:
     transform 0.15s ease,
-    background 0.15s ease;
+    background 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.botao-acao-pagina {
+  background: #2563eb;
+}
+
+.botao-acao-pagina:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.botao-acao-pagina:disabled,
+.botao-sair:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.botao-sair {
+  background: #0f172a;
 }
 
 .botao-sair:hover {
@@ -622,7 +977,7 @@ onBeforeUnmount(() => {
 }
 
 .mensagem-global {
-  margin: 0 0 18px;
+  margin: 0;
   border-radius: 8px;
   padding: 14px 16px;
   font-weight: 700;
@@ -642,6 +997,14 @@ onBeforeUnmount(() => {
   border: 1px solid #bbf7d0;
   background: #f0fdf4;
   color: #15803d;
+}
+
+.conteudo-rota {
+  min-width: 0;
+}
+
+:deep(.conteudo-rota > .pagina > .cabecalho-pagina:first-child) {
+  display: none;
 }
 
 @media (max-width: 900px) {
@@ -728,18 +1091,19 @@ onBeforeUnmount(() => {
   }
 
   .topo-app {
-    justify-content: flex-start;
+    grid-template-columns: 1fr;
+    padding: 18px;
   }
 
   .usuario-logado {
-    align-items: flex-start;
-    flex-direction: column;
-    text-align: left;
+    width: 100%;
+    flex-wrap: wrap;
   }
 
-  .topo-app--compacto .usuario-logado {
+  .usuario-logado-acoes {
     width: 100%;
     margin-left: 0;
+    justify-content: flex-start;
   }
 }
 
@@ -751,6 +1115,25 @@ onBeforeUnmount(() => {
 
   .topo-app {
     padding: 14px;
+  }
+
+  .topo-contexto-texto h1 {
+    font-size: 28px;
+  }
+
+  .usuario-logado {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .usuario-logado-acoes {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .botao-acao-pagina,
+  .botao-sair {
+    width: 100%;
   }
 }
 
