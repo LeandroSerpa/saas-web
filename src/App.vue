@@ -57,6 +57,7 @@ const identificacaoConta = computed(() => {
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
+const exibirInfoApi = import.meta.env.DEV
 const menuAdminAberto = ref(true)
 const menuMobileAberto = ref(false)
 const statusFinanceiro = ref(null)
@@ -286,7 +287,7 @@ onBeforeUnmount(() => {
 
     <div class="area-principal">
       <header class="topo-app">
-        <div>
+        <div v-if="exibirInfoApi">
           <span class="ambiente">API publicada</span>
           <p>{{ API_URL }}</p>
         </div>
