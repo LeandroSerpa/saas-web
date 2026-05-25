@@ -1,7 +1,13 @@
 <script setup>
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { login, obterMensagemAmigavelErro, salvarSessaoAutenticacao } from '@/services/api'
+import {
+  erroIndicaCadastroPendente,
+  login,
+  MENSAGEM_CADASTRO_PENDENTE,
+  obterMensagemAmigavelErro,
+  salvarSessaoAutenticacao,
+} from '@/services/api'
 
 const router = useRouter()
 const mensagemLogin = sessionStorage.getItem('mensagem-login') || ''
@@ -36,6 +42,7 @@ async function entrar() {
     const usuario = salvarSessaoAutenticacao(resposta)
 
     if (usuario.cadastroPendente) {
+      sessionStorage.setItem('mensagem-cadastro-pendente', MENSAGEM_CADASTRO_PENDENTE)
       router.push('/cadastro-pendente')
       return
     }
@@ -47,6 +54,12 @@ async function entrar() {
 
     router.push('/dashboard')
   } catch (error) {
+    if (erroIndicaCadastroPendente(error)) {
+      sessionStorage.setItem('mensagem-cadastro-pendente', MENSAGEM_CADASTRO_PENDENTE)
+      router.push('/cadastro-pendente')
+      return
+    }
+
     erro.value = obterMensagemAmigavelErro(
       error,
       'Não foi possível fazer login. Confira e-mail e senha.',

@@ -10,6 +10,8 @@ const MENSAGENS_PADRAO = {
   erroCarregarDados: 'Não foi possível carregar os dados. Tente novamente.',
   erroOperacao: 'Não foi possível concluir a operação. Tente novamente.',
 }
+export const MENSAGEM_CADASTRO_PENDENTE =
+  'Seu cadastro foi recebido e está aguardando aprovação. Assim que for aprovado, o acesso ao sistema será liberado.'
 
 function normalizarUrlBase(url, fallback = '') {
   const valor = String(url || '').trim()
@@ -60,6 +62,44 @@ function primeiroValorPreenchido(...valores) {
   return undefined
 }
 
+function normalizarTextoBusca(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function statusIndicaCadastroPendente(status) {
+  const texto = normalizarTextoBusca(status).replace(/[\s-]+/g, '_')
+
+  return [
+    'pendente',
+    'pendente_aprovacao',
+    'aguardando_aprovacao',
+    'em_analise',
+    'analise',
+  ].includes(texto)
+}
+
+export function mensagemIndicaCadastroPendente(mensagem) {
+  const texto = normalizarTextoBusca(mensagem)
+
+  return (
+    texto.includes('cadastro pendente') ||
+    texto.includes('aguardando aprovacao') ||
+    texto.includes('pendente de aprovacao') ||
+    texto.includes('empresa pendente') ||
+    texto.includes('acesso em analise') ||
+    (texto.includes('cadastro') && texto.includes('pendente')) ||
+    (texto.includes('empresa') && texto.includes('aprovacao'))
+  )
+}
+
+export function erroIndicaCadastroPendente(error) {
+  return error?.cadastroPendente === true || mensagemIndicaCadastroPendente(error?.message)
+}
+
 function extrairUsuarioResposta(dados) {
   const candidatos = [
     dados?.usuario,
@@ -94,10 +134,22 @@ function normalizarUsuarioSessao(dados = {}, usuarioBase = null) {
     primeiroValorPreenchido(
       origem.statusEmpresa,
       origem.empresaStatus,
+      origem.situacaoEmpresa,
+      origem.statusCadastro,
+      origem.empresa?.status,
+      origem.empresa?.statusEmpresa,
       origemUsuario.statusEmpresa,
       origemUsuario.empresaStatus,
+      origemUsuario.situacaoEmpresa,
+      origemUsuario.statusCadastro,
+      origemUsuario.empresa?.status,
+      origemUsuario.empresa?.statusEmpresa,
       base.statusEmpresa,
       base.empresaStatus,
+      base.situacaoEmpresa,
+      base.statusCadastro,
+      base.empresa?.status,
+      base.empresa?.statusEmpresa,
     ) || '',
   )
     .trim()
@@ -106,7 +158,7 @@ function normalizarUsuarioSessao(dados = {}, usuarioBase = null) {
     origem.cadastroPendente === true ||
     origemUsuario.cadastroPendente === true ||
     base.cadastroPendente === true ||
-    statusEmpresa === 'PENDENTE'
+    statusIndicaCadastroPendente(statusEmpresa)
 
   return {
     ...base,
@@ -2005,10 +2057,24 @@ export async function login(email, senha) {
     body: JSON.stringify({ email, senha }),
   })
 
+  if (!response.ok) {
+    const mensagem = await extrairMensagemErro(response)
+    const cadastroPendente = [401, 403, 423].includes(response.status) && mensagemIndicaCadastroPendente(mensagem)
+    const mensagemTratada =
+      cadastroPendente
+        ? MENSAGEM_CADASTRO_PENDENTE
+        : response.status === 401
+          ? 'Não foi possível fazer login. Confira e-mail e senha.'
+          : mensagem
+    const erro = new Error(mensagemTratada)
+    erro.status = response.status
+    erro.cadastroPendente = cadastroPendente
+    throw erro
+  }
+
   return tratarResposta(response, {
     encerrarSessao401: false,
     emitir403: false,
-    mensagem401: 'Não foi possível fazer login. Confira e-mail e senha.',
   })
 }
 

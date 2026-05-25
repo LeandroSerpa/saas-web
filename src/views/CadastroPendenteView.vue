@@ -1,8 +1,12 @@
 <script setup>
+import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { limparSessaoAutenticacao } from '@/services/api'
+import { limparSessaoAutenticacao, MENSAGEM_CADASTRO_PENDENTE } from '@/services/api'
 
 const router = useRouter()
+const mensagem = ref(sessionStorage.getItem('mensagem-cadastro-pendente') || MENSAGEM_CADASTRO_PENDENTE)
+
+sessionStorage.removeItem('mensagem-cadastro-pendente')
 
 function sair() {
   limparSessaoAutenticacao()
@@ -15,11 +19,11 @@ function sair() {
     <section class="card-pendente">
       <span class="selo">Cadastro pendente</span>
       <h1>Acesso em análise</h1>
-      <p>Sua empresa ainda está aguardando aprovação.</p>
-      <p>Assim que nossa equipe aprovar, seu acesso completo será liberado.</p>
+      <p>{{ mensagem }}</p>
+      <p>Nenhuma área interna ficará disponível enquanto a aprovação não for concluída.</p>
       <div class="acoes">
-        <RouterLink class="botao secundario" to="/login">Voltar para login</RouterLink>
-        <button class="botao principal" type="button" @click="sair">Sair</button>
+        <RouterLink class="botao secundario" to="/cadastro">Cadastrar outra empresa</RouterLink>
+        <button class="botao principal" type="button" @click="sair">Voltar para login</button>
       </div>
     </section>
   </main>

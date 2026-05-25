@@ -186,6 +186,9 @@ function validarEtapaAtual() {
     if (!formulario.value.interesse.trim()) return falharValidacao('Conte brevemente seu interesse.')
   }
 
+  if (etapaAtual.value === 3 && !planos.value.length) {
+    return falharValidacao('No momento não há planos disponíveis para cadastro público. Entre em contato com a equipe NuvemMais para receber orientação.')
+  }
   if (etapaAtual.value === 3 && !formulario.value.planoId) return falharValidacao('Selecione o plano desejado.')
   if (etapaAtual.value === 4 && !formulario.value.aceiteTermos) return falharValidacao('Confirme a leitura dos Termos de Uso e da Política de Privacidade.')
   return true
@@ -299,6 +302,49 @@ function obterMensagemErro(errorAtual, fallback) {
   return String(errorAtual?.message || '').trim() || fallback
 }
 
+function selecionarPlano(plano) {
+  formulario.value.planoId = plano?.id || ''
+  erro.value = ''
+}
+
+function formatarMoeda(valor) {
+  const numero = Number(valor ?? 0)
+
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(Number.isFinite(numero) ? numero : 0)
+}
+
+function precoPlano(plano) {
+  return plano?.precoMensal ?? plano?.preco ?? plano?.valor ?? plano?.valorMensal ?? 0
+}
+
+function descricaoPlano(plano) {
+  return plano?.descricao || plano?.resumo || 'Uma opção para organizar sua operação com mais clareza, controle e previsibilidade.'
+}
+
+function exibirLimite(valor) {
+  if (valor === null || valor === undefined || valor === '') return 'Ilimitado'
+  const numero = Number(valor)
+  if (!Number.isFinite(numero) || numero <= 0) return 'Ilimitado'
+  return new Intl.NumberFormat('pt-BR').format(numero)
+}
+
+function obterLimitePlano(plano, ...campos) {
+  for (const campo of campos) {
+    if (plano?.[campo] !== null && plano?.[campo] !== undefined && plano?.[campo] !== '') {
+      return plano[campo]
+    }
+  }
+
+  return null
+}
+
+function recursoDisponivel(valor) {
+  return valor === true ? 'Sim' : 'Não'
+}
+
 onMounted(carregarOpcoes)
 </script>
 
@@ -395,15 +441,51 @@ onMounted(carregarOpcoes)
             <label class="campo-grande">O que você deseja melhorar na gestão da sua empresa? *<textarea v-model="formulario.interesse" rows="4"></textarea></label>
           </div>
 
-          <div v-else-if="etapaAtual === 3" class="campos">
-            <label class="campo-grande">
-              Plano desejado *
-              <select v-model="formulario.planoId">
-                <option value="">Selecione</option>
-                <option v-for="plano in planos" :key="plano.id" :value="plano.id">{{ plano.nome || plano.titulo || 'Plano sem nome' }}</option>
-              </select>
-              <small v-if="!planos.length">Nenhum plano público disponível no momento.</small>
-            </label>
+          <div v-else-if="etapaAtual === 3" class="campo-grande etapa-planos">
+            <div class="cabecalho-planos">
+              <span class="selo">Escolha seu plano</span>
+              <h2>Compare as opções disponíveis</h2>
+              <p>Selecione o plano que combina melhor com o momento da sua empresa. Você poderá confirmar a escolha na revisão.</p>
+            </div>
+
+            <section v-if="!planos.length" class="sem-planos">
+              <h3>Nenhum plano disponível agora</h3>
+              <p>Entre em contato com a equipe NuvemMais para receber orientação sobre a melhor opção para sua empresa.</p>
+            </section>
+
+            <section v-else class="grade-planos" aria-label="Planos disponíveis">
+              <article
+                v-for="plano in planos"
+                :key="plano.id"
+                :class="['plano-card', { selecionado: String(formulario.planoId) === String(plano.id) }]"
+              >
+                <div class="plano-topo">
+                  <h3>{{ plano.nome || plano.titulo || 'Plano sem nome' }}</h3>
+                  <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mês</span></strong>
+                </div>
+
+                <p class="plano-descricao">{{ descricaoPlano(plano) }}</p>
+
+                <dl class="lista-limites">
+                  <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
+                  <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
+                  <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
+                  <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
+                  <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
+                </dl>
+
+                <ul class="recursos-plano">
+                  <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
+                  <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
+                  <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
+                  <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
+                </ul>
+
+                <button class="botao-plano" type="button" @click="selecionarPlano(plano)">
+                  {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : 'Escolher plano' }}
+                </button>
+              </article>
+            </section>
           </div>
 
           <div v-else class="revisao">
@@ -411,7 +493,12 @@ onMounted(carregarOpcoes)
             <article><h2>Responsável</h2><p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p><p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p><p><strong>Usuário/Login:</strong> {{ formulario.loginResponsavel || '-' }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p><p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p></article>
             <article><h2>Localização</h2><p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p><p><strong>UF:</strong> {{ formulario.estado || '-' }}</p></article>
             <article><h2>Interesse</h2><p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p><p><strong>Mensagem:</strong> {{ formulario.interesse }}</p></article>
-            <article><h2>Plano escolhido</h2><p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p></article>
+            <article>
+              <h2>Plano escolhido</h2>
+              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
+              <p><strong>Preço mensal:</strong> {{ planoSelecionado ? formatarMoeda(precoPlano(planoSelecionado)) : '-' }}</p>
+              <p><strong>Resumo:</strong> {{ planoSelecionado ? descricaoPlano(planoSelecionado) : '-' }}</p>
+            </article>
             <label class="aceite-termos"><input v-model="formulario.aceiteTermos" type="checkbox" /> <span>Li e aceito os <RouterLink to="/termos" target="_blank">Termos de Uso</RouterLink> e a <RouterLink to="/privacidade" target="_blank">Política de Privacidade</RouterLink>.</span></label>
           </div>
 
@@ -433,5 +520,5 @@ onMounted(carregarOpcoes)
 </template>
 
 <style scoped>
-.pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:980px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}}
+.pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:980px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}.etapa-planos{display:grid;gap:18px}.cabecalho-planos{display:grid;gap:7px}.cabecalho-planos p{color:#64748b}.grade-planos{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}.plano-card{display:grid;gap:16px;padding:20px;border:1px solid #dbe4f0;border-radius:18px;background:linear-gradient(180deg,#fff,#f8fafc);box-shadow:0 14px 30px rgba(15,23,42,.08);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}.plano-card.selecionado{border-color:#2563eb;box-shadow:0 20px 42px rgba(37,99,235,.2);transform:translateY(-2px)}.plano-topo{display:grid;gap:10px}.plano-topo h3{margin:0;font-size:23px}.plano-topo strong{color:#0f172a;font-size:28px;line-height:1}.plano-topo strong span{color:#64748b;font-size:14px;font-weight:800}.plano-descricao{color:#475569;line-height:1.5}.lista-limites{display:grid;gap:8px;margin:0}.lista-limites div,.recursos-plano li{display:flex;justify-content:space-between;gap:12px;align-items:center}.lista-limites dt,.recursos-plano span{color:#64748b;font-weight:800}.lista-limites dd{margin:0;color:#0f172a;font-weight:900}.recursos-plano{display:grid;gap:8px;margin:0;padding:14px 0 0;border-top:1px solid #e2e8f0;list-style:none}.recursos-plano strong{color:#0f766e}.botao-plano{width:100%;border:1px solid #2563eb;border-radius:12px;padding:12px 14px;background:#2563eb;color:white;cursor:pointer;font-weight:900}.plano-card.selecionado .botao-plano{background:#0f172a;border-color:#0f172a}.sem-planos{display:grid;gap:8px;padding:20px;border:1px dashed #93c5fd;border-radius:16px;background:#eff6ff;color:#1e3a8a}.sem-planos h3{margin:0}.sem-planos p{color:#334155}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}.grade-planos{grid-template-columns:1fr}.plano-topo strong{font-size:24px}}
 </style>
