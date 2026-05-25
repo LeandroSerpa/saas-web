@@ -286,8 +286,8 @@ onBeforeUnmount(() => {
     </aside>
 
     <div class="area-principal">
-      <header class="topo-app">
-        <div v-if="exibirInfoApi">
+      <header class="topo-app" :class="{ 'topo-app--compacto': !exibirInfoApi }">
+        <div v-if="exibirInfoApi" class="topo-app-api">
           <span class="ambiente">API publicada</span>
           <p>{{ API_URL }}</p>
         </div>
@@ -509,6 +509,15 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
+.topo-app--compacto {
+  margin-bottom: 12px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  justify-content: flex-end;
+}
+
 .topo-app p {
   margin: 4px 0 0;
   color: #475569;
@@ -527,6 +536,15 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   text-align: right;
+}
+
+.topo-app--compacto .usuario-logado {
+  margin-left: auto;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
 }
 
 .usuario-logado strong,
@@ -709,11 +727,19 @@ onBeforeUnmount(() => {
     padding: 16px;
   }
 
-  .topo-app,
+  .topo-app {
+    justify-content: flex-start;
+  }
+
   .usuario-logado {
     align-items: flex-start;
     flex-direction: column;
     text-align: left;
+  }
+
+  .topo-app--compacto .usuario-logado {
+    width: 100%;
+    margin-left: 0;
   }
 }
 
