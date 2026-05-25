@@ -34,6 +34,8 @@ const errosCampos = ref(criarErrosCamposIniciais())
 
 const segmentoSelecionado = computed(() => segmentos.value.find((segmento) => String(segmento.id) === String(formulario.value.segmentoNegocioId)) || null)
 const planoSelecionado = computed(() => planos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null)
+const planosVisiveis = computed(() => planos.value.slice(0, 4))
+const possuiPlanosOcultos = computed(() => planos.value.length > planosVisiveis.value.length)
 
 watch(() => formulario.value.nomeEmpresa, (nome) => {
   formulario.value.slugDesejado = gerarSlug(nome)
@@ -72,6 +74,7 @@ function criarErrosCamposIniciais() {
     emailResponsavel: '',
     loginResponsavel: '',
     telefoneResponsavel: '',
+    interesse: '',
   }
 }
 
@@ -90,7 +93,7 @@ async function carregarOpcoes() {
     ])
 
     segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
-    planos.value = extrairLista(planosApi).filter((plano) => plano.publico !== false && plano.visivelPublico !== false)
+    planos.value = extrairLista(planosApi).filter(planoPublicoAtivo)
   } catch (errorAtual) {
     erro.value = obterMensagemErro(errorAtual, 'Não foi possível carregar as opções do cadastro.')
     console.error(errorAtual)
@@ -183,7 +186,9 @@ function validarEtapaAtual() {
 
   if (etapaAtual.value === 2) {
     if (!formulario.value.segmentoNegocioId) return falharValidacao('Selecione o segmento.')
-    if (!formulario.value.interesse.trim()) return falharValidacao('Conte brevemente seu interesse.')
+    if (!formulario.value.interesse.trim()) {
+      return falharValidacao('Informe o principal objetivo da sua empresa ao usar o NuvemMais Gestão.', 'interesse')
+    }
   }
 
   if (etapaAtual.value === 3 && !planos.value.length) {
@@ -307,6 +312,12 @@ function selecionarPlano(plano) {
   erro.value = ''
 }
 
+function planoPublicoAtivo(plano) {
+  if (!plano || plano.ativo === false) return false
+
+  return plano.publico === true || plano.visivelPublico === true || plano.exibirNoCadastroPublico === true
+}
+
 function formatarMoeda(valor) {
   const numero = Number(valor ?? 0)
 
@@ -343,6 +354,20 @@ function obterLimitePlano(plano, ...campos) {
 
 function recursoDisponivel(valor) {
   return valor === true ? 'Sim' : 'Não'
+}
+
+function recursosPrincipaisPlano(plano, limite = 4) {
+  if (!plano) return []
+
+  return [
+    { ativo: plano.permitePersonalizacao, rotulo: 'Personalização' },
+    { ativo: plano.permiteRelatorios, rotulo: 'Relatórios' },
+    { ativo: plano.permiteAgendamentoPublico, rotulo: 'Agendamento público' },
+    { ativo: plano.permiteSuportePrioritario, rotulo: 'Suporte prioritário' },
+  ]
+    .filter((recurso) => recurso.ativo === true)
+    .slice(0, limite)
+    .map((recurso) => recurso.rotulo)
 }
 
 onMounted(carregarOpcoes)
@@ -438,7 +463,15 @@ onMounted(carregarOpcoes)
               </select>
               <small v-if="!segmentos.length">Nenhum segmento disponível no momento. Nossa equipe poderá orientar você após o envio.</small>
             </label>
-            <label class="campo-grande">O que você deseja melhorar na gestão da sua empresa? *<textarea v-model="formulario.interesse" rows="4"></textarea></label>
+            <label class="campo-grande">
+              Qual é o principal objetivo da sua empresa ao usar o NuvemMais Gestão? *
+              <textarea
+                v-model="formulario.interesse"
+                rows="4"
+                placeholder="Ex: organizar agendamentos, acompanhar clientes, melhorar relatórios ou controlar a operação com mais clareza."
+              ></textarea>
+              <small v-if="errosCampos.interesse" class="erro-campo">{{ errosCampos.interesse }}</small>
+            </label>
           </div>
 
           <div v-else-if="etapaAtual === 3" class="campo-grande etapa-planos">
@@ -453,39 +486,45 @@ onMounted(carregarOpcoes)
               <p>Entre em contato com a equipe NuvemMais para receber orientação sobre a melhor opção para sua empresa.</p>
             </section>
 
-            <section v-else class="grade-planos" aria-label="Planos disponíveis">
-              <article
-                v-for="plano in planos"
-                :key="plano.id"
-                :class="['plano-card', { selecionado: String(formulario.planoId) === String(plano.id) }]"
-              >
-                <div class="plano-topo">
-                  <h3>{{ plano.nome || plano.titulo || 'Plano sem nome' }}</h3>
-                  <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mês</span></strong>
-                </div>
+            <template v-else>
+              <p v-if="possuiPlanosOcultos" class="aviso-planos">
+                Mostrando os principais planos disponíveis. Nossa equipe poderá ajustar a melhor opção após a análise.
+              </p>
 
-                <p class="plano-descricao">{{ descricaoPlano(plano) }}</p>
+              <section class="grade-planos" aria-label="Planos disponíveis">
+                <article
+                  v-for="plano in planosVisiveis"
+                  :key="plano.id"
+                  :class="['plano-card', { selecionado: String(formulario.planoId) === String(plano.id) }]"
+                >
+                  <div class="plano-topo">
+                    <h3>{{ plano.nome || plano.titulo || 'Plano sem nome' }}</h3>
+                    <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mês</span></strong>
+                  </div>
 
-                <dl class="lista-limites">
-                  <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
-                  <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
-                  <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
-                  <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
-                  <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
-                </dl>
+                  <p class="plano-descricao">{{ descricaoPlano(plano) }}</p>
 
-                <ul class="recursos-plano">
-                  <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
-                  <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
-                  <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
-                  <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
-                </ul>
+                  <dl class="lista-limites">
+                    <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
+                    <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
+                    <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
+                    <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
+                    <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
+                  </dl>
 
-                <button class="botao-plano" type="button" @click="selecionarPlano(plano)">
-                  {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : 'Escolher plano' }}
-                </button>
-              </article>
-            </section>
+                  <ul class="recursos-plano">
+                    <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
+                    <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
+                    <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
+                    <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
+                  </ul>
+
+                  <button class="botao-plano" type="button" @click="selecionarPlano(plano)">
+                    {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : 'Escolher plano' }}
+                  </button>
+                </article>
+              </section>
+            </template>
           </div>
 
           <div v-else class="revisao">
@@ -498,6 +537,9 @@ onMounted(carregarOpcoes)
               <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
               <p><strong>Preço mensal:</strong> {{ planoSelecionado ? formatarMoeda(precoPlano(planoSelecionado)) : '-' }}</p>
               <p><strong>Resumo:</strong> {{ planoSelecionado ? descricaoPlano(planoSelecionado) : '-' }}</p>
+              <ul v-if="recursosPrincipaisPlano(planoSelecionado).length" class="recursos-revisao">
+                <li v-for="recurso in recursosPrincipaisPlano(planoSelecionado)" :key="recurso">{{ recurso }}</li>
+              </ul>
             </article>
             <label class="aceite-termos"><input v-model="formulario.aceiteTermos" type="checkbox" /> <span>Li e aceito os <RouterLink to="/termos" target="_blank">Termos de Uso</RouterLink> e a <RouterLink to="/privacidade" target="_blank">Política de Privacidade</RouterLink>.</span></label>
           </div>
@@ -520,5 +562,5 @@ onMounted(carregarOpcoes)
 </template>
 
 <style scoped>
-.pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:980px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}.etapa-planos{display:grid;gap:18px}.cabecalho-planos{display:grid;gap:7px}.cabecalho-planos p{color:#64748b}.grade-planos{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}.plano-card{display:grid;gap:16px;padding:20px;border:1px solid #dbe4f0;border-radius:18px;background:linear-gradient(180deg,#fff,#f8fafc);box-shadow:0 14px 30px rgba(15,23,42,.08);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}.plano-card.selecionado{border-color:#2563eb;box-shadow:0 20px 42px rgba(37,99,235,.2);transform:translateY(-2px)}.plano-topo{display:grid;gap:10px}.plano-topo h3{margin:0;font-size:23px}.plano-topo strong{color:#0f172a;font-size:28px;line-height:1}.plano-topo strong span{color:#64748b;font-size:14px;font-weight:800}.plano-descricao{color:#475569;line-height:1.5}.lista-limites{display:grid;gap:8px;margin:0}.lista-limites div,.recursos-plano li{display:flex;justify-content:space-between;gap:12px;align-items:center}.lista-limites dt,.recursos-plano span{color:#64748b;font-weight:800}.lista-limites dd{margin:0;color:#0f172a;font-weight:900}.recursos-plano{display:grid;gap:8px;margin:0;padding:14px 0 0;border-top:1px solid #e2e8f0;list-style:none}.recursos-plano strong{color:#0f766e}.botao-plano{width:100%;border:1px solid #2563eb;border-radius:12px;padding:12px 14px;background:#2563eb;color:white;cursor:pointer;font-weight:900}.plano-card.selecionado .botao-plano{background:#0f172a;border-color:#0f172a}.sem-planos{display:grid;gap:8px;padding:20px;border:1px dashed #93c5fd;border-radius:16px;background:#eff6ff;color:#1e3a8a}.sem-planos h3{margin:0}.sem-planos p{color:#334155}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}.grade-planos{grid-template-columns:1fr}.plano-topo strong{font-size:24px}}
+.pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:1080px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-align:center;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}.etapa-planos{display:grid;gap:18px}.cabecalho-planos{display:grid;gap:7px}.cabecalho-planos p{color:#64748b}.aviso-planos{padding:12px 14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1e3a8a;font-weight:700;line-height:1.45}.grade-planos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.plano-card{display:grid;grid-template-rows:auto auto 1fr auto auto;gap:16px;min-width:0;padding:18px;border:1px solid #dbe4f0;border-radius:8px;background:white;box-shadow:0 14px 30px rgba(15,23,42,.08);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}.plano-card.selecionado{border-color:#2563eb;box-shadow:0 20px 42px rgba(37,99,235,.2);transform:translateY(-2px)}.plano-topo{display:grid;gap:10px}.plano-topo h3{margin:0;font-size:22px;line-height:1.15;overflow-wrap:anywhere}.plano-topo strong{color:#0f172a;font-size:26px;line-height:1}.plano-topo strong span{color:#64748b;font-size:14px;font-weight:800}.plano-descricao{color:#475569;line-height:1.5}.lista-limites{display:grid;gap:8px;margin:0}.lista-limites div,.recursos-plano li{display:flex;justify-content:space-between;gap:12px;align-items:center}.lista-limites dt,.recursos-plano span{color:#64748b;font-weight:800}.lista-limites dd{margin:0;color:#0f172a;font-weight:900;text-align:right}.recursos-plano{display:grid;gap:8px;margin:0;padding:14px 0 0;border-top:1px solid #e2e8f0;list-style:none}.recursos-plano strong{color:#0f766e}.botao-plano{width:100%;min-height:46px;border:1px solid #2563eb;border-radius:8px;padding:12px 14px;background:#2563eb;color:white;cursor:pointer;font-weight:900}.plano-card.selecionado .botao-plano{background:#0f172a;border-color:#0f172a}.sem-planos{display:grid;gap:8px;padding:20px;border:1px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#1e3a8a}.sem-planos h3{margin:0}.sem-planos p{color:#334155}.recursos-revisao{display:grid;gap:6px;margin:10px 0 0;padding-left:20px;color:#334155}.recursos-revisao li{line-height:1.35}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}.grade-planos{grid-template-columns:1fr}.plano-topo strong{font-size:24px}}@media (max-width:560px){.pagina-publica{padding:22px 12px}.card,.feedback{padding:18px}.etapas{grid-template-columns:1fr}.acoes{display:grid;grid-template-columns:1fr}.botao,.botao-plano{width:100%}.lista-limites div,.recursos-plano li{align-items:flex-start}.plano-card{padding:16px}}
 </style>
