@@ -793,26 +793,28 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: 24px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .topo-app {
   margin: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px 16px;
+  min-height: unset;
+  height: auto;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  padding: 12px 18px;
-  border: 1px solid #dbe4f0;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
-  background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.06), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  background: white;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
 }
 
 .topo-contexto {
   min-width: 0;
+  flex: 1 1 420px;
   display: grid;
   gap: 6px;
 }
@@ -838,9 +840,9 @@ onBeforeUnmount(() => {
 
 .topo-contexto-texto h1 {
   margin: 0;
-  font-size: clamp(24px, 2.8vw, 30px);
+  font-size: clamp(22px, 2.3vw, 28px);
   font-weight: 800;
-  line-height: 1.04;
+  line-height: 1.08;
   color: #0f172a;
 }
 
@@ -850,12 +852,16 @@ onBeforeUnmount(() => {
   font-size: 13px;
   line-height: 1.35;
   max-width: 56ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .usuario-logado {
   display: flex;
   align-items: center;
-  align-self: center;
+  flex: 0 0 auto;
   gap: 10px;
   padding: 8px 10px;
   background: white;
@@ -1093,7 +1099,6 @@ onBeforeUnmount(() => {
   }
 
   .topo-app {
-    grid-template-columns: 1fr;
     gap: 10px;
     padding: 14px 15px;
   }
