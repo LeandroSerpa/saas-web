@@ -118,7 +118,7 @@ async function carregarDados() {
       }
     }
   } catch (error) {
-    erro.value = 'Não foi possível carregar os usuários.'
+    erro.value = 'NÃ£o foi possÃ­vel carregar os usuÃ¡rios.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -132,12 +132,12 @@ async function salvarUsuario() {
     mensagemSucessoStatus.value = ''
 
     if (!usuario.value.nome.trim()) {
-      erro.value = 'Informe o nome do usuário.'
+      erro.value = 'Informe o nome do usuÃ¡rio.'
       return
     }
 
     if (!usuario.value.email.trim()) {
-      erro.value = 'Informe o e-mail do usuário.'
+      erro.value = 'Informe o e-mail do usuÃ¡rio.'
       return
     }
 
@@ -149,39 +149,37 @@ async function salvarUsuario() {
     }
 
     if (!usuarioEditandoId.value && !usuario.value.senha) {
-      erro.value = 'Informe a senha do usuário.'
+      erro.value = 'Informe a senha do usuÃ¡rio.'
       return
     }
 
     if (usuarioEditandoId.value && !podeEditarUsuario({ id: usuarioEditandoId.value, perfil: perfilOriginalEdicao.value })) {
-      erro.value = 'Você não tem permissão para editar este usuário.'
+      erro.value = 'VocÃª nÃ£o tem permissÃ£o para editar este usuÃ¡rio.'
       return
     }
 
     if (!usuarioEditandoId.value && adminLogado.value && usuario.value.perfil !== 'USUARIO') {
-      erro.value = 'Administradores podem cadastrar apenas usuários com perfil USUARIO.'
+      erro.value = 'Administradores podem cadastrar apenas usuÃ¡rios com perfil USUARIO.'
       return
     }
 
-    if (superAdminLogado.value && !usuario.value.empresaId) {
-      erro.value = 'Selecione a empresa do usuário.'
+    if (superAdminLogado.value && usuario.value.perfil !== 'SUPER_ADMIN' && !usuario.value.empresaId) {
+      erro.value = 'Selecione a empresa do usuario.'
       return
     }
 
+    const empresaIdUsuario =
+      superAdminLogado.value
+        ? usuario.value.perfil === 'SUPER_ADMIN'
+          ? null
+          : Number(usuario.value.empresaId)
+        : obterEmpresaId()
     const dadosUsuario = {
-      empresaId: superAdminLogado.value ? Number(usuario.value.empresaId) : obterEmpresaId(),
+      empresaId: empresaIdUsuario,
       nome: usuario.value.nome,
       email: usuario.value.email,
       perfil: usuario.value.perfil,
       ativo: Boolean(usuario.value.ativo),
-    }
-    const loginNormalizado = String(usuario.value.login || '').trim()
-
-    if (editandoUsuarioAtual.value) {
-      dadosUsuario.perfil = perfilOriginalEdicao.value || perfilLogado.value
-      dadosUsuario.ativo = true
-    } else if (adminLogado.value) {
-      dadosUsuario.perfil = 'USUARIO'
     }
 
     if (loginNormalizado) {
@@ -196,10 +194,10 @@ async function salvarUsuario() {
 
     if (usuarioEditandoId.value) {
       await atualizarUsuario(usuarioEditandoId.value, dadosUsuario)
-      mensagemSucessoUsuario.value = 'Usuário atualizado com sucesso.'
+      mensagemSucessoUsuario.value = 'UsuÃ¡rio atualizado com sucesso.'
     } else {
       await cadastrarUsuario(dadosUsuario)
-      mensagemSucessoUsuario.value = 'Usuário cadastrado com sucesso.'
+      mensagemSucessoUsuario.value = 'UsuÃ¡rio cadastrado com sucesso.'
     }
 
     cancelarEdicaoUsuario(false)
@@ -208,7 +206,7 @@ async function salvarUsuario() {
   } catch (error) {
     erro.value = obterMensagemErroUsuario(
       error,
-      usuarioEditandoId.value ? 'Não foi possível atualizar o usuário.' : 'Não foi possível cadastrar o usuário.',
+      usuarioEditandoId.value ? 'NÃ£o foi possÃ­vel atualizar o usuÃ¡rio.' : 'NÃ£o foi possÃ­vel cadastrar o usuÃ¡rio.',
     )
     console.error(error)
   }
@@ -246,12 +244,12 @@ function cancelarEdicaoUsuario(limparMensagens = true) {
 async function alternarAtivoUsuario(usuarioItem) {
   try {
     if (usuarioAtual(usuarioItem)) {
-      erro.value = 'O usuário atual não pode ser desativado.'
+      erro.value = 'O usuÃ¡rio atual nÃ£o pode ser desativado.'
       return
     }
 
     if (!podeAlterarAtivoUsuario(usuarioItem)) {
-      erro.value = 'Você não tem permissão para alterar o status deste usuário.'
+      erro.value = 'VocÃª nÃ£o tem permissÃ£o para alterar o status deste usuÃ¡rio.'
       return
     }
 
@@ -264,10 +262,10 @@ async function alternarAtivoUsuario(usuarioItem) {
     await carregarDados()
 
     mensagemSucessoStatus.value = estaAtivo(usuarioItem)
-      ? 'Usuário desativado com sucesso.'
-      : 'Usuário ativado com sucesso.'
+      ? 'UsuÃ¡rio desativado com sucesso.'
+      : 'UsuÃ¡rio ativado com sucesso.'
   } catch (error) {
-    erro.value = 'Não foi possível atualizar o status do usuário.'
+    erro.value = 'NÃ£o foi possÃ­vel atualizar o status do usuÃ¡rio.'
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -327,6 +325,20 @@ function exibirValor(valor) {
   return valor || '-'
 }
 
+
+function rotuloEmpresaUsuario(usuarioItem) {
+  const nomeEmpresa = String(usuarioItem?.empresaNome || '').trim()
+
+  if (nomeEmpresa) {
+    return nomeEmpresa
+  }
+
+  if (String(usuarioItem?.perfil || '').toUpperCase() === 'SUPER_ADMIN') {
+    return 'NuvemMais / Plataforma'
+  }
+
+  return 'Sem empresa vinculada'
+}
 function exibirIdentificacao(usuarioItem) {
   return usuarioItem.login ? `@${usuarioItem.login}` : exibirValor(usuarioItem.email)
 }
@@ -339,14 +351,14 @@ function obterMensagemErroUsuario(error, fallback) {
     mensagemNormalizada.includes('login') &&
     (mensagemNormalizada.includes('duplic') || mensagemNormalizada.includes('ja existe'))
   ) {
-    return 'Este usuário/login já está em uso. Informe outro login.'
+    return 'Este usuÃ¡rio/login jÃ¡ estÃ¡ em uso. Informe outro login.'
   }
 
   if (
     mensagemNormalizada.includes('email') &&
     (mensagemNormalizada.includes('duplic') || mensagemNormalizada.includes('ja existe'))
   ) {
-    return 'Este e-mail já está em uso. Informe outro e-mail.'
+    return 'Este e-mail jÃ¡ estÃ¡ em uso. Informe outro e-mail.'
   }
 
   return mensagem
@@ -404,9 +416,9 @@ onMounted(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Administração</p>
-        <h1>Usuários</h1>
-        <p class="descricao">Gerencie usuários com acesso ao sistema.</p>
+        <p class="subtitulo">AdministraÃ§Ã£o</p>
+        <h1>UsuÃ¡rios</h1>
+        <p class="descricao">Gerencie usuÃ¡rios com acesso ao sistema.</p>
       </div>
 
       <button class="botao secundario" @click="carregarDados">Atualizar dados</button>
@@ -436,19 +448,19 @@ onMounted(() => {
     <section class="secao-usuarios">
       <div class="cabecalho-lista">
         <div>
-          <h2>Usuários cadastrados</h2>
-          <p>Usuários cadastrados com acesso ao sistema.</p>
+          <h2>UsuÃ¡rios cadastrados</h2>
+          <p>UsuÃ¡rios cadastrados com acesso ao sistema.</p>
         </div>
 
-        <span class="contador">{{ paginacao.totalElements }} usuário(s)</span>
+        <span class="contador">{{ paginacao.totalElements }} usuÃ¡rio(s)</span>
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando usuários...</p>
+        <p>Carregando usuÃ¡rios...</p>
       </section>
 
       <section v-else-if="usuarios.length === 0" class="card">
-        <p>Nenhum usuário encontrado.</p>
+        <p>Nenhum usuÃ¡rio encontrado.</p>
       </section>
 
       <section v-else class="lista-usuarios">
@@ -466,13 +478,13 @@ onMounted(() => {
 
           <div class="detalhes">
             <p><strong>E-mail:</strong> {{ exibirValor(usuarioItem.email) }}</p>
-            <p><strong>Usuário/Login:</strong> {{ exibirValor(usuarioItem.login) }}</p>
+            <p><strong>UsuÃ¡rio/Login:</strong> {{ exibirValor(usuarioItem.login) }}</p>
             <p><strong>Perfil:</strong> {{ exibirValor(usuarioItem.perfil) }}</p>
             <p>
               <strong>Empresa:</strong>
-              {{ exibirValor(usuarioItem.empresaNome) }}
+              {{ rotuloEmpresaUsuario(usuarioItem) }}
             </p>
-            <p v-if="usuarioAtual(usuarioItem)" class="usuario-atual">Usuário atual</p>
+            <p v-if="usuarioAtual(usuarioItem)" class="usuario-atual">UsuÃ¡rio atual</p>
           </div>
 
           <div class="acoes">
@@ -495,18 +507,18 @@ onMounted(() => {
           </div>
 
           <p v-if="atualizandoId === usuarioItem.id" class="atualizando">
-            Atualizando usuário...
+            Atualizando usuÃ¡rio...
           </p>
         </article>
       </section>
 
       <section v-if="!carregando" class="card paginacao">
         <p class="resumo-paginacao">
-          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+          {{ paginacao.totalElements }} registro(s) - PÃ¡gina {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
         </p>
 
         <label class="tamanho-pagina">
-          Registros por página
+          Registros por pÃ¡gina
           <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
             <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
               {{ opcao }}
@@ -519,7 +531,7 @@ onMounted(() => {
             Anterior
           </button>
           <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
-            Próxima
+            PrÃ³xima
           </button>
         </div>
       </section>
@@ -871,3 +883,5 @@ onMounted(() => {
   }
 }
 </style>
+
+

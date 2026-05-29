@@ -15,39 +15,39 @@ const router = useRouter()
 
 const CABECALHOS_PADRAO = {
   dashboard: {
-    subtitulo: 'Visão geral',
+    subtitulo: 'VisÃ£o geral',
     titulo: 'Dashboard',
-    descricao: 'Acompanhe os principais números da operação.',
+    descricao: 'Acompanhe os principais nÃºmeros da operaÃ§Ã£o.',
   },
   agenda: {
-    subtitulo: 'Operação diária',
+    subtitulo: 'OperaÃ§Ã£o diÃ¡ria',
     titulo: 'Agenda',
     descricao: 'Cadastre e acompanhe os agendamentos da empresa.',
   },
   clientes: {
     subtitulo: 'Relacionamento',
     titulo: 'Clientes',
-    descricao: 'Gerencie os clientes cadastrados na sua operação.',
+    descricao: 'Gerencie os clientes cadastrados na sua operaÃ§Ã£o.',
   },
   servicos: {
-    subtitulo: 'Catálogo operacional',
-    titulo: 'Serviços',
-    descricao: 'Organize os serviços oferecidos pela empresa.',
+    subtitulo: 'CatÃ¡logo operacional',
+    titulo: 'ServiÃ§os',
+    descricao: 'Organize os serviÃ§os oferecidos pela empresa.',
   },
   funcionarios: {
     subtitulo: 'Time',
-    titulo: 'Funcionários',
-    descricao: 'Acompanhe os profissionais vinculados à operação.',
+    titulo: 'FuncionÃ¡rios',
+    descricao: 'Acompanhe os profissionais vinculados Ã  operaÃ§Ã£o.',
   },
   disponibilidade: {
     subtitulo: 'Planejamento',
     titulo: 'Disponibilidade',
-    descricao: 'Defina horários, bloqueios e regras de atendimento.',
+    descricao: 'Defina horÃ¡rios, bloqueios e regras de atendimento.',
   },
   relatorios: {
-    subtitulo: 'Análise',
-    titulo: 'Relatórios',
-    descricao: 'Consulte indicadores e exporte dados da operação.',
+    subtitulo: 'AnÃ¡lise',
+    titulo: 'RelatÃ³rios',
+    descricao: 'Consulte indicadores e exporte dados da operaÃ§Ã£o.',
   },
   'minha-conta': {
     subtitulo: 'Perfil',
@@ -56,18 +56,23 @@ const CABECALHOS_PADRAO = {
   },
   usuarios: {
     subtitulo: 'Acessos',
-    titulo: 'Usuários',
-    descricao: 'Administre os usuários com acesso ao sistema.',
+    titulo: 'UsuÃ¡rios',
+    descricao: 'Administre os usuÃ¡rios com acesso ao sistema.',
+  },
+  estoque: {
+    subtitulo: 'Operacao',
+    titulo: 'Estoque',
+    descricao: 'Controle produtos, quantidades e alertas de baixo estoque.',
   },
   'minha-empresa': {
-    subtitulo: 'Configuração empresarial',
+    subtitulo: 'ConfiguraÃ§Ã£o empresarial',
     titulo: 'Minha empresa',
-    descricao: 'Revise as informações institucionais da empresa.',
+    descricao: 'Revise as informaÃ§Ãµes institucionais da empresa.',
   },
   personalizacao: {
-    subtitulo: 'Experiência pública',
-    titulo: 'Personalização',
-    descricao: 'Ajuste a apresentação da página pública da empresa.',
+    subtitulo: 'ExperiÃªncia pÃºblica',
+    titulo: 'PersonalizaÃ§Ã£o',
+    descricao: 'Ajuste a apresentaÃ§Ã£o da pÃ¡gina pÃºblica da empresa.',
   },
   'meu-plano': {
     subtitulo: 'Assinatura',
@@ -77,102 +82,102 @@ const CABECALHOS_PADRAO = {
   ajuda: {
     subtitulo: 'Ajuda interna',
     titulo: 'Central de Ajuda',
-    descricao: 'Aprenda a usar as principais funcionalidades do NuvemMais Gestão.',
+    descricao: 'Aprenda a usar as principais funcionalidades do NuvemMais GestÃ£o.',
   },
   onboarding: {
-    subtitulo: 'Implantação',
+    subtitulo: 'ImplantaÃ§Ã£o',
     titulo: 'Primeiros passos',
-    descricao: 'Conclua a configuração inicial da empresa.',
+    descricao: 'Conclua a configuraÃ§Ã£o inicial da empresa.',
   },
   empresas: {
-    subtitulo: 'Administração NuvemMais',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
     titulo: 'Empresas',
     descricao: 'Gerencie as empresas da plataforma.',
   },
   'admin-dashboard': {
-    subtitulo: 'Administração NuvemMais',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
     titulo: 'Dashboard NuvemMais',
     descricao: 'Monitore indicadores gerais da plataforma.',
   },
   planos: {
-    subtitulo: 'Administração NuvemMais',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
     titulo: 'Planos',
-    descricao: 'Gerencie planos e módulos disponíveis.',
+    descricao: 'Gerencie planos e mÃ³dulos disponÃ­veis.',
   },
   assinaturas: {
-    subtitulo: 'Administração NuvemMais',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
     titulo: 'Assinaturas',
     descricao: 'Acompanhe o status das assinaturas ativas.',
   },
   solicitacoes: {
-    subtitulo: 'Administração NuvemMais',
-    titulo: 'Solicitações de cadastro',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
+    titulo: 'SolicitaÃ§Ãµes de cadastro',
     descricao: 'Analise novos pedidos de entrada na plataforma.',
   },
   'solicitacoes-cadastro': {
-    subtitulo: 'Administração NuvemMais',
-    titulo: 'Solicitações de cadastro',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
+    titulo: 'SolicitaÃ§Ãµes de cadastro',
     descricao: 'Analise novos pedidos de entrada na plataforma.',
   },
   faturas: {
     subtitulo: 'Financeiro',
     titulo: 'Faturas',
-    descricao: 'Consulte cobranças e pagamentos da empresa.',
+    descricao: 'Consulte cobranÃ§as e pagamentos da empresa.',
   },
   notificacoes: {
-    subtitulo: 'Comunicação',
-    titulo: 'Notificações',
+    subtitulo: 'ComunicaÃ§Ã£o',
+    titulo: 'NotificaÃ§Ãµes',
     descricao: 'Acompanhe avisos e mensagens da plataforma.',
   },
   'configuracoes-notificacoes': {
-    subtitulo: 'Comunicação',
-    titulo: 'Notificações da empresa',
-    descricao: 'Defina como sua empresa recebe notificações.',
+    subtitulo: 'ComunicaÃ§Ã£o',
+    titulo: 'NotificaÃ§Ãµes da empresa',
+    descricao: 'Defina como sua empresa recebe notificaÃ§Ãµes.',
   },
   'admin-financeiro': {
-    subtitulo: 'Administração NuvemMais',
-    titulo: 'Inadimplência',
-    descricao: 'Acompanhe bloqueios e pendências financeiras.',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
+    titulo: 'InadimplÃªncia',
+    descricao: 'Acompanhe bloqueios e pendÃªncias financeiras.',
   },
   'admin-notificacoes': {
-    subtitulo: 'Administração NuvemMais',
-    titulo: 'Notificações NuvemMais',
-    descricao: 'Gerencie envios e filas de notificações da plataforma.',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
+    titulo: 'NotificaÃ§Ãµes NuvemMais',
+    descricao: 'Gerencie envios e filas de notificaÃ§Ãµes da plataforma.',
   },
   'admin-automacoes': {
-    subtitulo: 'Administração NuvemMais',
-    titulo: 'Central de Automações',
-    descricao: 'Monitore rotinas automáticas e execuções.',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
+    titulo: 'Central de AutomaÃ§Ãµes',
+    descricao: 'Monitore rotinas automÃ¡ticas e execuÃ§Ãµes.',
   },
   'admin-empresas-onboarding': {
-    subtitulo: 'Administração NuvemMais',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
     titulo: 'Novo cadastro guiado',
-    descricao: 'Cadastre e acompanhe a implantação de empresas.',
+    descricao: 'Cadastre e acompanhe a implantaÃ§Ã£o de empresas.',
   },
   inadimplencia: {
-    subtitulo: 'Administração NuvemMais',
-    titulo: 'Inadimplência',
-    descricao: 'Acompanhe bloqueios e pendências financeiras.',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
+    titulo: 'InadimplÃªncia',
+    descricao: 'Acompanhe bloqueios e pendÃªncias financeiras.',
   },
   'faturas-recorrentes': {
-    subtitulo: 'Administração NuvemMais',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
     titulo: 'Faturas recorrentes',
-    descricao: 'Gerencie a geração recorrente de cobranças.',
+    descricao: 'Gerencie a geraÃ§Ã£o recorrente de cobranÃ§as.',
   },
   'configuracoes-pagamento': {
-    subtitulo: 'Administração NuvemMais',
-    titulo: 'Configurações de pagamento',
-    descricao: 'Defina regras e métodos de pagamento da plataforma.',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
+    titulo: 'ConfiguraÃ§Ãµes de pagamento',
+    descricao: 'Defina regras e mÃ©todos de pagamento da plataforma.',
   },
   auditoria: {
-    subtitulo: 'Administração NuvemMais',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
     titulo: 'Auditoria',
-    descricao: 'Consulte o histórico de eventos administrativos.',
+    descricao: 'Consulte o histÃ³rico de eventos administrativos.',
   },
   lixeira: {
-    subtitulo: 'Administração NuvemMais',
+    subtitulo: 'AdministraÃ§Ã£o NuvemMais',
     titulo: 'Lixeira',
-    descricao: 'Revise e restaure registros excluídos.',
+    descricao: 'Revise e restaure registros excluÃ­dos.',
   },
 }
 
@@ -215,9 +220,9 @@ const identificacaoConta = computed(() => {
     return `@${login}`
   }
 
-  return email || 'Sessão ativa'
+  return email || 'SessÃ£o ativa'
 })
-const nomeUsuario = computed(() => usuario.value?.nome || 'Usuário')
+const nomeUsuario = computed(() => usuario.value?.nome || 'UsuÃ¡rio')
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
@@ -258,9 +263,9 @@ function criarCabecalhoPagina() {
 function obterCabecalhoPadrao(nomeRota) {
   return (
     CABECALHOS_PADRAO[nomeRota] || {
-      subtitulo: superAdmin.value ? 'Administração NuvemMais' : 'Painel interno',
+      subtitulo: superAdmin.value ? 'AdministraÃ§Ã£o NuvemMais' : 'Painel interno',
       titulo: formatarNomeRota(nomeRota),
-      descricao: 'Acompanhe os dados desta área da plataforma.',
+      descricao: 'Acompanhe os dados desta Ã¡rea da plataforma.',
     }
   )
 }
@@ -330,7 +335,7 @@ function atualizarStatusFinanceiroGlobal() {
 
 function exibirMensagemGlobal(event) {
   const detail = event?.detail || {}
-  mensagemGlobal.value = detail.mensagem || 'Não foi possível carregar os dados. Tente novamente.'
+  mensagemGlobal.value = detail.mensagem || 'NÃ£o foi possÃ­vel carregar os dados. Tente novamente.'
   tipoMensagemGlobal.value = detail.tipo || 'erro'
 
   if (timeoutMensagemGlobal) {
@@ -442,7 +447,7 @@ watch(menuMobileAberto, (aberto) => {
 onErrorCaptured((error) => {
   console.error(error)
   erroInesperado.value = true
-  mensagemGlobal.value = 'Ocorreu um erro inesperado. Recarregue a página para continuar.'
+  mensagemGlobal.value = 'Ocorreu um erro inesperado. Recarregue a pÃ¡gina para continuar.'
   tipoMensagemGlobal.value = 'erro'
   return false
 })
@@ -478,11 +483,11 @@ onBeforeUnmount(() => {
   <main v-if="erroInesperado" class="pagina-erro-interno">
     <section class="card-erro-interno">
       <span class="selo-erro">Erro inesperado</span>
-      <h1>Não foi possível concluir esta ação.</h1>
-      <p>Recarregue a página para continuar. Se o problema persistir, tente novamente em instantes.</p>
+      <h1>NÃ£o foi possÃ­vel concluir esta aÃ§Ã£o.</h1>
+      <p>Recarregue a pÃ¡gina para continuar. Se o problema persistir, tente novamente em instantes.</p>
       <div class="acoes-erro-interno">
         <button class="botao-erro-interno" type="button" @click="recarregarAplicacao">
-          Recarregar página
+          Recarregar pÃ¡gina
         </button>
       </div>
     </section>
@@ -503,38 +508,39 @@ onBeforeUnmount(() => {
     <aside class="app-sidebar" :class="{ aberta: menuMobileAberto }">
       <div class="topo-menu-mobile">
         <span>Menu</span>
-        <button class="botao-fechar-menu" type="button" aria-label="Fechar menu" @click="fecharMenuMobile">×</button>
+        <button class="botao-fechar-menu" type="button" aria-label="Fechar menu" @click="fecharMenuMobile">Ã—</button>
       </div>
 
       <div class="marca">
         <span class="marca-simbolo">LE</span>
         <div>
-          <strong>NuvemMais Gestão</strong>
-          <small>Gestão empresarial na nuvem</small>
+          <strong>NuvemMais GestÃ£o</strong>
+          <small>GestÃ£o empresarial na nuvem</small>
         </div>
       </div>
 
-      <nav class="menu-principal" aria-label="Navegação principal">
+      <nav class="menu-principal" aria-label="NavegaÃ§Ã£o principal">
         <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
         <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
         <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
-        <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
-        <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
+        <RouterLink to="/servicos" @click="fecharMenuMobile">ServiÃ§os</RouterLink>
+        <RouterLink to="/funcionarios" @click="fecharMenuMobile">FuncionÃ¡rios</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">Disponibilidade</RouterLink>
         <RouterLink v-if="adminEmpresa" to="/onboarding" @click="fecharMenuMobile">Primeiros passos</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">Relatórios</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">RelatÃ³rios</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa" @click="fecharMenuMobile">Minha empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">Notificações da empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">NotificaÃ§Ãµes da empresa</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">PersonalizaÃ§Ã£o</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano" @click="fecharMenuMobile">Meu plano</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/faturas" @click="fecharMenuMobile">Faturas</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">UsuÃ¡rios</RouterLink>
+        <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
         <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
 
         <section v-if="superAdmin" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
-            <span>Administração NuvemMais</span>
-            <span>{{ menuAdminAberto ? '−' : '+' }}</span>
+            <span>AdministraÃ§Ã£o NuvemMais</span>
+            <span>{{ menuAdminAberto ? 'âˆ’' : '+' }}</span>
           </button>
 
           <div v-if="menuAdminAberto" class="submenu">
@@ -543,13 +549,13 @@ onBeforeUnmount(() => {
             <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
             <RouterLink to="/planos" @click="fecharMenuMobile">Planos</RouterLink>
             <RouterLink to="/assinaturas" @click="fecharMenuMobile">Assinaturas</RouterLink>
-            <RouterLink to="/admin/notificacoes" @click="fecharMenuMobile">Notificações NuvemMais</RouterLink>
-            <RouterLink to="/admin/automacoes" @click="fecharMenuMobile">Automações</RouterLink>
-            <RouterLink to="/admin/financeiro" @click="fecharMenuMobile">Inadimplência</RouterLink>
+            <RouterLink to="/admin/notificacoes" @click="fecharMenuMobile">NotificaÃ§Ãµes NuvemMais</RouterLink>
+            <RouterLink to="/admin/automacoes" @click="fecharMenuMobile">AutomaÃ§Ãµes</RouterLink>
+            <RouterLink to="/admin/financeiro" @click="fecharMenuMobile">InadimplÃªncia</RouterLink>
             <RouterLink to="/faturas-recorrentes" @click="fecharMenuMobile">Faturas recorrentes</RouterLink>
-            <RouterLink to="/configuracoes-pagamento" @click="fecharMenuMobile">Configuração de pagamento</RouterLink>
-            <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/Módulos</RouterLink>
-            <RouterLink to="/solicitacoes" @click="fecharMenuMobile">Solicitações</RouterLink>
+            <RouterLink to="/configuracoes-pagamento" @click="fecharMenuMobile">ConfiguraÃ§Ã£o de pagamento</RouterLink>
+            <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/MÃ³dulos</RouterLink>
+            <RouterLink to="/solicitacoes" @click="fecharMenuMobile">SolicitaÃ§Ãµes</RouterLink>
             <RouterLink to="/auditoria" @click="fecharMenuMobile">Auditoria</RouterLink>
             <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
           </div>
@@ -874,3 +880,4 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+

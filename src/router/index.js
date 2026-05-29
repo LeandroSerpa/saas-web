@@ -40,6 +40,7 @@ import TermosView from '../views/TermosView.vue'
 import PrivacidadeView from '../views/PrivacidadeView.vue'
 import SobreView from '../views/SobreView.vue'
 import AjudaView from '../views/AjudaView.vue'
+import EstoqueView from '../views/EstoqueView.vue'
 import { carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
@@ -152,6 +153,12 @@ const router = createRouter({
       path: '/meu-plano',
       name: 'meu-plano',
       component: MeuPlanoView,
+      meta: rotasAdmin,
+    },
+    {
+      path: '/estoque',
+      name: 'estoque',
+      component: EstoqueView,
       meta: rotasAdmin,
     },
     {

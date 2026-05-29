@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { emailBasicoValido, limparEspacos, validarLoginCurto } from '@/utils/validacoes'
 
 const usuario = defineModel({
@@ -44,6 +44,7 @@ const errosCampos = reactive({
   email: '',
   login: '',
 })
+const empresaObrigatoria = computed(() => usuario.value?.perfil !== 'SUPER_ADMIN')
 
 function normalizarEmail(valor) {
   usuario.value.email = limparEspacos(valor)
@@ -161,13 +162,16 @@ function solicitarSalvamento() {
       </label>
 
       <label v-if="mostrarEmpresa">
-        Empresa *
+        Empresa {{ empresaObrigatoria ? '*' : '(opcional)' }}
         <select v-model="usuario.empresaId">
-          <option value="">Selecione uma empresa</option>
+          <option value="">{{ empresaObrigatoria ? 'Selecione uma empresa' : 'Sem empresa vinculada' }}</option>
           <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
             {{ empresa.nome }}
           </option>
         </select>
+        <small v-if="usuario.perfil === 'SUPER_ADMIN'">
+          SUPER_ADMIN tem acesso administrativo a plataforma e nao precisa estar vinculado a uma empresa.
+        </small>
       </label>
 
       <label class="campo-checkbox">

@@ -18,7 +18,7 @@ import {
   validarLoginCurto,
 } from '@/utils/validacoes'
 
-const etapas = [{ titulo: 'Empresa' }, { titulo: 'Responsável' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'Revisão' }]
+const etapas = [{ titulo: 'Empresa' }, { titulo: 'ResponsÃ¡vel' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'RevisÃ£o' }]
 const ufs = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
 
@@ -98,7 +98,7 @@ async function carregarOpcoes() {
   } catch (errorAtual) {
     erro.value = obterMensagemErro(
       errorAtual,
-      'Não foi possível carregar os planos agora. Verifique sua conexão e tente novamente em instantes.',
+      'NÃ£o foi possÃ­vel carregar os planos agora. Verifique sua conexÃ£o e tente novamente em instantes.',
     )
     console.error(errorAtual)
   } finally {
@@ -125,12 +125,12 @@ async function enviarCadastro() {
     erro.value = ''
     const resposta = await cadastrarEmpresaInteressadaPublico(montarPayload())
     protocolo.value = obterCampo(resposta, 'protocolo', 'numeroProtocolo', 'id')
-    sucesso.value = 'Cadastro enviado com sucesso. Nossa equipe analisará sua solicitação.'
+    sucesso.value = 'Cadastro enviado com sucesso. Nossa equipe analisarÃ¡ sua solicitaÃ§Ã£o.'
     formulario.value = criarFormularioInicial()
     errosCampos.value = criarErrosCamposIniciais()
     etapaAtual.value = 0
   } catch (errorAtual) {
-    erro.value = obterMensagemErro(errorAtual, 'Não foi possível enviar o cadastro.')
+    erro.value = obterMensagemErro(errorAtual, 'NÃ£o foi possÃ­vel enviar o cadastro.')
     console.error(errorAtual)
   } finally {
     enviando.value = false
@@ -139,21 +139,21 @@ async function enviarCadastro() {
 
 function validarCampoDocumento() {
   if (!formulario.value.documento.trim()) return falharValidacao('Informe o documento da empresa.', 'documento')
-  if (!documentoBasicoValido(formulario.value.documento)) return falharValidacao('Informe um CPF ou CNPJ válido, usando apenas números.', 'documento')
+  if (!documentoBasicoValido(formulario.value.documento)) return falharValidacao('Informe um CPF ou CNPJ vÃ¡lido, usando apenas nÃºmeros.', 'documento')
   errosCampos.value.documento = ''
   return true
 }
 
 function validarCampoTelefone(campo, obrigatorio = false) {
-  const rotulo = campo === 'telefoneResponsavel' ? 'do responsável' : 'da empresa'
+  const rotulo = campo === 'telefoneResponsavel' ? 'do responsÃ¡vel' : 'da empresa'
   if (obrigatorio && !formulario.value[campo].trim()) return falharValidacao(`Informe o telefone ${rotulo}.`, campo)
-  if (formulario.value[campo] && !telefoneBasicoValido(formulario.value[campo])) return falharValidacao('Informe um telefone válido, usando apenas números com DDD.', campo)
+  if (formulario.value[campo] && !telefoneBasicoValido(formulario.value[campo])) return falharValidacao('Informe um telefone vÃ¡lido, usando apenas nÃºmeros com DDD.', campo)
   errosCampos.value[campo] = ''
   return true
 }
 
 function validarCampoEmail(campo) {
-  if (!emailBasicoValido(formulario.value[campo])) return falharValidacao('Informe um e-mail válido.', campo)
+  if (!emailBasicoValido(formulario.value[campo])) return falharValidacao('Informe um e-mail vÃ¡lido.', campo)
   errosCampos.value[campo] = ''
   return true
 }
@@ -179,27 +179,27 @@ function validarEtapaAtual() {
   }
 
   if (etapaAtual.value === 1) {
-    if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsável.')
+    if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsÃ¡vel.')
     if (!validarCampoEmail('emailResponsavel')) return false
     if (!validarCampoLoginResponsavel()) return false
     if (!validarCampoTelefone('telefoneResponsavel', true)) return false
-    if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsável.')
-    if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no mínimo 6 caracteres.')
-    if (formulario.value.confirmarSenhaResponsavel !== formulario.value.senhaResponsavel) return falharValidacao('A confirmação de senha deve ser igual à senha informada.')
+    if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsÃ¡vel.')
+    if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no mÃ­nimo 6 caracteres.')
+    if (formulario.value.confirmarSenhaResponsavel !== formulario.value.senhaResponsavel) return falharValidacao('A confirmaÃ§Ã£o de senha deve ser igual Ã  senha informada.')
   }
 
   if (etapaAtual.value === 2) {
     if (!formulario.value.segmentoNegocioId) return falharValidacao('Selecione o segmento.')
     if (!formulario.value.interesse.trim()) {
-      return falharValidacao('Informe o principal objetivo da sua empresa ao usar o NuvemMais Gestão.', 'interesse')
+      return falharValidacao('Informe o principal objetivo da sua empresa ao usar o NuvemMais GestÃ£o.', 'interesse')
     }
   }
 
   if (etapaAtual.value === 3 && !planos.value.length) {
-    return falharValidacao('No momento não há planos disponíveis para cadastro público. Entre em contato com a equipe NuvemMais para receber orientação.')
+    return falharValidacao('No momento nÃ£o hÃ¡ planos disponÃ­veis para cadastro pÃºblico. Entre em contato com a equipe NuvemMais para receber orientaÃ§Ã£o.')
   }
   if (etapaAtual.value === 3 && !formulario.value.planoId) return falharValidacao('Selecione o plano desejado.')
-  if (etapaAtual.value === 4 && !formulario.value.aceiteTermos) return falharValidacao('Confirme a leitura dos Termos de Uso e da Política de Privacidade.')
+  if (etapaAtual.value === 4 && !formulario.value.aceiteTermos) return falharValidacao('Confirme a leitura dos Termos de Uso e da PolÃ­tica de Privacidade.')
   return true
 }
 
@@ -330,7 +330,7 @@ function precoPlano(plano) {
 }
 
 function descricaoPlano(plano) {
-  return plano?.descricao || plano?.resumo || 'Uma opção para organizar sua operação com mais clareza, controle e previsibilidade.'
+  return plano?.descricao || plano?.resumo || 'Uma opÃ§Ã£o para organizar sua operaÃ§Ã£o com mais clareza, controle e previsibilidade.'
 }
 
 function exibirLimite(valor) {
@@ -351,17 +351,26 @@ function obterLimitePlano(plano, ...campos) {
 }
 
 function recursoDisponivel(valor) {
-  return valor === true ? 'Sim' : 'Não'
+  return valor === true ? 'Sim' : 'NÃ£o'
+}
+
+function estoqueIncluido(plano) {
+  return plano?.permiteEstoque === true
+}
+
+function limiteProdutosPlano(plano) {
+  return exibirLimite(obterLimitePlano(plano, 'limiteProdutos'))
 }
 
 function recursosPrincipaisPlano(plano, limite = 4) {
   if (!plano) return []
 
   return [
-    { ativo: plano.permitePersonalizacao, rotulo: 'Personalização' },
-    { ativo: plano.permiteRelatorios, rotulo: 'Relatórios' },
-    { ativo: plano.permiteAgendamentoPublico, rotulo: 'Agendamento público' },
-    { ativo: plano.permiteSuportePrioritario, rotulo: 'Suporte prioritário' },
+    { ativo: plano.permitePersonalizacao, rotulo: 'PersonalizaÃ§Ã£o' },
+    { ativo: plano.permiteRelatorios, rotulo: 'RelatÃ³rios' },
+    { ativo: plano.permiteAgendamentoPublico, rotulo: 'Agendamento pÃºblico' },
+    { ativo: plano.permiteEstoque, rotulo: `Estoque (${limiteProdutosPlano(plano)} produtos)` },
+    { ativo: plano.permiteSuportePrioritario, rotulo: 'Suporte prioritÃ¡rio' },
   ]
     .filter((recurso) => recurso.ativo === true)
     .slice(0, limite)
@@ -375,17 +384,17 @@ onMounted(carregarOpcoes)
   <main class="pagina-publica">
     <section class="conteudo">
       <header class="cabecalho">
-        <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
-        <span class="marca">Gestão Empresarial</span>
+        <RouterLink class="link-login" to="/login">JÃ¡ tenho acesso</RouterLink>
+        <span class="marca">GestÃ£o Empresarial</span>
         <h1>Cadastre sua empresa</h1>
-        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitação de entrada na plataforma.</p>
+        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitaÃ§Ã£o de entrada na plataforma.</p>
       </header>
 
       <section v-if="sucesso" class="card confirmacao">
-        <span class="selo">Solicitação pendente</span>
+        <span class="selo">SolicitaÃ§Ã£o pendente</span>
         <h2>{{ sucesso }}</h2>
         <p v-if="protocolo"><strong>Protocolo:</strong> {{ protocolo }}</p>
-        <p>O responsável já pode tentar acessar com e-mail/usuário e senha cadastrados, mas a empresa ficará pendente até aprovação.</p>
+        <p>O responsÃ¡vel jÃ¡ pode tentar acessar com e-mail/usuÃ¡rio e senha cadastrados, mas a empresa ficarÃ¡ pendente atÃ© aprovaÃ§Ã£o.</p>
         <div class="acoes"><RouterLink class="botao principal" to="/login">Voltar para login</RouterLink></div>
       </section>
 
@@ -397,7 +406,7 @@ onMounted(carregarOpcoes)
         </section>
 
         <section v-if="erro" class="feedback erro"><p>{{ erro }}</p></section>
-        <section v-if="carregando" class="card"><p>Carregando opções do cadastro...</p></section>
+        <section v-if="carregando" class="card"><p>Carregando opÃ§Ãµes do cadastro...</p></section>
 
         <form v-else class="card formulario" @submit.prevent="etapaAtual === etapas.length - 1 ? enviarCadastro() : proximaEtapa()">
           <div v-if="etapaAtual === 0" class="campos">
@@ -417,7 +426,7 @@ onMounted(carregarOpcoes)
               <input :value="formulario.emailEmpresa" type="text" inputmode="email" @input="aplicarEmail('emailEmpresa', $event.target.value)" @blur="validarCampoEmail('emailEmpresa')" />
               <small v-if="errosCampos.emailEmpresa" class="erro-campo">{{ errosCampos.emailEmpresa }}</small>
             </label>
-            <label class="campo-grande">Endereço<input v-model="formulario.endereco" type="text" /></label>
+            <label class="campo-grande">EndereÃ§o<input v-model="formulario.endereco" type="text" /></label>
             <label>Cidade *<input v-model="formulario.cidade" type="text" /></label>
             <label>
               UF *
@@ -430,16 +439,16 @@ onMounted(carregarOpcoes)
           </div>
 
           <div v-else-if="etapaAtual === 1" class="campos">
-            <label>Nome do responsável *<input v-model="formulario.nomeResponsavel" type="text" /></label>
+            <label>Nome do responsÃ¡vel *<input v-model="formulario.nomeResponsavel" type="text" /></label>
             <label>
-              E-mail do responsável *
+              E-mail do responsÃ¡vel *
               <input :value="formulario.emailResponsavel" type="text" inputmode="email" @input="aplicarEmail('emailResponsavel', $event.target.value)" @blur="validarCampoEmail('emailResponsavel')" />
               <small v-if="errosCampos.emailResponsavel" class="erro-campo">{{ errosCampos.emailResponsavel }}</small>
             </label>
             <label>
-              Usuário/Login
+              UsuÃ¡rio/Login
               <input v-model="formulario.loginResponsavel" type="text" placeholder="Ex: responsavel.empresa" @blur="validarCampoLoginResponsavel" />
-              <small>Você poderá usar este usuário para entrar no sistema no lugar do e-mail.</small>
+              <small>VocÃª poderÃ¡ usar este usuÃ¡rio para entrar no sistema no lugar do e-mail.</small>
               <small v-if="errosCampos.loginResponsavel" class="erro-campo">{{ errosCampos.loginResponsavel }}</small>
             </label>
             <label>
@@ -459,14 +468,14 @@ onMounted(carregarOpcoes)
                 <option value="">Selecione</option>
                 <option v-for="segmento in segmentos" :key="segmento.id" :value="segmento.id">{{ segmento.nome || segmento.descricao || 'Segmento sem nome' }}</option>
               </select>
-              <small v-if="!segmentos.length">Nenhum segmento disponível no momento. Nossa equipe poderá orientar você após o envio.</small>
+              <small v-if="!segmentos.length">Nenhum segmento disponÃ­vel no momento. Nossa equipe poderÃ¡ orientar vocÃª apÃ³s o envio.</small>
             </label>
             <label class="campo-grande">
-              Qual é o principal objetivo da sua empresa ao usar o NuvemMais Gestão? *
+              Qual Ã© o principal objetivo da sua empresa ao usar o NuvemMais GestÃ£o? *
               <textarea
                 v-model="formulario.interesse"
                 rows="4"
-                placeholder="Ex: organizar agendamentos, acompanhar clientes, melhorar relatórios ou controlar a operação com mais clareza."
+                placeholder="Ex: organizar agendamentos, acompanhar clientes, melhorar relatÃ³rios ou controlar a operaÃ§Ã£o com mais clareza."
               ></textarea>
               <small v-if="errosCampos.interesse" class="erro-campo">{{ errosCampos.interesse }}</small>
             </label>
@@ -475,21 +484,21 @@ onMounted(carregarOpcoes)
           <div v-else-if="etapaAtual === 3" class="campo-grande etapa-planos">
             <div class="cabecalho-planos">
               <span class="selo">Escolha seu plano</span>
-              <h2>Compare as opções disponíveis</h2>
-              <p>Selecione o plano que combina melhor com o momento da sua empresa. Você poderá confirmar a escolha na revisão.</p>
+              <h2>Compare as opÃ§Ãµes disponÃ­veis</h2>
+              <p>Selecione o plano que combina melhor com o momento da sua empresa. VocÃª poderÃ¡ confirmar a escolha na revisÃ£o.</p>
             </div>
 
             <section v-if="!planos.length" class="sem-planos">
-              <h3>Nenhum plano disponível agora</h3>
-              <p>Entre em contato com a equipe NuvemMais para receber orientação sobre a melhor opção para sua empresa.</p>
+              <h3>Nenhum plano disponÃ­vel agora</h3>
+              <p>Entre em contato com a equipe NuvemMais para receber orientaÃ§Ã£o sobre a melhor opÃ§Ã£o para sua empresa.</p>
             </section>
 
             <template v-else>
               <p v-if="possuiPlanosOcultos" class="aviso-planos">
-                Mostrando os principais planos disponíveis. Nossa equipe poderá ajustar a melhor opção após a análise.
+                Mostrando os principais planos disponÃ­veis. Nossa equipe poderÃ¡ ajustar a melhor opÃ§Ã£o apÃ³s a anÃ¡lise.
               </p>
 
-              <section class="grade-planos" aria-label="Planos disponíveis">
+              <section class="grade-planos" aria-label="Planos disponÃ­veis">
                 <article
                   v-for="plano in planosVisiveis"
                   :key="plano.id"
@@ -497,24 +506,26 @@ onMounted(carregarOpcoes)
                 >
                   <div class="plano-topo">
                     <h3>{{ plano.nome || plano.titulo || 'Plano sem nome' }}</h3>
-                    <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mês</span></strong>
+                    <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mÃªs</span></strong>
                   </div>
 
                   <p class="plano-descricao">{{ descricaoPlano(plano) }}</p>
 
                   <dl class="lista-limites">
-                    <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
+                    <div><dt>UsuÃ¡rios</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
                     <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
-                    <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
-                    <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
-                    <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
+                    <div><dt>FuncionÃ¡rios</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
+                    <div><dt>ServiÃ§os</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
+                    <div><dt>Agendamentos/mÃªs</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
+                    <div><dt>Produtos no estoque</dt><dd>{{ estoqueIncluido(plano) ? limiteProdutosPlano(plano) : 'Não incluso' }}</dd></div>
                   </dl>
 
                   <ul class="recursos-plano">
-                    <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
-                    <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
-                    <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
-                    <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
+                    <li><span>PersonalizaÃ§Ã£o</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
+                    <li><span>RelatÃ³rios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
+                    <li><span>Agendamento pÃºblico</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
+                    <li><span>Estoque</span><strong>{{ estoqueIncluido(plano) ? 'Sim' : 'Não' }}</strong></li>
+                    <li><span>Suporte prioritÃ¡rio</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
                   </ul>
 
                   <button class="botao-plano" type="button" @click="selecionarPlano(plano)">
@@ -526,34 +537,36 @@ onMounted(carregarOpcoes)
           </div>
 
           <div v-else class="revisao">
-            <article><h2>Empresa</h2><p><strong>Nome:</strong> {{ formulario.nomeEmpresa }}</p><p><strong>Documento (CPF/CNPJ):</strong> {{ formulario.documento }}</p><p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p><p><strong>Endereço:</strong> {{ formulario.endereco || '-' }}</p></article>
-            <article><h2>Responsável</h2><p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p><p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p><p><strong>Usuário/Login:</strong> {{ formulario.loginResponsavel || '-' }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p><p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p></article>
-            <article><h2>Localização</h2><p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p><p><strong>UF:</strong> {{ formulario.estado || '-' }}</p></article>
+            <article><h2>Empresa</h2><p><strong>Nome:</strong> {{ formulario.nomeEmpresa }}</p><p><strong>Documento (CPF/CNPJ):</strong> {{ formulario.documento }}</p><p><strong>E-mail:</strong> {{ formulario.emailEmpresa }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneEmpresa || '-' }}</p><p><strong>EndereÃ§o:</strong> {{ formulario.endereco || '-' }}</p></article>
+            <article><h2>ResponsÃ¡vel</h2><p><strong>Nome:</strong> {{ formulario.nomeResponsavel }}</p><p><strong>E-mail:</strong> {{ formulario.emailResponsavel }}</p><p><strong>UsuÃ¡rio/Login:</strong> {{ formulario.loginResponsavel || '-' }}</p><p><strong>Telefone:</strong> {{ formulario.telefoneResponsavel }}</p><p><strong>Cargo:</strong> {{ formulario.cargoResponsavel || '-' }}</p></article>
+            <article><h2>LocalizaÃ§Ã£o</h2><p><strong>Cidade:</strong> {{ formulario.cidade || '-' }}</p><p><strong>UF:</strong> {{ formulario.estado || '-' }}</p></article>
             <article><h2>Interesse</h2><p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p><p><strong>Mensagem:</strong> {{ formulario.interesse }}</p></article>
             <article>
               <h2>Plano escolhido</h2>
               <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
-              <p><strong>Preço mensal:</strong> {{ planoSelecionado ? formatarMoeda(precoPlano(planoSelecionado)) : '-' }}</p>
+              <p><strong>PreÃ§o mensal:</strong> {{ planoSelecionado ? formatarMoeda(precoPlano(planoSelecionado)) : '-' }}</p>
               <p><strong>Resumo:</strong> {{ planoSelecionado ? descricaoPlano(planoSelecionado) : '-' }}</p>
+              <p><strong>Estoque:</strong> {{ planoSelecionado ? (estoqueIncluido(planoSelecionado) ? 'Incluido' : 'Nao incluso') : '-' }}</p>
+              <p><strong>Produtos no estoque:</strong> {{ planoSelecionado ? (estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Nao incluso') : '-' }}</p>
               <ul v-if="recursosPrincipaisPlano(planoSelecionado).length" class="recursos-revisao">
                 <li v-for="recurso in recursosPrincipaisPlano(planoSelecionado)" :key="recurso">{{ recurso }}</li>
               </ul>
             </article>
-            <label class="aceite-termos"><input v-model="formulario.aceiteTermos" type="checkbox" /> <span>Li e aceito os <RouterLink to="/termos" target="_blank">Termos de Uso</RouterLink> e a <RouterLink to="/privacidade" target="_blank">Política de Privacidade</RouterLink>.</span></label>
+            <label class="aceite-termos"><input v-model="formulario.aceiteTermos" type="checkbox" /> <span>Li e aceito os <RouterLink to="/termos" target="_blank">Termos de Uso</RouterLink> e a <RouterLink to="/privacidade" target="_blank">PolÃ­tica de Privacidade</RouterLink>.</span></label>
           </div>
 
           <div class="acoes">
             <button v-if="etapaAtual > 0" class="botao secundario" type="button" @click="etapaAnterior">Voltar</button>
-            <button v-if="etapaAtual < etapas.length - 1" class="botao principal" type="submit">Avançar</button>
+            <button v-if="etapaAtual < etapas.length - 1" class="botao principal" type="submit">AvanÃ§ar</button>
             <button v-else class="botao principal" type="submit" :disabled="enviando">{{ enviando ? 'Enviando...' : 'Enviar cadastro' }}</button>
           </div>
         </form>
       </template>
 
-      <nav class="links-institucionais" aria-label="Páginas públicas">
+      <nav class="links-institucionais" aria-label="PÃ¡ginas pÃºblicas">
         <RouterLink to="/sobre">Sobre</RouterLink>
         <RouterLink to="/termos">Termos de Uso</RouterLink>
-        <RouterLink to="/privacidade">Política de Privacidade</RouterLink>
+        <RouterLink to="/privacidade">PolÃ­tica de Privacidade</RouterLink>
       </nav>
     </section>
   </main>
@@ -562,3 +575,4 @@ onMounted(carregarOpcoes)
 <style scoped>
 .pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:1080px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-align:center;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}.etapa-planos{display:grid;gap:18px}.cabecalho-planos{display:grid;gap:7px}.cabecalho-planos p{color:#64748b}.aviso-planos{padding:12px 14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1e3a8a;font-weight:700;line-height:1.45}.grade-planos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.plano-card{display:grid;grid-template-rows:auto auto 1fr auto auto;gap:16px;min-width:0;padding:18px;border:1px solid #dbe4f0;border-radius:8px;background:white;box-shadow:0 14px 30px rgba(15,23,42,.08);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}.plano-card.selecionado{border-color:#2563eb;box-shadow:0 20px 42px rgba(37,99,235,.2);transform:translateY(-2px)}.plano-topo{display:grid;gap:10px}.plano-topo h3{margin:0;font-size:22px;line-height:1.15;overflow-wrap:anywhere}.plano-topo strong{color:#0f172a;font-size:26px;line-height:1}.plano-topo strong span{color:#64748b;font-size:14px;font-weight:800}.plano-descricao{color:#475569;line-height:1.5}.lista-limites{display:grid;gap:8px;margin:0}.lista-limites div,.recursos-plano li{display:flex;justify-content:space-between;gap:12px;align-items:center}.lista-limites dt,.recursos-plano span{color:#64748b;font-weight:800}.lista-limites dd{margin:0;color:#0f172a;font-weight:900;text-align:right}.recursos-plano{display:grid;gap:8px;margin:0;padding:14px 0 0;border-top:1px solid #e2e8f0;list-style:none}.recursos-plano strong{color:#0f766e}.botao-plano{width:100%;min-height:46px;border:1px solid #2563eb;border-radius:8px;padding:12px 14px;background:#2563eb;color:white;cursor:pointer;font-weight:900}.plano-card.selecionado .botao-plano{background:#0f172a;border-color:#0f172a}.sem-planos{display:grid;gap:8px;padding:20px;border:1px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#1e3a8a}.sem-planos h3{margin:0}.sem-planos p{color:#334155}.recursos-revisao{display:grid;gap:6px;margin:10px 0 0;padding-left:20px;color:#334155}.recursos-revisao li{line-height:1.35}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}.grade-planos{grid-template-columns:1fr}.plano-topo strong{font-size:24px}}@media (max-width:560px){.pagina-publica{padding:22px 12px}.card,.feedback{padding:18px}.etapas{grid-template-columns:1fr}.acoes{display:grid;grid-template-columns:1fr}.botao,.botao-plano{width:100%}.lista-limites div,.recursos-plano li{align-items:flex-start}.plano-card{padding:16px}}
 </style>
+

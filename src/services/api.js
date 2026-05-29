@@ -994,6 +994,59 @@ function normalizarColecaoResposta(dados) {
   return []
 }
 
+function criarErroHttp(status, mensagem = MENSAGENS_PADRAO.recursoNaoEncontrado) {
+  const erro = new Error(mensagem)
+  erro.status = status
+  return erro
+}
+
+async function tentarRotas(candidatas = [], init = {}, opcoesTratamento = {}) {
+  let ultimoErro = null
+
+  for (const candidata of candidatas) {
+    const url = typeof candidata === 'string' ? candidata : candidata?.url
+    const configuracao = {
+      ...init,
+      ...(typeof candidata === 'object' && candidata?.init ? candidata.init : {}),
+    }
+
+    if (!url) {
+      continue
+    }
+
+    const response = await executarFetch(url, configuracao)
+
+    if (response.ok) {
+      return tratarResposta(response, opcoesTratamento)
+    }
+
+    if (response.status === 404) {
+      ultimoErro = criarErroHttp(404)
+      continue
+    }
+
+    return tratarResposta(response, opcoesTratamento)
+  }
+
+  throw ultimoErro || criarErroHttp(404)
+}
+
+export function mensagemIndicaBloqueioPlanoEstoque(mensagem) {
+  const texto = normalizarTextoBusca(mensagem)
+
+  return (
+    texto.includes('estoque') &&
+    (
+      texto.includes('plano') ||
+      texto.includes('modulo') ||
+      texto.includes('recurso') ||
+      texto.includes('nao disponivel') ||
+      texto.includes('não disponivel') ||
+      texto.includes('superior')
+    )
+  )
+}
+
 export async function buscarServicosVinculadosAoFuncionario(funcionarioId) {
   const response = await executarFetch(`${API_URL}/funcionarios/${funcionarioId}/servicos`, {
     headers: montarHeaders(),
@@ -1060,6 +1113,44 @@ export async function buscarDashboardSaasResumo() {
   })
 
   return tratarResposta(response)
+}
+
+export async function buscarOpcoesDashboardSaas() {
+  try {
+    return await tentarRotas(
+      [
+        `${API_URL}/admin/dashboard-saas/opcoes`,
+        `${API_URL}/admin/dashboard-saas/empresas/opcoes`,
+        `${API_URL}/admin/dashboard-saas/empresas`,
+      ],
+      {
+        headers: montarHeaders(),
+      },
+    )
+  } catch (error) {
+    if (error?.status === 404) {
+      return buscarEmpresas()
+    }
+
+    throw error
+  }
+}
+
+export async function buscarVisaoEmpresaDashboardSaas(empresaId) {
+  const id = Number(empresaId)
+
+  return tentarRotas(
+    [
+      `${API_URL}/admin/dashboard-saas/empresas/${id}`,
+      `${API_URL}/admin/dashboard-saas/empresa/${id}`,
+      `${API_URL}/admin/dashboard-saas/visao-empresa/${id}`,
+      `${API_URL}/admin/dashboard-saas/empresas/${id}/resumo`,
+      `${API_URL}/admin/dashboard-saas/empresa${montarQueryString({ empresaId: id })}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
 }
 
 export async function buscarOnboarding() {
@@ -1645,6 +1736,140 @@ export async function desativarPlano(id) {
   })
 
   return tratarResposta(response)
+}
+
+export async function buscarResumoEstoque(filtros = {}) {
+  return tentarRotas(
+    [
+      `${API_URL}/estoque/resumo${montarQueryString(filtros)}`,
+      `${API_URL}/estoque/produtos/resumo${montarQueryString(filtros)}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
+}
+
+export async function buscarProdutosEstoque(filtros = {}) {
+  const dados = await tentarRotas(
+    [
+      `${API_URL}/estoque/produtos${montarQueryString(filtros)}`,
+      `${API_URL}/produtos${montarQueryString(filtros)}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
+
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarProdutoEstoque(id) {
+  return tentarRotas(
+    [
+      `${API_URL}/estoque/produtos/${id}`,
+      `${API_URL}/produtos/${id}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
+}
+
+export async function criarProdutoEstoque(dados) {
+  return tentarRotas(
+    [
+      `${API_URL}/estoque/produtos`,
+      `${API_URL}/produtos`,
+    ],
+    {
+      method: 'POST',
+      headers: montarHeaders(true),
+      body: JSON.stringify(dados),
+    },
+  )
+}
+
+export async function atualizarProdutoEstoque(id, dados) {
+  return tentarRotas(
+    [
+      `${API_URL}/estoque/produtos/${id}`,
+      `${API_URL}/produtos/${id}`,
+    ],
+    {
+      method: 'PUT',
+      headers: montarHeaders(true),
+      body: JSON.stringify(dados),
+    },
+  )
+}
+
+export async function ativarProdutoEstoque(id) {
+  return tentarRotas(
+    [
+      `${API_URL}/estoque/produtos/${id}/ativar`,
+      `${API_URL}/produtos/${id}/ativar`,
+    ],
+    {
+      method: 'PATCH',
+      headers: montarHeaders(),
+    },
+  )
+}
+
+export async function desativarProdutoEstoque(id) {
+  return tentarRotas(
+    [
+      `${API_URL}/estoque/produtos/${id}/desativar`,
+      `${API_URL}/produtos/${id}/desativar`,
+    ],
+    {
+      method: 'PATCH',
+      headers: montarHeaders(),
+    },
+  )
+}
+
+export async function buscarProdutosBaixoEstoque(filtros = {}) {
+  const dados = await tentarRotas(
+    [
+      `${API_URL}/estoque/baixo-estoque${montarQueryString(filtros)}`,
+      `${API_URL}/estoque/produtos/baixo-estoque${montarQueryString(filtros)}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
+
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarMovimentacoesEstoque(filtros = {}) {
+  const dados = await tentarRotas(
+    [
+      `${API_URL}/estoque/movimentacoes${montarQueryString(filtros)}`,
+      `${API_URL}/estoque/historico${montarQueryString(filtros)}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
+
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function criarMovimentacaoEstoque(dados) {
+  return tentarRotas(
+    [
+      `${API_URL}/estoque/movimentacoes`,
+      `${API_URL}/estoque/produtos/movimentacoes`,
+    ],
+    {
+      method: 'POST',
+      headers: montarHeaders(true),
+      body: JSON.stringify(dados),
+    },
+  )
 }
 
 export async function buscarAssinaturas(filtros = {}) {
