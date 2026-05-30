@@ -1130,6 +1130,22 @@ function normalizarColecaoResposta(dados) {
     return dados.resultado
   }
 
+  if (Array.isArray(dados.unidades)) {
+    return dados.unidades
+  }
+
+  if (Array.isArray(dados.unidadesEstoque)) {
+    return dados.unidadesEstoque
+  }
+
+  if (Array.isArray(dados.data?.unidades)) {
+    return dados.data.unidades
+  }
+
+  if (Array.isArray(dados.data?.unidadesEstoque)) {
+    return dados.data.unidadesEstoque
+  }
+
   if (Array.isArray(dados.funcionarioIds)) {
     return dados.funcionarioIds
   }
@@ -1950,6 +1966,109 @@ function registrarDiagnosticoEstoque(error) {
 
 export async function buscarResumoEstoque(filtros = {}) {
   return buscarRecursoEstoque('/estoque/resumo', filtros)
+}
+
+export async function buscarUnidadesEstoque(filtros = {}) {
+  const dados = await tentarRotas(
+    [
+      `${API_URL}/estoque/unidades${montarQueryString(filtros)}`,
+      `${API_URL}/admin/estoque/unidades${montarQueryString(filtros)}`,
+      `${API_URL}/admin/unidades-estoque${montarQueryString(filtros)}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+    {
+      emitir403: false,
+    },
+  )
+
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarUnidadesEstoqueAdmin(filtros = {}) {
+  const dados = await tentarRotas(
+    [
+      `${API_URL}/admin/estoque/unidades${montarQueryString(filtros)}`,
+      `${API_URL}/admin/unidades-estoque${montarQueryString(filtros)}`,
+      `${API_URL}/estoque/unidades${montarQueryString(filtros)}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
+
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function criarUnidadeEstoqueAdmin(dados) {
+  return tentarRotas(
+    [
+      `${API_URL}/admin/estoque/unidades`,
+      `${API_URL}/admin/unidades-estoque`,
+    ],
+    {
+      method: 'POST',
+      headers: montarHeaders(true),
+      body: JSON.stringify(dados),
+    },
+  )
+}
+
+export async function atualizarUnidadeEstoqueAdmin(id, dados) {
+  return tentarRotas(
+    [
+      `${API_URL}/admin/estoque/unidades/${id}`,
+      `${API_URL}/admin/unidades-estoque/${id}`,
+    ],
+    {
+      method: 'PUT',
+      headers: montarHeaders(true),
+      body: JSON.stringify(dados),
+    },
+  )
+}
+
+export async function ativarUnidadeEstoqueAdmin(id) {
+  return tentarRotas(
+    [
+      `${API_URL}/admin/estoque/unidades/${id}/ativar`,
+      `${API_URL}/admin/unidades-estoque/${id}/ativar`,
+      {
+        url: `${API_URL}/admin/estoque/unidades/${id}/ativo`,
+        init: {
+          method: 'PUT',
+          headers: montarHeaders(true),
+          body: JSON.stringify({ ativo: true }),
+        },
+      },
+    ],
+    {
+      method: 'PATCH',
+      headers: montarHeaders(),
+    },
+  )
+}
+
+export async function desativarUnidadeEstoqueAdmin(id) {
+  return tentarRotas(
+    [
+      `${API_URL}/admin/estoque/unidades/${id}/desativar`,
+      `${API_URL}/admin/unidades-estoque/${id}/desativar`,
+      {
+        url: `${API_URL}/admin/estoque/unidades/${id}/ativo`,
+        init: {
+          method: 'PUT',
+          headers: montarHeaders(true),
+          body: JSON.stringify({ ativo: false }),
+        },
+      },
+    ],
+    {
+      method: 'PATCH',
+      headers: montarHeaders(),
+    },
+  )
 }
 
 export async function buscarProdutosEstoque(filtros = {}) {

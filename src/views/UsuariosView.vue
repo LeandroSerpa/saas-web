@@ -24,6 +24,7 @@ const editandoUsuarioAtual = ref(false)
 const perfilOriginalEdicao = ref('')
 const paginacao = ref(criarPaginacaoInicial())
 const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
+const filtros = ref(criarFiltrosIniciais())
 
 const usuarioLogado = computed(() => obterUsuarioLogado())
 const perfilLogado = computed(() => usuarioLogado.value?.perfil || '')
@@ -36,6 +37,15 @@ const paginaAtualHumana = computed(() => paginacao.value.page + 1)
 const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
 const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 const usuario = ref(criarUsuarioInicial())
+
+function criarFiltrosIniciais() {
+  return {
+    busca: '',
+    perfil: '',
+    status: '',
+    empresaId: '',
+  }
+}
 
 function criarUsuarioInicial() {
   return {
@@ -78,6 +88,7 @@ async function carregarDados() {
     if (superAdminLogado.value) {
       const [usuariosApi, empresasApi] = await Promise.all([
         buscarUsuarios({
+          ...montarFiltrosUsuarios(),
           page: paginacao.value.page,
           size: paginacao.value.size,
         }),
@@ -87,6 +98,7 @@ async function carregarDados() {
       empresas.value = empresasApi
     } else {
       respostaUsuarios = await buscarUsuarios({
+        ...montarFiltrosUsuarios(),
         page: paginacao.value.page,
         size: paginacao.value.size,
       })
@@ -123,6 +135,17 @@ async function carregarDados() {
   } finally {
     carregando.value = false
   }
+}
+
+function montarFiltrosUsuarios() {
+  return Object.fromEntries(
+    Object.entries({
+      busca: filtros.value.busca,
+      perfil: filtros.value.perfil,
+      ativo: filtros.value.status ? filtros.value.status === 'ATIVO' : '',
+      empresaId: superAdminLogado.value ? filtros.value.empresaId : '',
+    }).filter(([, valor]) => valor !== null && valor !== undefined && String(valor).trim() !== ''),
+  )
 }
 
 async function salvarUsuario() {
@@ -408,6 +431,17 @@ async function alterarTamanhoPagina() {
   await carregarDados()
 }
 
+async function aplicarFiltros() {
+  paginacao.value.page = 0
+  await carregarDados()
+}
+
+async function limparFiltros() {
+  filtros.value = criarFiltrosIniciais()
+  paginacao.value.page = 0
+  await carregarDados()
+}
+
 onMounted(() => {
   carregarDados()
 })
@@ -445,6 +479,56 @@ onMounted(() => {
       @salvar="salvarUsuario"
       @cancelar="cancelarEdicaoUsuario"
     />
+
+    <form class="card filtros-usuarios" @submit.prevent="aplicarFiltros">
+      <div class="titulo-card">
+        <h2>Filtros</h2>
+        <p>Encontre usuários por busca, perfil, status ou empresa.</p>
+      </div>
+
+      <div class="campos-filtros">
+        <label>
+          Busca
+          <input v-model="filtros.busca" type="search" placeholder="Nome, e-mail ou usuário/login" />
+        </label>
+
+        <label>
+          Perfil
+          <select v-model="filtros.perfil">
+            <option value="">Todos</option>
+            <option value="SUPER_ADMIN">Administrador NuvemMais</option>
+            <option value="ADMIN">Administrador</option>
+            <option value="USUARIO">Usuário</option>
+          </select>
+        </label>
+
+        <label>
+          Status
+          <select v-model="filtros.status">
+            <option value="">Todos</option>
+            <option value="ATIVO">Ativos</option>
+            <option value="INATIVO">Inativos</option>
+          </select>
+        </label>
+
+        <label v-if="superAdminLogado">
+          Empresa
+          <select v-model="filtros.empresaId">
+            <option value="">Todas</option>
+            <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
+              {{ empresa.nome }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <div class="acoes">
+        <button class="botao principal" :disabled="carregando">
+          {{ carregando ? 'Filtrando...' : 'Aplicar filtros' }}
+        </button>
+        <button type="button" class="botao secundario" @click="limparFiltros">Limpar filtros</button>
+      </div>
+    </form>
 
     <section class="secao-usuarios">
       <div class="cabecalho-lista">
@@ -584,6 +668,44 @@ onMounted(() => {
 .secao-usuarios {
   display: grid;
   gap: 16px;
+}
+
+.filtros-usuarios {
+  display: grid;
+  gap: 16px;
+}
+
+.campos-filtros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.campos-filtros label {
+  display: grid;
+  gap: 6px;
+  color: #374151;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.campos-filtros input,
+.campos-filtros select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 15px;
+  background: white;
+  box-sizing: border-box;
+}
+
+.campos-filtros input:focus,
+.campos-filtros select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .cabecalho-lista h2 {
@@ -753,6 +875,10 @@ onMounted(() => {
   background: #2563eb;
 }
 
+.principal {
+  background: #2563eb;
+}
+
 :deep(.principal:hover) {
   background: #1d4ed8;
 }
@@ -879,8 +1005,24 @@ onMounted(() => {
   }
 
   .lista-usuarios,
+  .campos-filtros,
   :deep(.campos) {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .acoes,
+  .botoes-paginacao {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .botao,
+  .tamanho-pagina,
+  .tamanho-pagina select {
+    width: 100%;
   }
 }
 </style>

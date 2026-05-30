@@ -34,6 +34,7 @@ import NotificacoesView from '../views/NotificacoesView.vue'
 import AdminNotificacoesView from '../views/AdminNotificacoesView.vue'
 import ConfiguracoesNotificacoesView from '../views/ConfiguracoesNotificacoesView.vue'
 import AdminAutomacoesView from '../views/AdminAutomacoesView.vue'
+import AdminEstoqueView from '../views/AdminEstoqueView.vue'
 import AcessoNegadoView from '../views/AcessoNegadoView.vue'
 import NaoEncontradoView from '../views/NaoEncontradoView.vue'
 import TermosView from '../views/TermosView.vue'
@@ -253,6 +254,12 @@ const router = createRouter({
       path: '/admin/automacoes',
       name: 'admin-automacoes',
       component: AdminAutomacoesView,
+      meta: rotasSuperAdmin,
+    },
+    {
+      path: '/admin/estoque',
+      name: 'admin-estoque',
+      component: AdminEstoqueView,
       meta: rotasSuperAdmin,
     },
     {

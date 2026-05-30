@@ -158,6 +158,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Central de Automações',
     descricao: 'Monitore rotinas automáticas e execuções.',
   },
+  'admin-estoque': {
+    subtitulo: 'Administração NuvemMais',
+    titulo: 'Administração de Estoque',
+    descricao: 'Gerencie configurações globais do módulo Estoque.',
+  },
   'admin-empresas-onboarding': {
     subtitulo: 'Administração NuvemMais',
     titulo: 'Novo cadastro guiado',
@@ -213,6 +218,10 @@ const empresaLogada = computed(() => {
 
   if (usuario.value?.empresaId) {
     return 'Empresa'
+  }
+
+  if (ehSuperAdmin(usuario.value)) {
+    return 'Plataforma NuvemMais'
   }
 
   return 'Empresa'
@@ -625,6 +634,7 @@ onBeforeUnmount(() => {
             <RouterLink to="/assinaturas" @click="fecharMenuMobile">Assinaturas</RouterLink>
             <RouterLink to="/admin/notificacoes" @click="fecharMenuMobile">Notificações NuvemMais</RouterLink>
             <RouterLink to="/admin/automacoes" @click="fecharMenuMobile">Automações</RouterLink>
+            <RouterLink to="/admin/estoque" @click="fecharMenuMobile">Administração de Estoque</RouterLink>
             <RouterLink to="/admin/financeiro" @click="fecharMenuMobile">Inadimplência</RouterLink>
             <RouterLink to="/faturas-recorrentes" @click="fecharMenuMobile">Faturas recorrentes</RouterLink>
             <RouterLink to="/configuracoes-pagamento" @click="fecharMenuMobile">Configuração de pagamento</RouterLink>

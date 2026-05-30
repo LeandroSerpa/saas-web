@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   ativarProdutoEstoque,
   buscarEmpresas,
@@ -8,10 +8,12 @@ import {
   buscarProdutosBaixoEstoque,
   buscarProdutosEstoque,
   buscarResumoEstoque,
+  buscarUnidadesEstoque,
   carregarUsuarioSessao,
   criarMovimentacaoEstoque,
   criarProdutoEstoque,
   desativarProdutoEstoque,
+  EVENTO_EMPRESA_VISUALIZACAO,
   mensagemIndicaBloqueioPlanoEstoque,
   obterEmpresaVisualizacao,
   obterMensagemAmigavelErro,
@@ -19,7 +21,7 @@ import {
 } from '@/services/api'
 import { ehSuperAdmin } from '@/utils/permissoes'
 
-const OPCOES_UNIDADE = Object.freeze([
+const UNIDADES_FALLBACK = Object.freeze([
   { valor: 'UN', descricao: 'Unidade' },
   { valor: 'CX', descricao: 'Caixa' },
   { valor: 'PC', descricao: 'Peça/Pacote' },
@@ -36,11 +38,19 @@ const OPCOES_TAMANHO_PAGINA = Object.freeze([5, 10, 20, 50])
 
 const usuario = ref(carregarUsuarioSessao())
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
-const modoVisualizacaoSuperAdmin = computed(() => superAdmin.value)
+const empresaVisualizacao = ref(obterEmpresaVisualizacao())
+const empresaUsuarioId = computed(() => usuario.value?.empresaId || '')
+const empresaVisualizacaoEhPropria = computed(() =>
+  Boolean(superAdmin.value && empresaVisualizacao.value?.id && empresaUsuarioId.value) &&
+  String(empresaVisualizacao.value.id) === String(empresaUsuarioId.value),
+)
+const modoVisualizacaoSuperAdmin = computed(() => superAdmin.value && !empresaVisualizacaoEhPropria.value)
 const abaAtiva = ref('produtos')
 const empresas = ref([])
 const produtos = ref([])
 const movimentacoes = ref([])
+const unidadesEstoque = ref([...UNIDADES_FALLBACK])
+const avisoUnidades = ref('')
 const resumo = ref(criarResumoPadrao())
 const carregando = ref(true)
 const carregandoProdutos = ref(false)
@@ -64,7 +74,6 @@ const paginacaoProdutos = ref(criarPaginacaoLocal(10))
 const paginacaoMovimentacoes = ref(criarPaginacaoLocal(10))
 const saldoPrevistoMovimentacao = computed(() => calcularSaldoPrevistoMovimentacao())
 
-const empresaVisualizacao = computed(() => obterEmpresaVisualizacao())
 const abasDisponiveis = computed(() => {
   const abas = [
     { id: 'produtos', rotulo: 'Produtos' },
@@ -134,6 +143,43 @@ const resumoPaginacaoProdutos = computed(() => resumoPaginacao(produtosVisiveis.
 const resumoPaginacaoMovimentacoes = computed(() =>
   resumoPaginacao(movimentacoesVisiveis.value.length, paginacaoMovimentacoes.value, 'movimentações'),
 )
+const opcoesUnidadeAtivas = computed(() =>
+  unidadesEstoque.value.filter((unidade) => unidade.ativo !== false),
+)
+const filtrosProdutosAtivos = computed(() =>
+  Boolean(
+    filtros.value.status ||
+      String(filtros.value.busca || '').trim() ||
+      filtros.value.categoria ||
+      filtros.value.somenteBaixoEstoque,
+  ),
+)
+const mensagemListaProdutosVazia = computed(() => {
+  if (filtros.value.somenteBaixoEstoque) {
+    return 'Nenhum produto com baixo estoque encontrado.'
+  }
+
+  if (filtrosProdutosAtivos.value) {
+    return 'Nenhum produto encontrado com os filtros atuais.'
+  }
+
+  return 'Nenhum produto cadastrado ainda.'
+})
+const mensagemModoEstoque = computed(() => {
+  if (!superAdmin.value) {
+    return ''
+  }
+
+  if (empresaVisualizacaoEhPropria.value) {
+    return `Modo operação: você está usando a própria empresa ${empresaVisualizacao.value.nome}.`
+  }
+
+  if (empresaVisualizacao.value?.id) {
+    return `Modo visualização: você está vendo dados da empresa ${empresaVisualizacao.value.nome}. Alterações estão bloqueadas.`
+  }
+
+  return 'Visão global: você está vendo dados consolidados da plataforma. Alterações estão bloqueadas.'
+})
 
 const cardsResumo = computed(() => [
   {
@@ -173,20 +219,21 @@ async function carregarTela() {
     erroMovimentacoes.value = ''
     sucesso.value = ''
     bloqueioPlano.value = false
-    aplicarEmpresaVisualizacaoInicial()
+    sincronizarEmpresaVisualizacaoEstoque()
 
     const promessas = [
-      consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Não foi possível carregar o resumo do estoque.'),
-      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosApi()), 'Não foi possível carregar os produtos do estoque.'),
+      consultarEstoque(() => buscarResumoEstoque(montarFiltrosProdutosApi(false)), 'Não foi possível carregar o resumo do estoque.'),
+      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosProdutosApi()), 'Não foi possível carregar os produtos do estoque.'),
       consultarEstoque(() => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()), 'Não foi possível carregar o histórico de movimentações.'),
-      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosApi()), 'Não foi possível carregar os alertas de baixo estoque.'),
+      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosProdutosApi(false)), 'Não foi possível carregar os alertas de baixo estoque.'),
+      carregarUnidadesEstoque(),
     ]
 
     if (superAdmin.value) {
       promessas.push(buscarEmpresas().catch(() => []))
     }
 
-    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, empresasApi] = await Promise.all(promessas)
+    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, , empresasApi] = await Promise.all(promessas)
 
     const produtosApi = dadosConsulta(produtosResultado)
     const baixoEstoqueApi = dadosConsulta(baixoEstoqueResultado)
@@ -228,9 +275,9 @@ async function carregarProdutos() {
     erroProdutos.value = ''
     erroBaixoEstoque.value = ''
     const [resumoResultado, produtosResultado, baixoEstoqueResultado] = await Promise.all([
-      consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Não foi possível carregar o resumo do estoque.'),
-      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosApi()), 'Não foi possível atualizar os produtos.'),
-      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosApi()), 'Não foi possível carregar os alertas de baixo estoque.'),
+      consultarEstoque(() => buscarResumoEstoque(montarFiltrosProdutosApi(false)), 'Não foi possível carregar o resumo do estoque.'),
+      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosProdutosApi()), 'Não foi possível atualizar os produtos.'),
+      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosProdutosApi(false)), 'Não foi possível carregar os alertas de baixo estoque.'),
     ])
 
     if (resumoResultado.sucesso || produtosResultado.sucesso || baixoEstoqueResultado.sucesso) {
@@ -276,13 +323,16 @@ async function carregarHistorico() {
   }
 }
 
-function aplicarEmpresaVisualizacaoInicial() {
-  if (!superAdmin.value || !empresaVisualizacao.value?.id) {
+function sincronizarEmpresaVisualizacaoEstoque() {
+  empresaVisualizacao.value = obterEmpresaVisualizacao()
+
+  if (!superAdmin.value) {
     return
   }
 
-  filtros.value.empresaId = filtros.value.empresaId || empresaVisualizacao.value.id
-  filtrosHistorico.value.empresaId = filtrosHistorico.value.empresaId || empresaVisualizacao.value.id
+  const empresaId = empresaVisualizacao.value?.id || ''
+  filtros.value.empresaId = empresaId
+  filtrosHistorico.value.empresaId = empresaId
 }
 
 async function aplicarFiltrosProdutos() {
@@ -307,13 +357,15 @@ async function limparFiltrosHistorico() {
   await carregarHistorico()
 }
 
-function montarFiltrosApi() {
+function montarFiltrosProdutosApi(comPaginacao = true) {
   return limparFiltros({
     status: filtros.value.status,
     busca: filtros.value.busca,
     categoria: filtros.value.categoria,
     baixoEstoque: filtros.value.somenteBaixoEstoque ? true : '',
     empresaId: superAdmin.value ? filtros.value.empresaId : '',
+    page: comPaginacao ? Math.max(Number(paginacaoProdutos.value.page) || 1, 1) - 1 : '',
+    size: comPaginacao ? paginacaoProdutos.value.size : '',
   })
 }
 
@@ -478,6 +530,38 @@ function normalizarLista(valor) {
   )
 }
 
+async function carregarUnidadesEstoque() {
+  try {
+    avisoUnidades.value = ''
+    const unidadesApi = await buscarUnidadesEstoque({ ativo: true })
+    const unidades = normalizarLista(unidadesApi).map(normalizarUnidadeEstoque).filter((unidade) => unidade.valor)
+
+    if (unidades.length) {
+      unidadesEstoque.value = unidades
+    } else {
+      unidadesEstoque.value = [...UNIDADES_FALLBACK]
+    }
+  } catch (errorAtual) {
+    unidadesEstoque.value = [...UNIDADES_FALLBACK]
+    avisoUnidades.value = 'Não foi possível carregar as unidades de estoque. Usando opções padrão temporariamente.'
+    console.error(errorAtual)
+  }
+}
+
+function normalizarUnidadeEstoque(item) {
+  const valor = String(obterCampo(item, 'codigo', 'valor', 'sigla') || '').trim().toUpperCase()
+  const nome = String(obterCampo(item, 'nome', 'descricao', 'label') || valor).trim()
+
+  return {
+    id: obterCampo(item, 'id', 'unidadeId') || valor,
+    valor,
+    descricao: nome,
+    ativo: obterCampo(item, 'ativo', 'status') === false
+      ? false
+      : String(obterCampo(item, 'status')).toUpperCase() !== 'INATIVO',
+  }
+}
+
 function normalizarObjeto(valor) {
   if (!valor || typeof valor !== 'object') return {}
   if (valor.data && !Array.isArray(valor.data)) return valor.data
@@ -535,7 +619,8 @@ function obterUnidadeProduto(item) {
 
 function obterOpcaoUnidade(valor) {
   const unidade = String(valor || '').trim().toUpperCase()
-  return OPCOES_UNIDADE.find((opcao) => opcao.valor === unidade)
+  return unidadesEstoque.value.find((opcao) => opcao.valor === unidade) ||
+    UNIDADES_FALLBACK.find((opcao) => opcao.valor === unidade)
 }
 
 function formatarUnidadeProduto(item) {
@@ -679,9 +764,13 @@ function validarNumeroNaoNegativo(valor, mensagem) {
   return true
 }
 
+function bloquearAcaoOperacional() {
+  erro.value = 'Modo visualização: alterações estão bloqueadas para suporte.'
+}
+
 async function salvarProduto() {
   if (modoVisualizacaoSuperAdmin.value) {
-    erro.value = 'SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    bloquearAcaoOperacional()
     return
   }
 
@@ -694,7 +783,7 @@ async function salvarProduto() {
       return
     }
 
-    if (!validarNumeroNaoNegativo(formularioProduto.value.quantidadeAtual || 0, 'Informe uma quantidade atual válida.')) {
+    if (!produtoEditandoId.value && !validarNumeroNaoNegativo(formularioProduto.value.quantidadeAtual || 0, 'Informe uma quantidade atual válida.')) {
       return
     }
 
@@ -732,7 +821,7 @@ async function salvarProduto() {
 }
 
 function montarPayloadProduto() {
-  return {
+  const payload = {
     nome: formularioProduto.value.nome.trim(),
     descricao: formularioProduto.value.descricao.trim(),
     codigoSku: formularioProduto.value.codigoSku.trim(),
@@ -741,11 +830,16 @@ function montarPayloadProduto() {
     unidade: formularioProduto.value.unidade || 'UN',
     precoCusto: numeroOuZero(formularioProduto.value.precoCusto),
     precoVenda: numeroOuZero(formularioProduto.value.precoVenda),
-    quantidadeAtual: numeroOuZero(formularioProduto.value.quantidadeAtual),
-    quantidadeInicial: numeroOuZero(formularioProduto.value.quantidadeAtual),
     estoqueMinimo: numeroOuZero(formularioProduto.value.estoqueMinimo),
     ativo: formularioProduto.value.ativo !== false,
   }
+
+  if (!produtoEditandoId.value) {
+    payload.quantidadeAtual = numeroOuZero(formularioProduto.value.quantidadeAtual)
+    payload.quantidadeInicial = numeroOuZero(formularioProduto.value.quantidadeAtual)
+  }
+
+  return payload
 }
 
 function numeroOuZero(valor) {
@@ -755,6 +849,7 @@ function numeroOuZero(valor) {
 
 async function editarProduto(item) {
   if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
     return
   }
 
@@ -804,7 +899,7 @@ function cancelarEdicaoProduto(limparMensagens = true) {
 
 async function alternarProduto(item) {
   if (modoVisualizacaoSuperAdmin.value) {
-    erro.value = 'SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    bloquearAcaoOperacional()
     return
   }
 
@@ -828,6 +923,7 @@ async function alternarProduto(item) {
 
 function abrirMovimentacao(item, tipo = 'ENTRADA') {
   if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
     return
   }
 
@@ -870,7 +966,7 @@ function calcularSaldoPrevistoMovimentacao() {
 
 async function salvarMovimentacao() {
   if (modoVisualizacaoSuperAdmin.value) {
-    erro.value = 'SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    bloquearAcaoOperacional()
     return
   }
 
@@ -883,12 +979,14 @@ async function salvarMovimentacao() {
       return
     }
 
-    if (!formularioMovimentacao.value.quantidade || Number(formularioMovimentacao.value.quantidade) <= 0) {
+    const quantidadeMovimentada = Number(formularioMovimentacao.value.quantidade)
+
+    if (!Number.isFinite(quantidadeMovimentada) || quantidadeMovimentada <= 0) {
       erro.value = 'Informe uma quantidade válida maior que zero.'
       return
     }
 
-    if (saldoPrevistoMovimentacao.value !== null && saldoPrevistoMovimentacao.value < 0) {
+    if (formularioMovimentacao.value.tipo === 'SAIDA' && saldoPrevistoMovimentacao.value !== null && saldoPrevistoMovimentacao.value < 0) {
       erro.value = 'Essa saída deixaria o produto com quantidade negativa. Ajuste o valor informado.'
       return
     }
@@ -897,7 +995,7 @@ async function salvarMovimentacao() {
     await criarMovimentacaoEstoque({
       produtoId: movimentacaoProduto.value.id,
       tipo: formularioMovimentacao.value.tipo,
-      quantidade: Number(formularioMovimentacao.value.quantidade),
+      quantidade: quantidadeMovimentada,
       observacao: formularioMovimentacao.value.observacao.trim(),
     })
 
@@ -953,8 +1051,20 @@ function usuarioMovimentacao(item) {
   return obterCampo(item, 'usuarioResponsavelNome', 'usuarioNome', 'usuario', 'responsavelNome') || 'Usuário não informado'
 }
 
-onMounted(() => {
+function atualizarContextoEstoque() {
+  usuario.value = carregarUsuarioSessao()
+  paginacaoProdutos.value.page = 1
+  paginacaoMovimentacoes.value.page = 1
   carregarTela()
+}
+
+onMounted(() => {
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEstoque)
+  carregarTela()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEstoque)
 })
 </script>
 
@@ -980,10 +1090,8 @@ onMounted(() => {
       <p>{{ sucesso }}</p>
     </section>
 
-    <section v-if="modoVisualizacaoSuperAdmin" class="card aviso-visualizacao">
-      <p>Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.</p>
-      <p v-if="empresaVisualizacao?.id">Empresa em foco: {{ empresaVisualizacao.nome }}.</p>
-      <p v-else>Visão global: nenhuma empresa selecionada no filtro.</p>
+    <section v-if="superAdmin" class="card aviso-visualizacao">
+      <p>{{ mensagemModoEstoque }}</p>
     </section>
 
     <section v-if="bloqueioPlano" class="card aviso-plano">
@@ -1045,10 +1153,11 @@ onMounted(() => {
             </label>
             <label v-if="superAdmin">
               Empresa
-              <select v-model="filtros.empresaId">
+              <select v-model="filtros.empresaId" disabled>
                 <option value="">Todas</option>
                 <option v-for="empresa in empresas" :key="empresa.id" :value="String(empresa.id)">{{ empresa.nome }}</option>
               </select>
+              <small>Use o seletor de visualização no topo para trocar a empresa.</small>
             </label>
             <label class="campo-checkbox destaque-checkbox">
               <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
@@ -1069,7 +1178,7 @@ onMounted(() => {
         <div class="cabecalho-secao">
           <div>
             <h2>Produtos</h2>
-            <p>{{ produtosVisiveis.length ? 'Acompanhe os produtos cadastrados.' : 'Nenhum produto encontrado com os filtros atuais.' }}</p>
+            <p>{{ produtosVisiveis.length ? 'Acompanhe os produtos cadastrados.' : mensagemListaProdutosVazia }}</p>
           </div>
           <span class="contador">{{ pluralizar(produtosVisiveis.length, 'item', 'itens') }}</span>
         </div>
@@ -1083,7 +1192,7 @@ onMounted(() => {
         </section>
 
         <section v-if="!erroProdutos && !produtosVisiveis.length" class="card estado">
-          <p>Nenhum produto cadastrado ainda.</p>
+          <p>{{ mensagemListaProdutosVazia }}</p>
         </section>
 
         <section v-if="!erroProdutos && produtosVisiveis.length" class="grade-produtos">
@@ -1167,11 +1276,12 @@ onMounted(() => {
             <label>
               Unidade
               <select v-model="formularioProduto.unidade">
-                <option v-for="opcao in OPCOES_UNIDADE" :key="opcao.valor" :value="opcao.valor">
+                <option v-for="opcao in opcoesUnidadeAtivas" :key="opcao.valor" :value="opcao.valor">
                   {{ opcao.valor }} - {{ opcao.descricao }}
                 </option>
               </select>
-              <small>Escolha como este produto é contado no estoque.</small>
+              <small>Caso precise de uma nova opção, entre em contato com a Administração do Sistema para que a equipe adicione o tipo.</small>
+              <small v-if="avisoUnidades" class="aviso-campo">{{ avisoUnidades }}</small>
             </label>
             <label>
               Preço de custo
@@ -1183,7 +1293,8 @@ onMounted(() => {
             </label>
             <label>
               Quantidade atual
-              <input v-model="formularioProduto.quantidadeAtual" type="number" min="0" step="0.01" />
+              <input v-model="formularioProduto.quantidadeAtual" type="number" min="0" step="0.01" :readonly="Boolean(produtoEditandoId)" />
+              <small v-if="produtoEditandoId">O saldo do produto deve ser alterado por Entrada, Saída ou Ajuste, para manter o histórico do estoque.</small>
             </label>
             <label>
               Estoque mínimo
@@ -1232,10 +1343,11 @@ onMounted(() => {
             </label>
             <label v-if="superAdmin">
               Empresa
-              <select v-model="filtrosHistorico.empresaId">
+              <select v-model="filtrosHistorico.empresaId" disabled>
                 <option value="">Todas</option>
                 <option v-for="empresa in empresas" :key="empresa.id" :value="String(empresa.id)">{{ empresa.nome }}</option>
               </select>
+              <small>Use o seletor de visualização no topo para trocar a empresa.</small>
             </label>
             <label>
               Data inicial
@@ -1407,6 +1519,7 @@ h3 { font-size: 20px; font-weight: 800; }
 .descricao-produto,
 .ajuda-inline,
 small { color: #64748b; }
+.aviso-campo { color: #92400e; }
 .card {
   background: white;
   border: 1px solid #e5e7eb;
@@ -1465,6 +1578,7 @@ input:focus, select:focus, textarea:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
+input[readonly] { background: #f8fafc; color: #64748b; }
 .destaque-checkbox {
   display: flex;
   align-items: center;
