@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
 import { buscarConteudoInstitucionalPublico } from '@/services/api'
 
 const conteudo = ref(criarFallback())
@@ -12,9 +13,9 @@ function criarFallback() {
     subtitulo: 'Uma plataforma para apoiar a gestão diária de empresas.',
     secoes: [
       {
-        titulo: 'O que é o Gestão Empresarial',
+        titulo: 'O que é o NuvemMais Gestão',
         texto:
-          'O Gestão Empresarial reúne recursos simples para ajudar empresas a organizar atendimentos, clientes, serviços, agendas e informações importantes do dia a dia.',
+          'O NuvemMais Gestão reúne recursos simples para ajudar empresas a organizar atendimentos, clientes, serviços, agendas e informações importantes do dia a dia.',
       },
       {
         titulo: 'Nosso objetivo',
@@ -75,7 +76,7 @@ onMounted(carregarConteudo)
       </nav>
 
       <article class="card">
-        <span class="marca">Gestão Empresarial</span>
+        <span class="marca">NuvemMais Gestão</span>
         <h1>{{ conteudo.titulo }}</h1>
         <p class="subtitulo">{{ conteudo.subtitulo }}</p>
 
@@ -85,6 +86,8 @@ onMounted(carregarConteudo)
           <h2 v-if="secao.titulo">{{ secao.titulo }}</h2>
           <p>{{ secao.texto }}</p>
         </section>
+
+        <SystemVersionPanel titulo="Versão e novidades" discreto />
 
         <p class="nota">Este texto é uma versão inicial e poderá ser atualizado.</p>
       </article>

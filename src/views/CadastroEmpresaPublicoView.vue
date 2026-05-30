@@ -385,7 +385,7 @@ onMounted(carregarOpcoes)
     <section class="conteudo">
       <header class="cabecalho">
         <RouterLink class="link-login" to="/login">JÃ¡ tenho acesso</RouterLink>
-        <span class="marca">GestÃ£o Empresarial</span>
+        <span class="marca">NuvemMais Gestão</span>
         <h1>Cadastre sua empresa</h1>
         <p>Responda algumas perguntas para nossa equipe avaliar sua solicitaÃ§Ã£o de entrada na plataforma.</p>
       </header>
@@ -475,7 +475,7 @@ onMounted(carregarOpcoes)
               <textarea
                 v-model="formulario.interesse"
                 rows="4"
-                placeholder="Ex: organizar agendamentos, acompanhar clientes, melhorar relatÃ³rios ou controlar a operaÃ§Ã£o com mais clareza."
+                placeholder="Ex: organizar agenda, controlar clientes, acompanhar serviços, receber agendamentos pelo link público..."
               ></textarea>
               <small v-if="errosCampos.interesse" class="erro-campo">{{ errosCampos.interesse }}</small>
             </label>

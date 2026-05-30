@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
+import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
 import {
   alterarSenhaMinhaConta,
   atualizarMinhaConta,
@@ -339,6 +340,8 @@ function normalizarMensagem(valor) {
           </button>
         </div>
       </form>
+
+      <SystemVersionPanel titulo="Versão e novidades" discreto />
     </template>
   </main>
 </template>

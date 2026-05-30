@@ -9,12 +9,12 @@ const carregando = ref(true)
 function criarFallback() {
   return {
     titulo: 'Termos de Uso',
-    subtitulo: 'Condições gerais para uso do Gestão Empresarial.',
+    subtitulo: 'Condições gerais para uso do NuvemMais Gestão.',
     secoes: [
       {
         titulo: 'Uso da plataforma',
         texto:
-          'O Gestão Empresarial oferece ferramentas para apoiar a organização de cadastros, atendimentos, agendas, serviços e informações administrativas. O uso deve ocorrer de forma responsável, com dados corretos e respeitando os direitos de clientes, colaboradores e parceiros.',
+          'O NuvemMais Gestão oferece ferramentas para apoiar a organização de cadastros, atendimentos, agendas, serviços e informações administrativas. O uso deve ocorrer de forma responsável, com dados corretos e respeitando os direitos de clientes, colaboradores e parceiros.',
       },
       {
         titulo: 'Responsabilidades do usuário',
@@ -75,7 +75,7 @@ onMounted(carregarConteudo)
       </nav>
 
       <article class="card">
-        <span class="marca">Gestão Empresarial</span>
+        <span class="marca">NuvemMais Gestão</span>
         <h1>{{ conteudo.titulo }}</h1>
         <p class="subtitulo">{{ conteudo.subtitulo }}</p>
 

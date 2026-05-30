@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
 
 const busca = ref('')
 const topicoAtivoId = ref('comecando')
@@ -437,6 +438,8 @@ function selecionarTopico(topicoId) {
         {{ topicosFiltrados.length }} tÃ³pico(s) encontrado(s)
       </p>
     </section>
+
+    <SystemVersionPanel titulo="Versão e novidades" />
 
     <section class="layout-ajuda">
       <aside class="lista-topicos" aria-label="TÃ³picos da central de ajuda">

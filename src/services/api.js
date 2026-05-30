@@ -2,6 +2,8 @@ import { debugLog } from '@/utils/devDebug'
 
 const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
 const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : 'https://gestao.nuvemmais.com.br'
+export const APP_NAME = String(import.meta.env.VITE_APP_NAME || 'NuvemMais Gestão').trim() || 'NuvemMais Gestão'
+export const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || '').trim()
 const MENSAGENS_PADRAO = {
   sessaoExpirada: 'Sessão expirada. Faça login novamente.',
   acessoNegado: 'Acesso negado. Você não tem permissão para acessar esta área.',
@@ -22,30 +24,20 @@ function normalizarUrlBase(url, fallback = '') {
 }
 
 function resolverApiUrl() {
-  const fallback = normalizarUrlBase(API_URL_FALLBACK)
-  const configurada = normalizarUrlBase(import.meta.env.VITE_API_URL, fallback)
+  const configurada = normalizarUrlBase(import.meta.env.VITE_API_URL)
 
-  if (import.meta.env.DEV) {
+  if (configurada) {
     return configurada
   }
 
-  try {
-    const origemAtual = new URL(window.location.origin)
-    const origemApi = new URL(configurada)
-    const origemFallback = new URL(fallback)
-
-    if (origemApi.host === origemAtual.host) {
-      return origemFallback.toString().replace(/\/+$/, '')
-    }
-  } catch (error) {
-    debugLog('api', 'Falha ao validar origem da API; mantendo URL configurada.', error)
-  }
-
-  return configurada
+  return normalizarUrlBase(API_URL_FALLBACK)
 }
 
 export const API_URL = resolverApiUrl()
 const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PUBLIC_APP_URL_FALLBACK)
+export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
+  import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
+)
 
 export function obterUrlPublicaFrontend() {
   if (PUBLIC_APP_URL) {
@@ -63,6 +55,60 @@ export function montarLinkPublicoAgendamento(slug) {
 
 function normalizarBooleano(valor) {
   return valor === true
+}
+
+export function normalizarAmbienteAplicacao(valor) {
+  const ambiente = String(valor || '')
+    .trim()
+    .toLowerCase()
+
+  if (!ambiente) {
+    return 'production'
+  }
+
+  if (['prod', 'producao', 'produção', 'production'].includes(ambiente)) {
+    return 'production'
+  }
+
+  if (['hml', 'homolog', 'homologacao', 'homologação', 'staging'].includes(ambiente)) {
+    return 'homologacao'
+  }
+
+  if (['dev', 'development', 'desenvolvimento'].includes(ambiente)) {
+    return 'dev'
+  }
+
+  if (['local', 'localhost'].includes(ambiente)) {
+    return 'local'
+  }
+
+  return ambiente
+}
+
+export function ambienteExibeSelo(valor) {
+  return ['homologacao', 'dev', 'local', 'hml', 'homolog'].includes(normalizarAmbienteAplicacao(valor))
+}
+
+export function formatarRotuloAmbiente(valor) {
+  const ambiente = normalizarAmbienteAplicacao(valor)
+
+  if (ambiente === 'production') {
+    return 'Produção'
+  }
+
+  if (ambiente === 'homologacao') {
+    return 'Homologação'
+  }
+
+  if (ambiente === 'dev') {
+    return 'Desenvolvimento'
+  }
+
+  if (ambiente === 'local') {
+    return 'Local'
+  }
+
+  return ambiente ? ambiente.charAt(0).toUpperCase() + ambiente.slice(1) : ''
 }
 
 function valorPreenchido(valor) {
@@ -1031,6 +1077,34 @@ async function tentarRotas(candidatas = [], init = {}, opcoesTratamento = {}) {
   throw ultimoErro || criarErroHttp(404)
 }
 
+export async function buscarVersaoSistema() {
+  return tentarRotas(
+    [
+      {
+        url: `${API_URL}/publico/versao`,
+        init: {
+          headers: montarHeadersPublicos(),
+        },
+      },
+      {
+        url: `${API_URL}/versao`,
+        init: {
+          headers: montarHeaders(),
+        },
+      },
+    ],
+    {
+      headers: montarHeadersPublicos(),
+    },
+    {
+      encerrarSessao401: false,
+      emitir403: false,
+      mensagem401: MENSAGENS_PADRAO.erroCarregarDados,
+      mensagem403: MENSAGENS_PADRAO.erroCarregarDados,
+    },
+  )
+}
+
 export function mensagemIndicaBloqueioPlanoEstoque(mensagem) {
   const texto = normalizarTextoBusca(mensagem)
 
@@ -1856,6 +1930,10 @@ export async function buscarMovimentacoesEstoque(filtros = {}) {
   )
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarMovimentacoesProdutoEstoque(filtros = {}) {
+  return buscarMovimentacoesEstoque(filtros)
 }
 
 export async function criarMovimentacaoEstoque(dados) {

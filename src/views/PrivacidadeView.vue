@@ -9,7 +9,7 @@ const carregando = ref(true)
 function criarFallback() {
   return {
     titulo: 'Política de Privacidade',
-    subtitulo: 'Como tratamos informações no Gestão Empresarial.',
+    subtitulo: 'Como tratamos informações no NuvemMais Gestão.',
     secoes: [
       {
         titulo: 'Dados utilizados',
@@ -75,7 +75,7 @@ onMounted(carregarConteudo)
       </nav>
 
       <article class="card">
-        <span class="marca">Gestão Empresarial</span>
+        <span class="marca">NuvemMais Gestão</span>
         <h1>{{ conteudo.titulo }}</h1>
         <p class="subtitulo">{{ conteudo.subtitulo }}</p>
 

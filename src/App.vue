@@ -4,9 +4,13 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import {
+  APP_ENVIRONMENT,
+  ambienteExibeSelo,
   buscarStatusFinanceiroMinhaEmpresa,
+  buscarVersaoSistema,
   carregarUsuarioSessao,
   limparSessaoAutenticacao,
+  normalizarAmbienteAplicacao,
 } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
@@ -234,6 +238,7 @@ const ultimaConsultaFinanceira = ref(0)
 const mensagemGlobal = ref('')
 const tipoMensagemGlobal = ref('erro')
 const erroInesperado = ref(false)
+const ambienteVersaoApi = ref('')
 const conteudoRotaRef = ref(null)
 const cabecalhoPagina = ref(criarCabecalhoPagina())
 let timeoutMensagemGlobal = null
@@ -248,6 +253,7 @@ const cabecalhoExibido = computed(() => {
     descricao: cabecalhoPagina.value.descricao || fallback.descricao,
   }
 })
+const mostrarSeloHomologacao = computed(() => ambienteExibeSelo(ambienteVersaoApi.value || APP_ENVIRONMENT))
 
 function criarCabecalhoPagina() {
   return {
@@ -331,6 +337,19 @@ async function carregarStatusFinanceiro({ forcar = false } = {}) {
 
 function atualizarStatusFinanceiroGlobal() {
   carregarStatusFinanceiro({ forcar: true })
+}
+
+async function carregarAmbienteAplicacao() {
+  try {
+    const resposta = await buscarVersaoSistema()
+    const dados = resposta?.data && typeof resposta.data === 'object' ? resposta.data : resposta
+    ambienteVersaoApi.value = normalizarAmbienteAplicacao(
+      dados?.ambiente || dados?.environment || dados?.perfil || dados?.stage,
+    )
+  } catch (error) {
+    ambienteVersaoApi.value = ''
+    console.error(error)
+  }
 }
 
 function exibirMensagemGlobal(event) {
@@ -456,6 +475,7 @@ onMounted(() => {
   window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.addEventListener('mensagem-global', exibirMensagemGlobal)
+  carregarAmbienteAplicacao()
   observarCabecalhoPagina()
   sincronizarCabecalhoPagina()
 })
@@ -567,6 +587,10 @@ onBeforeUnmount(() => {
     </aside>
 
     <div class="app-main">
+      <section v-if="mostrarSeloHomologacao" class="selo-homologacao" aria-label="Ambiente de homologação">
+        HOMOLOGAÇÃO
+      </section>
+
       <AppHeaderCompacto
         :cabecalho="cabecalhoExibido"
         :empresa-logada="empresaLogada"
@@ -773,6 +797,19 @@ onBeforeUnmount(() => {
   align-content: start;
   grid-auto-rows: max-content;
   gap: 12px;
+}
+
+.selo-homologacao {
+  width: fit-content;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 

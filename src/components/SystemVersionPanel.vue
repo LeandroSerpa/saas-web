@@ -1,0 +1,283 @@
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import {
+  APP_ENVIRONMENT,
+  APP_NAME,
+  APP_VERSION,
+  ambienteExibeSelo,
+  buscarVersaoSistema,
+  formatarRotuloAmbiente,
+} from '@/services/api'
+
+const props = defineProps({
+  titulo: {
+    type: String,
+    default: 'Versão do sistema',
+  },
+  discreto: {
+    type: Boolean,
+    default: false,
+  },
+})
+
+const carregando = ref(true)
+const versaoApi = ref(null)
+
+const dadosVersao = computed(() => {
+  const origem = normalizarObjeto(versaoApi.value)
+  const ambienteResposta = obterCampo(origem, 'ambiente', 'environment', 'perfil', 'stage')
+  const ambiente = ambienteResposta || APP_ENVIRONMENT
+  const novidades = normalizarNovidades(
+    origem.novidades ??
+      origem.changelog ??
+      origem.itens ??
+      origem.items ??
+      origem.alteracoes ??
+      origem.changes,
+  )
+
+  return {
+    nome: APP_NAME,
+    versao: obterCampo(origem, 'versao', 'version', 'appVersion') || APP_VERSION || '-',
+    ambiente,
+    exibirAmbiente: ambienteExibeSelo(ambiente),
+    dataPublicacao: obterCampo(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt'),
+    novidades,
+  }
+})
+
+async function carregarVersao() {
+  try {
+    versaoApi.value = await buscarVersaoSistema()
+  } catch (error) {
+    versaoApi.value = null
+    console.error(error)
+  } finally {
+    carregando.value = false
+  }
+}
+
+function normalizarObjeto(valor) {
+  if (!valor || typeof valor !== 'object') {
+    return {}
+  }
+
+  if (valor.data && typeof valor.data === 'object' && !Array.isArray(valor.data)) {
+    return valor.data
+  }
+
+  return valor
+}
+
+function obterCampo(origem, ...campos) {
+  for (const campo of campos) {
+    const valor = origem?.[campo]
+
+    if (valor !== null && valor !== undefined && String(valor).trim()) {
+      return valor
+    }
+  }
+
+  return ''
+}
+
+function normalizarNovidades(valor) {
+  if (Array.isArray(valor)) {
+    return valor
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item.trim()
+        }
+
+        if (item && typeof item === 'object') {
+          return (
+            item.titulo ||
+            item.descricao ||
+            item.texto ||
+            item.label ||
+            item.nome ||
+            ''
+          ).trim()
+        }
+
+        return ''
+      })
+      .filter(Boolean)
+  }
+
+  if (typeof valor === 'string' && valor.trim()) {
+    return valor
+      .split(/\r?\n|;/)
+      .map((item) => item.replace(/^[-*]\s*/, '').trim())
+      .filter(Boolean)
+  }
+
+  return []
+}
+
+function formatarData(valor) {
+  if (!valor) {
+    return ''
+  }
+
+  const data = new Date(valor)
+
+  if (Number.isNaN(data.getTime())) {
+    return String(valor)
+  }
+
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+onMounted(carregarVersao)
+</script>
+
+<template>
+  <section class="version-panel" :class="{ discreto }" aria-label="Informações da versão do sistema">
+    <div class="topo">
+      <div>
+        <p class="kicker">{{ titulo }}</p>
+        <h2>{{ dadosVersao.nome }}</h2>
+      </div>
+      <span v-if="dadosVersao.exibirAmbiente" class="ambiente">
+        {{ formatarRotuloAmbiente(dadosVersao.ambiente) }}
+      </span>
+    </div>
+
+    <dl class="metadados">
+      <div>
+        <dt>Versão</dt>
+        <dd>{{ dadosVersao.versao }}</dd>
+      </div>
+      <div v-if="dadosVersao.exibirAmbiente">
+        <dt>Ambiente</dt>
+        <dd>{{ formatarRotuloAmbiente(dadosVersao.ambiente) }}</dd>
+      </div>
+      <div v-if="dadosVersao.dataPublicacao">
+        <dt>Publicação</dt>
+        <dd>{{ formatarData(dadosVersao.dataPublicacao) }}</dd>
+      </div>
+    </dl>
+
+    <div class="novidades">
+      <strong>Novidades</strong>
+      <p v-if="carregando" class="estado">Carregando informações da versão...</p>
+      <ul v-else-if="dadosVersao.novidades.length">
+        <li v-for="item in dadosVersao.novidades" :key="item">{{ item }}</li>
+      </ul>
+      <p v-else class="estado">Novidades serão exibidas aqui nas próximas publicações.</p>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.version-panel {
+  display: grid;
+  gap: 14px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  color: #111827;
+}
+
+.version-panel.discreto {
+  gap: 12px;
+  padding: 16px;
+}
+
+.topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kicker,
+.metadados dt,
+.ambiente {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.kicker,
+.metadados dt {
+  color: #64748b;
+}
+
+.topo h2,
+.novidades p,
+.novidades strong,
+.metadados dd {
+  margin: 0;
+}
+
+.topo h2 {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.ambiente {
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.metadados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.metadados div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.metadados dd {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.novidades {
+  display: grid;
+  gap: 8px;
+}
+
+.novidades strong {
+  font-size: 14px;
+}
+
+.novidades ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #334155;
+  display: grid;
+  gap: 8px;
+}
+
+.estado {
+  color: #64748b;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .topo {
+    flex-direction: column;
+  }
+}
+</style>
