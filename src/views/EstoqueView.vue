@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 import {
   ativarProdutoEstoque,
@@ -84,12 +84,12 @@ const cardsResumo = computed(() => [
   {
     rotulo: 'Produtos ativos',
     valor: formatarNumero(obterNumeroResumo('produtosAtivos', 'ativos')),
-    destaque: 'Produtos disponiveis para uso e venda.',
+    destaque: 'Produtos disponíveis para uso e venda.',
   },
   {
     rotulo: 'Baixo estoque',
     valor: formatarNumero(obterNumeroResumo('baixoEstoque', 'produtosBaixoEstoque')),
-    destaque: 'Produtos que pedem atencao agora.',
+    destaque: 'Produtos que pedem atenção agora.',
   },
   {
     rotulo: 'Valor estimado de venda',
@@ -109,10 +109,10 @@ async function carregarTela() {
     bloqueioPlano.value = false
 
     const promessas = [
-      consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Nao foi possivel carregar o resumo do estoque.'),
-      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosApi()), 'Nao foi possivel carregar os produtos do estoque.'),
-      consultarEstoque(() => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()), 'Nao foi possivel carregar o historico de movimentacoes.'),
-      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosApi()), 'Nao foi possivel carregar os alertas de baixo estoque.'),
+      consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Não foi possível carregar o resumo do estoque.'),
+      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosApi()), 'Não foi possível carregar os produtos do estoque.'),
+      consultarEstoque(() => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()), 'Não foi possível carregar o histórico de movimentações.'),
+      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosApi()), 'Não foi possível carregar os alertas de baixo estoque.'),
     ]
 
     if (superAdmin.value) {
@@ -147,9 +147,12 @@ async function carregarTela() {
 
     if (superAdmin.value) {
       empresas.value = normalizarLista(empresasApi)
+      if (!formularioProduto.value.empresaProdutoId) {
+        formularioProduto.value.empresaProdutoId = String(obterEmpresaAtualId() || '')
+      }
     }
   } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel carregar o estoque agora.')
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar o estoque agora.')
   } finally {
     carregando.value = false
   }
@@ -162,9 +165,9 @@ async function carregarProdutos() {
     erroProdutos.value = ''
     erroBaixoEstoque.value = ''
     const [resumoResultado, produtosResultado, baixoEstoqueResultado] = await Promise.all([
-      consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Nao foi possivel carregar o resumo do estoque.'),
-      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosApi()), 'Nao foi possivel atualizar os produtos.'),
-      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosApi()), 'Nao foi possivel carregar os alertas de baixo estoque.'),
+      consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Não foi possível carregar o resumo do estoque.'),
+      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosApi()), 'Não foi possível atualizar os produtos.'),
+      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosApi()), 'Não foi possível carregar os alertas de baixo estoque.'),
     ])
 
     if (resumoResultado.sucesso || produtosResultado.sucesso || baixoEstoqueResultado.sucesso) {
@@ -181,7 +184,7 @@ async function carregarProdutos() {
       erroProdutos.value = mensagemConsulta(resumoResultado)
     }
   } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel atualizar os produtos.')
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível atualizar os produtos.')
   } finally {
     carregandoProdutos.value = false
   }
@@ -194,14 +197,14 @@ async function carregarHistorico() {
     erroMovimentacoes.value = ''
     const resultado = await consultarEstoque(
       () => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()),
-      'Nao foi possivel atualizar o historico.',
+      'Não foi possível atualizar o histórico.',
     )
     if (resultado.sucesso) {
       movimentacoes.value = normalizarLista(dadosConsulta(resultado))
     }
     erroMovimentacoes.value = mensagemConsulta(resultado)
   } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel atualizar o historico.')
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível atualizar o histórico.')
   } finally {
     carregandoMovimentacoes.value = false
   }
@@ -247,6 +250,7 @@ function criarProdutoInicial() {
     nome: '',
     descricao: '',
     codigoSku: '',
+    empresaProdutoId: obterEmpresaAtualId(),
     categoria: '',
     unidade: 'UN',
     precoCusto: '',
@@ -284,6 +288,10 @@ function criarFiltrosHistoricoIniciais() {
   }
 }
 
+function obterEmpresaAtualId() {
+  return superAdmin.value ? (usuario.value?.empresaId ?? '') : ''
+}
+
 function obterMensagemErroEstoque(errorAtual, fallback) {
   if (errorAtual?.status === 403 || mensagemIndicaBloqueioPlanoEstoque(errorAtual?.message)) {
     bloqueioPlano.value = true
@@ -291,11 +299,11 @@ function obterMensagemErroEstoque(errorAtual, fallback) {
   }
 
   if (errorAtual?.status === 404) {
-    return `Endpoint de estoque nao encontrado${errorAtual.endpoint ? ` (${errorAtual.endpoint})` : ''}. Verifique a publicacao da API em homologacao.`
+    return `Endpoint de estoque não encontrado${errorAtual.endpoint ? ` (${errorAtual.endpoint})` : ''}. Verifique a publicação da API em homologação.`
   }
 
   if (errorAtual?.status >= 500) {
-    return `Servico de estoque indisponivel no momento${errorAtual.endpoint ? ` (${errorAtual.endpoint})` : ''}. Tente novamente ou acione o suporte.`
+    return `Serviço de estoque indisponível no momento${errorAtual.endpoint ? ` (${errorAtual.endpoint})` : ''}. Tente novamente ou acione o suporte.`
   }
 
   return obterMensagemAmigavelErro(errorAtual, fallback)
@@ -502,19 +510,24 @@ async function salvarProduto() {
       return
     }
 
-    if (!validarNumeroNaoNegativo(formularioProduto.value.quantidadeAtual || 0, 'Informe uma quantidade atual valida.')) {
+    if (superAdmin.value && !formularioProduto.value.empresaProdutoId) {
+      erro.value = 'Selecione a empresa do produto antes de cadastrar.'
       return
     }
 
-    if (!validarNumeroNaoNegativo(formularioProduto.value.estoqueMinimo || 0, 'Informe uma quantidade minima valida.')) {
+    if (!validarNumeroNaoNegativo(formularioProduto.value.quantidadeAtual || 0, 'Informe uma quantidade atual válida.')) {
       return
     }
 
-    if (!validarNumeroNaoNegativo(formularioProduto.value.precoCusto || 0, 'Informe um preco de custo valido.')) {
+    if (!validarNumeroNaoNegativo(formularioProduto.value.estoqueMinimo || 0, 'Informe uma quantidade mínima válida.')) {
       return
     }
 
-    if (!validarNumeroNaoNegativo(formularioProduto.value.precoVenda || 0, 'Informe um preco de venda valido.')) {
+    if (!validarNumeroNaoNegativo(formularioProduto.value.precoCusto || 0, 'Informe um preço de custo válido.')) {
+      return
+    }
+
+    if (!validarNumeroNaoNegativo(formularioProduto.value.precoVenda || 0, 'Informe um preço de venda válido.')) {
       return
     }
 
@@ -532,7 +545,7 @@ async function salvarProduto() {
     cancelarEdicaoProduto(false)
     await Promise.all([carregarProdutos(), carregarHistorico()])
   } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel salvar o produto.')
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível salvar o produto.')
   } finally {
     salvandoProduto.value = false
   }
@@ -554,8 +567,8 @@ function montarPayloadProduto() {
     ativo: formularioProduto.value.ativo !== false,
   }
 
-  if (superAdmin.value && filtros.value.empresaId) {
-    payload.empresaId = Number(filtros.value.empresaId)
+  if (superAdmin.value && formularioProduto.value.empresaProdutoId) {
+    payload.empresaId = Number(formularioProduto.value.empresaProdutoId)
   }
 
   return payload
@@ -585,6 +598,9 @@ async function editarProduto(item) {
       nome: obterNomeProduto(produtoDetalhado),
       descricao: obterDescricaoProduto(produtoDetalhado),
       codigoSku: obterCodigoProduto(produtoDetalhado) === '-' ? '' : obterCodigoProduto(produtoDetalhado),
+      empresaProdutoId: String(
+        obterCampo(produtoDetalhado, 'empresaId', 'empresa', 'empresaProdutoId') || obterEmpresaAtualId() || '',
+      ),
       categoria: obterCategoriaProduto(produtoDetalhado) === 'Sem categoria' ? '' : obterCategoriaProduto(produtoDetalhado),
       unidade: obterUnidadeProduto(produtoDetalhado),
       precoCusto: obterPrecoCusto(produtoDetalhado),
@@ -594,7 +610,7 @@ async function editarProduto(item) {
       ativo: produtoAtivo(produtoDetalhado),
     }
   } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel carregar os dados do produto.')
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar os dados do produto.')
   } finally {
     carregandoDetalheProduto.value = false
   }
@@ -624,7 +640,7 @@ async function alternarProduto(item) {
 
     await carregarProdutos()
   } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel atualizar o status do produto.')
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível atualizar o status do produto.')
   }
 }
 
@@ -700,11 +716,11 @@ async function salvarMovimentacao() {
 
     await criarMovimentacaoEstoque(payload)
 
-    sucesso.value = 'Movimentacao registrada com sucesso.'
+    sucesso.value = 'Movimentação registrada com sucesso.'
     fecharMovimentacao()
     await Promise.all([carregarProdutos(), carregarHistorico()])
   } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel registrar a movimentacao.')
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível registrar a movimentação.')
   } finally {
     salvandoMovimentacao.value = false
   }
@@ -747,7 +763,7 @@ onMounted(() => {
   <main class="pagina estoque-view">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Operacao</p>
+        <p class="subtitulo">Operação</p>
         <h1>Estoque</h1>
         <p class="descricao">Controle produtos, quantidades e alertas de baixo estoque.</p>
       </div>
@@ -766,7 +782,7 @@ onMounted(() => {
     </section>
 
     <section v-if="bloqueioPlano" class="card aviso-plano">
-      <h2>Recurso disponivel em planos superiores</h2>
+      <h2>Recurso disponível em planos superiores</h2>
       <p>O módulo de estoque não está disponível no plano atual.</p>
     </section>
 
@@ -788,7 +804,7 @@ onMounted(() => {
           <div class="titulo-card">
             <h2>{{ produtoEditandoId ? 'Editar produto' : 'Novo produto' }}</h2>
             <p>
-              {{ produtoEditandoId ? 'Atualize as informacoes do produto selecionado.' : 'Cadastre produtos para acompanhar quantidades e alertas.' }}
+              {{ produtoEditandoId ? 'Atualize as informações do produto selecionado.' : 'Cadastre produtos para acompanhar quantidades e alertas.' }}
             </p>
           </div>
 
@@ -799,13 +815,20 @@ onMounted(() => {
               Nome *
               <input v-model="formularioProduto.nome" type="text" placeholder="Ex: Shampoo neutro" />
             </label>
+            <label v-if="superAdmin">
+              Empresa do produto *
+              <select v-model="formularioProduto.empresaProdutoId">
+                <option value="">Selecione a empresa</option>
+                <option v-for="empresa in empresas" :key="empresa.id" :value="String(empresa.id)">{{ empresa.nome }}</option>
+              </select>
+            </label>
             <label>
-              Codigo/SKU
+              Código/SKU
               <input v-model="formularioProduto.codigoSku" type="text" placeholder="Ex: SH-001" />
             </label>
             <label class="campo-grande">
-              Descricao
-              <textarea v-model="formularioProduto.descricao" rows="3" placeholder="Informacoes importantes para identificar o produto."></textarea>
+              Descrição
+              <textarea v-model="formularioProduto.descricao" rows="3" placeholder="Informações importantes para identificar o produto."></textarea>
             </label>
             <label>
               Categoria
@@ -816,11 +839,11 @@ onMounted(() => {
               <input v-model="formularioProduto.unidade" type="text" maxlength="10" placeholder="Ex: UN, KG, CX" />
             </label>
             <label>
-              Preco de custo
+              Preço de custo
               <input v-model="formularioProduto.precoCusto" type="number" min="0" step="0.01" />
             </label>
             <label>
-              Preco de venda
+              Preço de venda
               <input v-model="formularioProduto.precoVenda" type="number" min="0" step="0.01" />
             </label>
             <label>
@@ -828,7 +851,7 @@ onMounted(() => {
               <input v-model="formularioProduto.quantidadeAtual" type="number" min="0" step="0.01" />
             </label>
             <label>
-              Estoque minimo
+              Estoque mínimo
               <input v-model="formularioProduto.estoqueMinimo" type="number" min="0" step="0.01" />
             </label>
             <label class="campo-checkbox destaque-checkbox">
@@ -839,10 +862,10 @@ onMounted(() => {
 
           <div class="acoes">
             <button class="botao principal" :disabled="salvandoProduto">
-              {{ salvandoProduto ? 'Salvando...' : produtoEditandoId ? 'Salvar alteracoes' : 'Cadastrar produto' }}
+              {{ salvandoProduto ? 'Salvando...' : produtoEditandoId ? 'Salvar alterações' : 'Cadastrar produto' }}
             </button>
             <button v-if="produtoEditandoId" type="button" class="botao secundario" @click="cancelarEdicaoProduto">
-              Cancelar edicao
+              Cancelar edição
             </button>
           </div>
         </form>
@@ -865,7 +888,7 @@ onMounted(() => {
               </label>
               <label>
                 Busca
-                <input v-model="filtros.busca" type="search" placeholder="Nome, categoria ou codigo" />
+                <input v-model="filtros.busca" type="search" placeholder="Nome, categoria ou código" />
               </label>
               <label>
                 Categoria
@@ -875,7 +898,7 @@ onMounted(() => {
                 </select>
               </label>
               <label v-if="superAdmin">
-                Empresa
+                Empresa do filtro
                 <select v-model="filtros.empresaId">
                   <option value="">Todas</option>
                   <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">{{ empresa.nome }}</option>
@@ -903,13 +926,17 @@ onMounted(() => {
             </p>
           </form>
 
-          <form class="card filtros" @submit.prevent="carregarHistorico">
+          </section>
+      </section>
+
+      <section class="secao-lista">
+          <form class="card filtros filtro-historico" @submit.prevent="carregarHistorico">
             <div class="titulo-card">
-              <h2>Historico de movimentacoes</h2>
-              <p>Acompanhe entradas, saidas e ajustes do estoque.</p>
+              <h2>Histórico de movimentações</h2>
+              <p>Acompanhe entradas, saídas e ajustes do estoque.</p>
             </div>
 
-            <div class="campos filtros-campos">
+            <div class="campos filtros-campos filtros-historico-campos">
               <label>
                 Produto
                 <select v-model="filtrosHistorico.produtoId">
@@ -922,7 +949,7 @@ onMounted(() => {
                 <select v-model="filtrosHistorico.tipo">
                   <option value="">Todos</option>
                   <option value="ENTRADA">Entrada</option>
-                  <option value="SAIDA">Saida</option>
+                  <option value="SAIDA">Saída</option>
                   <option value="AJUSTE">Ajuste</option>
                 </select>
               </label>
@@ -937,24 +964,23 @@ onMounted(() => {
             </div>
 
             <div class="acoes">
-              <button class="botao principal" :disabled="carregandoMovimentacoes">{{ carregandoMovimentacoes ? 'Atualizando...' : 'Atualizar historico' }}</button>
+              <button class="botao principal" :disabled="carregandoMovimentacoes">{{ carregandoMovimentacoes ? 'Atualizando...' : 'Atualizar histórico' }}</button>
               <button
                 type="button"
                 class="botao secundario"
                 @click="filtrosHistorico = criarFiltrosHistoricoIniciais(); carregarHistorico()"
               >
-                Limpar periodo
+                Limpar período
               </button>
             </div>
           </form>
-        </section>
       </section>
 
       <section class="secao-lista">
         <div class="cabecalho-secao">
           <div>
             <h2>Produtos</h2>
-            <p>{{ produtosVisiveis.length ? 'Acompanhe os produtos cadastrados e movimente o estoque quando precisar.' : 'Nenhum produto encontrado com os filtros atuais.' }}</p>
+          <p>{{ produtosVisiveis.length ? 'Acompanhe os produtos cadastrados e movimente o estoque quando precisar.' : 'Nenhum produto encontrado com os filtros atuais.' }}</p>
           </div>
           <span class="contador">{{ produtosVisiveis.length }} item(ns)</span>
         </div>
@@ -968,7 +994,7 @@ onMounted(() => {
         </section>
 
         <section v-if="!erroProdutos && !produtosVisiveis.length" class="card estado">
-          <p>Nenhum produto cadastrado ainda. Use o formulario para criar o primeiro item do estoque.</p>
+          <p>Nenhum produto cadastrado ainda. Use o formulário para criar o primeiro item do estoque.</p>
         </section>
 
         <section v-if="!erroProdutos && produtosVisiveis.length" class="grade-produtos">
@@ -985,12 +1011,12 @@ onMounted(() => {
             </div>
 
             <div class="detalhes-produto">
-              <p><strong>Codigo/SKU:</strong> {{ obterCodigoProduto(produto) }}</p>
+              <p><strong>Código/SKU:</strong> {{ obterCodigoProduto(produto) }}</p>
               <p><strong>Quantidade atual:</strong> {{ formatarNumero(obterQuantidadeAtual(produto)) }}</p>
-              <p><strong>Estoque minimo:</strong> {{ formatarNumero(obterEstoqueMinimo(produto)) }}</p>
+              <p><strong>Estoque mínimo:</strong> {{ formatarNumero(obterEstoqueMinimo(produto)) }}</p>
               <p><strong>Unidade:</strong> {{ obterUnidadeProduto(produto) }}</p>
-              <p><strong>Preco de custo:</strong> {{ formatarMoeda(obterPrecoCusto(produto)) }}</p>
-              <p><strong>Preco de venda:</strong> {{ formatarMoeda(obterPrecoVenda(produto)) }}</p>
+              <p><strong>Preço de custo:</strong> {{ formatarMoeda(obterPrecoCusto(produto)) }}</p>
+              <p><strong>Preço de venda:</strong> {{ formatarMoeda(obterPrecoVenda(produto)) }}</p>
             </div>
 
             <p v-if="obterDescricaoProduto(produto)" class="descricao-produto">{{ obterDescricaoProduto(produto) }}</p>
@@ -1011,14 +1037,14 @@ onMounted(() => {
       <section class="secao-lista">
         <div class="cabecalho-secao">
           <div>
-            <h2>Historico</h2>
+            <h2>Histórico</h2>
             <p>Veja o que foi movimentado recentemente no estoque.</p>
           </div>
           <span class="contador">{{ movimentacoes.length }} registro(s)</span>
         </div>
 
         <section v-if="carregandoMovimentacoes" class="card estado">
-          <p>Carregando historico...</p>
+          <p>Carregando histórico...</p>
         </section>
 
         <section v-else-if="erroMovimentacoes" class="card feedback erro">
@@ -1026,7 +1052,7 @@ onMounted(() => {
         </section>
 
         <section v-else-if="!movimentacoes.length" class="card estado">
-          <p>Nenhuma movimentacao encontrada para o periodo selecionado.</p>
+          <p>Nenhuma movimentação encontrada para o período selecionado.</p>
         </section>
 
         <section v-else class="lista-historico">
@@ -1043,8 +1069,8 @@ onMounted(() => {
               <p><strong>Quantidade:</strong> {{ quantidadeMovimentacao(item) }}</p>
               <p><strong>Quantidade anterior:</strong> {{ saldoAnteriorMovimentacao(item) }}</p>
               <p><strong>Quantidade nova:</strong> {{ saldoNovoMovimentacao(item) }}</p>
-              <p><strong>Observacao:</strong> {{ obterCampo(item, 'observacao', 'motivo') || '-' }}</p>
-              <p><strong>Usuario:</strong> {{ usuarioMovimentacao(item) }}</p>
+              <p><strong>Observação:</strong> {{ obterCampo(item, 'observacao', 'motivo') || '-' }}</p>
+              <p><strong>Usuário:</strong> {{ usuarioMovimentacao(item) }}</p>
             </div>
           </article>
         </section>
@@ -1055,9 +1081,9 @@ onMounted(() => {
       <section class="modal card">
         <div class="topo-modal">
           <div>
-            <p class="subtitulo">Movimentacao</p>
+            <p class="subtitulo">Movimentação</p>
             <h2>{{ obterNomeProduto(movimentacaoProduto) }}</h2>
-            <p class="descricao">Registre entrada, saida ou ajuste do saldo deste produto.</p>
+            <p class="descricao">Registre entrada, saída ou ajuste do saldo deste produto.</p>
           </div>
           <button class="botao-fechar" type="button" aria-label="Fechar" @click="fecharMovimentacao">x</button>
         </div>
@@ -1068,7 +1094,7 @@ onMounted(() => {
               Tipo
               <select v-model="formularioMovimentacao.tipo">
                 <option value="ENTRADA">Entrada</option>
-                <option value="SAIDA">Saida</option>
+                <option value="SAIDA">Saída</option>
                 <option value="AJUSTE">Ajuste</option>
               </select>
             </label>
@@ -1077,8 +1103,8 @@ onMounted(() => {
               <input v-model="formularioMovimentacao.quantidade" type="number" min="0" step="0.01" />
             </label>
             <label class="campo-grande">
-              Observacao ou motivo
-              <textarea v-model="formularioMovimentacao.observacao" rows="4" placeholder="Explique rapidamente esta movimentacao."></textarea>
+              Observação ou motivo
+              <textarea v-model="formularioMovimentacao.observacao" rows="4" placeholder="Explique rapidamente esta movimentação."></textarea>
             </label>
           </div>
 
@@ -1087,12 +1113,12 @@ onMounted(() => {
           </p>
 
           <p v-if="formularioMovimentacao.tipo === 'AJUSTE'" class="ajuste-aviso">
-            No ajuste, a quantidade informada sera o novo saldo final do produto.
+            No ajuste, a quantidade informada será o novo saldo final do produto.
           </p>
 
           <div class="acoes">
             <button class="botao principal" :disabled="salvandoMovimentacao">
-              {{ salvandoMovimentacao ? 'Salvando...' : 'Salvar movimentacao' }}
+              {{ salvandoMovimentacao ? 'Salvando...' : 'Salvar movimentação' }}
             </button>
             <button type="button" class="botao secundario" @click="fecharMovimentacao">Cancelar</button>
           </div>
@@ -1103,5 +1129,189 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.estoque-view,.cards-resumo,.layout-principal,.filtros-coluna,.secao-lista,.formulario-produto,.filtros,.formulario-modal{display:grid;gap:18px;color:#111827}.cabecalho-pagina,.cabecalho-secao,.topo-card,.acoes,.topo-modal{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.subtitulo{margin:0 0 4px;color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}h1,h2,h3,p{margin:0}h1{font-size:32px;font-weight:800}h2{font-size:24px;font-weight:800}h3{font-size:20px;font-weight:800}.descricao,.titulo-card p,.cabecalho-secao p,.topo-card p,.descricao-produto,.ajuda-inline{color:#64748b}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.feedback.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.feedback.sucesso{border-color:#bbf7d0;background:#f0fdf4;color:#166534}.aviso-plano{border-color:#bfdbfe;background:#eff6ff}.aviso-plano h2{font-size:22px}.estado,.estado-inline{color:#64748b;font-weight:700}.cards-resumo{grid-template-columns:repeat(4,minmax(180px,1fr))}.resumo-card{display:grid;gap:10px;border-left:4px solid #2563eb}.resumo-card span{color:#64748b;font-size:13px;font-weight:800;text-transform:uppercase}.resumo-card strong{font-size:28px;font-weight:800}.resumo-card p{color:#475569}.layout-principal{grid-template-columns:minmax(0,1.35fr) minmax(300px,.95fr);align-items:start}.campos{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:14px}.campo-grande{grid-column:1/-1}label{display:grid;gap:7px;color:#334155;font-weight:800}input,select,textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px 12px;font:inherit;background:white}input:focus,select:focus,textarea:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.destaque-checkbox{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.destaque-checkbox input{width:auto}.filtros-campos{grid-template-columns:1fr}.grade-produtos,.lista-historico{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:18px}.produto-card,.historico-card{display:grid;gap:14px}.badges-topo{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.status{display:inline-flex;width:fit-content;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;text-transform:uppercase;white-space:nowrap}.status.ativo,.status.entrada{background:#dcfce7;color:#166534}.status.inativo,.status.saida{background:#fee2e2;color:#b91c1c}.status.alerta,.status.ajuste{background:#fef3c7;color:#92400e}.detalhes-produto{display:grid;gap:8px}.detalhes-produto p{color:#374151}.detalhes-produto strong{font-weight:800}.contador{border-radius:999px;padding:8px 12px;background:#dbeafe;color:#1d4ed8;font-weight:800}.botao{border:none;border-radius:8px;padding:10px 16px;color:white;cursor:pointer;font-weight:800;text-decoration:none}.botao:disabled{opacity:.6;cursor:not-allowed}.principal{background:#2563eb}.secundario{background:#0f172a}.perigo{background:#dc2626}.sucesso-botao{background:#15803d}.acoes-produto-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.acoes-produto-card .botao{width:100%}.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:grid;place-items:center;padding:16px;z-index:60}.modal{width:min(100%,680px);display:grid;gap:18px}.topo-modal{align-items:flex-start}.botao-fechar{border:none;border-radius:999px;width:36px;height:36px;background:#e2e8f0;color:#0f172a;font-size:18px;font-weight:800;cursor:pointer}.saldo-previsto{padding:14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1e3a8a;font-weight:700}.ajuste-aviso{padding:14px;border:1px solid #fde68a;border-radius:8px;background:#fffbeb;color:#92400e;font-weight:700}.historico-detalhes{grid-template-columns:repeat(2,minmax(0,1fr))}.formulario-modal{display:grid;gap:16px}@media(max-width:1100px){.cards-resumo{grid-template-columns:repeat(2,minmax(180px,1fr))}.layout-principal,.grade-produtos,.lista-historico{grid-template-columns:1fr}}@media(max-width:900px){.cabecalho-pagina,.cabecalho-secao,.topo-card,.acoes,.topo-modal{align-items:flex-start;flex-direction:column}.campos,.historico-detalhes,.cards-resumo,.acoes-produto-card{grid-template-columns:1fr}.badges-topo{justify-content:flex-start}.botao,.botao-fechar{width:auto}}@media(max-width:560px){.card,.modal{padding:18px}.modal-overlay{padding:10px}.acoes{display:grid;grid-template-columns:1fr}.botao{width:100%}}
+.estoque-view,
+.cards-resumo,
+.layout-principal,
+.filtros-coluna,
+.secao-lista,
+.formulario-produto,
+.filtros,
+.formulario-modal {
+  display: grid;
+  gap: 18px;
+  color: #111827;
+}
+.cabecalho-pagina,
+.cabecalho-secao,
+.topo-card,
+.acoes,
+.topo-modal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.subtitulo {
+  margin: 0 0 4px;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 { font-size: 32px; font-weight: 800; }
+h2 { font-size: 24px; font-weight: 800; }
+h3 { font-size: 20px; font-weight: 800; }
+.descricao,
+.titulo-card p,
+.cabecalho-secao p,
+.topo-card p,
+.descricao-produto,
+.ajuda-inline { color: #64748b; }
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 22px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+.feedback.erro { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+.feedback.sucesso { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.aviso-plano { border-color: #bfdbfe; background: #eff6ff; }
+.aviso-plano h2 { font-size: 22px; }
+.estado,
+.estado-inline { color: #64748b; font-weight: 700; }
+.cards-resumo { grid-template-columns: repeat(4, minmax(180px, 1fr)); }
+.resumo-card { display: grid; gap: 10px; border-left: 4px solid #2563eb; }
+.resumo-card span { color: #64748b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
+.resumo-card strong { font-size: 28px; font-weight: 800; }
+.resumo-card p { color: #475569; }
+.layout-principal {
+  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
+  align-items: start;
+}
+.campos { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 14px; }
+.campo-grande { grid-column: 1 / -1; }
+label { display: grid; gap: 7px; color: #334155; font-weight: 800; }
+input, select, textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  background: white;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.destaque-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.destaque-checkbox input { width: auto; }
+.filtros-campos { grid-template-columns: 1fr; }
+.filtros-historico-campos { grid-template-columns: repeat(4, minmax(160px, 1fr)); }
+.grade-produtos { display: grid; grid-template-columns: repeat(2, minmax(340px, 1fr)); gap: 18px; }
+.lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
+.produto-card,
+.historico-card { display: grid; gap: 14px; }
+.badges-topo { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.status {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.status.ativo, .status.entrada { background: #dcfce7; color: #166534; }
+.status.inativo, .status.saida { background: #fee2e2; color: #b91c1c; }
+.status.alerta, .status.ajuste { background: #fef3c7; color: #92400e; }
+.detalhes-produto { display: grid; gap: 8px; }
+.detalhes-produto p { color: #374151; }
+.detalhes-produto strong { font-weight: 800; }
+.contador { border-radius: 999px; padding: 8px 12px; background: #dbeafe; color: #1d4ed8; font-weight: 800; }
+.botao { border: none; border-radius: 8px; padding: 10px 16px; color: white; cursor: pointer; font-weight: 800; text-decoration: none; }
+.botao:disabled { opacity: 0.6; cursor: not-allowed; }
+.principal { background: #2563eb; }
+.secundario { background: #0f172a; }
+.perigo { background: #dc2626; }
+.sucesso-botao { background: #15803d; }
+.acoes-produto-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.acoes-produto-card .botao { width: 100%; }
+.filtro-historico { border-style: dashed; border-width: 1px; border-color: #bfdbfe; background: #f8fbff; }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 60;
+}
+.modal { width: min(100%, 680px); display: grid; gap: 18px; }
+.topo-modal { align-items: flex-start; }
+.botao-fechar {
+  border: none;
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.saldo-previsto { padding: 14px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e3a8a; font-weight: 700; }
+.ajuste-aviso { padding: 14px; border: 1px solid #fde68a; border-radius: 8px; background: #fffbeb; color: #92400e; font-weight: 700; }
+.historico-detalhes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.formulario-modal { display: grid; gap: 16px; }
+@media (max-width: 1200px) {
+  .cards-resumo { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+  .layout-principal,
+  .filtros-historico-campos,
+  .grade-produtos,
+  .lista-historico { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .cabecalho-pagina,
+  .cabecalho-secao,
+  .topo-card,
+  .acoes,
+  .topo-modal { align-items: flex-start; flex-direction: column; }
+  .campos,
+  .historico-detalhes,
+  .cards-resumo,
+  .acoes-produto-card { grid-template-columns: 1fr; }
+  .badges-topo { justify-content: flex-start; }
+  .botao,
+  .botao-fechar { width: auto; }
+}
+@media (max-width: 560px) {
+  .card,
+  .modal { padding: 18px; }
+  .modal-overlay { padding: 10px; }
+  .acoes { display: grid; grid-template-columns: 1fr; }
+  .botao { width: 100%; }
+}
 </style>
+
+
