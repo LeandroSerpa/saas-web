@@ -1,11 +1,13 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FuncionarioForm from '@/components/FuncionarioForm.vue'
 import {
+  EVENTO_EMPRESA_VISUALIZACAO,
   buscarFuncionarios,
   buscarStatusFinanceiroMinhaEmpresa,
   cadastrarFuncionario,
+  modoVisualizacaoEmpresaAtivo,
   recalcularOnboarding,
   atualizarFuncionario,
   atualizarAtivoFuncionario,
@@ -20,6 +22,7 @@ const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
 const funcionarioEditandoId = ref(null)
 const statusFinanceiro = ref(null)
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const route = useRoute()
 const router = useRouter()
 const paginacao = ref(criarPaginacaoInicial())
@@ -134,6 +137,11 @@ async function carregarFuncionarios() {
 }
 
 async function salvarFuncionario() {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    return
+  }
+
   try {
     erro.value = ''
     mensagemSucessoFuncionario.value = ''
@@ -237,6 +245,10 @@ function limparOrigemOnboarding() {
 }
 
 function editarFuncionario(funcionarioItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
   erro.value = ''
   mensagemSucessoFuncionario.value = ''
   mensagemSucessoStatus.value = ''
@@ -270,6 +282,10 @@ function cancelarEdicaoFuncionario(limparMensagens = true) {
 }
 
 async function alternarAtivoFuncionario(funcionarioItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
   try {
     atualizandoId.value = funcionarioItem.id
     erro.value = ''
@@ -398,7 +414,17 @@ async function alterarTamanhoPagina() {
 onMounted(() => {
   carregarFuncionarios()
   carregarStatusFinanceiro()
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
+})
+
+function atualizarModoVisualizacao() {
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  carregarFuncionarios()
+}
 </script>
 
 <template>
@@ -421,7 +447,12 @@ onMounted(() => {
       <p>{{ mensagemSucessoStatus }}</p>
     </section>
 
+    <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
+      <p>Modo visualização: alterações estão bloqueadas.</p>
+    </section>
+
     <FuncionarioForm
+      v-if="!modoVisualizacaoEmpresa"
       v-model="funcionario"
       :mensagem-sucesso="mensagemSucessoFuncionario"
       :modo-edicao="Boolean(funcionarioEditandoId)"
@@ -510,7 +541,7 @@ onMounted(() => {
             <p><strong>Dias:</strong> {{ exibirDiasAtendimento(funcionarioItem) }}</p>
           </div>
 
-          <div class="acoes">
+          <div v-if="!modoVisualizacaoEmpresa" class="acoes">
             <button class="botao secundario" @click="editarFuncionario(funcionarioItem)">
               Editar
             </button>

@@ -8,6 +8,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  somenteLeitura: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['alterar-status', 'editar', 'excluir', 'copiar-resumo'])
@@ -202,11 +206,12 @@ async function copiarResumo(agendamento) {
     </div>
 
     <div class="acoes">
-      <button class="botao secundario" @click="emit('editar', props.agendamento)">Editar</button>
+      <button v-if="!props.somenteLeitura" class="botao secundario" @click="emit('editar', props.agendamento)">Editar</button>
 
       <button class="botao copiar" @click="copiarResumo(props.agendamento)">Copiar resumo</button>
 
       <button
+        v-if="!props.somenteLeitura"
         class="botao sucesso"
         :disabled="props.atualizando || props.agendamento.status === 'concluido'"
         @click="emit('alterar-status', props.agendamento.id, 'concluido')"
@@ -215,6 +220,7 @@ async function copiarResumo(agendamento) {
       </button>
 
       <button
+        v-if="!props.somenteLeitura"
         class="botao perigo"
         :disabled="props.atualizando || props.agendamento.status === 'cancelado'"
         @click="emit('alterar-status', props.agendamento.id, 'cancelado')"
@@ -223,6 +229,7 @@ async function copiarResumo(agendamento) {
       </button>
 
       <button
+        v-if="!props.somenteLeitura"
         class="botao alerta"
         :disabled="props.atualizando || props.agendamento.status === 'faltou'"
         @click="emit('alterar-status', props.agendamento.id, 'faltou')"
@@ -231,7 +238,7 @@ async function copiarResumo(agendamento) {
       </button>
 
       <button
-        v-if="podeExcluir(props.agendamento.status)"
+        v-if="!props.somenteLeitura && podeExcluir(props.agendamento.status)"
         class="botao excluir"
         :disabled="props.atualizando"
         @click="emit('excluir', props.agendamento.id)"

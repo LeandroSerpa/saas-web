@@ -2,12 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  EVENTO_EMPRESA_VISUALIZACAO,
   arquivarNotificacao,
   buscarNotificacoes,
   buscarResumoNotificacoes,
   desarquivarNotificacao,
   excluirNotificacao,
   marcarNotificacaoComoLida,
+  modoVisualizacaoEmpresaAtivo,
 } from '@/services/api'
 import {
   atualizarEscopoSolicitado,
@@ -37,6 +39,7 @@ const carregando = ref(true)
 const processandoId = ref(null)
 const erro = ref('')
 const sucesso = ref('')
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 
 const cards = computed(() => [
   { titulo: 'Total', valor: numeroResumo('total', 'totalNotificacoes') },
@@ -122,6 +125,11 @@ async function desarquivar(item) {
 }
 
 async function excluir(item) {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    return
+  }
+
   if (!item?.id) return
 
   try {
@@ -196,19 +204,19 @@ function statusClasse(item) {
 }
 
 function podeMarcarComoLida(item) {
-  return statusValor(item) === 'CRIADA'
+  return !modoVisualizacaoEmpresa.value && statusValor(item) === 'CRIADA'
 }
 
 function podeArquivar(item) {
-  return !['ARQUIVADA', 'EXCLUIDA'].includes(statusValor(item))
+  return !modoVisualizacaoEmpresa.value && !['ARQUIVADA', 'EXCLUIDA'].includes(statusValor(item))
 }
 
 function podeDesarquivar(item) {
-  return statusValor(item) === 'ARQUIVADA'
+  return !modoVisualizacaoEmpresa.value && statusValor(item) === 'ARQUIVADA'
 }
 
 function podeExcluir(item) {
-  return statusValor(item) !== 'EXCLUIDA'
+  return !modoVisualizacaoEmpresa.value && statusValor(item) !== 'EXCLUIDA'
 }
 
 function prioridadeTexto(valor) {
@@ -316,14 +324,21 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
   processarAtualizacaoCompartilhada(detalhe)
 }
 
+function atualizarModoVisualizacao() {
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  carregarDados()
+}
+
 onMounted(() => {
   carregarDados()
   window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
   window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
   window.removeEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
 </script>

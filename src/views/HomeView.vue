@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AgendamentoCard from '@/components/AgendamentoCard.vue'
 import AgendamentoForm from '@/components/AgendamentoForm.vue'
 import {
+  EVENTO_EMPRESA_VISUALIZACAO,
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
@@ -13,6 +14,7 @@ import {
   cadastrarAgendamento,
   excluirAgendamento,
   buscarStatusFinanceiroMinhaEmpresa,
+  modoVisualizacaoEmpresaAtivo,
 } from '@/services/api'
 import {
   atualizarEscopoSolicitado,
@@ -34,6 +36,7 @@ const carregando = ref(true)
 const erro = ref('')
 const atualizandoId = ref(null)
 const mensagemSucessoAgendamento = ref('')
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const agendamentoEditandoId = ref(null)
 const agendamentoEditandoStatus = ref('agendado')
 const filtros = ref({
@@ -262,6 +265,11 @@ async function carregarAgendamentos() {
 }
 
 async function alterarStatus(id, status) {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    return
+  }
+
   const mensagemConfirmacao = obterMensagemConfirmacaoStatus(status)
 
   if (mensagemConfirmacao && !window.confirm(mensagemConfirmacao)) {
@@ -297,6 +305,11 @@ function obterMensagemConfirmacaoStatus(status) {
 }
 
 async function excluirAgendamentoAgenda(id) {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    return
+  }
+
   const motivo = window.prompt(
     'Informe o motivo da exclusão (opcional). Clique em Cancelar para desistir.',
   )
@@ -344,6 +357,11 @@ function tratarCopiaResumo(evento = {}) {
 }
 
 async function salvarAgendamento() {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    return
+  }
+
   try {
     erro.value = ''
     mensagemSucessoAgendamento.value = ''
@@ -466,6 +484,10 @@ async function carregarFuncionariosDoServicoSelecionado() {
 }
 
 function editarAgendamento(agendamento) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
   erro.value = ''
   mensagemSucessoAgendamento.value = ''
 
@@ -755,15 +777,22 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
   processarAtualizacaoCompartilhada(detalhe)
 }
 
+function atualizarModoVisualizacao() {
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  carregarDados()
+}
+
 onMounted(() => {
   carregarDados()
   carregarStatusFinanceiro()
   window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
   window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
   window.removeEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
 </script>
@@ -784,7 +813,11 @@ onBeforeUnmount(() => {
       <p>{{ erro }}</p>
     </section>
 
-    <section class="grade-formularios">
+    <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
+      <p>Modo visualização: alterações estão bloqueadas.</p>
+    </section>
+
+    <section v-if="!modoVisualizacaoEmpresa" class="grade-formularios">
       <AgendamentoForm
         v-model="novoAgendamento"
         :clientes="clientes"
@@ -882,6 +915,7 @@ onBeforeUnmount(() => {
           :key="agendamento.id"
           :agendamento="agendamento"
           :atualizando="atualizandoId === agendamento.id"
+          :somente-leitura="modoVisualizacaoEmpresa"
           @alterar-status="alterarStatus"
           @editar="editarAgendamento"
           @excluir="excluirAgendamentoAgenda"

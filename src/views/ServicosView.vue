@@ -1,11 +1,13 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ServicoForm from '@/components/ServicoForm.vue'
 import {
+  EVENTO_EMPRESA_VISUALIZACAO,
   buscarServicos,
   buscarStatusFinanceiroMinhaEmpresa,
   cadastrarServico,
+  modoVisualizacaoEmpresaAtivo,
   recalcularOnboarding,
   atualizarServico,
   atualizarAtivoServico,
@@ -21,6 +23,7 @@ const mensagemSucessoStatus = ref('')
 const atualizandoId = ref(null)
 const servicoEmEdicaoId = ref(null)
 const statusFinanceiro = ref(null)
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const route = useRoute()
 const router = useRouter()
 const paginacao = ref(criarPaginacaoInicial())
@@ -119,6 +122,11 @@ async function carregarServicos() {
 }
 
 async function salvarServico() {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    return
+  }
+
   try {
     erro.value = ''
     mensagemSucessoServico.value = ''
@@ -204,6 +212,10 @@ function limparOrigemOnboarding() {
 }
 
 async function alternarAtivoServico(servicoItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
   try {
     atualizandoId.value = servicoItem.id
     erro.value = ''
@@ -225,6 +237,10 @@ async function alternarAtivoServico(servicoItem) {
 }
 
 function editarServico(servicoItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
   erro.value = ''
   mensagemSucessoServico.value = ''
   mensagemSucessoStatus.value = ''
@@ -331,7 +347,17 @@ async function alterarTamanhoPagina() {
 onMounted(() => {
   carregarServicos()
   carregarStatusFinanceiro()
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
+})
+
+function atualizarModoVisualizacao() {
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  carregarServicos()
+}
 </script>
 
 <template>
@@ -354,7 +380,12 @@ onMounted(() => {
       <p>{{ mensagemSucessoStatus }}</p>
     </section>
 
+    <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
+      <p>Modo visualização: alterações estão bloqueadas.</p>
+    </section>
+
     <ServicoForm
+      v-if="!modoVisualizacaoEmpresa"
       v-model="servico"
       :mensagem-sucesso="mensagemSucessoServico"
       :modo-edicao="Boolean(servicoEmEdicaoId)"
@@ -439,7 +470,7 @@ onMounted(() => {
             <p><strong>Duração:</strong> {{ exibirValor(servicoItem.duracaoMinutos) }} minutos</p>
           </div>
 
-          <div class="acoes">
+          <div v-if="!modoVisualizacaoEmpresa" class="acoes">
             <button
               class="botao neutro"
               :disabled="atualizandoId === servicoItem.id"

@@ -164,10 +164,11 @@ async function salvarUsuario() {
     }
 
     if (superAdminLogado.value && usuario.value.perfil !== 'SUPER_ADMIN' && !usuario.value.empresaId) {
-      erro.value = 'Selecione a empresa do usuario.'
+      erro.value = 'Selecione a empresa do usuário.'
       return
     }
 
+    const loginNormalizado = String(usuario.value.login || '').trim()
     const empresaIdUsuario =
       superAdminLogado.value
         ? usuario.value.perfil === 'SUPER_ADMIN'

@@ -1,10 +1,12 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  EVENTO_EMPRESA_VISUALIZACAO,
   atualizarMinhaEmpresa,
   buscarMinhaEmpresa,
   montarLinkPublicoAgendamento,
+  modoVisualizacaoEmpresaAtivo,
   recalcularOnboarding,
 } from '@/services/api'
 import {
@@ -22,6 +24,7 @@ import {
 
 const carregando = ref(true)
 const salvando = ref(false)
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const erro = ref('')
 const mensagemSucesso = ref('')
 const mensagemLinkCopiado = ref('')
@@ -173,6 +176,11 @@ function validarIntervaloAgenda() {
 }
 
 async function salvarEmpresa() {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    return
+  }
+
   try {
     limparMensagens()
 
@@ -301,7 +309,19 @@ function atualizarEmpresaNoUsuarioLogado(nomeEmpresa) {
   }
 }
 
-onMounted(carregarMinhaEmpresa)
+function atualizarModoVisualizacao() {
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  carregarMinhaEmpresa()
+}
+
+onMounted(() => {
+  carregarMinhaEmpresa()
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
+})
 </script>
 
 <template>
@@ -319,7 +339,11 @@ onMounted(carregarMinhaEmpresa)
     <section v-if="mensagemSucesso" class="card sucesso-card"><p>{{ mensagemSucesso }}</p></section>
     <section v-if="carregando" class="card"><p>Carregando empresa...</p></section>
 
-    <section v-else class="card formulario">
+    <section v-if="!carregando && modoVisualizacaoEmpresa" class="card aviso-visualizacao">
+      <p>Modo visualização: somente consulta. Alterações estão bloqueadas.</p>
+    </section>
+
+    <section v-if="!carregando" class="card formulario" :class="{ 'somente-leitura': modoVisualizacaoEmpresa }">
       <div class="titulo-card">
         <h2>Dados da empresa</h2>
         <p>Edite as informações que identificam sua empresa no sistema.</p>
@@ -422,7 +446,7 @@ onMounted(carregarMinhaEmpresa)
         <p v-if="!empresa.agendamentoPublicoAtivo" class="aviso-publico">O agendamento público está desativado.</p>
       </div>
 
-      <div class="rodape-formulario">
+      <div v-if="!modoVisualizacaoEmpresa" class="rodape-formulario">
         <button class="botao principal" :disabled="salvando" @click="salvarEmpresa">Salvar</button>
       </div>
     </section>
@@ -431,4 +455,5 @@ onMounted(carregarMinhaEmpresa)
 
 <style scoped>
 .pagina,.formulario,.secao-horario,.secao-agendamento-publico{display:grid;gap:16px}.pagina{gap:24px;color:#111827}.cabecalho-pagina{display:flex;justify-content:space-between;align-items:center;gap:16px}.subtitulo{margin:0 0 4px;color:#2563eb;font-size:14px;font-weight:700;text-transform:uppercase}.cabecalho-pagina h1{margin:0;font-size:32px;font-weight:800;letter-spacing:0}.descricao,.titulo-card p{margin:6px 0 0;color:#64748b}.titulo-card h2{margin:0;font-size:22px;color:#111827;font-weight:800}.titulo-card p{font-size:14px}.card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.campos{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:16px}label{display:grid;gap:6px;color:#374151;font-weight:700;font-size:14px}input,select,textarea{width:100%;min-width:0;border:1px solid #d1d5db;border-radius:8px;padding:11px 12px;font-size:15px;background:white;box-sizing:border-box}textarea{resize:vertical;min-height:110px;font-family:inherit}input:focus,select:focus,textarea:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.campo-grande{grid-column:1 / -1}.dias-atendimento{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px}.campo-checkbox{align-content:center;grid-template-columns:auto 1fr;gap:10px}input[type='checkbox']{width:18px;height:18px;accent-color:#2563eb}.link-publico{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff}.link-publico p{margin:0;color:#1e3a8a;font-weight:700;word-break:break-word}.link-publico strong{font-weight:800}.link-publico span{margin-left:6px}.aviso-publico{margin:0;color:#92400e;font-weight:800}.rodape-formulario{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.botao{border:none;color:white;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:800;transition:transform .15s ease,opacity .15s ease,background .15s ease}.botao:hover{transform:translateY(-1px)}.botao:disabled{opacity:.5;cursor:not-allowed;transform:none}.principal{background:#2563eb}.principal:hover{background:#1d4ed8}.secundario{background:#0f172a;min-width:140px}.secundario:hover{background:#1e293b}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.sucesso-card{border-color:#bbf7d0;background:#f0fdf4;color:#15803d}.sucesso-texto{color:#15803d;font-weight:800;margin:0}.erro-texto{color:#b91c1c;font-weight:700}@media (max-width:900px){.cabecalho-pagina{flex-direction:column;align-items:flex-start}.campos{grid-template-columns:1fr}.dias-atendimento{grid-template-columns:repeat(2,minmax(120px,1fr))}}
+.somente-leitura input,.somente-leitura select,.somente-leitura textarea{pointer-events:none;background:#f8fafc;color:#475569}.aviso-visualizacao{border-color:#bfdbfe;background:#eff6ff;color:#1e3a8a;font-weight:800}
 </style>

@@ -1,7 +1,14 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ClienteForm from '@/components/ClienteForm.vue'
-import { buscarClientes, cadastrarCliente, atualizarCliente, buscarStatusFinanceiroMinhaEmpresa } from '@/services/api'
+import {
+  EVENTO_EMPRESA_VISUALIZACAO,
+  buscarClientes,
+  cadastrarCliente,
+  atualizarCliente,
+  buscarStatusFinanceiroMinhaEmpresa,
+  modoVisualizacaoEmpresaAtivo,
+} from '@/services/api'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const clientes = ref([])
@@ -10,6 +17,7 @@ const erro = ref('')
 const mensagemSucessoCliente = ref('')
 const clienteEditandoId = ref(null)
 const statusFinanceiro = ref(null)
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const paginacao = ref(criarPaginacaoInicial())
 const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 
@@ -71,6 +79,11 @@ async function carregarClientes() {
 }
 
 async function salvarCliente() {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    return
+  }
+
   try {
     erro.value = ''
     mensagemSucessoCliente.value = ''
@@ -131,6 +144,10 @@ function empresaBloqueadaFinanceiro() {
 }
 
 function editarCliente(clienteItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
   erro.value = ''
   mensagemSucessoCliente.value = ''
   clienteEditandoId.value = clienteItem.id
@@ -187,7 +204,17 @@ async function alterarTamanhoPagina() {
 onMounted(() => {
   carregarClientes()
   carregarStatusFinanceiro()
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
+})
+
+function atualizarModoVisualizacao() {
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  carregarClientes()
+}
 </script>
 
 <template>
@@ -206,7 +233,12 @@ onMounted(() => {
       <p>{{ erro }}</p>
     </section>
 
+    <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
+      <p>Modo visualização: alterações estão bloqueadas.</p>
+    </section>
+
     <ClienteForm
+      v-if="!modoVisualizacaoEmpresa"
       v-model="cliente"
       :mensagem-sucesso="mensagemSucessoCliente"
       :modo-edicao="Boolean(clienteEditandoId)"
@@ -245,7 +277,7 @@ onMounted(() => {
             <p><strong>Observação:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
           </div>
 
-          <div class="acoes">
+          <div v-if="!modoVisualizacaoEmpresa" class="acoes">
             <button class="botao secundario" @click="editarCliente(clienteItem)">Editar</button>
           </div>
         </article>

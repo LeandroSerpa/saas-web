@@ -17,6 +17,9 @@ const MENSAGENS_PADRAO = {
 export const MENSAGEM_CADASTRO_PENDENTE =
   'Seu cadastro foi recebido e está aguardando aprovação. Assim que for aprovado, o acesso ao sistema será liberado.'
 
+const CHAVE_EMPRESA_VISUALIZACAO = 'empresaVisualizacao'
+export const EVENTO_EMPRESA_VISUALIZACAO = 'empresa-visualizacao-atualizada'
+
 function normalizarUrlBase(url, fallback = '') {
   const valor = String(url || '').trim()
 
@@ -314,11 +317,105 @@ export function carregarUsuarioSessao() {
   }
 }
 
+export function obterEmpresaVisualizacao() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const dadosSalvos =
+    localStorage.getItem(CHAVE_EMPRESA_VISUALIZACAO) ||
+    sessionStorage.getItem(CHAVE_EMPRESA_VISUALIZACAO)
+
+  if (!dadosSalvos) {
+    return null
+  }
+
+  try {
+    const dados = JSON.parse(dadosSalvos)
+    const id = dados?.id ?? dados?.empresaVisualizacaoId
+
+    if (!id) {
+      return null
+    }
+
+    return {
+      id: String(id),
+      nome: String(dados?.nome || dados?.empresaVisualizacaoNome || 'Empresa').trim() || 'Empresa',
+    }
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+export function definirEmpresaVisualizacao(empresa) {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const id = empresa?.id ?? empresa?.empresaVisualizacaoId
+
+  if (!id) {
+    limparEmpresaVisualizacao()
+    return null
+  }
+
+  const dados = {
+    id: String(id),
+    nome: String(empresa?.nome || empresa?.empresaVisualizacaoNome || 'Empresa').trim() || 'Empresa',
+  }
+
+  localStorage.setItem(CHAVE_EMPRESA_VISUALIZACAO, JSON.stringify(dados))
+  sessionStorage.setItem(CHAVE_EMPRESA_VISUALIZACAO, JSON.stringify(dados))
+  localStorage.setItem('empresaVisualizacaoId', dados.id)
+  localStorage.setItem('empresaVisualizacaoNome', dados.nome)
+  sessionStorage.setItem('empresaVisualizacaoId', dados.id)
+  sessionStorage.setItem('empresaVisualizacaoNome', dados.nome)
+  window.dispatchEvent(new CustomEvent(EVENTO_EMPRESA_VISUALIZACAO, { detail: dados }))
+
+  return dados
+}
+
+export function limparEmpresaVisualizacao() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  localStorage.removeItem(CHAVE_EMPRESA_VISUALIZACAO)
+  sessionStorage.removeItem(CHAVE_EMPRESA_VISUALIZACAO)
+  localStorage.removeItem('empresaVisualizacaoId')
+  localStorage.removeItem('empresaVisualizacaoNome')
+  sessionStorage.removeItem('empresaVisualizacaoId')
+  sessionStorage.removeItem('empresaVisualizacaoNome')
+  window.dispatchEvent(new CustomEvent(EVENTO_EMPRESA_VISUALIZACAO, { detail: null }))
+}
+
+export function modoVisualizacaoEmpresaAtivo() {
+  return Boolean(obterEmpresaVisualizacao())
+}
+
+export function aplicarEmpresaVisualizacao(filtros = {}) {
+  const empresaVisualizacao = obterEmpresaVisualizacao()
+  const usuario = carregarUsuarioSessao()
+
+  const perfil = normalizarTextoBusca(usuario?.perfil).replace(/^role_/, '')
+
+  if (!empresaVisualizacao?.id || perfil !== 'super_admin') {
+    return filtros
+  }
+
+  return {
+    ...(filtros || {}),
+    empresaId: filtros?.empresaId || empresaVisualizacao.id,
+  }
+}
+
 export function limparSessaoAutenticacao({ notificar = true } = {}) {
   localStorage.removeItem('token')
   localStorage.removeItem('usuario')
   localStorage.removeItem('empresa')
   localStorage.removeItem('empresaAtual')
+  limparEmpresaVisualizacao()
   localStorage.removeItem('trocaSenhaObrigatoria')
   localStorage.removeItem('cadastroPendente')
   sessionStorage.removeItem('origemOnboarding')
@@ -654,34 +751,38 @@ async function tratarRespostaPublica(response) {
 }
 
 export async function buscarClientes(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/clientes${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/clientes${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
   const dados = await tratarResposta(response)
-  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+  return solicitouPaginacao(filtrosConsulta) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarServicos(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/servicos${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/servicos${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
   const dados = await tratarResposta(response)
-  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+  return solicitouPaginacao(filtrosConsulta) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarFuncionarios(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/funcionarios${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/funcionarios${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
   const dados = await tratarResposta(response)
-  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+  return solicitouPaginacao(filtrosConsulta) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarAgendamentos(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/agendamentos${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/agendamentos${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1663,7 +1764,8 @@ export async function rejeitarComprovanteFatura(id, dados = {}) {
 }
 
 export async function buscarRelatorioOperacaonal(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/relatorios/operacaonal${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/relatorios/operacaonal${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1671,7 +1773,8 @@ export async function buscarRelatorioOperacaonal(filtros = {}) {
 }
 
 export async function buscarRelatorioFinanceiro(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/relatorios/financeiro${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/relatorios/financeiro${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1711,7 +1814,8 @@ export async function buscarRelatorioAgendamentos(filtros = {}) {
 }
 
 export async function baixarRelatorioAgendamentosCsv(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/relatorios/agendamentos.csv${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/relatorios/agendamentos.csv${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1750,7 +1854,8 @@ export async function baixarRelatorioAgendamentosCsv(filtros = {}) {
 }
 
 async function buscarRelatorio(caminho, filtros = {}) {
-  const response = await executarFetch(`${API_URL}${caminho}${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}${caminho}${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1813,7 +1918,8 @@ export async function desativarPlano(id) {
 }
 
 async function buscarRecursoEstoque(caminho, filtros = {}) {
-  const response = await executarFetch(`${API_URL}${caminho}${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}${caminho}${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -2104,7 +2210,8 @@ export async function restaurarAgendamento(id) {
 }
 
 export async function buscarNotificacoes(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/notificacoes${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/notificacoes${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -2458,7 +2565,23 @@ export async function buscarEmpresas(filtros = {}) {
 }
 
 export async function buscarMinhaEmpresa() {
+  const empresaVisualizacao = obterEmpresaVisualizacao()
+
+  const perfil = normalizarTextoBusca(carregarUsuarioSessao()?.perfil).replace(/^role_/, '')
+
+  if (empresaVisualizacao?.id && perfil === 'super_admin') {
+    return buscarEmpresaPorId(empresaVisualizacao.id)
+  }
+
   const response = await executarFetch(`${API_URL}/minha-empresa`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarEmpresaPorId(id) {
+  const response = await executarFetch(`${API_URL}/empresas/${id}`, {
     headers: montarHeaders(),
   })
 

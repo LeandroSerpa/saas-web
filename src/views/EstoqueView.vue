@@ -1,5 +1,5 @@
-﻿<script setup>
-import { computed, onMounted, ref } from 'vue'
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   ativarProdutoEstoque,
   buscarEmpresas,
@@ -13,13 +13,31 @@ import {
   criarProdutoEstoque,
   desativarProdutoEstoque,
   mensagemIndicaBloqueioPlanoEstoque,
+  obterEmpresaVisualizacao,
   obterMensagemAmigavelErro,
   atualizarProdutoEstoque,
 } from '@/services/api'
 import { ehSuperAdmin } from '@/utils/permissoes'
 
+const OPCOES_UNIDADE = Object.freeze([
+  { valor: 'UN', descricao: 'Unidade' },
+  { valor: 'CX', descricao: 'Caixa' },
+  { valor: 'PC', descricao: 'Peça/Pacote' },
+  { valor: 'KG', descricao: 'Quilograma' },
+  { valor: 'G', descricao: 'Grama' },
+  { valor: 'L', descricao: 'Litro' },
+  { valor: 'ML', descricao: 'Mililitro' },
+  { valor: 'M', descricao: 'Metro' },
+  { valor: 'PAR', descricao: 'Par' },
+  { valor: 'KIT', descricao: 'Kit' },
+  { valor: 'OUTRO', descricao: 'Outro' },
+])
+const OPCOES_TAMANHO_PAGINA = Object.freeze([5, 10, 20, 50])
+
 const usuario = ref(carregarUsuarioSessao())
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
+const modoVisualizacaoSuperAdmin = computed(() => superAdmin.value)
+const abaAtiva = ref('produtos')
 const empresas = ref([])
 const produtos = ref([])
 const movimentacoes = ref([])
@@ -42,7 +60,23 @@ const formularioProduto = ref(criarProdutoInicial())
 const formularioMovimentacao = ref(criarMovimentacaoInicial())
 const filtros = ref(criarFiltrosIniciais())
 const filtrosHistorico = ref(criarFiltrosHistoricoIniciais())
+const paginacaoProdutos = ref(criarPaginacaoLocal(10))
+const paginacaoMovimentacoes = ref(criarPaginacaoLocal(10))
 const saldoPrevistoMovimentacao = computed(() => calcularSaldoPrevistoMovimentacao())
+
+const empresaVisualizacao = computed(() => obterEmpresaVisualizacao())
+const abasDisponiveis = computed(() => {
+  const abas = [
+    { id: 'produtos', rotulo: 'Produtos' },
+    { id: 'movimentacoes', rotulo: 'Movimentações' },
+  ]
+
+  if (!modoVisualizacaoSuperAdmin.value) {
+    abas.splice(1, 0, { id: 'novo', rotulo: produtoEditandoId.value ? 'Editar produto' : 'Novo produto' })
+  }
+
+  return abas
+})
 
 const categoriasDisponiveis = computed(() => {
   const categorias = produtos.value
@@ -62,6 +96,10 @@ const produtosVisiveis = computed(() => {
       (filtros.value.status === 'INATIVO' && !produtoAtivo(item))
     const categoriaAtende = !filtros.value.categoria || obterCategoriaProduto(item) === filtros.value.categoria
     const baixoEstoqueAtende = !filtros.value.somenteBaixoEstoque || produtoBaixoEstoque(item)
+    const empresaAtende =
+      !superAdmin.value ||
+      !filtros.value.empresaId ||
+      String(obterEmpresaProdutoId(item)) === String(filtros.value.empresaId)
     const buscaAtende =
       !termo ||
       [
@@ -71,9 +109,31 @@ const produtosVisiveis = computed(() => {
         obterDescricaoProduto(item),
       ].some((campo) => normalizarTexto(campo).includes(termo))
 
-    return statusAtende && categoriaAtende && baixoEstoqueAtende && buscaAtende
+    return statusAtende && categoriaAtende && baixoEstoqueAtende && empresaAtende && buscaAtende
   })
 })
+
+const movimentacoesVisiveis = computed(() => {
+  return movimentacoes.value.filter((item) => {
+    const produtoAtende =
+      !filtrosHistorico.value.produtoId ||
+      String(obterProdutoMovimentacaoId(item)) === String(filtrosHistorico.value.produtoId)
+    const tipoAtende = !filtrosHistorico.value.tipo || tipoMovimentacao(item) === filtrosHistorico.value.tipo
+    const empresaAtende =
+      !superAdmin.value ||
+      !filtrosHistorico.value.empresaId ||
+      String(obterEmpresaMovimentacaoId(item)) === String(filtrosHistorico.value.empresaId)
+
+    return produtoAtende && tipoAtende && empresaAtende
+  })
+})
+
+const produtosPaginados = computed(() => paginarLista(produtosVisiveis.value, paginacaoProdutos.value))
+const movimentacoesPaginadas = computed(() => paginarLista(movimentacoesVisiveis.value, paginacaoMovimentacoes.value))
+const resumoPaginacaoProdutos = computed(() => resumoPaginacao(produtosVisiveis.value.length, paginacaoProdutos.value, 'produtos'))
+const resumoPaginacaoMovimentacoes = computed(() =>
+  resumoPaginacao(movimentacoesVisiveis.value.length, paginacaoMovimentacoes.value, 'movimentações'),
+)
 
 const cardsResumo = computed(() => [
   {
@@ -98,6 +158,12 @@ const cardsResumo = computed(() => [
   },
 ])
 
+watch(modoVisualizacaoSuperAdmin, (ativo) => {
+  if (ativo && abaAtiva.value === 'novo') {
+    abaAtiva.value = 'produtos'
+  }
+})
+
 async function carregarTela() {
   try {
     carregando.value = true
@@ -107,6 +173,7 @@ async function carregarTela() {
     erroMovimentacoes.value = ''
     sucesso.value = ''
     bloqueioPlano.value = false
+    aplicarEmpresaVisualizacaoInicial()
 
     const promessas = [
       consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Não foi possível carregar o resumo do estoque.'),
@@ -121,13 +188,11 @@ async function carregarTela() {
 
     const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, empresasApi] = await Promise.all(promessas)
 
-    const resumoApi = dadosConsulta(resumoResultado)
     const produtosApi = dadosConsulta(produtosResultado)
-    const movimentacoesApi = dadosConsulta(movimentacoesResultado)
     const baixoEstoqueApi = dadosConsulta(baixoEstoqueResultado)
 
     if (resumoResultado.sucesso || produtosResultado.sucesso || baixoEstoqueResultado.sucesso) {
-      resumo.value = normalizarResumo(resumoApi, baixoEstoqueApi, produtosApi)
+      resumo.value = normalizarResumo(dadosConsulta(resumoResultado), baixoEstoqueApi, produtosApi)
     }
 
     if (produtosResultado.sucesso) {
@@ -135,8 +200,9 @@ async function carregarTela() {
     }
 
     if (movimentacoesResultado.sucesso) {
-      movimentacoes.value = normalizarLista(movimentacoesApi)
+      movimentacoes.value = normalizarLista(dadosConsulta(movimentacoesResultado))
     }
+
     erroProdutos.value = mensagemConsulta(produtosResultado)
     erroBaixoEstoque.value = mensagemConsulta(baixoEstoqueResultado)
     erroMovimentacoes.value = mensagemConsulta(movimentacoesResultado)
@@ -147,9 +213,6 @@ async function carregarTela() {
 
     if (superAdmin.value) {
       empresas.value = normalizarLista(empresasApi)
-      if (!formularioProduto.value.empresaProdutoId) {
-        formularioProduto.value.empresaProdutoId = String(obterEmpresaAtualId() || '')
-      }
     }
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar o estoque agora.')
@@ -177,6 +240,7 @@ async function carregarProdutos() {
     if (produtosResultado.sucesso) {
       produtos.value = normalizarLista(dadosConsulta(produtosResultado))
     }
+
     erroProdutos.value = mensagemConsulta(produtosResultado)
     erroBaixoEstoque.value = mensagemConsulta(baixoEstoqueResultado)
 
@@ -199,15 +263,48 @@ async function carregarHistorico() {
       () => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()),
       'Não foi possível atualizar o histórico.',
     )
+
     if (resultado.sucesso) {
       movimentacoes.value = normalizarLista(dadosConsulta(resultado))
     }
+
     erroMovimentacoes.value = mensagemConsulta(resultado)
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível atualizar o histórico.')
   } finally {
     carregandoMovimentacoes.value = false
   }
+}
+
+function aplicarEmpresaVisualizacaoInicial() {
+  if (!superAdmin.value || !empresaVisualizacao.value?.id) {
+    return
+  }
+
+  filtros.value.empresaId = filtros.value.empresaId || empresaVisualizacao.value.id
+  filtrosHistorico.value.empresaId = filtrosHistorico.value.empresaId || empresaVisualizacao.value.id
+}
+
+async function aplicarFiltrosProdutos() {
+  paginacaoProdutos.value.page = 1
+  await carregarProdutos()
+}
+
+async function limparFiltrosProdutos() {
+  filtros.value = criarFiltrosIniciais()
+  paginacaoProdutos.value.page = 1
+  await carregarProdutos()
+}
+
+async function aplicarFiltrosHistorico() {
+  paginacaoMovimentacoes.value.page = 1
+  await carregarHistorico()
+}
+
+async function limparFiltrosHistorico() {
+  filtrosHistorico.value = criarFiltrosHistoricoIniciais()
+  paginacaoMovimentacoes.value.page = 1
+  await carregarHistorico()
 }
 
 function montarFiltrosApi() {
@@ -226,7 +323,7 @@ function montarFiltrosHistoricoApi() {
     tipo: filtrosHistorico.value.tipo,
     dataInicial: filtrosHistorico.value.dataInicial,
     dataFinal: filtrosHistorico.value.dataFinal,
-    empresaId: superAdmin.value ? filtros.value.empresaId : '',
+    empresaId: superAdmin.value ? filtrosHistorico.value.empresaId : '',
   })
 }
 
@@ -250,7 +347,7 @@ function criarProdutoInicial() {
     nome: '',
     descricao: '',
     codigoSku: '',
-    empresaProdutoId: obterEmpresaAtualId(),
+    empresaProdutoId: '',
     categoria: '',
     unidade: 'UN',
     precoCusto: '',
@@ -275,7 +372,7 @@ function criarFiltrosIniciais() {
     busca: '',
     categoria: '',
     somenteBaixoEstoque: false,
-    empresaId: '',
+    empresaId: obterEmpresaVisualizacao()?.id || '',
   }
 }
 
@@ -283,13 +380,17 @@ function criarFiltrosHistoricoIniciais() {
   return {
     produtoId: '',
     tipo: '',
+    empresaId: obterEmpresaVisualizacao()?.id || '',
     dataInicial: '',
     dataFinal: '',
   }
 }
 
-function obterEmpresaAtualId() {
-  return superAdmin.value ? (usuario.value?.empresaId ?? '') : ''
+function criarPaginacaoLocal(size = 10) {
+  return {
+    page: 1,
+    size,
+  }
 }
 
 function obterMensagemErroEstoque(errorAtual, fallback) {
@@ -417,7 +518,11 @@ function obterDescricaoProduto(item) {
 }
 
 function obterCodigoProduto(item) {
-  return obterCampo(item, 'codigoSku', 'sku', 'codigo') || '-'
+  return obterCampo(item, 'codigoSku', 'sku', 'codigo')
+}
+
+function obterCodigoProdutoCard(item) {
+  return obterCodigoProduto(item) || 'Não informado'
 }
 
 function obterCategoriaProduto(item) {
@@ -425,7 +530,18 @@ function obterCategoriaProduto(item) {
 }
 
 function obterUnidadeProduto(item) {
-  return obterCampo(item, 'unidade', 'unidadeMedida') || 'UN'
+  return String(obterCampo(item, 'unidade', 'unidadeMedida') || 'UN').trim().toUpperCase()
+}
+
+function obterOpcaoUnidade(valor) {
+  const unidade = String(valor || '').trim().toUpperCase()
+  return OPCOES_UNIDADE.find((opcao) => opcao.valor === unidade)
+}
+
+function formatarUnidadeProduto(item) {
+  const unidade = obterUnidadeProduto(item)
+  const opcao = obterOpcaoUnidade(unidade)
+  return opcao ? `${opcao.valor} (${opcao.descricao})` : `${unidade} (Outro)`
 }
 
 function obterQuantidadeAtual(item) {
@@ -442,6 +558,21 @@ function obterPrecoCusto(item) {
 
 function obterPrecoVenda(item) {
   return Number(obterCampo(item, 'precoVenda', 'valorVenda', 'preco') || 0)
+}
+
+function obterEmpresaProdutoId(item) {
+  const empresa = obterCampo(item, 'empresaId', 'empresaProdutoId')
+  return typeof empresa === 'object' ? empresa?.id : empresa
+}
+
+function obterProdutoMovimentacaoId(item) {
+  const produto = obterCampo(item, 'produtoId', 'idProduto')
+  return produto || (typeof item?.produto === 'object' ? item.produto.id : '')
+}
+
+function obterEmpresaMovimentacaoId(item) {
+  const empresa = obterCampo(item, 'empresaId', 'empresaMovimentacaoId')
+  return empresa || (typeof item?.empresa === 'object' ? item.empresa.id : '')
 }
 
 function produtoAtivo(item) {
@@ -489,6 +620,54 @@ function normalizarTexto(valor) {
     .toLowerCase()
 }
 
+function pluralizar(quantidade, singular, plural) {
+  return `${quantidade} ${Number(quantidade) === 1 ? singular : plural}`
+}
+
+function paginarLista(lista, paginacao) {
+  const pagina = Math.max(Number(paginacao.page) || 1, 1)
+  const tamanho = Math.max(Number(paginacao.size) || 10, 1)
+  const inicio = (pagina - 1) * tamanho
+
+  return lista.slice(inicio, inicio + tamanho)
+}
+
+function resumoPaginacao(total, paginacao, rotulo) {
+  if (!total) {
+    return `Mostrando 0-0 de 0 ${rotulo}`
+  }
+
+  const pagina = Math.min(Math.max(Number(paginacao.page) || 1, 1), totalPaginas(total, paginacao.size))
+  const inicio = (pagina - 1) * Number(paginacao.size) + 1
+  const fim = Math.min(inicio + Number(paginacao.size) - 1, total)
+
+  return `Mostrando ${inicio}-${fim} de ${total} ${rotulo}`
+}
+
+function totalPaginas(total, tamanho) {
+  return Math.max(Math.ceil(total / Math.max(Number(tamanho) || 1, 1)), 1)
+}
+
+function podePaginaAnterior(paginacao) {
+  return paginacao.page > 1
+}
+
+function podeProximaPagina(total, paginacao) {
+  return paginacao.page < totalPaginas(total, paginacao.size)
+}
+
+function irPaginaAnterior(paginacao) {
+  paginacao.page = Math.max(paginacao.page - 1, 1)
+}
+
+function irProximaPagina(total, paginacao) {
+  paginacao.page = Math.min(paginacao.page + 1, totalPaginas(total, paginacao.size))
+}
+
+function alterarTamanhoPagina(paginacao) {
+  paginacao.page = 1
+}
+
 function validarNumeroNaoNegativo(valor, mensagem) {
   const numero = Number(valor)
 
@@ -501,17 +680,17 @@ function validarNumeroNaoNegativo(valor, mensagem) {
 }
 
 async function salvarProduto() {
+  if (modoVisualizacaoSuperAdmin.value) {
+    erro.value = 'SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    return
+  }
+
   try {
     erro.value = ''
     sucesso.value = ''
 
     if (!formularioProduto.value.nome.trim()) {
       erro.value = 'Informe o nome do produto.'
-      return
-    }
-
-    if (superAdmin.value && !formularioProduto.value.empresaProdutoId) {
-      erro.value = 'Selecione a empresa do produto antes de cadastrar.'
       return
     }
 
@@ -543,6 +722,7 @@ async function salvarProduto() {
     }
 
     cancelarEdicaoProduto(false)
+    abaAtiva.value = 'produtos'
     await Promise.all([carregarProdutos(), carregarHistorico()])
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível salvar o produto.')
@@ -552,13 +732,13 @@ async function salvarProduto() {
 }
 
 function montarPayloadProduto() {
-  const payload = {
+  return {
     nome: formularioProduto.value.nome.trim(),
     descricao: formularioProduto.value.descricao.trim(),
     codigoSku: formularioProduto.value.codigoSku.trim(),
     sku: formularioProduto.value.codigoSku.trim(),
     categoria: formularioProduto.value.categoria.trim(),
-    unidade: formularioProduto.value.unidade.trim() || 'UN',
+    unidade: formularioProduto.value.unidade || 'UN',
     precoCusto: numeroOuZero(formularioProduto.value.precoCusto),
     precoVenda: numeroOuZero(formularioProduto.value.precoVenda),
     quantidadeAtual: numeroOuZero(formularioProduto.value.quantidadeAtual),
@@ -566,12 +746,6 @@ function montarPayloadProduto() {
     estoqueMinimo: numeroOuZero(formularioProduto.value.estoqueMinimo),
     ativo: formularioProduto.value.ativo !== false,
   }
-
-  if (superAdmin.value && formularioProduto.value.empresaProdutoId) {
-    payload.empresaId = Number(formularioProduto.value.empresaProdutoId)
-  }
-
-  return payload
 }
 
 function numeroOuZero(valor) {
@@ -580,11 +754,16 @@ function numeroOuZero(valor) {
 }
 
 async function editarProduto(item) {
+  if (modoVisualizacaoSuperAdmin.value) {
+    return
+  }
+
   try {
     erro.value = ''
     sucesso.value = ''
     carregandoDetalheProduto.value = true
     produtoEditandoId.value = item.id
+    abaAtiva.value = 'novo'
 
     let produtoDetalhado = item
 
@@ -597,10 +776,8 @@ async function editarProduto(item) {
     formularioProduto.value = {
       nome: obterNomeProduto(produtoDetalhado),
       descricao: obterDescricaoProduto(produtoDetalhado),
-      codigoSku: obterCodigoProduto(produtoDetalhado) === '-' ? '' : obterCodigoProduto(produtoDetalhado),
-      empresaProdutoId: String(
-        obterCampo(produtoDetalhado, 'empresaId', 'empresa', 'empresaProdutoId') || obterEmpresaAtualId() || '',
-      ),
+      codigoSku: obterCodigoProduto(produtoDetalhado),
+      empresaProdutoId: '',
       categoria: obterCategoriaProduto(produtoDetalhado) === 'Sem categoria' ? '' : obterCategoriaProduto(produtoDetalhado),
       unidade: obterUnidadeProduto(produtoDetalhado),
       precoCusto: obterPrecoCusto(produtoDetalhado),
@@ -626,6 +803,11 @@ function cancelarEdicaoProduto(limparMensagens = true) {
 }
 
 async function alternarProduto(item) {
+  if (modoVisualizacaoSuperAdmin.value) {
+    erro.value = 'SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    return
+  }
+
   try {
     erro.value = ''
     sucesso.value = ''
@@ -645,6 +827,10 @@ async function alternarProduto(item) {
 }
 
 function abrirMovimentacao(item, tipo = 'ENTRADA') {
+  if (modoVisualizacaoSuperAdmin.value) {
+    return
+  }
+
   movimentacaoProduto.value = item
   formularioMovimentacao.value = {
     ...criarMovimentacaoInicial(),
@@ -683,6 +869,11 @@ function calcularSaldoPrevistoMovimentacao() {
 }
 
 async function salvarMovimentacao() {
+  if (modoVisualizacaoSuperAdmin.value) {
+    erro.value = 'SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    return
+  }
+
   try {
     erro.value = ''
     sucesso.value = ''
@@ -703,21 +894,16 @@ async function salvarMovimentacao() {
     }
 
     salvandoMovimentacao.value = true
-    const payload = {
+    await criarMovimentacaoEstoque({
       produtoId: movimentacaoProduto.value.id,
       tipo: formularioMovimentacao.value.tipo,
       quantidade: Number(formularioMovimentacao.value.quantidade),
       observacao: formularioMovimentacao.value.observacao.trim(),
-    }
-
-    if (superAdmin.value && filtros.value.empresaId) {
-      payload.empresaId = Number(filtros.value.empresaId)
-    }
-
-    await criarMovimentacaoEstoque(payload)
+    })
 
     sucesso.value = 'Movimentação registrada com sucesso.'
     fecharMovimentacao()
+    abaAtiva.value = 'movimentacoes'
     await Promise.all([carregarProdutos(), carregarHistorico()])
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível registrar a movimentação.')
@@ -735,7 +921,20 @@ function tipoMovimentacao(item) {
 }
 
 function produtoMovimentacao(item) {
-  return obterCampo(item, 'produtoNome', 'nomeProduto', 'produto', 'titulo') || 'Produto'
+  const nomeDireto = obterCampo(item, 'produtoNome', 'nomeProduto')
+
+  if (nomeDireto) {
+    return nomeDireto
+  }
+
+  if (typeof item?.produto === 'object') {
+    return obterNomeProduto(item.produto)
+  }
+
+  const produtoId = obterProdutoMovimentacaoId(item)
+  const produto = produtos.value.find((produtoItem) => String(produtoItem.id) === String(produtoId))
+
+  return produto ? obterNomeProduto(produto) : 'Produto sem nome'
 }
 
 function quantidadeMovimentacao(item) {
@@ -751,7 +950,7 @@ function saldoNovoMovimentacao(item) {
 }
 
 function usuarioMovimentacao(item) {
-  return obterCampo(item, 'usuarioNome', 'usuario', 'responsavelNome') || '-'
+  return obterCampo(item, 'usuarioResponsavelNome', 'usuarioNome', 'usuario', 'responsavelNome') || 'Usuário não informado'
 }
 
 onMounted(() => {
@@ -781,6 +980,12 @@ onMounted(() => {
       <p>{{ sucesso }}</p>
     </section>
 
+    <section v-if="modoVisualizacaoSuperAdmin" class="card aviso-visualizacao">
+      <p>Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.</p>
+      <p v-if="empresaVisualizacao?.id">Empresa em foco: {{ empresaVisualizacao.nome }}.</p>
+      <p v-else>Visão global: nenhuma empresa selecionada no filtro.</p>
+    </section>
+
     <section v-if="bloqueioPlano" class="card aviso-plano">
       <h2>Recurso disponível em planos superiores</h2>
       <p>O módulo de estoque não está disponível no plano atual.</p>
@@ -799,13 +1004,144 @@ onMounted(() => {
         </article>
       </section>
 
-      <section class="layout-principal">
+      <nav class="abas" aria-label="Áreas do estoque">
+        <button
+          v-for="aba in abasDisponiveis"
+          :key="aba.id"
+          type="button"
+          :class="{ ativa: abaAtiva === aba.id }"
+          @click="abaAtiva = aba.id"
+        >
+          {{ aba.rotulo }}
+        </button>
+      </nav>
+
+      <section v-if="abaAtiva === 'produtos'" class="secao-lista">
+        <form class="card filtros filtros-produtos" @submit.prevent="aplicarFiltrosProdutos">
+          <div class="titulo-card">
+            <h2>Filtros de produtos</h2>
+            <p>Encontre produtos por status, busca, categoria ou baixo estoque.</p>
+          </div>
+
+          <div class="campos filtros-campos">
+            <label>
+              Status
+              <select v-model="filtros.status">
+                <option value="">Todos</option>
+                <option value="ATIVO">Ativos</option>
+                <option value="INATIVO">Inativos</option>
+              </select>
+            </label>
+            <label>
+              Busca
+              <input v-model="filtros.busca" type="search" placeholder="Nome, categoria ou código interno" />
+            </label>
+            <label>
+              Categoria
+              <select v-model="filtros.categoria">
+                <option value="">Todas</option>
+                <option v-for="categoria in categoriasDisponiveis" :key="categoria" :value="categoria">{{ categoria }}</option>
+              </select>
+            </label>
+            <label v-if="superAdmin">
+              Empresa
+              <select v-model="filtros.empresaId">
+                <option value="">Todas</option>
+                <option v-for="empresa in empresas" :key="empresa.id" :value="String(empresa.id)">{{ empresa.nome }}</option>
+              </select>
+            </label>
+            <label class="campo-checkbox destaque-checkbox">
+              <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
+              Somente baixo estoque
+            </label>
+          </div>
+
+          <div class="acoes">
+            <button class="botao principal" :disabled="carregandoProdutos">{{ carregandoProdutos ? 'Filtrando...' : 'Aplicar filtros' }}</button>
+            <button type="button" class="botao secundario" @click="limparFiltrosProdutos">Limpar filtros</button>
+          </div>
+
+          <p v-if="superAdmin && filtros.empresaId" class="ajuda-inline">
+            Visualizando produtos da empresa {{ nomeEmpresaPorId(filtros.empresaId) }}.
+          </p>
+        </form>
+
+        <div class="cabecalho-secao">
+          <div>
+            <h2>Produtos</h2>
+            <p>{{ produtosVisiveis.length ? 'Acompanhe os produtos cadastrados.' : 'Nenhum produto encontrado com os filtros atuais.' }}</p>
+          </div>
+          <span class="contador">{{ pluralizar(produtosVisiveis.length, 'item', 'itens') }}</span>
+        </div>
+
+        <section v-if="erroProdutos" class="card feedback erro">
+          <p>{{ erroProdutos }}</p>
+        </section>
+
+        <section v-if="!erroProdutos && erroBaixoEstoque" class="card feedback erro">
+          <p>{{ erroBaixoEstoque }}</p>
+        </section>
+
+        <section v-if="!erroProdutos && !produtosVisiveis.length" class="card estado">
+          <p>Nenhum produto cadastrado ainda.</p>
+        </section>
+
+        <section v-if="!erroProdutos && produtosVisiveis.length" class="grade-produtos">
+          <article v-for="produto in produtosPaginados" :key="produto.id" class="card produto-card">
+            <div class="topo-card">
+              <div>
+                <h3>{{ obterNomeProduto(produto) }}</h3>
+                <p>{{ obterCategoriaProduto(produto) }}</p>
+              </div>
+              <div class="badges-topo">
+                <span :class="['status', produtoAtivo(produto) ? 'ativo' : 'inativo']">{{ produtoAtivo(produto) ? 'Ativo' : 'Inativo' }}</span>
+                <span v-if="produtoBaixoEstoque(produto)" class="status alerta">Baixo estoque</span>
+              </div>
+            </div>
+
+            <div class="detalhes-produto">
+              <p><strong>Código interno/SKU:</strong> {{ obterCodigoProdutoCard(produto) }}</p>
+              <p><strong>Quantidade atual:</strong> {{ formatarNumero(obterQuantidadeAtual(produto)) }}</p>
+              <p><strong>Estoque mínimo:</strong> {{ formatarNumero(obterEstoqueMinimo(produto)) }}</p>
+              <p><strong>Unidade:</strong> {{ formatarUnidadeProduto(produto) }}</p>
+              <p><strong>Preço de custo:</strong> {{ formatarMoeda(obterPrecoCusto(produto)) }}</p>
+              <p><strong>Preço de venda:</strong> {{ formatarMoeda(obterPrecoVenda(produto)) }}</p>
+            </div>
+
+            <p v-if="obterDescricaoProduto(produto)" class="descricao-produto">{{ obterDescricaoProduto(produto) }}</p>
+
+            <div v-if="!modoVisualizacaoSuperAdmin" class="acoes acoes-produto-card">
+              <button class="botao secundario" @click="editarProduto(produto)">Editar</button>
+              <button class="botao secundario" @click="abrirMovimentacao(produto, 'ENTRADA')">Entrada</button>
+              <button class="botao secundario" @click="abrirMovimentacao(produto, 'SAIDA')">Saída</button>
+              <button class="botao secundario" @click="abrirMovimentacao(produto, 'AJUSTE')">Ajuste</button>
+              <button :class="['botao', produtoAtivo(produto) ? 'perigo' : 'sucesso-botao']" @click="alternarProduto(produto)">
+                {{ produtoAtivo(produto) ? 'Desativar' : 'Ativar' }}
+              </button>
+            </div>
+          </article>
+        </section>
+
+        <section v-if="!erroProdutos && produtosVisiveis.length" class="card paginacao">
+          <p>{{ resumoPaginacaoProdutos }}</p>
+          <label>
+            Produtos por página
+            <select v-model.number="paginacaoProdutos.size" @change="alterarTamanhoPagina(paginacaoProdutos)">
+              <option v-for="opcao in OPCOES_TAMANHO_PAGINA" :key="opcao" :value="opcao">{{ opcao }}</option>
+            </select>
+          </label>
+          <div class="botoes-paginacao">
+            <button class="botao secundario" :disabled="!podePaginaAnterior(paginacaoProdutos)" @click="irPaginaAnterior(paginacaoProdutos)">Anterior</button>
+            <button class="botao secundario" :disabled="!podeProximaPagina(produtosVisiveis.length, paginacaoProdutos)" @click="irProximaPagina(produtosVisiveis.length, paginacaoProdutos)">Próxima</button>
+          </div>
+        </section>
+      </section>
+
+      <section v-if="abaAtiva === 'novo' && !modoVisualizacaoSuperAdmin" class="secao-lista">
         <form class="card formulario-produto" @submit.prevent="salvarProduto">
           <div class="titulo-card">
             <h2>{{ produtoEditandoId ? 'Editar produto' : 'Novo produto' }}</h2>
-            <p>
-              {{ produtoEditandoId ? 'Atualize as informações do produto selecionado.' : 'Cadastre produtos para acompanhar quantidades e alertas.' }}
-            </p>
+            <p>{{ produtoEditandoId ? 'Atualize as informações do produto selecionado.' : 'Cadastre produtos para acompanhar quantidades e alertas.' }}</p>
           </div>
 
           <div v-if="carregandoDetalheProduto" class="estado-inline">Carregando dados do produto...</div>
@@ -815,16 +1151,10 @@ onMounted(() => {
               Nome *
               <input v-model="formularioProduto.nome" type="text" placeholder="Ex: Shampoo neutro" />
             </label>
-            <label v-if="superAdmin">
-              Empresa do produto *
-              <select v-model="formularioProduto.empresaProdutoId">
-                <option value="">Selecione a empresa</option>
-                <option v-for="empresa in empresas" :key="empresa.id" :value="String(empresa.id)">{{ empresa.nome }}</option>
-              </select>
-            </label>
             <label>
-              Código/SKU
+              Código interno / SKU
               <input v-model="formularioProduto.codigoSku" type="text" placeholder="Ex: SH-001" />
+              <small>SKU é um código interno para identificar o produto. Exemplo: SH-001 para Shampoo.</small>
             </label>
             <label class="campo-grande">
               Descrição
@@ -836,7 +1166,12 @@ onMounted(() => {
             </label>
             <label>
               Unidade
-              <input v-model="formularioProduto.unidade" type="text" maxlength="10" placeholder="Ex: UN, KG, CX" />
+              <select v-model="formularioProduto.unidade">
+                <option v-for="opcao in OPCOES_UNIDADE" :key="opcao.valor" :value="opcao.valor">
+                  {{ opcao.valor }} - {{ opcao.descricao }}
+                </option>
+              </select>
+              <small>Escolha como este produto é contado no estoque.</small>
             </label>
             <label>
               Preço de custo
@@ -869,178 +1204,61 @@ onMounted(() => {
             </button>
           </div>
         </form>
-
-        <section class="filtros-coluna">
-          <form class="card filtros" @submit.prevent="carregarProdutos">
-            <div class="titulo-card">
-              <h2>Filtros</h2>
-              <p>Encontre produtos com mais rapidez.</p>
-            </div>
-
-            <div class="campos filtros-campos">
-              <label>
-                Status
-                <select v-model="filtros.status">
-                  <option value="">Todos</option>
-                  <option value="ATIVO">Ativos</option>
-                  <option value="INATIVO">Inativos</option>
-                </select>
-              </label>
-              <label>
-                Busca
-                <input v-model="filtros.busca" type="search" placeholder="Nome, categoria ou código" />
-              </label>
-              <label>
-                Categoria
-                <select v-model="filtros.categoria">
-                  <option value="">Todas</option>
-                  <option v-for="categoria in categoriasDisponiveis" :key="categoria" :value="categoria">{{ categoria }}</option>
-                </select>
-              </label>
-              <label v-if="superAdmin">
-                Empresa do filtro
-                <select v-model="filtros.empresaId">
-                  <option value="">Todas</option>
-                  <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">{{ empresa.nome }}</option>
-                </select>
-              </label>
-              <label class="campo-checkbox destaque-checkbox campo-grande">
-                <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
-                Mostrar somente produtos com baixo estoque
-              </label>
-            </div>
-
-            <div class="acoes">
-              <button class="botao principal" :disabled="carregandoProdutos">{{ carregandoProdutos ? 'Filtrando...' : 'Aplicar filtros' }}</button>
-              <button
-                type="button"
-                class="botao secundario"
-                @click="filtros = criarFiltrosIniciais(); carregarProdutos()"
-              >
-                Limpar filtros
-              </button>
-            </div>
-
-            <p v-if="superAdmin && filtros.empresaId" class="ajuda-inline">
-              Visualizando dados da empresa {{ nomeEmpresaPorId(filtros.empresaId) }}.
-            </p>
-          </form>
-
-          </section>
       </section>
 
-      <section class="secao-lista">
-          <form class="card filtros filtro-historico" @submit.prevent="carregarHistorico">
-            <div class="titulo-card">
-              <h2>Histórico de movimentações</h2>
-              <p>Acompanhe entradas, saídas e ajustes do estoque.</p>
-            </div>
-
-            <div class="campos filtros-campos filtros-historico-campos">
-              <label>
-                Produto
-                <select v-model="filtrosHistorico.produtoId">
-                  <option value="">Todos</option>
-                  <option v-for="produto in produtos" :key="produto.id" :value="produto.id">{{ obterNomeProduto(produto) }}</option>
-                </select>
-              </label>
-              <label>
-                Tipo
-                <select v-model="filtrosHistorico.tipo">
-                  <option value="">Todos</option>
-                  <option value="ENTRADA">Entrada</option>
-                  <option value="SAIDA">Saída</option>
-                  <option value="AJUSTE">Ajuste</option>
-                </select>
-              </label>
-              <label>
-                Data inicial
-                <input v-model="filtrosHistorico.dataInicial" type="date" />
-              </label>
-              <label>
-                Data final
-                <input v-model="filtrosHistorico.dataFinal" type="date" />
-              </label>
-            </div>
-
-            <div class="acoes">
-              <button class="botao principal" :disabled="carregandoMovimentacoes">{{ carregandoMovimentacoes ? 'Atualizando...' : 'Atualizar histórico' }}</button>
-              <button
-                type="button"
-                class="botao secundario"
-                @click="filtrosHistorico = criarFiltrosHistoricoIniciais(); carregarHistorico()"
-              >
-                Limpar período
-              </button>
-            </div>
-          </form>
-      </section>
-
-      <section class="secao-lista">
-        <div class="cabecalho-secao">
-          <div>
-            <h2>Produtos</h2>
-          <p>{{ produtosVisiveis.length ? 'Acompanhe os produtos cadastrados e movimente o estoque quando precisar.' : 'Nenhum produto encontrado com os filtros atuais.' }}</p>
+      <section v-if="abaAtiva === 'movimentacoes'" class="secao-lista">
+        <form class="card filtros filtro-historico" @submit.prevent="aplicarFiltrosHistorico">
+          <div class="titulo-card">
+            <h2>Histórico de movimentações</h2>
+            <p>Acompanhe entradas, saídas e ajustes do estoque.</p>
           </div>
-          <span class="contador">{{ produtosVisiveis.length }} item(ns)</span>
-        </div>
 
-        <section v-if="erroProdutos" class="card feedback erro">
-          <p>{{ erroProdutos }}</p>
-        </section>
+          <div class="campos filtros-campos">
+            <label>
+              Produto
+              <select v-model="filtrosHistorico.produtoId">
+                <option value="">Todos</option>
+                <option v-for="produto in produtos" :key="produto.id" :value="produto.id">{{ obterNomeProduto(produto) }}</option>
+              </select>
+            </label>
+            <label>
+              Tipo
+              <select v-model="filtrosHistorico.tipo">
+                <option value="">Todos</option>
+                <option value="ENTRADA">Entrada</option>
+                <option value="SAIDA">Saída</option>
+                <option value="AJUSTE">Ajuste</option>
+              </select>
+            </label>
+            <label v-if="superAdmin">
+              Empresa
+              <select v-model="filtrosHistorico.empresaId">
+                <option value="">Todas</option>
+                <option v-for="empresa in empresas" :key="empresa.id" :value="String(empresa.id)">{{ empresa.nome }}</option>
+              </select>
+            </label>
+            <label>
+              Data inicial
+              <input v-model="filtrosHistorico.dataInicial" type="date" />
+            </label>
+            <label>
+              Data final
+              <input v-model="filtrosHistorico.dataFinal" type="date" />
+            </label>
+          </div>
 
-        <section v-if="!erroProdutos && erroBaixoEstoque" class="card feedback erro">
-          <p>{{ erroBaixoEstoque }}</p>
-        </section>
+          <div class="acoes">
+            <button class="botao principal" :disabled="carregandoMovimentacoes">{{ carregandoMovimentacoes ? 'Atualizando...' : 'Atualizar histórico' }}</button>
+            <button type="button" class="botao secundario" @click="limparFiltrosHistorico">Limpar filtros do histórico</button>
+          </div>
+        </form>
 
-        <section v-if="!erroProdutos && !produtosVisiveis.length" class="card estado">
-          <p>Nenhum produto cadastrado ainda. Use o formulário para criar o primeiro item do estoque.</p>
-        </section>
-
-        <section v-if="!erroProdutos && produtosVisiveis.length" class="grade-produtos">
-          <article v-for="produto in produtosVisiveis" :key="produto.id" class="card produto-card">
-            <div class="topo-card">
-              <div>
-                <h3>{{ obterNomeProduto(produto) }}</h3>
-                <p>{{ obterCategoriaProduto(produto) }}</p>
-              </div>
-              <div class="badges-topo">
-                <span :class="['status', produtoAtivo(produto) ? 'ativo' : 'inativo']">{{ produtoAtivo(produto) ? 'Ativo' : 'Inativo' }}</span>
-                <span v-if="produtoBaixoEstoque(produto)" class="status alerta">Baixo estoque</span>
-              </div>
-            </div>
-
-            <div class="detalhes-produto">
-              <p><strong>Código/SKU:</strong> {{ obterCodigoProduto(produto) }}</p>
-              <p><strong>Quantidade atual:</strong> {{ formatarNumero(obterQuantidadeAtual(produto)) }}</p>
-              <p><strong>Estoque mínimo:</strong> {{ formatarNumero(obterEstoqueMinimo(produto)) }}</p>
-              <p><strong>Unidade:</strong> {{ obterUnidadeProduto(produto) }}</p>
-              <p><strong>Preço de custo:</strong> {{ formatarMoeda(obterPrecoCusto(produto)) }}</p>
-              <p><strong>Preço de venda:</strong> {{ formatarMoeda(obterPrecoVenda(produto)) }}</p>
-            </div>
-
-            <p v-if="obterDescricaoProduto(produto)" class="descricao-produto">{{ obterDescricaoProduto(produto) }}</p>
-
-            <div class="acoes acoes-produto-card">
-              <button class="botao secundario" @click="editarProduto(produto)">Editar</button>
-              <button class="botao secundario" @click="abrirMovimentacao(produto, 'ENTRADA')">Entrada</button>
-              <button class="botao secundario" @click="abrirMovimentacao(produto, 'SAIDA')">Saída</button>
-              <button class="botao secundario" @click="abrirMovimentacao(produto, 'AJUSTE')">Ajuste</button>
-              <button :class="['botao', produtoAtivo(produto) ? 'perigo' : 'sucesso-botao']" @click="alternarProduto(produto)">
-                {{ produtoAtivo(produto) ? 'Desativar' : 'Ativar' }}
-              </button>
-            </div>
-          </article>
-        </section>
-      </section>
-
-      <section class="secao-lista">
         <div class="cabecalho-secao">
           <div>
-            <h2>Histórico</h2>
+            <h2>Movimentações registradas</h2>
             <p>Veja o que foi movimentado recentemente no estoque.</p>
           </div>
-          <span class="contador">{{ movimentacoes.length }} registro(s)</span>
+          <span class="contador">{{ pluralizar(movimentacoesVisiveis.length, 'registro', 'registros') }}</span>
         </div>
 
         <section v-if="carregandoMovimentacoes" class="card estado">
@@ -1051,12 +1269,12 @@ onMounted(() => {
           <p>{{ erroMovimentacoes }}</p>
         </section>
 
-        <section v-else-if="!movimentacoes.length" class="card estado">
+        <section v-else-if="!movimentacoesVisiveis.length" class="card estado">
           <p>Nenhuma movimentação encontrada para o período selecionado.</p>
         </section>
 
         <section v-else class="lista-historico">
-          <article v-for="(item, indice) in movimentacoes" :key="item.id || indice" class="card historico-card">
+          <article v-for="(item, indice) in movimentacoesPaginadas" :key="item.id || indice" class="card historico-card">
             <div class="topo-card">
               <div>
                 <h3>{{ produtoMovimentacao(item) }}</h3>
@@ -1069,15 +1287,29 @@ onMounted(() => {
               <p><strong>Quantidade:</strong> {{ quantidadeMovimentacao(item) }}</p>
               <p><strong>Quantidade anterior:</strong> {{ saldoAnteriorMovimentacao(item) }}</p>
               <p><strong>Quantidade nova:</strong> {{ saldoNovoMovimentacao(item) }}</p>
-              <p><strong>Observação:</strong> {{ obterCampo(item, 'observacao', 'motivo') || '-' }}</p>
+              <p><strong>Observação:</strong> {{ obterCampo(item, 'observacao', 'motivo') || 'Não informado' }}</p>
               <p><strong>Usuário:</strong> {{ usuarioMovimentacao(item) }}</p>
             </div>
           </article>
         </section>
+
+        <section v-if="!erroMovimentacoes && movimentacoesVisiveis.length" class="card paginacao">
+          <p>{{ resumoPaginacaoMovimentacoes }}</p>
+          <label>
+            Movimentações por página
+            <select v-model.number="paginacaoMovimentacoes.size" @change="alterarTamanhoPagina(paginacaoMovimentacoes)">
+              <option v-for="opcao in OPCOES_TAMANHO_PAGINA" :key="opcao" :value="opcao">{{ opcao }}</option>
+            </select>
+          </label>
+          <div class="botoes-paginacao">
+            <button class="botao secundario" :disabled="!podePaginaAnterior(paginacaoMovimentacoes)" @click="irPaginaAnterior(paginacaoMovimentacoes)">Anterior</button>
+            <button class="botao secundario" :disabled="!podeProximaPagina(movimentacoesVisiveis.length, paginacaoMovimentacoes)" @click="irProximaPagina(movimentacoesVisiveis.length, paginacaoMovimentacoes)">Próxima</button>
+          </div>
+        </section>
       </section>
     </template>
 
-    <div v-if="movimentacaoProduto" class="modal-overlay" @click.self="fecharMovimentacao">
+    <div v-if="movimentacaoProduto && !modoVisualizacaoSuperAdmin" class="modal-overlay" @click.self="fecharMovimentacao">
       <section class="modal card">
         <div class="topo-modal">
           <div>
@@ -1131,8 +1363,6 @@ onMounted(() => {
 <style scoped>
 .estoque-view,
 .cards-resumo,
-.layout-principal,
-.filtros-coluna,
 .secao-lista,
 .formulario-produto,
 .filtros,
@@ -1145,7 +1375,8 @@ onMounted(() => {
 .cabecalho-secao,
 .topo-card,
 .acoes,
-.topo-modal {
+.topo-modal,
+.paginacao {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1174,7 +1405,8 @@ h3 { font-size: 20px; font-weight: 800; }
 .cabecalho-secao p,
 .topo-card p,
 .descricao-produto,
-.ajuda-inline { color: #64748b; }
+.ajuda-inline,
+small { color: #64748b; }
 .card {
   background: white;
   border: 1px solid #e5e7eb;
@@ -1184,7 +1416,8 @@ h3 { font-size: 20px; font-weight: 800; }
 }
 .feedback.erro { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
 .feedback.sucesso { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
-.aviso-plano { border-color: #bfdbfe; background: #eff6ff; }
+.aviso-plano,
+.aviso-visualizacao { border-color: #bfdbfe; background: #eff6ff; color: #1e3a8a; }
 .aviso-plano h2 { font-size: 22px; }
 .estado,
 .estado-inline { color: #64748b; font-weight: 700; }
@@ -1193,11 +1426,28 @@ h3 { font-size: 20px; font-weight: 800; }
 .resumo-card span { color: #64748b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
 .resumo-card strong { font-size: 28px; font-weight: 800; }
 .resumo-card p { color: #475569; }
-.layout-principal {
-  grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
-  align-items: start;
+.abas {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #dbe4f0;
+}
+.abas button {
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 12px 14px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+.abas button.ativa {
+  border-bottom-color: #2563eb;
+  color: #1d4ed8;
 }
 .campos { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 14px; }
+.filtros-campos { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
 .campo-grande { grid-column: 1 / -1; }
 label { display: grid; gap: 7px; color: #334155; font-weight: 800; }
 input, select, textarea {
@@ -1225,8 +1475,6 @@ input:focus, select:focus, textarea:focus {
   background: #f8fafc;
 }
 .destaque-checkbox input { width: auto; }
-.filtros-campos { grid-template-columns: 1fr; }
-.filtros-historico-campos { grid-template-columns: repeat(4, minmax(160px, 1fr)); }
 .grade-produtos { display: grid; grid-template-columns: repeat(2, minmax(340px, 1fr)); gap: 18px; }
 .lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
 .produto-card,
@@ -1258,6 +1506,10 @@ input:focus, select:focus, textarea:focus {
 .acoes-produto-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .acoes-produto-card .botao { width: 100%; }
 .filtro-historico { border-style: dashed; border-width: 1px; border-color: #bfdbfe; background: #f8fbff; }
+.paginacao p { color: #475569; font-weight: 800; }
+.paginacao label { display: flex; align-items: center; gap: 8px; }
+.paginacao select { width: auto; }
+.botoes-paginacao { display: flex; gap: 8px; flex-wrap: wrap; }
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1286,8 +1538,7 @@ input:focus, select:focus, textarea:focus {
 .formulario-modal { display: grid; gap: 16px; }
 @media (max-width: 1200px) {
   .cards-resumo { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
-  .layout-principal,
-  .filtros-historico-campos,
+  .filtros-campos,
   .grade-produtos,
   .lista-historico { grid-template-columns: 1fr; }
 }
@@ -1296,7 +1547,8 @@ input:focus, select:focus, textarea:focus {
   .cabecalho-secao,
   .topo-card,
   .acoes,
-  .topo-modal { align-items: flex-start; flex-direction: column; }
+  .topo-modal,
+  .paginacao { align-items: flex-start; flex-direction: column; }
   .campos,
   .historico-detalhes,
   .cards-resumo,
@@ -1309,9 +1561,10 @@ input:focus, select:focus, textarea:focus {
   .card,
   .modal { padding: 18px; }
   .modal-overlay { padding: 10px; }
-  .acoes { display: grid; grid-template-columns: 1fr; }
-  .botao { width: 100%; }
+  .acoes,
+  .botoes-paginacao { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .botao,
+  .paginacao label,
+  .paginacao select { width: 100%; }
 }
 </style>
-
-
