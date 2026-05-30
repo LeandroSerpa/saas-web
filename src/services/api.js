@@ -2051,7 +2051,9 @@ export async function ativarUnidadeEstoqueAdmin(id) {
   return tentarRotas(
     [
       `${API_URL}/admin/estoque/unidades/${id}/ativar`,
+      `${API_URL}/admin/estoque/unidades/${id}/reativar`,
       `${API_URL}/admin/unidades-estoque/${id}/ativar`,
+      `${API_URL}/admin/unidades-estoque/${id}/reativar`,
       {
         url: `${API_URL}/admin/estoque/unidades/${id}/ativo`,
         init: {
@@ -2072,7 +2074,9 @@ export async function desativarUnidadeEstoqueAdmin(id) {
   return tentarRotas(
     [
       `${API_URL}/admin/estoque/unidades/${id}/desativar`,
+      `${API_URL}/admin/estoque/unidades/${id}/inativar`,
       `${API_URL}/admin/unidades-estoque/${id}/desativar`,
+      `${API_URL}/admin/unidades-estoque/${id}/inativar`,
       {
         url: `${API_URL}/admin/estoque/unidades/${id}/ativo`,
         init: {

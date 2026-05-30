@@ -100,9 +100,18 @@ function normalizarUnidade(item) {
   const status = String(item?.status || '').toUpperCase()
   const ativo = item?.ativo
   const statusInativo = ['INATIVO', 'INATIVA', 'INACTIVE', 'DESATIVADO', 'DESATIVADA'].includes(status)
+  const idNormalizado =
+    item?.id ??
+    item?.unidadeId ??
+    item?.estoqueUnidadeId ??
+    item?.unidadeEstoqueId ??
+    item?.idUnidadeEstoque ??
+    item?.unidade?.id ??
+    item?.unidadeEstoque?.id ??
+    null
 
   return {
-    id: item?.id || item?.unidadeId || item?.codigo,
+    id: idNormalizado,
     codigo: String(item?.codigo || item?.valor || item?.sigla || '').trim().toUpperCase(),
     nome: String(item?.nome || item?.descricao || '').trim(),
     descricao: String(item?.descricao || item?.detalhes || '').trim(),
@@ -133,10 +142,6 @@ function obterMensagemErroUnidade(errorAtual, fallback) {
 
   if (texto.includes('codigo') || texto.includes('código')) {
     return 'Código inválido. Use uma sigla curta, sem espaços ou caracteres especiais.'
-  }
-
-  if (texto.includes('nao encontrada') || texto.includes('não encontrada') || errorAtual?.status === 404) {
-    return 'Unidade não encontrada. Atualize a lista e tente novamente.'
   }
 
   if (texto.includes('permiss') || errorAtual?.status === 403) {
@@ -230,13 +235,20 @@ async function alternarStatus(unidade) {
   try {
     erro.value = ''
     sucesso.value = ''
-    atualizandoId.value = unidade.id
+    const id = unidade?.id
+
+    if (id === null || id === undefined || String(id).trim() === '') {
+      erro.value = 'Unidade sem identificador. Atualize a lista e tente novamente.'
+      return
+    }
+
+    atualizandoId.value = id
 
     if (unidade.ativo !== false) {
-      await desativarUnidadeEstoqueAdmin(unidade.id)
+      await desativarUnidadeEstoqueAdmin(id)
       sucesso.value = 'Unidade inativada com sucesso.'
     } else {
-      await ativarUnidadeEstoqueAdmin(unidade.id)
+      await ativarUnidadeEstoqueAdmin(id)
       sucesso.value = 'Unidade ativada com sucesso.'
     }
 
@@ -358,6 +370,7 @@ onMounted(() => {
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Código</th>
               <th>Nome</th>
               <th>Descrição</th>
@@ -368,6 +381,7 @@ onMounted(() => {
           </thead>
           <tbody>
             <tr v-for="unidade in unidadesFiltradas" :key="unidade.id || unidade.codigo">
+              <td>{{ unidade.id ?? '-' }}</td>
               <td><strong>{{ unidade.codigo }}</strong></td>
               <td>{{ unidade.nome }}</td>
               <td>{{ unidade.descricao || '-' }}</td>
