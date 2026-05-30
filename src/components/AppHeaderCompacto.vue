@@ -74,6 +74,8 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
       </div>
     </section>
 
+    <slot name="visualizacao"></slot>
+
     <section class="app-page-heading" aria-label="Cabeçalho da página">
       <span v-if="cabecalho.subtitulo" class="app-page-kicker">{{ cabecalho.subtitulo }}</span>
       <div class="app-page-title">

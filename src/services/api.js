@@ -19,6 +19,7 @@ export const MENSAGEM_CADASTRO_PENDENTE =
 
 const CHAVE_EMPRESA_VISUALIZACAO = 'empresaVisualizacao'
 export const EVENTO_EMPRESA_VISUALIZACAO = 'empresa-visualizacao-atualizada'
+export const EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS = 'unidades-estoque-atualizadas'
 
 function normalizarUrlBase(url, fallback = '') {
   const valor = String(url || '').trim()
@@ -408,6 +409,14 @@ export function aplicarEmpresaVisualizacao(filtros = {}) {
     ...(filtros || {}),
     empresaId: filtros?.empresaId || empresaVisualizacao.id,
   }
+}
+
+export function notificarUnidadesEstoqueAtualizadas() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.dispatchEvent(new CustomEvent(EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS))
 }
 
 export function limparSessaoAutenticacao({ notificar = true } = {}) {
@@ -912,7 +921,8 @@ export async function criarAgendamentoPublico(slug, dados) {
 }
 
 export async function buscarMinhaPersonalizacao() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -920,7 +930,8 @@ export async function buscarMinhaPersonalizacao() {
 }
 
 export async function buscarIndisponibilidades(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/indisponibilidades${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/indisponibilidades${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -965,7 +976,8 @@ export async function excluirIndisponibilidade(id) {
 }
 
 export async function buscarFuncionarioServicos(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/funcionario-servicos${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/funcionario-servicos${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1345,7 +1357,8 @@ export async function buscarVisaoEmpresaDashboardSaas(empresaId) {
 }
 
 export async function buscarOnboarding() {
-  const response = await executarFetch(`${API_URL}/onboarding`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/onboarding${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1514,16 +1527,18 @@ export async function aprovarSolicitacaoCadastro(id, dados) {
 }
 
 export async function buscarFaturas(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/faturas${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/faturas${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
   const dados = await tratarResposta(response)
-  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+  return solicitouPaginacao(filtrosConsulta) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarResumoFaturas(filtros = {}) {
-  const response = await executarFetch(`${API_URL}/faturas/resumo${montarQueryString(filtros)}`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/faturas/resumo${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1592,7 +1607,8 @@ export async function reativarFatura(id) {
 }
 
 export async function buscarStatusFinanceiroMinhaEmpresa() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/status-financeiro`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/status-financeiro${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -1977,6 +1993,7 @@ export async function buscarUnidadesEstoque(filtros = {}) {
     ],
     {
       headers: montarHeaders(),
+      cache: 'no-store',
     },
     {
       emitir403: false,
@@ -1995,6 +2012,7 @@ export async function buscarUnidadesEstoqueAdmin(filtros = {}) {
     ],
     {
       headers: montarHeaders(),
+      cache: 'no-store',
     },
   )
 
@@ -2257,7 +2275,8 @@ export async function criarEmpresaCadastroGuiadoAdmin(payload) {
 }
 
 export async function buscarMinhaAssinatura() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/assinatura`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/assinatura${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -2265,7 +2284,8 @@ export async function buscarMinhaAssinatura() {
 }
 
 export async function buscarUsoPlano() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/uso-plano`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/uso-plano${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -2273,7 +2293,8 @@ export async function buscarUsoPlano() {
 }
 
 export async function buscarMinhasConfiguracoesNotificacoes() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 
@@ -2338,7 +2359,8 @@ export async function buscarNotificacoes(filtros = {}) {
 }
 
 export async function buscarResumoNotificacoes() {
-  const response = await executarFetch(`${API_URL}/notificacoes/resumo`, {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/notificacoes/resumo${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
 

@@ -6,6 +6,7 @@ import {
   buscarUnidadesEstoqueAdmin,
   criarUnidadeEstoqueAdmin,
   desativarUnidadeEstoqueAdmin,
+  notificarUnidadesEstoqueAtualizadas,
   obterMensagemAmigavelErro,
 } from '@/services/api'
 
@@ -60,9 +61,9 @@ async function carregarUnidades() {
     erro.value = ''
 
     const resposta = await buscarUnidadesEstoqueAdmin(montarFiltrosApi())
-    unidades.value = normalizarLista(resposta).map(normalizarUnidade)
+    unidades.value = normalizarLista(resposta).map(normalizarUnidade).sort(ordenarUnidades)
   } catch (errorAtual) {
-    erro.value = obterMensagemAmigavelErro(errorAtual, 'Não foi possível carregar as unidades de estoque.')
+    erro.value = obterMensagemErroUnidade(errorAtual, 'Não foi possível carregar as unidades de estoque.')
   } finally {
     carregando.value = false
   }
@@ -97,6 +98,8 @@ function normalizarLista(valor) {
 
 function normalizarUnidade(item) {
   const status = String(item?.status || '').toUpperCase()
+  const ativo = item?.ativo
+  const statusInativo = ['INATIVO', 'INATIVA', 'INACTIVE', 'DESATIVADO', 'DESATIVADA'].includes(status)
 
   return {
     id: item?.id || item?.unidadeId || item?.codigo,
@@ -104,8 +107,12 @@ function normalizarUnidade(item) {
     nome: String(item?.nome || item?.descricao || '').trim(),
     descricao: String(item?.descricao || item?.detalhes || '').trim(),
     ordem: Number(item?.ordem ?? item?.posicao ?? 0),
-    ativo: item?.ativo === false ? false : status !== 'INATIVO',
+    ativo: ativo === false || String(ativo).toLowerCase() === 'false' ? false : !statusInativo,
   }
+}
+
+function ordenarUnidades(a, b) {
+  return (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.nome.localeCompare(b.nome, 'pt-BR')
 }
 
 function normalizarTexto(valor) {
@@ -114,6 +121,33 @@ function normalizarTexto(valor) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
+}
+
+function obterMensagemErroUnidade(errorAtual, fallback) {
+  const mensagem = obterMensagemAmigavelErro(errorAtual, fallback)
+  const texto = normalizarTexto(mensagem)
+
+  if (texto.includes('duplic') || texto.includes('ja existe') || texto.includes('já existe')) {
+    return 'Já existe uma unidade cadastrada com este código ou nome.'
+  }
+
+  if (texto.includes('codigo') || texto.includes('código')) {
+    return 'Código inválido. Use uma sigla curta, sem espaços ou caracteres especiais.'
+  }
+
+  if (texto.includes('nao encontrada') || texto.includes('não encontrada') || errorAtual?.status === 404) {
+    return 'Unidade não encontrada. Atualize a lista e tente novamente.'
+  }
+
+  if (texto.includes('permiss') || errorAtual?.status === 403) {
+    return 'Permissão negada para alterar unidades de estoque.'
+  }
+
+  if (texto.includes('plano') || texto.includes('modulo') || texto.includes('módulo')) {
+    return 'O módulo de estoque não está disponível no plano atual.'
+  }
+
+  return mensagem
 }
 
 async function aplicarFiltros() {
@@ -158,9 +192,10 @@ async function salvarUnidade() {
     }
 
     cancelarEdicao(false)
+    notificarUnidadesEstoqueAtualizadas()
     await carregarUnidades()
   } catch (errorAtual) {
-    erro.value = obterMensagemAmigavelErro(
+    erro.value = obterMensagemErroUnidade(
       errorAtual,
       unidadeEditandoId.value ? 'Não foi possível atualizar a unidade.' : 'Não foi possível cadastrar a unidade.',
     )
@@ -205,9 +240,10 @@ async function alternarStatus(unidade) {
       sucesso.value = 'Unidade ativada com sucesso.'
     }
 
+    notificarUnidadesEstoqueAtualizadas()
     await carregarUnidades()
   } catch (errorAtual) {
-    erro.value = obterMensagemAmigavelErro(errorAtual, 'Não foi possível alterar o status da unidade.')
+    erro.value = obterMensagemErroUnidade(errorAtual, 'Não foi possível alterar o status da unidade.')
   } finally {
     atualizandoId.value = null
   }
@@ -262,6 +298,7 @@ onMounted(() => {
         <label>
           Ordem
           <input v-model="formulario.ordem" type="number" step="1" />
+          <small>Define a posição da unidade na lista e nos combos. Menores números aparecem primeiro.</small>
         </label>
         <label class="campo-checkbox">
           <input v-model="formulario.ativo" type="checkbox" />

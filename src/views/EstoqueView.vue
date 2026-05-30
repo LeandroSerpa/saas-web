@@ -14,6 +14,7 @@ import {
   criarProdutoEstoque,
   desativarProdutoEstoque,
   EVENTO_EMPRESA_VISUALIZACAO,
+  EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS,
   mensagemIndicaBloqueioPlanoEstoque,
   obterEmpresaVisualizacao,
   obterMensagemAmigavelErro,
@@ -146,6 +147,33 @@ const resumoPaginacaoMovimentacoes = computed(() =>
 const opcoesUnidadeAtivas = computed(() =>
   unidadesEstoque.value.filter((unidade) => unidade.ativo !== false),
 )
+const opcoesUnidadeProduto = computed(() => {
+  const opcoes = [...opcoesUnidadeAtivas.value]
+
+  if (!produtoEditandoId.value) {
+    return opcoes
+  }
+
+  const unidadeAtual = String(formularioProduto.value.unidade || '').trim().toUpperCase()
+
+  if (!unidadeAtual || opcoes.some((opcao) => opcao.valor === unidadeAtual)) {
+    return opcoes
+  }
+
+  const unidadeConhecida =
+    unidadesEstoque.value.find((opcao) => opcao.valor === unidadeAtual) ||
+    UNIDADES_FALLBACK.find((opcao) => opcao.valor === unidadeAtual)
+
+  return [
+    ...opcoes,
+    {
+      id: unidadeAtual,
+      valor: unidadeAtual,
+      descricao: `${unidadeConhecida?.descricao || 'Unidade'} (inativa)`,
+      ativo: false,
+    },
+  ]
+})
 const filtrosProdutosAtivos = computed(() =>
   Boolean(
     filtros.value.status ||
@@ -168,6 +196,10 @@ const mensagemListaProdutosVazia = computed(() => {
 const mensagemModoEstoque = computed(() => {
   if (!superAdmin.value) {
     return ''
+  }
+
+  if (modoVisualizacaoSuperAdmin.value) {
+    return 'Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
   }
 
   if (empresaVisualizacaoEhPropria.value) {
@@ -446,6 +478,10 @@ function criarPaginacaoLocal(size = 10) {
 }
 
 function obterMensagemErroEstoque(errorAtual, fallback) {
+  if (modoVisualizacaoSuperAdmin.value && (errorAtual?.status === 403 || mensagemIndicaBloqueioPlanoEstoque(errorAtual?.message))) {
+    return 'Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+  }
+
   if (errorAtual?.status === 403 || mensagemIndicaBloqueioPlanoEstoque(errorAtual?.message)) {
     bloqueioPlano.value = true
     return 'O módulo de estoque não está disponível no plano atual.'
@@ -459,7 +495,26 @@ function obterMensagemErroEstoque(errorAtual, fallback) {
     return `Serviço de estoque indisponível no momento${errorAtual.endpoint ? ` (${errorAtual.endpoint})` : ''}. Tente novamente ou acione o suporte.`
   }
 
-  return obterMensagemAmigavelErro(errorAtual, fallback)
+  const mensagem = obterMensagemAmigavelErro(errorAtual, fallback)
+  const texto = normalizarTexto(mensagem)
+
+  if (texto.includes('duplic') || texto.includes('ja existe') || texto.includes('já existe')) {
+    return 'Já existe um produto ou unidade com os dados informados.'
+  }
+
+  if (texto.includes('codigo') || texto.includes('código')) {
+    return 'Código inválido. Revise o código informado e tente novamente.'
+  }
+
+  if (texto.includes('unidade') && (texto.includes('nao encontrada') || texto.includes('não encontrada'))) {
+    return 'Unidade não encontrada ou inativa. Escolha uma unidade ativa.'
+  }
+
+  if (texto.includes('permiss') || errorAtual?.status === 403) {
+    return 'Permissão negada para alterar o estoque neste modo.'
+  }
+
+  return mensagem
 }
 
 async function consultarEstoque(callback, fallback) {
@@ -534,13 +589,15 @@ async function carregarUnidadesEstoque() {
   try {
     avisoUnidades.value = ''
     const unidadesApi = await buscarUnidadesEstoque({ ativo: true })
-    const unidades = normalizarLista(unidadesApi).map(normalizarUnidadeEstoque).filter((unidade) => unidade.valor)
+    const unidades = normalizarLista(unidadesApi)
+      .map(normalizarUnidadeEstoque)
+      .filter((unidade) => unidade.valor)
+      .sort(ordenarUnidadesEstoque)
 
-    if (unidades.length) {
-      unidadesEstoque.value = unidades
-    } else {
-      unidadesEstoque.value = [...UNIDADES_FALLBACK]
-    }
+    unidadesEstoque.value = unidades
+    avisoUnidades.value = unidades.length
+      ? ''
+      : 'Nenhuma unidade ativa foi encontrada. Peça à Administração do Sistema para ativar ou cadastrar uma opção.'
   } catch (errorAtual) {
     unidadesEstoque.value = [...UNIDADES_FALLBACK]
     avisoUnidades.value = 'Não foi possível carregar as unidades de estoque. Usando opções padrão temporariamente.'
@@ -551,15 +608,21 @@ async function carregarUnidadesEstoque() {
 function normalizarUnidadeEstoque(item) {
   const valor = String(obterCampo(item, 'codigo', 'valor', 'sigla') || '').trim().toUpperCase()
   const nome = String(obterCampo(item, 'nome', 'descricao', 'label') || valor).trim()
+  const status = String(obterCampo(item, 'status') || '').trim().toUpperCase()
+  const ativo = obterCampo(item, 'ativo')
+  const statusInativo = ['INATIVO', 'INATIVA', 'INACTIVE', 'DESATIVADO', 'DESATIVADA'].includes(status)
 
   return {
     id: obterCampo(item, 'id', 'unidadeId') || valor,
     valor,
     descricao: nome,
-    ativo: obterCampo(item, 'ativo', 'status') === false
-      ? false
-      : String(obterCampo(item, 'status')).toUpperCase() !== 'INATIVO',
+    ordem: Number(obterCampo(item, 'ordem', 'posicao') ?? 0),
+    ativo: ativo === false || String(ativo).toLowerCase() === 'false' ? false : !statusInativo,
   }
+}
+
+function ordenarUnidadesEstoque(a, b) {
+  return (Number(a.ordem) || 0) - (Number(b.ordem) || 0) || a.descricao.localeCompare(b.descricao, 'pt-BR')
 }
 
 function normalizarObjeto(valor) {
@@ -765,7 +828,7 @@ function validarNumeroNaoNegativo(valor, mensagem) {
 }
 
 function bloquearAcaoOperacional() {
-  erro.value = 'Modo visualização: alterações estão bloqueadas para suporte.'
+  erro.value = 'Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
 }
 
 async function salvarProduto() {
@@ -1058,13 +1121,19 @@ function atualizarContextoEstoque() {
   carregarTela()
 }
 
+function atualizarUnidadesEstoque() {
+  carregarUnidadesEstoque()
+}
+
 onMounted(() => {
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEstoque)
+  window.addEventListener(EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS, atualizarUnidadesEstoque)
   carregarTela()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEstoque)
+  window.removeEventListener(EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS, atualizarUnidadesEstoque)
 })
 </script>
 
@@ -1276,7 +1345,7 @@ onBeforeUnmount(() => {
             <label>
               Unidade
               <select v-model="formularioProduto.unidade">
-                <option v-for="opcao in opcoesUnidadeAtivas" :key="opcao.valor" :value="opcao.valor">
+                <option v-for="opcao in opcoesUnidadeProduto" :key="opcao.valor" :value="opcao.valor">
                   {{ opcao.valor }} - {{ opcao.descricao }}
                 </option>
               </select>

@@ -3,19 +3,16 @@ import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, ref, w
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
+import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
   APP_ENVIRONMENT,
   ambienteExibeSelo,
-  buscarEmpresas,
   buscarStatusFinanceiroMinhaEmpresa,
   buscarVersaoSistema,
   carregarUsuarioSessao,
-  definirEmpresaVisualizacao,
   EVENTO_EMPRESA_VISUALIZACAO,
   limparSessaoAutenticacao,
-  limparEmpresaVisualizacao,
   normalizarAmbienteAplicacao,
-  obterEmpresaVisualizacao,
 } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
@@ -247,10 +244,6 @@ const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usua
 const menuAdminAberto = ref(true)
 const menuMobileAberto = ref(false)
 const statusFinanceiro = ref(null)
-const empresasVisualizacao = ref([])
-const empresaVisualizacaoSelecionada = ref(obterEmpresaVisualizacao())
-const empresaVisualizacaoId = ref(empresaVisualizacaoSelecionada.value?.id || '')
-const carregandoEmpresasVisualizacao = ref(false)
 const carregandoStatusFinanceiro = ref(false)
 const ultimaConsultaFinanceira = ref(0)
 const mensagemGlobal = ref('')
@@ -259,6 +252,7 @@ const erroInesperado = ref(false)
 const ambienteVersaoApi = ref('')
 const conteudoRotaRef = ref(null)
 const cabecalhoPagina = ref(criarCabecalhoPagina())
+const recarregamentoVisualizacaoEmpresa = ref(0)
 let timeoutMensagemGlobal = null
 let observadorCabecalhoPagina = null
 let elementoAcaoCabecalhoPagina = null
@@ -272,7 +266,7 @@ const cabecalhoExibido = computed(() => {
   }
 })
 const mostrarSeloHomologacao = computed(() => ambienteExibeSelo(ambienteVersaoApi.value || APP_ENVIRONMENT))
-const modoVisualizacaoAtivo = computed(() => superAdmin.value && Boolean(empresaVisualizacaoSelecionada.value?.id))
+const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 
 function criarCabecalhoPagina() {
   return {
@@ -328,49 +322,18 @@ function atualizarUsuarioLogado() {
   }
 
   usuario.value = carregarUsuarioSessao()
-  sincronizarEmpresaVisualizacao()
-  carregarEmpresasVisualizacao()
   carregarStatusFinanceiro()
 }
 
-function sincronizarEmpresaVisualizacao() {
-  empresaVisualizacaoSelecionada.value = obterEmpresaVisualizacao()
-  empresaVisualizacaoId.value = empresaVisualizacaoSelecionada.value?.id || ''
-}
-
-async function carregarEmpresasVisualizacao() {
-  if (!superAdmin.value || rotaSemLayout.value || empresasVisualizacao.value.length || carregandoEmpresasVisualizacao.value) {
+async function atualizarVisualizacaoEmpresaGlobal() {
+  if (rotaSemLayout.value) {
     return
   }
 
-  try {
-    carregandoEmpresasVisualizacao.value = true
-    empresasVisualizacao.value = await buscarEmpresas().catch(() => [])
-  } finally {
-    carregandoEmpresasVisualizacao.value = false
-  }
-}
-
-function selecionarEmpresaVisualizacao() {
-  if (!superAdmin.value) {
-    return
-  }
-
-  const empresa = empresasVisualizacao.value.find((item) => String(item.id) === String(empresaVisualizacaoId.value))
-
-  if (!empresa) {
-    sairDaVisualizacaoEmpresa()
-    return
-  }
-
-  empresaVisualizacaoSelecionada.value = definirEmpresaVisualizacao(empresa)
-  window.dispatchEvent(new Event('usuario-atualizado'))
-}
-
-function sairDaVisualizacaoEmpresa() {
-  limparEmpresaVisualizacao()
-  sincronizarEmpresaVisualizacao()
-  window.dispatchEvent(new Event('usuario-atualizado'))
+  recarregamentoVisualizacaoEmpresa.value += 1
+  await nextTick()
+  observarCabecalhoPagina()
+  sincronizarCabecalhoPagina()
 }
 
 async function carregarStatusFinanceiro({ forcar = false } = {}) {
@@ -534,7 +497,7 @@ onErrorCaptured((error) => {
 
 onMounted(() => {
   window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
-  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, sincronizarEmpresaVisualizacao)
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarVisualizacaoEmpresaGlobal)
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.addEventListener('mensagem-global', exibirMensagemGlobal)
   carregarAmbienteAplicacao()
@@ -544,7 +507,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('usuario-atualizado', atualizarUsuarioLogado)
-  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, sincronizarEmpresaVisualizacao)
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarVisualizacaoEmpresaGlobal)
   window.removeEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.removeEventListener('mensagem-global', exibirMensagemGlobal)
 
@@ -641,6 +604,7 @@ onBeforeUnmount(() => {
             <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/Módulos</RouterLink>
             <RouterLink to="/solicitacoes" @click="fecharMenuMobile">Solicitações</RouterLink>
             <RouterLink to="/auditoria" @click="fecharMenuMobile">Auditoria</RouterLink>
+            <!-- Futuro: lixeira por modulo, restauracao e exclusao definitiva quando o backend consolidar exclusao logica. -->
             <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
           </div>
         </section>
@@ -666,48 +630,19 @@ onBeforeUnmount(() => {
         @abrir-menu="abrirMenuMobile"
         @executar-acao="executarAcaoPagina"
         @sair="sair"
-      />
+      >
+        <template #visualizacao>
+          <VisualizacaoEmpresaSelector v-if="superAdmin" />
+        </template>
+      </AppHeaderCompacto>
       <FinanceiroStatusBanner v-if="adminEmpresa" :status="statusFinanceiro" />
-
-      <section v-if="superAdmin" class="visualizacao-empresa">
-        <div>
-          <strong>Visualizar como empresa</strong>
-          <p v-if="modoVisualizacaoAtivo">
-            Modo visualização: você está vendo dados da empresa {{ empresaVisualizacaoSelecionada.nome }}. Alterações estão bloqueadas.
-          </p>
-          <p v-else>Selecione uma empresa para atendimento e suporte.</p>
-        </div>
-
-        <div class="visualizacao-controles">
-          <select
-            v-model="empresaVisualizacaoId"
-            :disabled="carregandoEmpresasVisualizacao"
-            @focus="carregarEmpresasVisualizacao"
-            @change="selecionarEmpresaVisualizacao"
-          >
-            <option value="">Visão global</option>
-            <option v-for="empresa in empresasVisualizacao" :key="empresa.id" :value="String(empresa.id)">
-              {{ empresa.nome }}
-            </option>
-          </select>
-
-          <button
-            v-if="modoVisualizacaoAtivo"
-            class="botao-sair-visualizacao"
-            type="button"
-            @click="sairDaVisualizacaoEmpresa"
-          >
-            Sair da visualização
-          </button>
-        </div>
-      </section>
 
       <section v-if="mensagemGlobal" class="mensagem-global" :class="tipoMensagemGlobal">
         <p>{{ mensagemGlobal }}</p>
       </section>
 
       <div ref="conteudoRotaRef" class="conteudo-rota">
-        <RouterView />
+        <RouterView :key="chaveConteudoRota" />
       </div>
     </div>
   </div>
@@ -929,57 +864,6 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-.visualizacao-empresa {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 12px 14px;
-  background: #eff6ff;
-  color: #1e3a8a;
-}
-
-.visualizacao-empresa strong,
-.visualizacao-empresa p {
-  margin: 0;
-}
-
-.visualizacao-empresa p {
-  margin-top: 4px;
-  color: #31517e;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.visualizacao-controles {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.visualizacao-controles select {
-  min-width: min(100vw - 48px, 280px);
-  border: 1px solid #93c5fd;
-  border-radius: 8px;
-  padding: 9px 10px;
-  background: white;
-  color: #0f172a;
-  font: inherit;
-}
-
-.botao-sair-visualizacao {
-  border: none;
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: #1e3a8a;
-  color: white;
-  font-weight: 800;
-  cursor: pointer;
-}
-
 .mensagem-global p {
   margin: 0;
 }
@@ -1050,15 +934,6 @@ onBeforeUnmount(() => {
     padding: 16px;
   }
 
-  .visualizacao-empresa {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .visualizacao-controles select,
-  .botao-sair-visualizacao {
-    width: 100%;
-  }
 }
 
 @media (max-width: 480px) {
