@@ -1812,28 +1812,42 @@ export async function desativarPlano(id) {
   return tratarResposta(response)
 }
 
+async function buscarRecursoEstoque(caminho, filtros = {}) {
+  const response = await executarFetch(`${API_URL}${caminho}${montarQueryString(filtros)}`, {
+    headers: montarHeaders(),
+  })
+
+  try {
+    return await tratarResposta(response, {
+      emitir403: false,
+    })
+  } catch (error) {
+    error.endpoint = caminho
+    error.metodo = 'GET'
+    registrarDiagnosticoEstoque(error)
+    throw error
+  }
+}
+
+function registrarDiagnosticoEstoque(error) {
+  if (!['homologacao', 'dev', 'local'].includes(APP_ENVIRONMENT) || (error?.status !== 404 && error?.status < 500)) {
+    return
+  }
+
+  console.warn('[estoque-api] Falha ao consultar endpoint de estoque', {
+    metodo: error.metodo || 'GET',
+    endpoint: error.endpoint || '/estoque',
+    status: error.status,
+    ambiente: APP_ENVIRONMENT,
+  })
+}
+
 export async function buscarResumoEstoque(filtros = {}) {
-  return tentarRotas(
-    [
-      `${API_URL}/estoque/resumo${montarQueryString(filtros)}`,
-      `${API_URL}/estoque/produtos/resumo${montarQueryString(filtros)}`,
-    ],
-    {
-      headers: montarHeaders(),
-    },
-  )
+  return buscarRecursoEstoque('/estoque/resumo', filtros)
 }
 
 export async function buscarProdutosEstoque(filtros = {}) {
-  const dados = await tentarRotas(
-    [
-      `${API_URL}/estoque/produtos${montarQueryString(filtros)}`,
-      `${API_URL}/produtos${montarQueryString(filtros)}`,
-    ],
-    {
-      headers: montarHeaders(),
-    },
-  )
+  const dados = await buscarRecursoEstoque('/estoque/produtos', filtros)
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
@@ -1905,29 +1919,13 @@ export async function desativarProdutoEstoque(id) {
 }
 
 export async function buscarProdutosBaixoEstoque(filtros = {}) {
-  const dados = await tentarRotas(
-    [
-      `${API_URL}/estoque/baixo-estoque${montarQueryString(filtros)}`,
-      `${API_URL}/estoque/produtos/baixo-estoque${montarQueryString(filtros)}`,
-    ],
-    {
-      headers: montarHeaders(),
-    },
-  )
+  const dados = await buscarRecursoEstoque('/estoque/produtos/baixo-estoque', filtros)
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarMovimentacoesEstoque(filtros = {}) {
-  const dados = await tentarRotas(
-    [
-      `${API_URL}/estoque/movimentacoes${montarQueryString(filtros)}`,
-      `${API_URL}/estoque/historico${montarQueryString(filtros)}`,
-    ],
-    {
-      headers: montarHeaders(),
-    },
-  )
+  const dados = await buscarRecursoEstoque('/estoque/movimentacoes', filtros)
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }

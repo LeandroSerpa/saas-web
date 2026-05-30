@@ -31,6 +31,9 @@ const salvandoProduto = ref(false)
 const salvandoMovimentacao = ref(false)
 const carregandoDetalheProduto = ref(false)
 const erro = ref('')
+const erroProdutos = ref('')
+const erroBaixoEstoque = ref('')
+const erroMovimentacoes = ref('')
 const sucesso = ref('')
 const bloqueioPlano = ref(false)
 const produtoEditandoId = ref(null)
@@ -99,25 +102,48 @@ async function carregarTela() {
   try {
     carregando.value = true
     erro.value = ''
+    erroProdutos.value = ''
+    erroBaixoEstoque.value = ''
+    erroMovimentacoes.value = ''
     sucesso.value = ''
     bloqueioPlano.value = false
 
     const promessas = [
-      buscarResumoEstoque(montarFiltrosApi()).catch((errorAtual) => tratarErroEstoque(errorAtual)),
-      buscarProdutosEstoque(montarFiltrosApi()).catch((errorAtual) => tratarErroEstoque(errorAtual)),
-      buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()).catch((errorAtual) => tratarErroEstoque(errorAtual)),
-      buscarProdutosBaixoEstoque(montarFiltrosApi()).catch(() => []),
+      consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Nao foi possivel carregar o resumo do estoque.'),
+      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosApi()), 'Nao foi possivel carregar os produtos do estoque.'),
+      consultarEstoque(() => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()), 'Nao foi possivel carregar o historico de movimentacoes.'),
+      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosApi()), 'Nao foi possivel carregar os alertas de baixo estoque.'),
     ]
 
     if (superAdmin.value) {
       promessas.push(buscarEmpresas().catch(() => []))
     }
 
-    const [resumoApi, produtosApi, movimentacoesApi, baixoEstoqueApi, empresasApi] = await Promise.all(promessas)
+    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, empresasApi] = await Promise.all(promessas)
 
-    resumo.value = normalizarResumo(resumoApi, baixoEstoqueApi, produtosApi)
-    produtos.value = normalizarLista(produtosApi)
-    movimentacoes.value = normalizarLista(movimentacoesApi)
+    const resumoApi = dadosConsulta(resumoResultado)
+    const produtosApi = dadosConsulta(produtosResultado)
+    const movimentacoesApi = dadosConsulta(movimentacoesResultado)
+    const baixoEstoqueApi = dadosConsulta(baixoEstoqueResultado)
+
+    if (resumoResultado.sucesso || produtosResultado.sucesso || baixoEstoqueResultado.sucesso) {
+      resumo.value = normalizarResumo(resumoApi, baixoEstoqueApi, produtosApi)
+    }
+
+    if (produtosResultado.sucesso) {
+      produtos.value = normalizarLista(produtosApi)
+    }
+
+    if (movimentacoesResultado.sucesso) {
+      movimentacoes.value = normalizarLista(movimentacoesApi)
+    }
+    erroProdutos.value = mensagemConsulta(produtosResultado)
+    erroBaixoEstoque.value = mensagemConsulta(baixoEstoqueResultado)
+    erroMovimentacoes.value = mensagemConsulta(movimentacoesResultado)
+
+    if (mensagemConsulta(resumoResultado) && !produtosResultado.sucesso && !movimentacoesResultado.sucesso) {
+      erro.value = mensagemConsulta(resumoResultado)
+    }
 
     if (superAdmin.value) {
       empresas.value = normalizarLista(empresasApi)
@@ -133,14 +159,27 @@ async function carregarProdutos() {
   try {
     carregandoProdutos.value = true
     erro.value = ''
-    const [resumoApi, produtosApi, baixoEstoqueApi] = await Promise.all([
-      buscarResumoEstoque(montarFiltrosApi()).catch((errorAtual) => tratarErroEstoque(errorAtual)),
-      buscarProdutosEstoque(montarFiltrosApi()).catch((errorAtual) => tratarErroEstoque(errorAtual)),
-      buscarProdutosBaixoEstoque(montarFiltrosApi()).catch(() => []),
+    erroProdutos.value = ''
+    erroBaixoEstoque.value = ''
+    const [resumoResultado, produtosResultado, baixoEstoqueResultado] = await Promise.all([
+      consultarEstoque(() => buscarResumoEstoque(montarFiltrosApi()), 'Nao foi possivel carregar o resumo do estoque.'),
+      consultarEstoque(() => buscarProdutosEstoque(montarFiltrosApi()), 'Nao foi possivel atualizar os produtos.'),
+      consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosApi()), 'Nao foi possivel carregar os alertas de baixo estoque.'),
     ])
 
-    resumo.value = normalizarResumo(resumoApi, baixoEstoqueApi, produtosApi)
-    produtos.value = normalizarLista(produtosApi)
+    if (resumoResultado.sucesso || produtosResultado.sucesso || baixoEstoqueResultado.sucesso) {
+      resumo.value = normalizarResumo(dadosConsulta(resumoResultado), dadosConsulta(baixoEstoqueResultado), dadosConsulta(produtosResultado))
+    }
+
+    if (produtosResultado.sucesso) {
+      produtos.value = normalizarLista(dadosConsulta(produtosResultado))
+    }
+    erroProdutos.value = mensagemConsulta(produtosResultado)
+    erroBaixoEstoque.value = mensagemConsulta(baixoEstoqueResultado)
+
+    if (mensagemConsulta(resumoResultado) && !erroProdutos.value && !erroBaixoEstoque.value) {
+      erroProdutos.value = mensagemConsulta(resumoResultado)
+    }
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel atualizar os produtos.')
   } finally {
@@ -152,7 +191,15 @@ async function carregarHistorico() {
   try {
     carregandoMovimentacoes.value = true
     erro.value = ''
-    movimentacoes.value = normalizarLista(await buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()))
+    erroMovimentacoes.value = ''
+    const resultado = await consultarEstoque(
+      () => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()),
+      'Nao foi possivel atualizar o historico.',
+    )
+    if (resultado.sucesso) {
+      movimentacoes.value = normalizarLista(dadosConsulta(resultado))
+    }
+    erroMovimentacoes.value = mensagemConsulta(resultado)
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel atualizar o historico.')
   } finally {
@@ -238,16 +285,44 @@ function criarFiltrosHistoricoIniciais() {
 }
 
 function obterMensagemErroEstoque(errorAtual, fallback) {
-  if (mensagemIndicaBloqueioPlanoEstoque(errorAtual?.message)) {
+  if (errorAtual?.status === 403 || mensagemIndicaBloqueioPlanoEstoque(errorAtual?.message)) {
     bloqueioPlano.value = true
-    return 'O modulo Estoque esta disponivel em planos superiores. Entre em contato para ativar esse recurso.'
+    return 'O módulo de estoque não está disponível no plano atual.'
+  }
+
+  if (errorAtual?.status === 404) {
+    return `Endpoint de estoque nao encontrado${errorAtual.endpoint ? ` (${errorAtual.endpoint})` : ''}. Verifique a publicacao da API em homologacao.`
+  }
+
+  if (errorAtual?.status >= 500) {
+    return `Servico de estoque indisponivel no momento${errorAtual.endpoint ? ` (${errorAtual.endpoint})` : ''}. Tente novamente ou acione o suporte.`
   }
 
   return obterMensagemAmigavelErro(errorAtual, fallback)
 }
 
-function tratarErroEstoque(errorAtual) {
-  throw new Error(obterMensagemErroEstoque(errorAtual, 'Nao foi possivel carregar os dados do estoque.'))
+async function consultarEstoque(callback, fallback) {
+  try {
+    return {
+      sucesso: true,
+      dados: await callback(),
+      mensagem: '',
+    }
+  } catch (errorAtual) {
+    return {
+      sucesso: false,
+      dados: [],
+      mensagem: obterMensagemErroEstoque(errorAtual, fallback),
+    }
+  }
+}
+
+function dadosConsulta(resultado) {
+  return resultado?.sucesso ? resultado.dados : []
+}
+
+function mensagemConsulta(resultado) {
+  return resultado?.sucesso ? '' : resultado?.mensagem || ''
 }
 
 function normalizarResumo(resumoApi, baixoEstoqueApi, produtosApi) {
@@ -692,7 +767,7 @@ onMounted(() => {
 
     <section v-if="bloqueioPlano" class="card aviso-plano">
       <h2>Recurso disponivel em planos superiores</h2>
-      <p>O modulo Estoque esta disponivel em planos superiores. Entre em contato para ativar esse recurso.</p>
+      <p>O módulo de estoque não está disponível no plano atual.</p>
     </section>
 
     <section v-if="carregando" class="card estado">
@@ -884,11 +959,19 @@ onMounted(() => {
           <span class="contador">{{ produtosVisiveis.length }} item(ns)</span>
         </div>
 
-        <section v-if="!produtosVisiveis.length" class="card estado">
+        <section v-if="erroProdutos" class="card feedback erro">
+          <p>{{ erroProdutos }}</p>
+        </section>
+
+        <section v-if="!erroProdutos && erroBaixoEstoque" class="card feedback erro">
+          <p>{{ erroBaixoEstoque }}</p>
+        </section>
+
+        <section v-if="!erroProdutos && !produtosVisiveis.length" class="card estado">
           <p>Nenhum produto cadastrado ainda. Use o formulario para criar o primeiro item do estoque.</p>
         </section>
 
-        <section v-else class="grade-produtos">
+        <section v-if="!erroProdutos && produtosVisiveis.length" class="grade-produtos">
           <article v-for="produto in produtosVisiveis" :key="produto.id" class="card produto-card">
             <div class="topo-card">
               <div>
@@ -936,6 +1019,10 @@ onMounted(() => {
 
         <section v-if="carregandoMovimentacoes" class="card estado">
           <p>Carregando historico...</p>
+        </section>
+
+        <section v-else-if="erroMovimentacoes" class="card feedback erro">
+          <p>{{ erroMovimentacoes }}</p>
         </section>
 
         <section v-else-if="!movimentacoes.length" class="card estado">
