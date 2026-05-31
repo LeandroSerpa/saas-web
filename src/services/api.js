@@ -2520,6 +2520,14 @@ export async function excluirDefinitivoItemLixeiraAdmin(tipo, id) {
   return tentarOperacaoLixeiraAdmin(candidatas)
 }
 
+export async function restaurarItemLixeira(tipo, id) {
+  return restaurarItemLixeiraAdmin(tipo, id)
+}
+
+export async function excluirDefinitivamenteItemLixeira(tipo, id) {
+  return excluirDefinitivoItemLixeiraAdmin(tipo, id)
+}
+
 export async function buscarAgendamentosExcluidos(filtros = {}) {
   return listarLixeiraAdmin('AGENDAMENTOS', filtros)
 }
@@ -2948,6 +2956,15 @@ export async function atualizarAtivoEmpresa(id, ativo) {
   return tratarResposta(response)
 }
 
+export async function excluirEmpresa(id, motivo = '') {
+  const response = await executarFetch(`${API_URL}/empresas/${id}${montarQueryString({ motivo })}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarUsuarios(filtros = {}) {
   const response = await executarFetch(`${API_URL}/usuarios${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
@@ -2987,6 +3004,15 @@ export async function atualizarAtivoUsuario(id, ativo) {
   return tratarResposta(response)
 }
 
+export async function excluirUsuario(id, motivo = '') {
+  const response = await executarFetch(`${API_URL}/usuarios/${id}${montarQueryString({ motivo })}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function cadastrarCliente(cliente) {
   const response = await executarFetch(`${API_URL}/clientes`, {
     method: 'POST',
@@ -3007,6 +3033,15 @@ export async function atualizarCliente(id, cliente) {
   return tratarResposta(response)
 }
 
+export async function excluirCliente(id, motivo = '') {
+  const response = await executarFetch(`${API_URL}/clientes/${id}${montarQueryString({ motivo })}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function cadastrarServico(servico) {
   const response = await executarFetch(`${API_URL}/servicos`, {
     method: 'POST',
@@ -3022,6 +3057,15 @@ export async function atualizarServico(id, servico) {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(servico),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function excluirServico(id, motivo = '') {
+  const response = await executarFetch(`${API_URL}/servicos/${id}${montarQueryString({ motivo })}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
   })
 
   return tratarResposta(response)
@@ -3057,6 +3101,15 @@ export async function atualizarFuncionario(id, funcionario) {
   return tratarResposta(response)
 }
 
+export async function excluirFuncionario(id, motivo = '') {
+  const response = await executarFetch(`${API_URL}/funcionarios/${id}${montarQueryString({ motivo })}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function atualizarAtivoFuncionario(id, ativo) {
   const response = await executarFetch(`${API_URL}/funcionarios/${id}/ativo`, {
     method: 'PUT',
@@ -3065,6 +3118,19 @@ export async function atualizarAtivoFuncionario(id, ativo) {
   })
 
   return tratarResposta(response)
+}
+
+export async function excluirProdutoEstoque(id, motivo = '') {
+  return tentarRotas(
+    [
+      `${API_URL}/estoque/produtos/${id}${montarQueryString({ motivo })}`,
+      `${API_URL}/produtos/${id}${montarQueryString({ motivo })}`,
+    ],
+    {
+      method: 'DELETE',
+      headers: montarHeaders(),
+    },
+  )
 }
 
 export async function cadastrarAgendamento(agendamento) {

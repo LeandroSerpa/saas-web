@@ -7,6 +7,7 @@ import {
   cadastrarUsuario,
   atualizarUsuario,
   atualizarAtivoUsuario,
+  excluirUsuario,
   obterMensagemAmigavelErro,
 } from '@/services/api'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
@@ -296,6 +297,47 @@ async function alternarAtivoUsuario(usuarioItem) {
   }
 }
 
+async function enviarUsuarioParaLixeira(usuarioItem) {
+  try {
+    if (usuarioAtual(usuarioItem)) {
+      erro.value = 'O usuario atual nao pode ser excluido.'
+      return
+    }
+
+    if (!podeAlterarAtivoUsuario(usuarioItem)) {
+      erro.value = 'Voce nao tem permissao para excluir este usuario.'
+      return
+    }
+
+    const confirmou = window.confirm(`Deseja enviar o usuario "${usuarioItem?.nome || ''}" para a lixeira?`)
+
+    if (!confirmou) {
+      return
+    }
+
+    const motivoInformado = window.prompt('Motivo da exclusao (opcional):', '')
+
+    if (motivoInformado === null) {
+      return
+    }
+
+    atualizandoId.value = usuarioItem.id
+    erro.value = ''
+    mensagemSucessoUsuario.value = ''
+    mensagemSucessoStatus.value = ''
+
+    await excluirUsuario(usuarioItem.id, String(motivoInformado || '').trim())
+    await carregarDados()
+
+    mensagemSucessoStatus.value = 'Usuario enviado para a lixeira com sucesso.'
+  } catch (error) {
+    erro.value = obterMensagemErroExclusaoUsuario(error)
+    console.error(error)
+  } finally {
+    atualizandoId.value = null
+  }
+}
+
 function estaAtivo(usuarioItem) {
   return usuarioItem.ativo !== false
 }
@@ -383,6 +425,21 @@ function obterMensagemErroUsuario(error, fallback) {
     (mensagemNormalizada.includes('duplic') || mensagemNormalizada.includes('ja existe'))
   ) {
     return 'Este e-mail já está em uso. Informe outro e-mail.'
+  }
+
+  return mensagem
+}
+
+function obterMensagemErroExclusaoUsuario(error) {
+  const mensagem = obterMensagemAmigavelErro(error, 'Nao foi possivel excluir o usuario.')
+  const normalizada = normalizarMensagem(mensagem)
+
+  if (normalizada.includes('ultimo') && normalizada.includes('super_admin')) {
+    return 'Nao e possivel excluir o ultimo SUPER_ADMIN ativo.'
+  }
+
+  if (normalizada.includes('acesso negado') || normalizada.includes('permiss')) {
+    return 'Voce nao tem permissao para excluir este usuario.'
   }
 
   return mensagem
@@ -588,6 +645,14 @@ onMounted(() => {
               @click="alternarAtivoUsuario(usuarioItem)"
             >
               {{ estaAtivo(usuarioItem) ? 'Desativar' : 'Ativar' }}
+            </button>
+            <button
+              v-if="podeAlterarAtivoUsuario(usuarioItem)"
+              class="botao perigo"
+              :disabled="atualizandoId === usuarioItem.id"
+              @click="enviarUsuarioParaLixeira(usuarioItem)"
+            >
+              Excluir
             </button>
           </div>
 

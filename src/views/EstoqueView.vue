@@ -13,6 +13,7 @@ import {
   criarMovimentacaoEstoque,
   criarProdutoEstoque,
   desativarProdutoEstoque,
+  excluirProdutoEstoque,
   EVENTO_EMPRESA_VISUALIZACAO,
   EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS,
   mensagemIndicaBloqueioPlanoEstoque,
@@ -984,6 +985,35 @@ async function alternarProduto(item) {
   }
 }
 
+async function enviarProdutoParaLixeira(item) {
+  if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
+    return
+  }
+
+  const confirmou = window.confirm(`Deseja enviar o produto "${obterNomeProduto(item)}" para a lixeira?`)
+
+  if (!confirmou) {
+    return
+  }
+
+  const motivoInformado = window.prompt('Motivo da exclusao (opcional):', '')
+
+  if (motivoInformado === null) {
+    return
+  }
+
+  try {
+    erro.value = ''
+    sucesso.value = ''
+    await excluirProdutoEstoque(item.id, String(motivoInformado || '').trim())
+    sucesso.value = 'Produto enviado para a lixeira com sucesso.'
+    await Promise.all([carregarProdutos(), carregarHistorico()])
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel enviar o produto para a lixeira.')
+  }
+}
+
 function abrirMovimentacao(item, tipo = 'ENTRADA') {
   if (modoVisualizacaoSuperAdmin.value) {
     bloquearAcaoOperacional()
@@ -1296,6 +1326,7 @@ onBeforeUnmount(() => {
               <button :class="['botao', produtoAtivo(produto) ? 'perigo' : 'sucesso-botao']" @click="alternarProduto(produto)">
                 {{ produtoAtivo(produto) ? 'Desativar' : 'Ativar' }}
               </button>
+              <button class="botao perigo" @click="enviarProdutoParaLixeira(produto)">Excluir</button>
             </div>
           </article>
         </section>

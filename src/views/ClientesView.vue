@@ -6,6 +6,7 @@ import {
   buscarClientes,
   cadastrarCliente,
   atualizarCliente,
+  excluirCliente,
   buscarStatusFinanceiroMinhaEmpresa,
   modoVisualizacaoEmpresaAtivo,
 } from '@/services/api'
@@ -124,6 +125,40 @@ async function salvarCliente() {
         ? 'Não foi possível atualizar o cliente.'
         : 'Não foi possível cadastrar o cliente.',
     )
+    console.error(error)
+  }
+}
+
+async function enviarClienteParaLixeira(clienteItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
+  const confirmou = window.confirm(`Deseja enviar o cliente "${clienteItem?.nome || ''}" para a lixeira?`)
+
+  if (!confirmou) {
+    return
+  }
+
+  const motivoInformado = window.prompt('Motivo da exclusao (opcional):', '')
+
+  if (motivoInformado === null) {
+    return
+  }
+
+  try {
+    erro.value = ''
+    mensagemSucessoCliente.value = ''
+    await excluirCliente(clienteItem.id, String(motivoInformado || '').trim())
+    mensagemSucessoCliente.value = 'Cliente enviado para a lixeira com sucesso.'
+
+    if (clienteEditandoId.value && String(clienteEditandoId.value) === String(clienteItem.id)) {
+      cancelarEdicaoCliente(false)
+    }
+
+    await carregarClientes()
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Nao foi possivel enviar o cliente para a lixeira.')
     console.error(error)
   }
 }
@@ -279,6 +314,7 @@ function atualizarModoVisualizacao() {
 
           <div v-if="!modoVisualizacaoEmpresa" class="acoes">
             <button class="botao secundario" @click="editarCliente(clienteItem)">Editar</button>
+            <button class="botao perigo" @click="enviarClienteParaLixeira(clienteItem)">Excluir</button>
           </div>
         </article>
       </section>
@@ -485,6 +521,14 @@ function atualizarModoVisualizacao() {
 
 .secundario:hover {
   background: #1e293b;
+}
+
+.perigo {
+  background: #dc2626;
+}
+
+.perigo:hover {
+  background: #b91c1c;
 }
 
 :deep(.secundario) {

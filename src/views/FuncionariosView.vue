@@ -11,6 +11,7 @@ import {
   recalcularOnboarding,
   atualizarFuncionario,
   atualizarAtivoFuncionario,
+  excluirFuncionario,
 } from '@/services/api'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
@@ -306,6 +307,39 @@ async function alternarAtivoFuncionario(funcionarioItem) {
   }
 }
 
+async function enviarFuncionarioParaLixeira(funcionarioItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
+  const confirmou = window.confirm(`Deseja enviar o funcionario "${funcionarioItem?.nome || ''}" para a lixeira?`)
+
+  if (!confirmou) {
+    return
+  }
+
+  const motivoInformado = window.prompt('Motivo da exclusao (opcional):', '')
+
+  if (motivoInformado === null) {
+    return
+  }
+
+  try {
+    atualizandoId.value = funcionarioItem.id
+    erro.value = ''
+    mensagemSucessoFuncionario.value = ''
+    mensagemSucessoStatus.value = ''
+    await excluirFuncionario(funcionarioItem.id, String(motivoInformado || '').trim())
+    mensagemSucessoStatus.value = 'Funcionario enviado para a lixeira com sucesso.'
+    await carregarFuncionarios()
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Nao foi possivel enviar o funcionario para a lixeira.')
+    console.error(error)
+  } finally {
+    atualizandoId.value = null
+  }
+}
+
 function exibirValor(valor) {
   return valor || '-'
 }
@@ -552,6 +586,13 @@ function atualizarModoVisualizacao() {
               @click="alternarAtivoFuncionario(funcionarioItem)"
             >
               {{ estaAtivo(funcionarioItem) ? 'Desativar' : 'Ativar' }}
+            </button>
+            <button
+              class="botao perigo"
+              :disabled="atualizandoId === funcionarioItem.id"
+              @click="enviarFuncionarioParaLixeira(funcionarioItem)"
+            >
+              Excluir
             </button>
           </div>
 

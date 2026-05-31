@@ -13,10 +13,10 @@ import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginad
 const TIPO_TODOS = 'TODOS'
 const TIPOS_PADRAO = [
   { tipo: 'EMPRESAS', rotulo: 'Empresas' },
-  { tipo: 'USUARIOS', rotulo: 'Usuarios' },
+  { tipo: 'USUARIOS', rotulo: 'Usuários' },
   { tipo: 'CLIENTES', rotulo: 'Clientes' },
-  { tipo: 'SERVICOS', rotulo: 'Servicos' },
-  { tipo: 'FUNCIONARIOS', rotulo: 'Funcionarios' },
+  { tipo: 'SERVICOS', rotulo: 'Serviços' },
+  { tipo: 'FUNCIONARIOS', rotulo: 'Funcionários' },
   { tipo: 'PRODUTOS_ESTOQUE', rotulo: 'Produtos/Estoque' },
   { tipo: 'AGENDAMENTOS', rotulo: 'Agendamentos' },
   { tipo: 'OUTROS', rotulo: 'Outros' },
@@ -245,7 +245,7 @@ async function excluirDefinitivamente(item) {
   if (!item?.id) return
 
   const confirmou = window.confirm(
-    'Essa ação pode ser irreversível. Deseja excluir definitivamente este registro?',
+    'Confirme a exclusao definitiva. Essa acao e irreversivel e o registro nao podera ser restaurado.',
   )
 
   if (!confirmou) {
@@ -388,6 +388,7 @@ function normalizarResumoLixeira(resposta) {
     'ITEMS',
     'ITENS',
     'DADOS',
+    'TOTALREGISTROS',
   ])
 
   for (const [chave, valor] of Object.entries(possivelMapa)) {
@@ -463,6 +464,10 @@ function mapearRotuloTipo(tipo) {
 
   if (!tipoNormalizado) {
     return 'Todos'
+  }
+
+  if (tipoNormalizado === 'TOTAL_REGISTROS' || tipoNormalizado === 'TOTALREGISTROS') {
+    return 'Total de registros'
   }
 
   return tipoNormalizado
@@ -624,6 +629,7 @@ function criarChaveProcessamento(acao, item) {
           @click="selecionarTipo(opcao.tipo)"
         >
           <span>{{ opcao.rotulo }}</span>
+          <small>Clique para filtrar</small>
           <strong>{{ totalPorTipo(opcao.tipo) }}</strong>
         </button>
       </div>
@@ -872,6 +878,12 @@ h2 {
   font-weight: 800;
 }
 
+.aba-entidade small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .aba-entidade strong {
   font-size: 13px;
   color: #64748b;
@@ -884,6 +896,10 @@ h2 {
 }
 
 .aba-entidade.ativa strong {
+  color: #cbd5e1;
+}
+
+.aba-entidade.ativa small {
   color: #cbd5e1;
 }
 

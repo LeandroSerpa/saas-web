@@ -11,6 +11,7 @@ import {
   recalcularOnboarding,
   atualizarServico,
   atualizarAtivoServico,
+  excluirServico,
 } from '@/services/api'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 import { normalizarDecimalParaBackend } from '@/utils/validacoes'
@@ -230,6 +231,39 @@ async function alternarAtivoServico(servicoItem) {
       : 'Serviço ativado com sucesso.'
   } catch (error) {
     erro.value = 'Não foi possível atualizar o status do serviço.'
+    console.error(error)
+  } finally {
+    atualizandoId.value = null
+  }
+}
+
+async function enviarServicoParaLixeira(servicoItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
+  const confirmou = window.confirm(`Deseja enviar o servico "${servicoItem?.nome || ''}" para a lixeira?`)
+
+  if (!confirmou) {
+    return
+  }
+
+  const motivoInformado = window.prompt('Motivo da exclusao (opcional):', '')
+
+  if (motivoInformado === null) {
+    return
+  }
+
+  try {
+    atualizandoId.value = servicoItem.id
+    erro.value = ''
+    mensagemSucessoServico.value = ''
+    mensagemSucessoStatus.value = ''
+    await excluirServico(servicoItem.id, String(motivoInformado || '').trim())
+    mensagemSucessoStatus.value = 'Servico enviado para a lixeira com sucesso.'
+    await carregarServicos()
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Nao foi possivel enviar o servico para a lixeira.')
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -485,6 +519,13 @@ function atualizarModoVisualizacao() {
               @click="alternarAtivoServico(servicoItem)"
             >
               {{ estaAtivo(servicoItem) ? 'Desativar' : 'Ativar' }}
+            </button>
+            <button
+              class="botao perigo"
+              :disabled="atualizandoId === servicoItem.id"
+              @click="enviarServicoParaLixeira(servicoItem)"
+            >
+              Excluir
             </button>
           </div>
 
