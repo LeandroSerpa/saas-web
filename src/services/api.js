@@ -2359,16 +2359,43 @@ export async function salvarConfiguracoesNotificacoesEmpresa(empresaId, payload)
 }
 
 function normalizarTipoLixeiraAdmin(tipo) {
-  const tipoNormalizado = String(tipo || '')
+  const tipoBruto = String(tipo || '')
     .trim()
     .toUpperCase()
     .replace(/\s+/g, '_')
+  const aliases = {
+    EMPRESA: 'EMPRESAS',
+    USUARIO: 'USUARIOS',
+    CLIENTE: 'CLIENTES',
+    SERVICO: 'SERVICOS',
+    FUNCIONARIO: 'FUNCIONARIOS',
+    PRODUTO: 'PRODUTOS_ESTOQUE',
+    PRODUTOS: 'PRODUTOS_ESTOQUE',
+    PRODUTO_ESTOQUE: 'PRODUTOS_ESTOQUE',
+    PRODUTOS_ESTOQUES: 'PRODUTOS_ESTOQUE',
+    AGENDAMENTO: 'AGENDAMENTOS',
+  }
+  const tipoNormalizado = aliases[tipoBruto] || tipoBruto
 
   if (!tipoNormalizado || tipoNormalizado === 'TODOS' || tipoNormalizado === 'ALL') {
     return ''
   }
 
   return tipoNormalizado
+}
+
+function construirSegmentosTipoLixeiraAdmin(tipoNormalizado) {
+  if (!tipoNormalizado) {
+    return []
+  }
+
+  const segmentos = new Set([
+    tipoNormalizado,
+    tipoNormalizado.toLowerCase(),
+    tipoNormalizado.toLowerCase().replace(/_/g, '-'),
+  ])
+
+  return [...segmentos]
 }
 
 async function tentarOperacaoLixeiraAdmin(candidatas = [], opcoesTratamento = {}) {
@@ -2420,13 +2447,11 @@ export async function listarLixeiraAdmin(tipo = '', filtros = {}) {
   const filtrosConsulta = tipoNormalizado ? { ...filtrosBase, tipo: tipoNormalizado } : filtrosBase
   const queryBase = montarQueryString(filtrosBase)
   const query = montarQueryString(filtrosConsulta)
-  const candidatos = []
+  const candidatos = [`${API_URL}/admin/lixeira${query}`]
 
-  if (tipoNormalizado) {
-    candidatos.push(`${API_URL}/admin/lixeira/${tipoNormalizado.toLowerCase()}${queryBase}`)
+  for (const segmentoTipo of construirSegmentosTipoLixeiraAdmin(tipoNormalizado)) {
+    candidatos.push(`${API_URL}/admin/lixeira/${segmentoTipo}${queryBase}`)
   }
-
-  candidatos.push(`${API_URL}/admin/lixeira${query}`)
 
   if (tipoNormalizado === 'AGENDAMENTOS') {
     candidatos.push(`${API_URL}/admin/lixeira/agendamentos${queryBase}`)
@@ -2445,25 +2470,25 @@ export async function listarLixeiraAdmin(tipo = '', filtros = {}) {
 export async function restaurarItemLixeiraAdmin(tipo, id) {
   const tipoNormalizado = normalizarTipoLixeiraAdmin(tipo)
   const queryTipo = montarQueryString(tipoNormalizado ? { tipo: tipoNormalizado } : {})
-  const candidatas = []
+  const candidatas = [
+    {
+      url: `${API_URL}/admin/lixeira/${id}/restaurar${queryTipo}`,
+      init: {
+        method: 'POST',
+        headers: montarHeaders(),
+      },
+    },
+  ]
 
-  if (tipoNormalizado) {
+  for (const segmentoTipo of construirSegmentosTipoLixeiraAdmin(tipoNormalizado)) {
     candidatas.push({
-      url: `${API_URL}/admin/lixeira/${tipoNormalizado.toLowerCase()}/${id}/restaurar`,
+      url: `${API_URL}/admin/lixeira/${segmentoTipo}/${id}/restaurar`,
       init: {
         method: 'POST',
         headers: montarHeaders(),
       },
     })
   }
-
-  candidatas.push({
-    url: `${API_URL}/admin/lixeira/${id}/restaurar${queryTipo}`,
-    init: {
-      method: 'POST',
-      headers: montarHeaders(),
-    },
-  })
 
   if (tipoNormalizado === 'AGENDAMENTOS') {
     candidatas.push({
@@ -2481,43 +2506,78 @@ export async function restaurarItemLixeiraAdmin(tipo, id) {
 export async function excluirDefinitivoItemLixeiraAdmin(tipo, id) {
   const tipoNormalizado = normalizarTipoLixeiraAdmin(tipo)
   const queryTipo = montarQueryString(tipoNormalizado ? { tipo: tipoNormalizado } : {})
-  const candidatas = []
+  const candidatas = [{
+    url: `${API_URL}/admin/lixeira/${id}/definitivo${queryTipo}`,
+    init: {
+      method: 'DELETE',
+      headers: montarHeaders(),
+    },
+  }, {
+    init: {
+      method: 'POST',
+      headers: montarHeaders(),
+    },
+    url: `${API_URL}/admin/lixeira/${id}/definitivo${queryTipo}`,
+  }, {
+    url: `${API_URL}/admin/lixeira/${id}/excluir-definitivo${queryTipo}`,
+    init: {
+      method: 'POST',
+      headers: montarHeaders(),
+    },
+  }]
 
-  if (tipoNormalizado) {
+  for (const segmentoTipo of construirSegmentosTipoLixeiraAdmin(tipoNormalizado)) {
     candidatas.push({
-      url: `${API_URL}/admin/lixeira/${tipoNormalizado.toLowerCase()}/${id}`,
+      url: `${API_URL}/admin/lixeira/${segmentoTipo}/${id}/definitivo`,
       init: {
         method: 'DELETE',
         headers: montarHeaders(),
       },
     })
     candidatas.push({
-      url: `${API_URL}/admin/lixeira/${tipoNormalizado.toLowerCase()}/${id}/definitivo`,
+      url: `${API_URL}/admin/lixeira/${segmentoTipo}/${id}/definitivo`,
+      init: {
+        method: 'POST',
+        headers: montarHeaders(),
+      },
+    })
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/${segmentoTipo}/${id}`,
       init: {
         method: 'DELETE',
+        headers: montarHeaders(),
+      },
+    })
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/${segmentoTipo}/${id}/excluir-definitivo`,
+      init: {
+        method: 'POST',
+        headers: montarHeaders(),
+      },
+    })
+  }
+
+  if (tipoNormalizado === 'AGENDAMENTOS') {
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/agendamentos/${id}/definitivo`,
+      init: {
+        method: 'DELETE',
+        headers: montarHeaders(),
+      },
+    })
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/agendamentos/${id}/excluir-definitivo`,
+      init: {
+        method: 'POST',
         headers: montarHeaders(),
       },
     })
   }
 
   candidatas.push({
-    url: `${API_URL}/admin/lixeira/${id}/definitivo${queryTipo}`,
-    init: {
-      method: 'DELETE',
-      headers: montarHeaders(),
-    },
-  })
-  candidatas.push({
     url: `${API_URL}/admin/lixeira/${id}/excluir-definitivo${queryTipo}`,
     init: {
-      method: 'POST',
-      headers: montarHeaders(),
-    },
-  })
-  candidatas.push({
-    url: `${API_URL}/admin/lixeira/${id}/definitivo${queryTipo}`,
-    init: {
-      method: 'POST',
+      method: 'DELETE',
       headers: montarHeaders(),
     },
   })

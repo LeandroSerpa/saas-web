@@ -63,7 +63,7 @@ const perguntasFrequentes = [
   {
     pergunta: 'O que acontece ao excluir definitivamente um registro?',
     resposta:
-      'Excluir definitivamente remove o registro da lixeira de forma irreversível. Essa ação não pode ser desfeita.',
+      'Excluir definitivamente remove o registro da lixeira de forma irreversível, preservando auditoria e a integridade dos dados. Essa ação não pode ser desfeita.',
   },
   {
     pergunta: 'As ações de exclusão ficam registradas?',
@@ -318,7 +318,7 @@ const topicos = [
     pontos: [
       'Excluir envia o registro para a lixeira e permite restauração posterior por quem tem permissão.',
       'Desativar apenas bloqueia o uso operacional do cadastro, sem enviar o registro para a lixeira.',
-      'Excluir definitivamente é irreversível e deve ser usado apenas quando não houver necessidade de recuperação.',
+      'Excluir definitivamente é irreversível e deve ser usado apenas quando não houver necessidade de recuperação, preservando auditoria e integridade dos dados.',
       'As ações de exclusão, restauração e exclusão definitiva ficam registradas em auditoria/log.',
     ],
     destaque: 'Use essa área para recuperar registros removidos por engano ou concluir exclusões permanentes com cuidado.',

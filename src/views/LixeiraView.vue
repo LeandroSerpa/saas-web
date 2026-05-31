@@ -11,6 +11,16 @@ import {
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const TIPO_TODOS = 'TODOS'
+const TIPOS_BACKEND_SUPORTADOS = [
+  'EMPRESAS',
+  'USUARIOS',
+  'CLIENTES',
+  'SERVICOS',
+  'FUNCIONARIOS',
+  'PRODUTOS_ESTOQUE',
+  'AGENDAMENTOS',
+  'OUTROS',
+]
 const TIPOS_PADRAO = [
   { tipo: 'EMPRESAS', rotulo: 'Empresas' },
   { tipo: 'USUARIOS', rotulo: 'Usuários' },
@@ -21,6 +31,20 @@ const TIPOS_PADRAO = [
   { tipo: 'AGENDAMENTOS', rotulo: 'Agendamentos' },
   { tipo: 'OUTROS', rotulo: 'Outros' },
 ]
+const MAPA_ROTULO_TIPO = new Map(TIPOS_PADRAO.map((item) => [item.tipo, item.rotulo]))
+const ALIAS_TIPOS = {
+  EMPRESA: 'EMPRESAS',
+  USUARIO: 'USUARIOS',
+  CLIENTE: 'CLIENTES',
+  SERVICO: 'SERVICOS',
+  FUNCIONARIO: 'FUNCIONARIOS',
+  PRODUTO: 'PRODUTOS_ESTOQUE',
+  PRODUTOS: 'PRODUTOS_ESTOQUE',
+  PRODUTO_ESTOQUE: 'PRODUTOS_ESTOQUE',
+  PRODUTOS_ESTOQUES: 'PRODUTOS_ESTOQUE',
+  AGENDAMENTO: 'AGENDAMENTOS',
+}
+const MENSAGEM_RECURSO_NAO_ENCONTRADO = 'Nao foi possivel localizar o conteudo solicitado.'
 
 const filtrosIniciais = {
   tipo: TIPO_TODOS,
@@ -50,37 +74,38 @@ const podeIrParaProxima = computed(
 )
 
 const mapaResumo = computed(() => {
-  const mapa = new Map()
+  const mapa = new Map(TIPOS_BACKEND_SUPORTADOS.map((tipo) => [tipo, 0]))
+  const contagemPaginaPorTipo = new Map()
 
   for (const item of resumoLixeira.value) {
-    mapa.set(item.tipo, item.total)
+    const tipo = normalizarTipo(item.tipo)
+
+    if (!tipo) continue
+
+    mapa.set(tipo, numeroSeguro(item.total))
+  }
+
+  for (const item of itensLixeira.value) {
+    const tipo = obterTipoItemApi(item)
+
+    if (!tipo) {
+      continue
+    }
+
+    contagemPaginaPorTipo.set(tipo, (contagemPaginaPorTipo.get(tipo) || 0) + 1)
+  }
+
+  for (const [tipo, totalPagina] of contagemPaginaPorTipo.entries()) {
+    if (!mapaResumoTemValor(tipo, mapa)) {
+      mapa.set(tipo, totalPagina)
+    }
   }
 
   return mapa
 })
 
 const entidadesDisponiveis = computed(() => {
-  const mapa = new Map(TIPOS_PADRAO.map((item) => [item.tipo, item.rotulo]))
-
-  for (const itemResumo of resumoLixeira.value) {
-    mapa.set(itemResumo.tipo, itemResumo.rotulo || mapearRotuloTipo(itemResumo.tipo))
-  }
-
-  for (const item of itensLixeira.value) {
-    const tipo = obterTipoItemApi(item)
-
-    if (tipo) {
-      mapa.set(tipo, mapearRotuloTipo(tipo))
-    }
-  }
-
-  const opcoes = [{ tipo: TIPO_TODOS, rotulo: 'Todos' }]
-
-  for (const [tipo, rotulo] of mapa.entries()) {
-    opcoes.push({ tipo, rotulo })
-  }
-
-  return opcoes
+  return [{ tipo: TIPO_TODOS, rotulo: 'Todos' }, ...TIPOS_PADRAO]
 })
 
 onMounted(() => {
@@ -163,7 +188,7 @@ async function carregarLixeira() {
     }
   } catch (error) {
     if (error?.status === 404) {
-      erro.value = 'Endpoint da Lixeira Global não encontrado na API HML. Verifique o deploy do backend.'
+      erro.value = 'Endpoint da Lixeira Global nao encontrado na API HML. Verifique o deploy do backend.'
     } else {
       erro.value = obterMensagemAmigavelErro(
         error,
@@ -177,14 +202,19 @@ async function carregarLixeira() {
 }
 
 function selecionarTipo(tipo) {
-  if (filtros.value.tipo === tipo) return
+  const tipoNormalizado = tipo === TIPO_TODOS ? TIPO_TODOS : normalizarTipo(tipo)
 
-  filtros.value.tipo = tipo
+  if (!tipoNormalizado || filtros.value.tipo === tipoNormalizado) {
+    return
+  }
+
+  filtros.value.tipo = tipoNormalizado
   paginacao.value.page = 0
   carregarLixeira()
 }
 
 function aplicarFiltros() {
+  filtros.value.tipo = filtros.value.tipo === TIPO_TODOS ? TIPO_TODOS : normalizarTipo(filtros.value.tipo) || TIPO_TODOS
   paginacao.value.page = 0
   carregarLixeira()
 }
@@ -221,6 +251,13 @@ function estaProcessando(acao, item) {
 async function restaurar(item) {
   if (!item?.id) return
 
+  const tipo = obterTipoItemApi(item)
+
+  if (!tipo) {
+    erro.value = 'Nao foi possivel identificar o tipo do item para restauracao.'
+    return
+  }
+
   const chave = criarChaveProcessamento('restaurar', item)
 
   try {
@@ -228,11 +265,12 @@ async function restaurar(item) {
     erro.value = ''
     sucesso.value = ''
 
-    await restaurarItemLixeiraAdmin(obterTipoItemApi(item), item.id)
+    await restaurarItemLixeiraAdmin(tipo, item.id)
+    await removerItemDaListaAtual(item)
     await carregarLixeira()
-    sucesso.value = 'Registro restaurado com sucesso.'
+    sucesso.value = 'Item restaurado com sucesso.'
   } catch (error) {
-    erro.value = obterMensagemAmigavelErro(error, 'Nao foi possivel restaurar o registro.')
+    erro.value = montarMensagemErroOperacao('restaurar', error)
     console.error(error)
   } finally {
     if (processandoChave.value === chave) {
@@ -243,6 +281,13 @@ async function restaurar(item) {
 
 async function excluirDefinitivamente(item) {
   if (!item?.id) return
+
+  const tipo = obterTipoItemApi(item)
+
+  if (!tipo) {
+    erro.value = 'Nao foi possivel identificar o tipo do item para exclusao definitiva.'
+    return
+  }
 
   const confirmou = window.confirm(
     'Confirme a exclusao definitiva. Essa acao e irreversivel e o registro nao podera ser restaurado.',
@@ -259,14 +304,12 @@ async function excluirDefinitivamente(item) {
     erro.value = ''
     sucesso.value = ''
 
-    await excluirDefinitivoItemLixeiraAdmin(obterTipoItemApi(item), item.id)
+    await excluirDefinitivoItemLixeiraAdmin(tipo, item.id)
+    await removerItemDaListaAtual(item)
     await carregarLixeira()
-    sucesso.value = 'Registro excluido definitivamente com sucesso.'
+    sucesso.value = 'Item excluido definitivamente com sucesso.'
   } catch (error) {
-    erro.value = obterMensagemAmigavelErro(
-      error,
-      'Nao foi possivel excluir definitivamente o registro.',
-    )
+    erro.value = montarMensagemErroOperacao('excluir', error)
     console.error(error)
   } finally {
     if (processandoChave.value === chave) {
@@ -275,9 +318,16 @@ async function excluirDefinitivamente(item) {
   }
 }
 
-async function removerItemDaListaAtual(id) {
+async function removerItemDaListaAtual(itemRemovido) {
+  const tipoRemovido = obterTipoItemApi(itemRemovido)
+  const idRemovido = String(itemRemovido?.id || '')
   const totalAntes = itensLixeira.value.length
-  itensLixeira.value = itensLixeira.value.filter((item) => String(item.id) !== String(id))
+
+  itensLixeira.value = itensLixeira.value.filter((item) => {
+    const mesmoId = String(item.id) === idRemovido
+    const mesmoTipo = obterTipoItemApi(item) === tipoRemovido
+    return !(mesmoId && mesmoTipo)
+  })
 
   if (itensLixeira.value.length !== totalAntes) {
     paginacao.value.totalElements = Math.max(0, paginacao.value.totalElements - 1)
@@ -347,7 +397,7 @@ function normalizarResumoLixeira(resposta) {
       const tipo = normalizarTipo(obterCampo(item, 'tipo', 'entidade', 'entityType', 'nomeTipo'))
       const total = numeroSeguro(obterCampo(item, 'total', 'quantidade', 'count', 'qtd'))
 
-      if (!tipo || !Number.isFinite(total)) continue
+      if (!tipo) continue
 
       lista.push({
         tipo,
@@ -392,22 +442,16 @@ function normalizarResumoLixeira(resposta) {
   ])
 
   for (const [chave, valor] of Object.entries(possivelMapa)) {
-    const tipo = normalizarTipo(chave).replace(/_/g, '')
+    const tipo = normalizarTipo(chave)
 
-    if (!tipo || chavesIgnoradas.has(tipo)) {
-      continue
-    }
-
-    const total = numeroSeguro(valor)
-
-    if (!Number.isFinite(total)) {
+    if (!tipo || chavesIgnoradas.has(normalizarTipo(chave).replace(/_/g, ''))) {
       continue
     }
 
     lista.push({
-      tipo: normalizarTipo(chave),
-      rotulo: mapearRotuloTipo(chave),
-      total,
+      tipo,
+      rotulo: mapearRotuloTipo(tipo),
+      total: numeroSeguro(valor),
     })
   }
 
@@ -416,7 +460,7 @@ function normalizarResumoLixeira(resposta) {
 
 function numeroSeguro(valor) {
   const numero = Number(typeof valor === 'object' ? obterCampo(valor, 'total', 'count', 'quantidade') : valor)
-  return Number.isFinite(numero) ? numero : Number.NaN
+  return Number.isFinite(numero) ? numero : 0
 }
 
 function extrairPrimeiroObjetoValido(...candidatos) {
@@ -442,32 +486,33 @@ function obterCampo(origem, ...campos) {
 }
 
 function normalizarTipo(valor) {
-  const tipo = String(valor || '')
+  const tipoBruto = String(valor || '')
     .trim()
     .toUpperCase()
     .replace(/\s+/g, '_')
+  const tipo = ALIAS_TIPOS[tipoBruto] || tipoBruto
 
   if (!tipo || tipo === TIPO_TODOS || tipo === 'ALL') {
     return ''
   }
 
-  return tipo
+  if (TIPOS_BACKEND_SUPORTADOS.includes(tipo)) {
+    return tipo
+  }
+
+  return ''
 }
 
 function mapearRotuloTipo(tipo) {
   const tipoNormalizado = normalizarTipo(tipo)
-  const padrao = TIPOS_PADRAO.find((item) => item.tipo === tipoNormalizado)
+  const rotuloPadrao = MAPA_ROTULO_TIPO.get(tipoNormalizado)
 
-  if (padrao) {
-    return padrao.rotulo
+  if (rotuloPadrao) {
+    return rotuloPadrao
   }
 
   if (!tipoNormalizado) {
     return 'Todos'
-  }
-
-  if (tipoNormalizado === 'TOTAL_REGISTROS' || tipoNormalizado === 'TOTALREGISTROS') {
-    return 'Total de registros'
   }
 
   return tipoNormalizado
@@ -479,10 +524,20 @@ function mapearRotuloTipo(tipo) {
 
 function totalPorTipo(tipo) {
   if (tipo === TIPO_TODOS) {
-    return paginacao.value.totalElements
+    const totalResumo = TIPOS_BACKEND_SUPORTADOS.reduce((acumulado, tipoAtual) => {
+      return acumulado + (mapaResumo.value.get(tipoAtual) || 0)
+    }, 0)
+
+    return totalResumo > 0 ? totalResumo : paginacao.value.totalElements
   }
 
-  return mapaResumo.value.get(tipo) ?? 0
+  const tipoNormalizado = normalizarTipo(tipo)
+
+  if (!tipoNormalizado) {
+    return 0
+  }
+
+  return mapaResumo.value.get(tipoNormalizado) ?? 0
 }
 
 function obterTipoItemApi(item) {
@@ -588,6 +643,39 @@ function formatarDataHora(valor) {
 
 function criarChaveProcessamento(acao, item) {
   return `${acao}:${obterTipoItemApi(item)}:${item?.id || ''}`
+}
+
+function mapaResumoTemValor(tipo, mapa = mapaResumo.value) {
+  return (mapa.get(tipo) || 0) > 0
+}
+
+function montarMensagemErroOperacao(acao, error) {
+  const mensagemApi = obterMensagemAmigavelErro(error, '').trim()
+  const mensagemGenericaNaoEncontrado = !mensagemApi || mensagemApi === MENSAGEM_RECURSO_NAO_ENCONTRADO
+
+  if (error?.status === 403) {
+    return acao === 'restaurar'
+      ? 'Voce nao tem permissao para restaurar este item.'
+      : 'Voce nao tem permissao para excluir definitivamente este item.'
+  }
+
+  if (error?.status === 409) {
+    return mensagemApi || 'Nao foi possivel concluir a operacao devido a vinculos ativos deste item.'
+  }
+
+  if (error?.status === 404) {
+    return acao === 'restaurar'
+      ? 'Este item nao esta mais disponivel para restauracao. Atualize a listagem.'
+      : 'Este item nao esta mais disponivel para exclusao definitiva. Atualize a listagem.'
+  }
+
+  if (!mensagemGenericaNaoEncontrado) {
+    return mensagemApi
+  }
+
+  return acao === 'restaurar'
+    ? 'Nao foi possivel restaurar o item. Tente novamente.'
+    : 'Nao foi possivel excluir definitivamente o item. Tente novamente.'
 }
 </script>
 
