@@ -3,7 +3,7 @@ import { debugLog } from '@/utils/devDebug'
 const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
 const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : 'https://gestao.nuvemmais.com.br'
 export const APP_NAME = String(import.meta.env.VITE_APP_NAME || 'NuvemMais Gestão').trim() || 'NuvemMais Gestão'
-export const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || '').trim()
+export const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || '').trim()
 const MENSAGENS_PADRAO = {
   sessaoExpirada: 'Sessão expirada. Faça login novamente.',
   acessoNegado: 'Acesso negado. Você não tem permissão para acessar esta área.',
@@ -2333,24 +2333,179 @@ export async function salvarConfiguracoesNotificacoesEmpresa(empresaId, payload)
   return tratarResposta(response)
 }
 
-export async function buscarAgendamentosExcluidos(filtros = {}) {
-  const response = await executarFetch(
-    `${API_URL}/admin/lixeira/agendamentos${montarQueryString(filtros)}`,
+function normalizarTipoLixeiraAdmin(tipo) {
+  const tipoNormalizado = String(tipo || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_')
+
+  if (!tipoNormalizado || tipoNormalizado === 'TODOS' || tipoNormalizado === 'ALL') {
+    return ''
+  }
+
+  return tipoNormalizado
+}
+
+async function tentarOperacaoLixeiraAdmin(candidatas = [], opcoesTratamento = {}) {
+  let ultimoErro = null
+
+  for (const candidata of candidatas) {
+    const url = candidata?.url
+    const init = candidata?.init || {}
+
+    if (!url) {
+      continue
+    }
+
+    const response = await executarFetch(url, init)
+
+    if (response.ok) {
+      return tratarResposta(response, opcoesTratamento)
+    }
+
+    if ([404, 405].includes(response.status)) {
+      ultimoErro = criarErroHttp(response.status)
+      continue
+    }
+
+    return tratarResposta(response, opcoesTratamento)
+  }
+
+  throw ultimoErro || criarErroHttp(404)
+}
+
+export async function listarResumoLixeiraAdmin(filtros = {}) {
+  const filtrosConsulta = limparVazios(filtros)
+  const query = montarQueryString(filtrosConsulta)
+
+  return tentarRotas(
+    [
+      `${API_URL}/admin/lixeira/resumo${query}`,
+      `${API_URL}/admin/lixeira/contadores${query}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
+}
+
+export async function listarLixeiraAdmin(tipo = '', filtros = {}) {
+  const tipoNormalizado = normalizarTipoLixeiraAdmin(tipo)
+  const filtrosBase = limparVazios(filtros)
+  const filtrosConsulta = tipoNormalizado ? { ...filtrosBase, tipo: tipoNormalizado } : filtrosBase
+  const queryBase = montarQueryString(filtrosBase)
+  const query = montarQueryString(filtrosConsulta)
+  const candidatos = []
+
+  if (tipoNormalizado) {
+    candidatos.push(`${API_URL}/admin/lixeira/${tipoNormalizado.toLowerCase()}${queryBase}`)
+  }
+
+  candidatos.push(`${API_URL}/admin/lixeira${query}`)
+
+  if (tipoNormalizado === 'AGENDAMENTOS') {
+    candidatos.push(`${API_URL}/admin/lixeira/agendamentos${queryBase}`)
+  }
+
+  const dados = await tentarRotas(
+    candidatos,
     {
       headers: montarHeaders(),
     },
   )
 
-  return tratarResposta(response)
+  return solicitouPaginacao(filtrosBase) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function restaurarItemLixeiraAdmin(tipo, id) {
+  const tipoNormalizado = normalizarTipoLixeiraAdmin(tipo)
+  const queryTipo = montarQueryString(tipoNormalizado ? { tipo: tipoNormalizado } : {})
+  const candidatas = []
+
+  if (tipoNormalizado) {
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/${tipoNormalizado.toLowerCase()}/${id}/restaurar`,
+      init: {
+        method: 'POST',
+        headers: montarHeaders(),
+      },
+    })
+  }
+
+  candidatas.push({
+    url: `${API_URL}/admin/lixeira/${id}/restaurar${queryTipo}`,
+    init: {
+      method: 'POST',
+      headers: montarHeaders(),
+    },
+  })
+
+  if (tipoNormalizado === 'AGENDAMENTOS') {
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/agendamentos/${id}/restaurar`,
+      init: {
+        method: 'POST',
+        headers: montarHeaders(),
+      },
+    })
+  }
+
+  return tentarOperacaoLixeiraAdmin(candidatas)
+}
+
+export async function excluirDefinitivoItemLixeiraAdmin(tipo, id) {
+  const tipoNormalizado = normalizarTipoLixeiraAdmin(tipo)
+  const queryTipo = montarQueryString(tipoNormalizado ? { tipo: tipoNormalizado } : {})
+  const candidatas = []
+
+  if (tipoNormalizado) {
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/${tipoNormalizado.toLowerCase()}/${id}`,
+      init: {
+        method: 'DELETE',
+        headers: montarHeaders(),
+      },
+    })
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/${tipoNormalizado.toLowerCase()}/${id}/definitivo`,
+      init: {
+        method: 'DELETE',
+        headers: montarHeaders(),
+      },
+    })
+  }
+
+  candidatas.push({
+    url: `${API_URL}/admin/lixeira/${id}/definitivo${queryTipo}`,
+    init: {
+      method: 'DELETE',
+      headers: montarHeaders(),
+    },
+  })
+  candidatas.push({
+    url: `${API_URL}/admin/lixeira/${id}/excluir-definitivo${queryTipo}`,
+    init: {
+      method: 'POST',
+      headers: montarHeaders(),
+    },
+  })
+  candidatas.push({
+    url: `${API_URL}/admin/lixeira/${id}/definitivo${queryTipo}`,
+    init: {
+      method: 'POST',
+      headers: montarHeaders(),
+    },
+  })
+
+  return tentarOperacaoLixeiraAdmin(candidatas)
+}
+
+export async function buscarAgendamentosExcluidos(filtros = {}) {
+  return listarLixeiraAdmin('AGENDAMENTOS', filtros)
 }
 
 export async function restaurarAgendamento(id) {
-  const response = await executarFetch(`${API_URL}/admin/lixeira/agendamentos/${id}/restaurar`, {
-    method: 'POST',
-    headers: montarHeaders(),
-  })
-
-  return tratarResposta(response)
+  return restaurarItemLixeiraAdmin('AGENDAMENTOS', id)
 }
 
 export async function buscarNotificacoes(filtros = {}) {

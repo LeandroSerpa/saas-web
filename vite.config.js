@@ -1,11 +1,18 @@
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync } from 'node:fs'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'))
+const appVersion = String(packageJson?.version || '').trim()
+
 export default defineConfig({
   plugins: [vue(), vueDevTools()],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   preview: {
     host: '0.0.0.0',
     port: 4173,

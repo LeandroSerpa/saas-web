@@ -1,44 +1,86 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { buscarAgendamentosExcluidos, buscarEmpresas, restaurarAgendamento } from '@/services/api'
+import {
+  buscarEmpresas,
+  excluirDefinitivoItemLixeiraAdmin,
+  listarLixeiraAdmin,
+  listarResumoLixeiraAdmin,
+  obterMensagemAmigavelErro,
+  restaurarItemLixeiraAdmin,
+} from '@/services/api'
+import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
+
+const TIPO_TODOS = 'TODOS'
+const TIPOS_PADRAO = [
+  { tipo: 'EMPRESAS', rotulo: 'Empresas' },
+  { tipo: 'USUARIOS', rotulo: 'Usuarios' },
+  { tipo: 'CLIENTES', rotulo: 'Clientes' },
+  { tipo: 'SERVICOS', rotulo: 'Servicos' },
+  { tipo: 'FUNCIONARIOS', rotulo: 'Funcionarios' },
+  { tipo: 'PRODUTOS_ESTOQUE', rotulo: 'Produtos/Estoque' },
+  { tipo: 'AGENDAMENTOS', rotulo: 'Agendamentos' },
+  { tipo: 'OUTROS', rotulo: 'Outros' },
+]
 
 const filtrosIniciais = {
+  tipo: TIPO_TODOS,
   empresaId: '',
-  cliente: '',
-  funcionario: '',
-  servico: '',
-  dataInicio: '',
-  dataFim: '',
+  busca: '',
+  dataInicial: '',
+  dataFinal: '',
 }
 
 const filtros = ref({ ...filtrosIniciais })
 const empresas = ref([])
-const agendamentos = ref([])
+const resumoLixeira = ref([])
+const itensLixeira = ref([])
+const paginacao = ref(criarPaginacaoInicial())
+const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 const carregando = ref(false)
 const carregandoEmpresas = ref(false)
-const restaurandoId = ref(null)
-const agendamentoParaRestaurar = ref(null)
+const processandoChave = ref('')
 const erro = ref('')
 const erroEmpresas = ref('')
-const mensagemSucesso = ref('')
+const sucesso = ref('')
 
-const periodoAplicado = computed(() => {
-  const dataInicio = formatarDataFiltro(filtros.value.dataInicio)
-  const dataFim = formatarDataFiltro(filtros.value.dataFim)
+const paginaAtualHumana = computed(() => paginacao.value.page + 1)
+const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
+const podeIrParaProxima = computed(
+  () => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages,
+)
 
-  if (!dataInicio && !dataFim) {
-    return 'Período aplicado: todos os agendamentos excluídos.'
+const mapaResumo = computed(() => {
+  const mapa = new Map()
+
+  for (const item of resumoLixeira.value) {
+    mapa.set(item.tipo, item.total)
   }
 
-  if (dataInicio && !dataFim) {
-    return `Período aplicado: agendamentos a partir de ${dataInicio}.`
+  return mapa
+})
+
+const entidadesDisponiveis = computed(() => {
+  const mapa = new Map(TIPOS_PADRAO.map((item) => [item.tipo, item.rotulo]))
+
+  for (const itemResumo of resumoLixeira.value) {
+    mapa.set(itemResumo.tipo, itemResumo.rotulo || mapearRotuloTipo(itemResumo.tipo))
   }
 
-  if (!dataInicio && dataFim) {
-    return `Período aplicado: agendamentos até ${dataFim}.`
+  for (const item of itensLixeira.value) {
+    const tipo = obterTipoItemApi(item)
+
+    if (tipo) {
+      mapa.set(tipo, mapearRotuloTipo(tipo))
+    }
   }
 
-  return `Período aplicado: agendamentos de ${dataInicio} até ${dataFim}.`
+  const opcoes = [{ tipo: TIPO_TODOS, rotulo: 'Todos' }]
+
+  for (const [tipo, rotulo] of mapa.entries()) {
+    opcoes.push({ tipo, rotulo })
+  }
+
+  return opcoes
 })
 
 onMounted(() => {
@@ -46,157 +88,237 @@ onMounted(() => {
   carregarLixeira()
 })
 
-async function carregarLixeira() {
-  const filtrosApi = montarFiltrosApi()
-
-  if (!datasValidas(filtrosApi)) {
-    erro.value = 'A data inicial não pode ser maior que a data final.'
-    return
-  }
-
-  try {
-    carregando.value = true
-    erro.value = ''
-    mensagemSucesso.value = ''
-
-    const resposta = await buscarAgendamentosExcluidos(filtrosApi)
-    console.debug('Lixeira de agendamentos carregada:', resposta)
-    agendamentos.value = extrairLista(resposta)
-  } catch (error) {
-    erro.value = obterMensagemErroLixeira(error)
-    console.error('Erro ao carregar lixeira:', error)
-  } finally {
-    carregando.value = false
-  }
-}
-
 async function carregarEmpresasFiltro() {
   try {
     carregandoEmpresas.value = true
     erroEmpresas.value = ''
-
-    const resposta = await buscarEmpresas()
-    empresas.value = extrairLista(resposta)
+    empresas.value = normalizarLista(await buscarEmpresas())
   } catch (error) {
-    erroEmpresas.value = 'Não foi possível carregar a lista de empresas.'
-    console.error('Erro ao carregar empresas para filtro da lixeira:', error)
+    empresas.value = []
+    erroEmpresas.value = 'Nao foi possivel carregar a lista de empresas.'
+    console.error(error)
   } finally {
     carregandoEmpresas.value = false
   }
 }
 
-function limparFiltros() {
-  filtros.value = { ...filtrosIniciais }
+async function carregarLixeira() {
+  if (!datasValidas()) {
+    erro.value = 'A data inicial nao pode ser maior que a data final.'
+    return
+  }
+
+  const filtrosConsulta = montarFiltrosConsulta()
+
+  try {
+    carregando.value = true
+    erro.value = ''
+    sucesso.value = ''
+
+    const [respostaItens, respostaResumo] = await Promise.allSettled([
+      listarLixeiraAdmin(filtros.value.tipo, {
+        ...filtrosConsulta,
+        page: paginacao.value.page,
+        size: paginacao.value.size,
+      }),
+      listarResumoLixeiraAdmin(filtrosConsulta),
+    ])
+
+    if (respostaItens.status === 'rejected') {
+      throw respostaItens.reason
+    }
+
+    const dadosPaginados = normalizarRespostaPaginada(respostaItens.value, paginacao.value)
+    itensLixeira.value = dadosPaginados.content
+    paginacao.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+
+    if (
+      dadosPaginados.paginada &&
+      dadosPaginados.page > 0 &&
+      dadosPaginados.content.length === 0 &&
+      dadosPaginados.totalElements > 0
+    ) {
+      const ultimaPaginaValida = Math.max(dadosPaginados.totalPages - 1, 0)
+
+      if (ultimaPaginaValida !== dadosPaginados.page) {
+        paginacao.value.page = ultimaPaginaValida
+        await carregarLixeira()
+        return
+      }
+    }
+
+    if (respostaResumo.status === 'fulfilled') {
+      resumoLixeira.value = normalizarResumoLixeira(respostaResumo.value)
+    } else {
+      resumoLixeira.value = resumoLixeira.value.length ? resumoLixeira.value : []
+      console.error('Resumo da lixeira indisponivel:', respostaResumo.reason)
+    }
+  } catch (error) {
+    erro.value = obterMensagemAmigavelErro(
+      error,
+      'Nao foi possivel carregar a lixeira global. Tente novamente em instantes.',
+    )
+    console.error(error)
+  } finally {
+    carregando.value = false
+  }
+}
+
+function selecionarTipo(tipo) {
+  if (filtros.value.tipo === tipo) return
+
+  filtros.value.tipo = tipo
+  paginacao.value.page = 0
   carregarLixeira()
 }
 
-function solicitarRestauracao(item) {
-  agendamentoParaRestaurar.value = item
-  erro.value = ''
-  mensagemSucesso.value = ''
+function aplicarFiltros() {
+  paginacao.value.page = 0
+  carregarLixeira()
 }
 
-function cancelarRestauracao() {
-  agendamentoParaRestaurar.value = null
+function limparFiltros() {
+  filtros.value = { ...filtrosIniciais }
+  paginacao.value.page = 0
+  carregarLixeira()
 }
 
-async function restaurar(item = agendamentoParaRestaurar.value) {
+function alterarTamanhoPagina() {
+  paginacao.value.page = 0
+  carregarLixeira()
+}
+
+function irParaPaginaAnterior() {
+  if (!podeIrParaAnterior.value || carregando.value) return
+
+  paginacao.value.page = Math.max(0, paginacao.value.page - 1)
+  carregarLixeira()
+}
+
+function irParaProximaPagina() {
+  if (!podeIrParaProxima.value || carregando.value) return
+
+  paginacao.value.page += 1
+  carregarLixeira()
+}
+
+function estaProcessando(acao, item) {
+  return processandoChave.value === criarChaveProcessamento(acao, item)
+}
+
+async function restaurar(item) {
   if (!item?.id) return
 
+  const chave = criarChaveProcessamento('restaurar', item)
+
   try {
-    restaurandoId.value = item.id
+    processandoChave.value = chave
     erro.value = ''
-    mensagemSucesso.value = ''
+    sucesso.value = ''
 
-    await restaurarAgendamento(item.id)
-    mensagemSucesso.value = 'Agendamento restaurado com sucesso.'
-    agendamentos.value = agendamentos.value.filter((agendamento) => agendamento.id !== item.id)
-    agendamentoParaRestaurar.value = null
+    await restaurarItemLixeiraAdmin(obterTipoItemApi(item), item.id)
+    sucesso.value = 'Registro restaurado com sucesso.'
+    await removerItemDaListaAtual(item.id)
   } catch (error) {
-    erro.value = limparMensagemBackend(error?.message) || 'Não foi possível restaurar o agendamento.'
-    console.error('Erro ao restaurar agendamento:', error)
+    erro.value = obterMensagemAmigavelErro(error, 'Nao foi possivel restaurar o registro.')
+    console.error(error)
   } finally {
-    restaurandoId.value = null
+    if (processandoChave.value === chave) {
+      processandoChave.value = ''
+    }
   }
 }
 
-function extrairLista(resposta) {
-  if (Array.isArray(resposta)) {
-    return resposta
-  }
+async function excluirDefinitivamente(item) {
+  if (!item?.id) return
 
-  return resposta?.content || resposta?.items || resposta?.dados || resposta?.agendamentos || []
-}
-
-function obterMensagemErroLixeira(error) {
-  return (
-    obterMensagemErroPermissao(error) ||
-    obterMensagemErroInterno(error, 'Não foi possível carregar a lixeira. Tente novamente após alguns instantes.') ||
-    limparMensagemBackend(error?.message) ||
-    'Não foi possível carregar a lixeira. Verifique os filtros ou tente novamente.'
+  const confirmou = window.confirm(
+    'Essa ação pode ser irreversível. Deseja excluir definitivamente este registro?',
   )
-}
 
-function obterMensagemErroPermissao(error) {
-  const mensagem = String(error?.message || '').toLowerCase()
-
-  return mensagem.includes('forbidden') ||
-    mensagem.includes('permiss') ||
-    mensagem.includes('403') ||
-    mensagem.includes('unauthorized')
-    ? 'Você não tem permissão para acessar a lixeira.'
-    : ''
-}
-
-function obterMensagemErroInterno(error, mensagemPadrao) {
-  const mensagem = String(error?.message || '').toLowerCase()
-
-  return mensagem.includes('500') ||
-    mensagem.includes('internal server error') ||
-    mensagem.includes('erro interno')
-    ? mensagemPadrao
-    : ''
-}
-
-function limparMensagemBackend(mensagem) {
-  const texto = String(mensagem || '').trim()
-
-  if (!texto || mensagemTecnica(texto)) {
-    return ''
+  if (!confirmou) {
+    return
   }
 
-  return texto.length > 220 ? '' : texto
+  const chave = criarChaveProcessamento('excluir', item)
+
+  try {
+    processandoChave.value = chave
+    erro.value = ''
+    sucesso.value = ''
+
+    await excluirDefinitivoItemLixeiraAdmin(obterTipoItemApi(item), item.id)
+    sucesso.value = 'Registro excluido definitivamente com sucesso.'
+    await removerItemDaListaAtual(item.id)
+  } catch (error) {
+    erro.value = obterMensagemAmigavelErro(
+      error,
+      'Nao foi possivel excluir definitivamente o registro.',
+    )
+    console.error(error)
+  } finally {
+    if (processandoChave.value === chave) {
+      processandoChave.value = ''
+    }
+  }
 }
 
-function mensagemTecnica(mensagem) {
-  const texto = mensagem.toLowerCase()
+async function removerItemDaListaAtual(id) {
+  const totalAntes = itensLixeira.value.length
+  itensLixeira.value = itensLixeira.value.filter((item) => String(item.id) !== String(id))
 
-  return (
-    texto.length > 500 ||
-    texto.includes('select ') ||
-    texto.includes(' from ') ||
-    texto.includes('jdbc') ||
-    texto.includes('sql') ||
-    texto.includes('stack trace') ||
-    texto.includes('exception') ||
-    texto.includes('org.hibernate') ||
-    texto.includes('java.')
-  )
+  if (itensLixeira.value.length !== totalAntes) {
+    paginacao.value.totalElements = Math.max(0, paginacao.value.totalElements - 1)
+    paginacao.value.numberOfElements = Math.max(0, paginacao.value.numberOfElements - 1)
+  }
+
+  if (!itensLixeira.value.length && paginacao.value.page > 0) {
+    paginacao.value.page = Math.max(0, paginacao.value.page - 1)
+    await carregarLixeira()
+    return
+  }
+
+  await atualizarResumo()
 }
 
-function obterCampo(item, ...campos) {
-  return campos.map((campo) => item?.[campo]).find((valor) => valor !== null && valor !== undefined && String(valor).trim()) || ''
+async function atualizarResumo() {
+  try {
+    const resposta = await listarResumoLixeiraAdmin(montarFiltrosConsulta())
+    resumoLixeira.value = normalizarResumoLixeira(resposta)
+  } catch (error) {
+    console.error('Nao foi possivel atualizar o resumo da lixeira:', error)
+  }
 }
 
-function montarFiltrosApi() {
+function montarFiltrosConsulta() {
   return limparVazios({
     empresaId: filtros.value.empresaId,
-    cliente: filtros.value.cliente,
-    funcionario: filtros.value.funcionario,
-    servico: filtros.value.servico,
-    dataInicio: normalizarDataFiltro(filtros.value.dataInicio),
-    dataFim: normalizarDataFiltro(filtros.value.dataFim),
+    busca: filtros.value.busca,
+    dataInicial: normalizarData(filtros.value.dataInicial),
+    dataFinal: normalizarData(filtros.value.dataFinal),
+    dataInicio: normalizarData(filtros.value.dataInicial),
+    dataFim: normalizarData(filtros.value.dataFinal),
   })
+}
+
+function datasValidas() {
+  const dataInicial = normalizarData(filtros.value.dataInicial)
+  const dataFinal = normalizarData(filtros.value.dataFinal)
+
+  return !(dataInicial && dataFinal && dataInicial > dataFinal)
+}
+
+function normalizarData(valor) {
+  const data = String(valor || '').trim()
+  return /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : ''
 }
 
 function limparVazios(objeto) {
@@ -205,79 +327,245 @@ function limparVazios(objeto) {
   )
 }
 
-function datasValidas(filtrosApi = montarFiltrosApi()) {
-  return !(filtrosApi.dataInicio && filtrosApi.dataFim && filtrosApi.dataInicio > filtrosApi.dataFim)
+function normalizarLista(valor) {
+  if (Array.isArray(valor)) {
+    return valor
+  }
+
+  return valor?.content || valor?.items || valor?.dados || valor?.data || []
 }
 
-function normalizarDataFiltro(valor) {
-  const data = String(valor || '').trim()
-  return /^\d{4}-\d{2}-\d{2}$/.test(data) ? data : ''
+function normalizarResumoLixeira(resposta) {
+  const lista = []
+
+  if (Array.isArray(resposta)) {
+    for (const item of resposta) {
+      const tipo = normalizarTipo(obterCampo(item, 'tipo', 'entidade', 'entityType', 'nomeTipo'))
+      const total = numeroSeguro(obterCampo(item, 'total', 'quantidade', 'count', 'qtd'))
+
+      if (!tipo || !Number.isFinite(total)) continue
+
+      lista.push({
+        tipo,
+        rotulo: mapearRotuloTipo(tipo),
+        total,
+      })
+    }
+
+    return lista
+  }
+
+  if (!resposta || typeof resposta !== 'object') {
+    return []
+  }
+
+  const objeto = resposta.data && typeof resposta.data === 'object' && !Array.isArray(resposta.data) ? resposta.data : resposta
+  const possivelMapa =
+    extrairPrimeiroObjetoValido(
+      objeto?.resumo,
+      objeto?.totais,
+      objeto?.porTipo,
+      objeto?.tipos,
+      objeto?.countByType,
+      objeto,
+    ) || {}
+  const chavesIgnoradas = new Set([
+    'PAGE',
+    'SIZE',
+    'TOTAL',
+    'TOTALELEMENTS',
+    'TOTALPAGES',
+    'FIRST',
+    'LAST',
+    'NUMBER',
+    'NUMBERELEMENTS',
+    'CONTENT',
+    'DATA',
+    'ITEMS',
+    'ITENS',
+    'DADOS',
+  ])
+
+  for (const [chave, valor] of Object.entries(possivelMapa)) {
+    const tipo = normalizarTipo(chave).replace(/_/g, '')
+
+    if (!tipo || chavesIgnoradas.has(tipo)) {
+      continue
+    }
+
+    const total = numeroSeguro(valor)
+
+    if (!Number.isFinite(total)) {
+      continue
+    }
+
+    lista.push({
+      tipo: normalizarTipo(chave),
+      rotulo: mapearRotuloTipo(chave),
+      total,
+    })
+  }
+
+  return lista
 }
 
-function formatarDataFiltro(valor) {
-  const dataNormalizada = normalizarDataFiltro(valor)
+function numeroSeguro(valor) {
+  const numero = Number(typeof valor === 'object' ? obterCampo(valor, 'total', 'count', 'quantidade') : valor)
+  return Number.isFinite(numero) ? numero : Number.NaN
+}
 
-  if (!dataNormalizada) {
+function extrairPrimeiroObjetoValido(...candidatos) {
+  for (const candidato of candidatos) {
+    if (candidato && typeof candidato === 'object' && !Array.isArray(candidato)) {
+      return candidato
+    }
+  }
+
+  return null
+}
+
+function obterCampo(origem, ...campos) {
+  for (const campo of campos) {
+    const valor = origem?.[campo]
+
+    if (valor !== null && valor !== undefined && String(valor).trim()) {
+      return valor
+    }
+  }
+
+  return ''
+}
+
+function normalizarTipo(valor) {
+  const tipo = String(valor || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_')
+
+  if (!tipo || tipo === TIPO_TODOS || tipo === 'ALL') {
     return ''
   }
 
-  const [ano, mes, dia] = dataNormalizada.split('-')
-
-  return `${dia}/${mes}/${ano}`
+  return tipo
 }
 
-function obterDataHoraAgendamento(item) {
-  return obterCampo(item, 'dataHoraInicio', 'dataAtendimento', 'data')
-}
+function mapearRotuloTipo(tipo) {
+  const tipoNormalizado = normalizarTipo(tipo)
+  const padrao = TIPOS_PADRAO.find((item) => item.tipo === tipoNormalizado)
 
-function obterResumoAgendamento(item) {
-  const data = formatarData(obterDataHoraAgendamento(item))
-  const horario = formatarHorario(obterCampo(item, 'dataHoraInicio', 'horarioInicio', 'hora'))
-
-  return `Agendamento: ${data} às ${horario}`
-}
-
-function obterNomeEmpresa(item) {
-  const empresaDireta = obterCampo(item, 'empresaNome', 'nomeEmpresa')
-  if (empresaDireta) return empresaDireta
-
-  const empresa = item?.empresa
-  if (typeof empresa === 'string') {
-    return textoEmpresaVisivel(empresa)
+  if (padrao) {
+    return padrao.rotulo
   }
 
-  if (empresa && typeof empresa === 'object') {
-    return obterCampo(empresa, 'nome', 'razaoSocial', 'nomeFantasia') || '-'
+  if (!tipoNormalizado) {
+    return 'Todos'
+  }
+
+  return tipoNormalizado
+    .split('_')
+    .filter(Boolean)
+    .map((parte) => parte.charAt(0) + parte.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function totalPorTipo(tipo) {
+  if (tipo === TIPO_TODOS) {
+    return paginacao.value.totalElements
+  }
+
+  return mapaResumo.value.get(tipo) ?? 0
+}
+
+function obterTipoItemApi(item) {
+  const tipoItem = normalizarTipo(obterCampo(item, 'tipo', 'entidade', 'entityType', 'tipoRegistro'))
+
+  if (tipoItem) {
+    return tipoItem
+  }
+
+  const tipoFiltro = normalizarTipo(filtros.value.tipo)
+  return tipoFiltro || ''
+}
+
+function obterTipoItemRotulo(item) {
+  return mapearRotuloTipo(obterTipoItemApi(item))
+}
+
+function obterNomePrincipal(item) {
+  return (
+    obterCampo(
+      item,
+      'nome',
+      'titulo',
+      'descricao',
+      'nomePrincipal',
+      'razaoSocial',
+      'nomeFantasia',
+      'clienteNome',
+      'servicoNome',
+      'funcionarioNome',
+      'usuarioNome',
+      'email',
+      'codigo',
+      'sku',
+    ) || `Registro #${item?.id || '-'}`
+  )
+}
+
+function obterEmpresaNome(item) {
+  const empresa = obterCampo(
+    item,
+    'empresaNome',
+    'nomeEmpresa',
+    'empresaRazaoSocial',
+    'empresaFantasia',
+  )
+
+  if (empresa) {
+    return empresa
+  }
+
+  if (item?.empresa && typeof item.empresa === 'object') {
+    return obterCampo(item.empresa, 'nome', 'razaoSocial', 'nomeFantasia') || '-'
   }
 
   return '-'
 }
 
-function textoEmpresaVisivel(valor) {
-  const texto = String(valor || '').trim()
-  if (!texto || /^empresa\s*(id|#)?\s*\d+$/i.test(texto) || /^\d+$/.test(texto)) return '-'
-  return texto
+function obterStatusOriginal(item) {
+  return obterCampo(item, 'statusOriginal', 'status', 'situacaoOriginal') || '-'
 }
 
-function formatarData(valor) {
-  const data = criarData(valor)
+function obterUsuarioResponsavel(item) {
+  return (
+    obterCampo(
+      item,
+      'usuarioResponsavel',
+      'excluidoPor',
+      'usuarioExclusao',
+      'usuarioExclusaoNome',
+      'deletedBy',
+    ) || '-'
+  )
+}
 
-  if (!data) {
-    return valor || '-'
-  }
+function obterMotivoExclusao(item) {
+  return obterCampo(item, 'motivo', 'motivoExclusao', 'reason') || '-'
+}
 
-  return data.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+function obterDataExclusao(item) {
+  return obterCampo(item, 'dataExclusao', 'excluidoEm', 'deletedAt', 'dataRemocao') || ''
 }
 
 function formatarDataHora(valor) {
-  const data = criarData(valor)
+  if (!valor) {
+    return '-'
+  }
 
-  if (!data) {
-    return valor || '-'
+  const data = new Date(valor)
+
+  if (Number.isNaN(data.getTime())) {
+    return String(valor)
   }
 
   return data.toLocaleString('pt-BR', {
@@ -289,47 +577,8 @@ function formatarDataHora(valor) {
   })
 }
 
-function formatarHorario(valor) {
-  const texto = String(valor || '')
-  const parteHorario = texto.includes('T') ? texto.split('T')[1] : texto
-  const horario = parteHorario.trim().match(/^(\d{2}):(\d{2})(?::\d{2})?/)
-
-  if (horario) {
-    return `${horario[1]}:${horario[2]}`
-  }
-
-  const data = criarData(valor)
-
-  if (!data) {
-    return '-'
-  }
-
-  return `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`
-}
-
-function criarData(valor) {
-  if (!valor) {
-    return null
-  }
-
-  const data = new Date(valor)
-
-  return Number.isNaN(data.getTime()) ? null : data
-}
-
-function formatarPreco(valor) {
-  if (valor === null || valor === undefined || valor === '') {
-    return '-'
-  }
-
-  return Number(valor).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
-}
-
-function obterSituacao(item) {
-  return item?.excluido === false ? 'Ativo' : 'Excluído'
+function criarChaveProcessamento(acao, item) {
+  return `${acao}:${obterTipoItemApi(item)}:${item?.id || ''}`
 }
 </script>
 
@@ -338,83 +587,81 @@ function obterSituacao(item) {
     <header class="cabecalho-pagina">
       <div>
         <p class="subtitulo">Administração NuvemMais</p>
-        <h1>Lixeira de agendamentos</h1>
+        <h1>Lixeira Global</h1>
         <p class="descricao">
-          Agendamentos excluídos não são apagados definitivamente. O Administrador NuvemMais pode consultar e
-          restaurar registros quando não houver conflito de horário.
+          Centralize restauração e exclusão definitiva de registros removidos logicamente em toda a plataforma.
         </p>
         <p class="observacao-super-admin">
-          Como Administrador NuvemMais, você está visualizando agendamentos excluídos de todas as empresas.
-          Use o filtro Empresa para visualizar uma empresa específica.
+          Esta área é exclusiva para SUPER_ADMIN e consolida registros de todas as empresas.
         </p>
       </div>
     </header>
 
-    <section v-if="erro" class="card erro">
+    <section v-if="erro" class="card feedback erro">
       <p>{{ erro }}</p>
     </section>
 
-    <section v-if="mensagemSucesso" class="card sucesso-card">
-      <p>{{ mensagemSucesso }}</p>
+    <section v-if="sucesso" class="card feedback sucesso">
+      <p>{{ sucesso }}</p>
     </section>
 
-    <section v-if="erroEmpresas" class="card aviso-card">
+    <section v-if="erroEmpresas" class="card feedback aviso">
       <p>{{ erroEmpresas }}</p>
     </section>
 
-    <section v-if="agendamentoParaRestaurar" class="card confirmacao-card">
-      <div>
-        <h2>Restaurar agendamento?</h2>
-        <p>{{ obterResumoAgendamento(agendamentoParaRestaurar) }}</p>
-        <p><strong>Empresa:</strong> {{ obterNomeEmpresa(agendamentoParaRestaurar) }}</p>
-      </div>
-      <div class="acoes">
-        <button class="botao principal" :disabled="restaurandoId === agendamentoParaRestaurar.id" @click="restaurar()">
-          {{ restaurandoId === agendamentoParaRestaurar.id ? 'Restaurando...' : 'Restaurar' }}
-        </button>
-        <button class="botao secundario" :disabled="restaurandoId === agendamentoParaRestaurar.id" @click="cancelarRestauracao">
-          Voltar
-        </button>
-      </div>
-    </section>
-
     <section class="card filtros">
+      <div class="abas-entidade" role="tablist" aria-label="Entidades da lixeira">
+        <button
+          v-for="opcao in entidadesDisponiveis"
+          :key="opcao.tipo"
+          type="button"
+          class="aba-entidade"
+          :class="{ ativa: filtros.tipo === opcao.tipo }"
+          @click="selecionarTipo(opcao.tipo)"
+        >
+          <span>{{ opcao.rotulo }}</span>
+          <strong>{{ totalPorTipo(opcao.tipo) }}</strong>
+        </button>
+      </div>
+
       <div class="campos">
+        <label>
+          Entidade/Tipo
+          <select v-model="filtros.tipo" :disabled="carregando" @change="aplicarFiltros">
+            <option v-for="opcao in entidadesDisponiveis" :key="`filtro-${opcao.tipo}`" :value="opcao.tipo">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
         <label>
           Empresa
           <select v-model="filtros.empresaId" :disabled="carregandoEmpresas">
             <option value="">Todas as empresas</option>
             <option v-for="empresa in empresas" :key="empresa.id" :value="empresa.id">
-              {{ empresa.nome || 'Empresa sem nome' }}
+              {{ empresa.nome || empresa.razaoSocial || 'Empresa sem nome' }}
             </option>
           </select>
         </label>
+
         <label>
-          Cliente
-          <input v-model="filtros.cliente" type="text" placeholder="Nome do cliente" />
+          Busca textual
+          <input v-model="filtros.busca" type="text" placeholder="Nome, e-mail, código, motivo..." />
         </label>
+
         <label>
-          Funcionário
-          <input v-model="filtros.funcionario" type="text" placeholder="Nome do funcionário" />
+          Data inicial
+          <input v-model="filtros.dataInicial" type="date" />
         </label>
+
         <label>
-          Serviço
-          <input v-model="filtros.servico" type="text" placeholder="Nome do serviço" />
-        </label>
-        <label>
-          Data inicial do agendamento
-          <input v-model="filtros.dataInicio" type="date" />
-        </label>
-        <label>
-          Data final do agendamento
-          <input v-model="filtros.dataFim" type="date" />
+          Data final
+          <input v-model="filtros.dataFinal" type="date" />
         </label>
       </div>
 
-      <p class="periodo-aplicado">{{ periodoAplicado }}</p>
-
       <div class="acoes">
-        <button class="botao principal" :disabled="carregando" @click="carregarLixeira">
+        <button class="botao principal" :disabled="carregando" @click="aplicarFiltros">
           Filtrar
         </button>
         <button class="botao secundario" :disabled="carregando" @click="limparFiltros">
@@ -423,82 +670,91 @@ function obterSituacao(item) {
       </div>
     </section>
 
-    <section class="card">
-      <p v-if="carregando">Carregando agendamentos excluídos...</p>
-      <p v-else-if="!agendamentos.length" class="vazio">Nenhum agendamento excluído encontrado.</p>
+    <section class="card cabecalho-lista">
+      <div>
+        <h2>Itens na lixeira</h2>
+        <p>Use Restaurar para reativar o registro ou Excluir definitivamente para remoção irreversível.</p>
+      </div>
+      <span class="contador">{{ paginacao.totalElements }} registro(s)</span>
+    </section>
 
-      <div v-else class="lista">
-        <article v-for="item in agendamentos" :key="item.id" class="agendamento-card">
-          <div class="card-topo">
-            <div>
-              <span>Código/ID</span>
-              <strong>{{ item.id }}</strong>
-              <p class="resumo-agendamento">{{ obterResumoAgendamento(item) }}</p>
+    <section class="card lista">
+      <p v-if="carregando" class="estado">Carregando registros da lixeira...</p>
+      <p v-else-if="!itensLixeira.length" class="estado vazio">
+        Nenhum registro encontrado na lixeira para os filtros atuais.
+      </p>
+
+      <div v-else class="cards-lixeira">
+        <article v-for="item in itensLixeira" :key="`${obterTipoItemApi(item)}-${item.id}`" class="item-lixeira">
+          <div class="topo-item">
+            <div class="titulo-item">
+              <h3>{{ obterNomePrincipal(item) }}</h3>
+              <p>ID: {{ item.id }} - {{ obterTipoItemRotulo(item) }}</p>
             </div>
-            <button
-              class="botao principal"
-              :disabled="restaurandoId === item.id"
-              @click="solicitarRestauracao(item)"
-            >
-              {{ restaurandoId === item.id ? 'Restaurando...' : 'Restaurar' }}
-            </button>
+
+            <div class="acoes-item">
+              <button
+                class="botao principal"
+                :disabled="estaProcessando('restaurar', item)"
+                @click="restaurar(item)"
+              >
+                {{ estaProcessando('restaurar', item) ? 'Restaurando...' : 'Restaurar' }}
+              </button>
+              <button
+                class="botao perigo"
+                :disabled="estaProcessando('excluir', item)"
+                @click="excluirDefinitivamente(item)"
+              >
+                {{ estaProcessando('excluir', item) ? 'Excluindo...' : 'Excluir definitivamente' }}
+              </button>
+            </div>
           </div>
 
           <dl>
             <div>
-              <dt>Empresa</dt>
-              <dd>{{ obterNomeEmpresa(item) }}</dd>
-            </div>
-            <div>
-              <dt>Cliente</dt>
-              <dd>{{ obterCampo(item, 'clienteNome', 'nomeCliente', 'cliente') || '-' }}</dd>
-            </div>
-            <div>
-              <dt>Serviço</dt>
-              <dd>{{ obterCampo(item, 'servicoNome', 'nomeServico', 'servico') || '-' }}</dd>
-            </div>
-            <div>
-              <dt>Funcionário</dt>
-              <dd>{{ obterCampo(item, 'funcionarioNome', 'nomeFuncionario', 'funcionario') || '-' }}</dd>
-            </div>
-            <div>
-              <dt>Data do agendamento</dt>
-              <dd>{{ formatarData(obterDataHoraAgendamento(item)) }}</dd>
-            </div>
-            <div>
-              <dt>Horário do agendamento</dt>
-              <dd>{{ formatarHorario(obterCampo(item, 'dataHoraInicio', 'horarioInicio', 'hora')) }}</dd>
+              <dt>Empresa vinculada</dt>
+              <dd>{{ obterEmpresaNome(item) }}</dd>
             </div>
             <div>
               <dt>Status original</dt>
-              <dd>{{ obterCampo(item, 'status') || '-' }}</dd>
-            </div>
-            <div>
-              <dt>Situação</dt>
-              <dd><span class="situacao-excluido">{{ obterSituacao(item) }}</span></dd>
-            </div>
-            <div>
-              <dt>Preço</dt>
-              <dd>{{ formatarPreco(obterCampo(item, 'preco', 'valor')) }}</dd>
-            </div>
-            <div class="item-largo">
-              <dt>Observação</dt>
-              <dd>{{ obterCampo(item, 'observacao') || '-' }}</dd>
+              <dd>{{ obterStatusOriginal(item) }}</dd>
             </div>
             <div>
               <dt>Data de exclusão</dt>
-              <dd>{{ formatarDataHora(obterCampo(item, 'dataExclusao', 'excluidoEm', 'deletedAt')) }}</dd>
+              <dd>{{ formatarDataHora(obterDataExclusao(item)) }}</dd>
             </div>
             <div>
-              <dt>Excluído por</dt>
-              <dd>{{ obterCampo(item, 'excluidoPor', 'usuarioExclusao', 'usuarioExclusaoNome') || '-' }}</dd>
+              <dt>Usuario responsavel</dt>
+              <dd>{{ obterUsuarioResponsavel(item) }}</dd>
             </div>
             <div class="item-largo">
-              <dt>Motivo da exclusão</dt>
-              <dd>{{ obterCampo(item, 'motivoExclusao', 'motivo') || '-' }}</dd>
+              <dt>Motivo</dt>
+              <dd>{{ obterMotivoExclusao(item) }}</dd>
             </div>
           </dl>
         </article>
+      </div>
+    </section>
+
+    <section v-if="!carregando" class="card paginacao">
+      <p class="resumo-paginacao">
+        {{ paginacao.totalElements }} registro(s) - Pagina {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
+      </p>
+      <label class="tamanho-pagina">
+        Registros por pagina
+        <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
+          <option v-for="opcao in opcoesTamanhoPagina" :key="`lix-${opcao}`" :value="opcao">
+            {{ opcao }}
+          </option>
+        </select>
+      </label>
+      <div class="botoes-paginacao">
+        <button class="botao secundario" :disabled="!podeIrParaAnterior || carregando" @click="irParaPaginaAnterior">
+          Anterior
+        </button>
+        <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
+          Proxima
+        </button>
       </div>
     </section>
   </main>
@@ -507,13 +763,14 @@ function obterSituacao(item) {
 <style scoped>
 .pagina {
   display: grid;
-  gap: 24px;
+  gap: 20px;
   color: #111827;
 }
 
 .cabecalho-pagina {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 16px;
 }
 
@@ -521,29 +778,39 @@ function obterSituacao(item) {
   margin: 0 0 4px;
   color: #2563eb;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
-h1 {
+h1,
+h2,
+h3,
+p {
   margin: 0;
+}
+
+h1 {
   font-size: 32px;
   font-weight: 800;
 }
 
+h2 {
+  font-size: 22px;
+}
+
 .descricao {
-  margin: 6px 0 0;
+  margin-top: 6px;
   color: #64748b;
 }
 
 .observacao-super-admin {
-  margin: 10px 0 0;
+  margin-top: 10px;
   padding: 12px 14px;
   border: 1px solid #bfdbfe;
   border-radius: 8px;
   background: #eff6ff;
   color: #1e3a8a;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .card {
@@ -554,10 +821,66 @@ h1 {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
-.filtros,
-.lista {
+.feedback.erro {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.feedback.sucesso {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.feedback.aviso {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.filtros {
   display: grid;
-  gap: 16px;
+  gap: 18px;
+}
+
+.abas-entidade {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aba-entidade {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  color: #334155;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  min-width: 120px;
+}
+
+.aba-entidade span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.aba-entidade strong {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.aba-entidade.ativa {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: white;
+}
+
+.aba-entidade.ativa strong {
+  color: #cbd5e1;
 }
 
 .campos {
@@ -574,31 +897,18 @@ label {
   font-weight: 700;
 }
 
-input {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 10px 12px;
-  box-sizing: border-box;
-}
-
+input,
 select {
   width: 100%;
   min-width: 0;
-  border: 1px solid #d1d5db;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 10px 12px;
-  background: white;
-  box-sizing: border-box;
+  font: inherit;
 }
 
-input:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-
+input:focus,
 select:focus {
   outline: none;
   border-color: #2563eb;
@@ -606,7 +916,10 @@ select:focus {
 }
 
 .acoes,
-.card-topo {
+.acoes-item,
+.topo-item,
+.cabecalho-lista,
+.paginacao {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -614,126 +927,106 @@ select:focus {
   flex-wrap: wrap;
 }
 
+.cabecalho-lista p {
+  color: #64748b;
+}
+
+.contador {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .botao {
   border: none;
   border-radius: 8px;
-  padding: 10px 16px;
+  padding: 10px 14px;
+  color: white;
   cursor: pointer;
   font-weight: 800;
 }
 
 .botao:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .principal {
   background: #2563eb;
-  color: white;
 }
 
 .secundario {
   background: #0f172a;
-  color: white;
 }
 
-.erro {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+.perigo {
+  background: #dc2626;
 }
 
-.sucesso-card {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-  color: #15803d;
+.lista {
+  display: grid;
+  gap: 12px;
 }
 
-.aviso-card {
-  border-color: #fde68a;
-  background: #fffbeb;
-  color: #92400e;
-}
-
-.confirmacao-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  border-color: #bfdbfe;
-  background: #eff6ff;
-}
-
-.confirmacao-card h2 {
-  margin: 0 0 6px;
-  font-size: 20px;
-}
-
-.confirmacao-card p {
-  margin: 4px 0 0;
-  color: #1e3a8a;
-  font-weight: 700;
-}
-
-.periodo-aplicado {
+.estado {
   margin: 0;
-  padding: 12px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #475569;
-  font-weight: 800;
+  color: #64748b;
+  font-weight: 700;
 }
 
 .vazio {
-  margin: 0;
-  color: #64748b;
+  padding: 2px 0;
+}
+
+.cards-lixeira {
+  display: grid;
+  gap: 14px;
+}
+
+.item-lixeira {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  background: #f8fafc;
+  display: grid;
+  gap: 14px;
+}
+
+.titulo-item {
+  display: grid;
+  gap: 4px;
+}
+
+.titulo-item h3 {
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.titulo-item p {
+  color: #475569;
   font-weight: 700;
 }
 
-.agendamento-card {
-  display: grid;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.card-topo span {
-  display: block;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.card-topo strong {
-  display: block;
-  margin-top: 3px;
-  font-size: 20px;
-}
-
-.resumo-agendamento {
-  margin: 6px 0 0;
-  color: #1d4ed8;
-  font-weight: 800;
-}
-
 dl {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
-  gap: 12px;
   margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
 }
 
 dl div {
-  display: grid;
-  gap: 4px;
-  padding: 12px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: white;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
 }
 
 .item-largo {
@@ -749,24 +1042,34 @@ dt {
 
 dd {
   margin: 0;
-  color: #111827;
-  font-weight: 800;
+  color: #0f172a;
+  font-weight: 700;
   word-break: break-word;
 }
 
-.situacao-excluido {
-  display: inline-flex;
-  width: fit-content;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: #fee2e2;
-  color: #b91c1c;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
+.resumo-paginacao {
+  margin: 0;
+  color: #334155;
+  font-weight: 700;
 }
 
-@media (max-width: 1000px) {
+.tamanho-pagina {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tamanho-pagina select {
+  min-width: 84px;
+}
+
+.botoes-paginacao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 1024px) {
   .campos,
   dl {
     grid-template-columns: 1fr;
@@ -774,6 +1077,25 @@ dd {
 
   .item-largo {
     grid-column: auto;
+  }
+
+  .acoes-item {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 26px;
+  }
+
+  .aba-entidade {
+    min-width: 104px;
   }
 }
 </style>

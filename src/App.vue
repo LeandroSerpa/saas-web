@@ -6,6 +6,7 @@ import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
   APP_ENVIRONMENT,
+  APP_VERSION,
   ambienteExibeSelo,
   buscarStatusFinanceiroMinhaEmpresa,
   buscarVersaoSistema,
@@ -190,6 +191,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Lixeira',
     descricao: 'Revise e restaure registros excluídos.',
   },
+  'admin-lixeira': {
+    subtitulo: 'Administração NuvemMais',
+    titulo: 'Lixeira',
+    descricao: 'Revise e restaure registros excluídos.',
+  },
 }
 
 const routeName = computed(() => (typeof route.name === 'string' ? route.name : ''))
@@ -267,6 +273,17 @@ const cabecalhoExibido = computed(() => {
 })
 const mostrarSeloHomologacao = computed(() => ambienteExibeSelo(ambienteVersaoApi.value || APP_ENVIRONMENT))
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
+const versaoMenuLateral = computed(() => {
+  const versaoBase = String(APP_VERSION || '').trim() || '0.0.0'
+  const ambiente = normalizarAmbienteAplicacao(ambienteVersaoApi.value || APP_ENVIRONMENT)
+  const sufixoAmbiente = resolverSufixoAmbienteVersao(ambiente)
+
+  if (!sufixoAmbiente || versaoBase.toLowerCase().endsWith(`-${sufixoAmbiente}`)) {
+    return `v${versaoBase}`
+  }
+
+  return `v${versaoBase}-${sufixoAmbiente}`
+})
 
 function criarCabecalhoPagina() {
   return {
@@ -323,6 +340,22 @@ function atualizarUsuarioLogado() {
 
   usuario.value = carregarUsuarioSessao()
   carregarStatusFinanceiro()
+}
+
+function resolverSufixoAmbienteVersao(ambiente) {
+  if (ambiente === 'homologacao') {
+    return 'hml'
+  }
+
+  if (ambiente === 'dev') {
+    return 'dev'
+  }
+
+  if (ambiente === 'local') {
+    return 'local'
+  }
+
+  return ''
 }
 
 async function atualizarVisualizacaoEmpresaGlobal() {
@@ -604,7 +637,6 @@ onBeforeUnmount(() => {
             <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/Módulos</RouterLink>
             <RouterLink to="/solicitacoes" @click="fecharMenuMobile">Solicitações</RouterLink>
             <RouterLink to="/auditoria" @click="fecharMenuMobile">Auditoria</RouterLink>
-            <!-- Futuro: lixeira por modulo, restauracao e exclusao definitiva quando o backend consolidar exclusao logica. -->
             <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
           </div>
         </section>
@@ -612,6 +644,10 @@ onBeforeUnmount(() => {
         <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
         <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
       </nav>
+
+      <footer class="rodape-versao-menu" aria-label="Versão do sistema">
+        <small>{{ versaoMenuLateral }}</small>
+      </footer>
     </aside>
 
     <div class="app-main">
@@ -767,6 +803,8 @@ onBeforeUnmount(() => {
 .menu-principal {
   display: grid;
   gap: 8px;
+  align-content: start;
+  flex: 1 1 auto;
 }
 
 .menu-principal a {
@@ -818,6 +856,20 @@ onBeforeUnmount(() => {
 .submenu a {
   padding: 9px 10px;
   font-size: 14px;
+}
+
+.rodape-versao-menu {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(226, 232, 240, 0.16);
+  color: #94a3b8;
+}
+
+.rodape-versao-menu small {
+  display: inline-flex;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-weight: 700;
 }
 
 .app-main {
