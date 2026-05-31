@@ -315,7 +315,7 @@ async function enviarUsuarioParaLixeira(usuarioItem) {
       return
     }
 
-    const motivoInformado = window.prompt('Motivo da exclusao (opcional):', '')
+    const motivoInformado = window.prompt('Motivo da exclusão (opcional):', '')
 
     if (motivoInformado === null) {
       return

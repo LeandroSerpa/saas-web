@@ -57,6 +57,8 @@ const filtrosIniciais = {
 const filtros = ref({ ...filtrosIniciais })
 const empresas = ref([])
 const resumoLixeira = ref([])
+const resumoCarregado = ref(false)
+const resumoIndisponivel = ref(false)
 const itensLixeira = ref([])
 const paginacao = ref(criarPaginacaoInicial())
 const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
@@ -75,29 +77,20 @@ const podeIrParaProxima = computed(
 
 const mapaResumo = computed(() => {
   const mapa = new Map(TIPOS_BACKEND_SUPORTADOS.map((tipo) => [tipo, 0]))
-  const contagemPaginaPorTipo = new Map()
-
-  for (const item of resumoLixeira.value) {
-    const tipo = normalizarTipo(item.tipo)
-
-    if (!tipo) continue
-
-    mapa.set(tipo, numeroSeguro(item.total))
-  }
-
-  for (const item of itensLixeira.value) {
-    const tipo = obterTipoItemApi(item)
-
-    if (!tipo) {
-      continue
+  if (resumoCarregado.value && !resumoIndisponivel.value) {
+    for (const item of resumoLixeira.value) {
+      const tipo = normalizarTipo(item.tipo)
+      if (!tipo) continue
+      mapa.set(tipo, numeroSeguro(item.total))
     }
-
-    contagemPaginaPorTipo.set(tipo, (contagemPaginaPorTipo.get(tipo) || 0) + 1)
+    return mapa
   }
 
-  for (const [tipo, totalPagina] of contagemPaginaPorTipo.entries()) {
-    if (!mapaResumoTemValor(tipo, mapa)) {
-      mapa.set(tipo, totalPagina)
+  if (resumoIndisponivel.value) {
+    for (const item of itensLixeira.value) {
+      const tipo = obterTipoItemApi(item)
+      if (!tipo) continue
+      mapa.set(tipo, (mapa.get(tipo) || 0) + 1)
     }
   }
 
@@ -138,7 +131,8 @@ async function carregarLixeira() {
   try {
     carregando.value = true
     erro.value = ''
-    sucesso.value = ''
+      sucesso.value = ''
+      resumoIndisponivel.value = false
 
     const [respostaItens, respostaResumo] = await Promise.allSettled([
       listarLixeiraAdmin(filtros.value.tipo, {
@@ -182,8 +176,12 @@ async function carregarLixeira() {
 
     if (respostaResumo.status === 'fulfilled') {
       resumoLixeira.value = normalizarResumoLixeira(respostaResumo.value)
+      resumoCarregado.value = true
+      resumoIndisponivel.value = false
     } else {
-      resumoLixeira.value = resumoLixeira.value.length ? resumoLixeira.value : []
+      resumoLixeira.value = []
+      resumoCarregado.value = true
+      resumoIndisponivel.value = true
       console.error('Resumo da lixeira indisponivel:', respostaResumo.reason)
     }
   } catch (error) {
@@ -268,7 +266,7 @@ async function restaurar(item) {
     await restaurarItemLixeiraAdmin(tipo, item.id)
     await removerItemDaListaAtual(item)
     await carregarLixeira()
-    sucesso.value = 'Item restaurado com sucesso.'
+    sucesso.value = 'Registro restaurado com sucesso.'
   } catch (error) {
     erro.value = montarMensagemErroOperacao('restaurar', error)
     console.error(error)
@@ -347,7 +345,12 @@ async function atualizarResumo() {
   try {
     const resposta = await listarResumoLixeiraAdmin(montarFiltrosConsulta())
     resumoLixeira.value = normalizarResumoLixeira(resposta)
+    resumoCarregado.value = true
+    resumoIndisponivel.value = false
   } catch (error) {
+    resumoLixeira.value = []
+    resumoCarregado.value = true
+    resumoIndisponivel.value = true
     console.error('Nao foi possivel atualizar o resumo da lixeira:', error)
   }
 }
@@ -524,11 +527,10 @@ function mapearRotuloTipo(tipo) {
 
 function totalPorTipo(tipo) {
   if (tipo === TIPO_TODOS) {
-    const totalResumo = TIPOS_BACKEND_SUPORTADOS.reduce((acumulado, tipoAtual) => {
-      return acumulado + (mapaResumo.value.get(tipoAtual) || 0)
-    }, 0)
-
-    return totalResumo > 0 ? totalResumo : paginacao.value.totalElements
+    if (resumoIndisponivel.value) {
+      return itensLixeira.value.length
+    }
+    return TIPOS_BACKEND_SUPORTADOS.reduce((acumulado, tipoAtual) => acumulado + (mapaResumo.value.get(tipoAtual) || 0), 0)
   }
 
   const tipoNormalizado = normalizarTipo(tipo)
@@ -541,14 +543,20 @@ function totalPorTipo(tipo) {
 }
 
 function obterTipoItemApi(item) {
-  const tipoItem = normalizarTipo(obterCampo(item, 'tipo', 'entidade', 'entityType', 'tipoRegistro'))
+  const tipoItem = normalizarTipo(obterCampo(item, 'tipo', 'entidade', 'entityType', 'tipoRegistro', 'tipoOficial'))
 
   if (tipoItem) {
     return tipoItem
   }
 
+  const tipoFallbackDescricao = normalizarTipo(
+    obterCampo(item, 'entidadeTipo', 'entity', 'entityName', 'tipoDescricao', 'origemTipo'),
+  )
+  if (tipoFallbackDescricao) {
+    return tipoFallbackDescricao
+  }
   const tipoFiltro = normalizarTipo(filtros.value.tipo)
-  return tipoFiltro || ''
+  return filtros.value.tipo === TIPO_TODOS ? '' : tipoFiltro || ''
 }
 
 function obterTipoItemRotulo(item) {
@@ -645,10 +653,6 @@ function criarChaveProcessamento(acao, item) {
   return `${acao}:${obterTipoItemApi(item)}:${item?.id || ''}`
 }
 
-function mapaResumoTemValor(tipo, mapa = mapaResumo.value) {
-  return (mapa.get(tipo) || 0) > 0
-}
-
 function montarMensagemErroOperacao(acao, error) {
   const mensagemApi = obterMensagemAmigavelErro(error, '').trim()
   const mensagemGenericaNaoEncontrado = !mensagemApi || mensagemApi === MENSAGEM_RECURSO_NAO_ENCONTRADO
@@ -721,6 +725,9 @@ function montarMensagemErroOperacao(acao, error) {
           <strong>{{ totalPorTipo(opcao.tipo) }}</strong>
         </button>
       </div>
+      <p v-if="resumoIndisponivel" class="observacao-resumo">
+        Resumo global temporariamente indisponível. Contadores exibem apenas a lista atual até a API voltar.
+      </p>
 
       <div class="campos">
         <label>

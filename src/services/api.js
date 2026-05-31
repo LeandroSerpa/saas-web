@@ -2394,6 +2394,11 @@ function construirSegmentosTipoLixeiraAdmin(tipoNormalizado) {
     tipoNormalizado.toLowerCase(),
     tipoNormalizado.toLowerCase().replace(/_/g, '-'),
   ])
+  if (tipoNormalizado === 'PRODUTOS_ESTOQUE') {
+    segmentos.add('produtos-estoque')
+    segmentos.add('produto-estoque')
+    segmentos.add('produtos_estoque')
+  }
 
   return [...segmentos]
 }
@@ -2485,6 +2490,20 @@ export async function restaurarItemLixeiraAdmin(tipo, id) {
       url: `${API_URL}/admin/lixeira/${segmentoTipo}/${id}/restaurar`,
       init: {
         method: 'POST',
+        headers: montarHeaders(),
+      },
+    })
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/${segmentoTipo}/${id}/restaurar`,
+      init: {
+        method: 'PATCH',
+        headers: montarHeaders(),
+      },
+    })
+    candidatas.push({
+      url: `${API_URL}/admin/lixeira/${segmentoTipo}/${id}/restaurar`,
+      init: {
+        method: 'PUT',
         headers: montarHeaders(),
       },
     })

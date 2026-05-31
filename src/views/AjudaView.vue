@@ -388,6 +388,10 @@ const topicos = [
 
 const notasAtualizacaoAjuda = [
   'Lixeira Global integrada aos cadastros principais: clientes, serviços, funcionários, usuários e produtos de estoque.',
+  'Restauração de registros da lixeira com atualização automática da listagem e dos contadores.',
+  'Exclusão definitiva disponível na Lixeira Global para remoção irreversível.',
+  'Produtos de estoque agora participam do fluxo completo da lixeira.',
+  'Ações de exclusão, restauração e exclusão definitiva registradas em auditoria/log.',
 ]
 
 const estatisticas = computed(() => [

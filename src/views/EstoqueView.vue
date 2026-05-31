@@ -21,7 +21,7 @@ import {
   obterMensagemAmigavelErro,
   atualizarProdutoEstoque,
 } from '@/services/api'
-import { ehSuperAdmin } from '@/utils/permissoes'
+import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const UNIDADES_FALLBACK = Object.freeze([
   { valor: 'UN', descricao: 'Unidade' },
@@ -40,6 +40,7 @@ const OPCOES_TAMANHO_PAGINA = Object.freeze([5, 10, 20, 50])
 
 const usuario = ref(carregarUsuarioSessao())
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
+const adminOperacional = computed(() => ehAdmin(usuario.value))
 const empresaVisualizacao = ref(obterEmpresaVisualizacao())
 const empresaUsuarioId = computed(() => usuario.value?.empresaId || '')
 const empresaVisualizacaoEhPropria = computed(() =>
@@ -47,6 +48,7 @@ const empresaVisualizacaoEhPropria = computed(() =>
   String(empresaVisualizacao.value.id) === String(empresaUsuarioId.value),
 )
 const modoVisualizacaoSuperAdmin = computed(() => superAdmin.value && !empresaVisualizacaoEhPropria.value)
+const podeExcluirProduto = computed(() => adminOperacional.value && !modoVisualizacaoSuperAdmin.value)
 const abaAtiva = ref('produtos')
 const empresas = ref([])
 const produtos = ref([])
@@ -997,7 +999,7 @@ async function enviarProdutoParaLixeira(item) {
     return
   }
 
-  const motivoInformado = window.prompt('Motivo da exclusao (opcional):', '')
+  const motivoInformado = window.prompt('Motivo da exclusão (opcional):', '')
 
   if (motivoInformado === null) {
     return
@@ -1343,7 +1345,7 @@ onBeforeUnmount(() => {
               <button :class="['botao', produtoAtivo(produto) ? 'perigo' : 'sucesso-botao']" @click="alternarProduto(produto)">
                 {{ produtoAtivo(produto) ? 'Desativar' : 'Ativar' }}
               </button>
-              <button class="botao perigo" @click="enviarProdutoParaLixeira(produto)">Excluir</button>
+              <button v-if="podeExcluirProduto" class="botao perigo" @click="enviarProdutoParaLixeira(produto)">Excluir</button>
             </div>
           </article>
         </section>
