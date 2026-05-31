@@ -474,6 +474,26 @@ function montarHeadersPublicos(comJson = false) {
   return headers
 }
 
+function limparVazios(objeto = {}) {
+  if (!objeto || typeof objeto !== 'object') {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(objeto).filter(([, valor]) => {
+      if (valor === null || valor === undefined) {
+        return false
+      }
+
+      if (typeof valor === 'string') {
+        return valor.trim() !== ''
+      }
+
+      return true
+    }),
+  )
+}
+
 function montarQueryString(filtros = {}) {
   const params = new URLSearchParams()
 
