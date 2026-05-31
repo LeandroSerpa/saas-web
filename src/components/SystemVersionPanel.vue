@@ -22,6 +22,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  mostrarNovidades: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 const carregando = ref(true)
@@ -170,7 +174,7 @@ onMounted(carregarVersao)
       </div>
     </dl>
 
-    <div class="novidades">
+    <div v-if="mostrarNovidades" class="novidades">
       <strong>Novidades</strong>
       <p v-if="carregando" class="estado">Carregando informações da versão...</p>
       <ul v-else-if="dadosVersao.novidades.length">

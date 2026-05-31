@@ -386,12 +386,20 @@ const topicos = [
   },
 ]
 
-const notasAtualizacaoAjuda = [
-  'Lixeira Global integrada aos cadastros principais: clientes, serviços, funcionários, usuários e produtos de estoque.',
-  'Restauração de registros da lixeira com atualização automática da listagem e dos contadores.',
-  'Exclusão definitiva disponível na Lixeira Global para remoção irreversível.',
-  'Produtos de estoque agora participam do fluxo completo da lixeira.',
-  'Ações de exclusão, restauração e exclusão definitiva registradas em auditoria/log.',
+const historicoAtualizacoes = [
+  {
+    versao: '1.1.1-hml',
+    dataPublicacao: '2026-05-31',
+    itens: [
+      'Lixeira Global integrada aos cadastros principais.',
+      'Restauração de clientes, serviços, funcionários, usuários e produtos de estoque.',
+      'Exclusão definitiva segura pela Lixeira Global.',
+      'Cards/resumo da Lixeira Global corrigidos.',
+      'Produtos de estoque integrados ao fluxo de lixeira.',
+      'Auditoria/log nas ações de exclusão, restauração e exclusão definitiva.',
+      'Versão do menu lateral sincronizada com Ajuda.',
+    ],
+  },
 ]
 
 const estatisticas = computed(() => [
@@ -444,6 +452,24 @@ watch(
 function selecionarTopico(topicoId) {
   topicoAtivoId.value = topicoId
 }
+
+function formatarDataAtualizacao(valor) {
+  if (!valor) {
+    return ''
+  }
+
+  const data = new Date(valor)
+
+  if (Number.isNaN(data.getTime())) {
+    return String(valor)
+  }
+
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
 </script>
 
 <template>
@@ -479,7 +505,25 @@ function selecionarTopico(topicoId) {
     </section>
 
     <section id="versao-novidades">
-      <SystemVersionPanel titulo="Versão e novidades" :novidades-padrao="notasAtualizacaoAjuda" />
+      <SystemVersionPanel titulo="Versão do sistema" :novidades-padrao="[]" :mostrar-novidades="false" />
+    </section>
+
+    <section class="historico-atualizacoes" aria-label="Histórico de atualizações">
+      <header class="historico-cabecalho">
+        <h2>Histórico de atualizações</h2>
+        <p>Novas versões podem ser adicionadas aqui sem remover o histórico anterior.</p>
+      </header>
+
+      <article v-for="versao in historicoAtualizacoes" :key="versao.versao" class="historico-item">
+        <div class="historico-topo">
+          <strong>{{ versao.versao }}</strong>
+          <span v-if="versao.dataPublicacao">{{ formatarDataAtualizacao(versao.dataPublicacao) }}</span>
+        </div>
+
+        <ul>
+          <li v-for="item in versao.itens" :key="item">{{ item }}</li>
+        </ul>
+      </article>
     </section>
 
     <section class="layout-ajuda">
@@ -672,6 +716,66 @@ function selecionarTopico(topicoId) {
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.historico-atualizacoes,
+.historico-item {
+  display: grid;
+  gap: 12px;
+}
+
+.historico-atualizacoes {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  padding: 18px;
+}
+
+.historico-cabecalho h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.historico-cabecalho p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+.historico-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f8fafc;
+}
+
+.historico-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.historico-topo strong {
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.historico-topo span {
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.historico-item ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #334155;
+  display: grid;
+  gap: 8px;
 }
 
 .layout-ajuda {

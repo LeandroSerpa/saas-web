@@ -12,9 +12,10 @@ import {
   atualizarStatusAgendamento,
   atualizarAgendamento,
   cadastrarAgendamento,
+  carregarUsuarioSessao,
   excluirAgendamento,
   buscarStatusFinanceiroMinhaEmpresa,
-  modoVisualizacaoEmpresaAtivo,
+  obterEmpresaVisualizacao,
 } from '@/services/api'
 import {
   atualizarEscopoSolicitado,
@@ -23,6 +24,7 @@ import {
   lerAtualizacaoEmpresaStorage,
 } from '@/utils/atualizacoesEmpresa'
 import { debugLog } from '@/utils/devDebug'
+import { ehSuperAdmin } from '@/utils/permissoes'
 
 const agendamentos = ref([])
 const clientes = ref([])
@@ -36,7 +38,20 @@ const carregando = ref(true)
 const erro = ref('')
 const atualizandoId = ref(null)
 const mensagemSucessoAgendamento = ref('')
-const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
+const usuario = ref(carregarUsuarioSessao())
+const superAdmin = computed(() => ehSuperAdmin(usuario.value))
+const empresaVisualizacao = ref(obterEmpresaVisualizacao())
+const superAdminComEmpresaSelecionada = computed(() =>
+  Boolean(superAdmin.value && String(empresaVisualizacao.value?.id || '').trim()),
+)
+const superAdminSemEmpresaSelecionada = computed(() =>
+  Boolean(superAdmin.value && !superAdminComEmpresaSelecionada.value),
+)
+const podeOperarAgenda = computed(() => !superAdmin.value || superAdminComEmpresaSelecionada.value)
+const modoSomenteLeituraAgenda = computed(() => !podeOperarAgenda.value)
+const avisoContextoAgenda = computed(() =>
+  superAdminSemEmpresaSelecionada.value ? 'Selecione uma empresa para operar a agenda.' : '',
+)
 const agendamentoEditandoId = ref(null)
 const agendamentoEditandoStatus = ref('agendado')
 const filtros = ref({
@@ -226,6 +241,12 @@ async function carregarDados() {
   try {
     carregando.value = true
     erro.value = ''
+    sincronizarContextoAgenda()
+
+    if (!podeOperarAgenda.value) {
+      limparDadosAgendaSemContexto()
+      return
+    }
 
     debugLog('agenda-interna', 'Refresh da agenda e catálogos', montarFiltrosApiAgendamentos())
 
@@ -252,6 +273,12 @@ async function carregarAgendamentos() {
   try {
     carregando.value = true
     erro.value = ''
+    sincronizarContextoAgenda()
+
+    if (!podeOperarAgenda.value) {
+      agendamentos.value = []
+      return
+    }
 
     debugLog('agenda-interna', 'Refresh da agenda', montarFiltrosApiAgendamentos())
 
@@ -265,8 +292,8 @@ async function carregarAgendamentos() {
 }
 
 async function alterarStatus(id, status) {
-  if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+  if (!podeOperarAgenda.value) {
+    erro.value = 'Selecione uma empresa para operar a agenda.'
     return
   }
 
@@ -305,8 +332,8 @@ function obterMensagemConfirmacaoStatus(status) {
 }
 
 async function excluirAgendamentoAgenda(id) {
-  if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+  if (!podeOperarAgenda.value) {
+    erro.value = 'Selecione uma empresa para operar a agenda.'
     return
   }
 
@@ -357,8 +384,8 @@ function tratarCopiaResumo(evento = {}) {
 }
 
 async function salvarAgendamento() {
-  if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+  if (!podeOperarAgenda.value) {
+    erro.value = 'Selecione uma empresa para operar a agenda.'
     return
   }
 
@@ -446,6 +473,11 @@ async function salvarAgendamento() {
 }
 
 async function carregarStatusFinanceiro() {
+  if (superAdmin.value) {
+    statusFinanceiro.value = null
+    return
+  }
+
   try {
     statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
   } catch (error) {
@@ -456,6 +488,10 @@ async function carregarStatusFinanceiro() {
 
 async function carregarFuncionariosDoServicoSelecionado() {
   funcionariosVinculadosAoServico.value = []
+
+  if (!podeOperarAgenda.value) {
+    return
+  }
 
   if (!novoAgendamento.value.servicoId) {
     return
@@ -484,7 +520,7 @@ async function carregarFuncionariosDoServicoSelecionado() {
 }
 
 function editarAgendamento(agendamento) {
-  if (modoVisualizacaoEmpresa.value) {
+  if (!podeOperarAgenda.value) {
     return
   }
 
@@ -778,8 +814,24 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
 }
 
 function atualizarModoVisualizacao() {
-  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  sincronizarContextoAgenda()
   carregarDados()
+}
+
+function sincronizarContextoAgenda() {
+  usuario.value = carregarUsuarioSessao()
+  empresaVisualizacao.value = obterEmpresaVisualizacao()
+}
+
+function limparDadosAgendaSemContexto() {
+  agendamentos.value = []
+  clientes.value = []
+  servicos.value = []
+  funcionarios.value = []
+  funcionariosVinculadosAoServico.value = []
+  agendamentoEditandoId.value = null
+  agendamentoEditandoStatus.value = 'agendado'
+  novoAgendamento.value = criarAgendamentoInicial()
 }
 
 onMounted(() => {
@@ -813,11 +865,11 @@ onBeforeUnmount(() => {
       <p>{{ erro }}</p>
     </section>
 
-    <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
-      <p>Modo visualização: alterações estão bloqueadas.</p>
+    <section v-if="avisoContextoAgenda" class="card aviso-visualizacao">
+      <p>{{ avisoContextoAgenda }}</p>
     </section>
 
-    <section v-if="!modoVisualizacaoEmpresa" class="grade-formularios">
+    <section v-if="podeOperarAgenda" class="grade-formularios">
       <AgendamentoForm
         v-model="novoAgendamento"
         :clientes="clientes"
@@ -915,7 +967,7 @@ onBeforeUnmount(() => {
           :key="agendamento.id"
           :agendamento="agendamento"
           :atualizando="atualizandoId === agendamento.id"
-          :somente-leitura="modoVisualizacaoEmpresa"
+          :somente-leitura="modoSomenteLeituraAgenda"
           @alterar-status="alterarStatus"
           @editar="editarAgendamento"
           @excluir="excluirAgendamentoAgenda"
@@ -1313,6 +1365,12 @@ onBeforeUnmount(() => {
   border-color: #fecaca;
   background: #fef2f2;
   color: #991b1b;
+}
+
+.aviso-visualizacao {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
 }
 
 :deep(.sucesso-texto) {

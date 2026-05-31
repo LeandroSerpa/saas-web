@@ -353,29 +353,40 @@ export function obterEmpresaVisualizacao() {
     return null
   }
 
-  const dadosSalvos =
-    localStorage.getItem(CHAVE_EMPRESA_VISUALIZACAO) ||
-    sessionStorage.getItem(CHAVE_EMPRESA_VISUALIZACAO)
+  const dadosSalvos = localStorage.getItem(CHAVE_EMPRESA_VISUALIZACAO) || sessionStorage.getItem(CHAVE_EMPRESA_VISUALIZACAO)
 
-  if (!dadosSalvos) {
+  if (dadosSalvos) {
+    try {
+      const dados = JSON.parse(dadosSalvos)
+      const id = dados?.id ?? dados?.empresaVisualizacaoId
+
+      if (!id) {
+        return null
+      }
+
+      return {
+        id: String(id),
+        nome: String(dados?.nome || dados?.empresaVisualizacaoNome || 'Empresa').trim() || 'Empresa',
+      }
+    } catch (error) {
+      console.error(error)
+      return null
+    }
+  }
+
+  // Compatibilidade com sessões antigas que armazenavam apenas as chaves separadas.
+  const empresaVisualizacaoId =
+    localStorage.getItem('empresaVisualizacaoId') || sessionStorage.getItem('empresaVisualizacaoId')
+  const empresaVisualizacaoNome =
+    localStorage.getItem('empresaVisualizacaoNome') || sessionStorage.getItem('empresaVisualizacaoNome')
+
+  if (!empresaVisualizacaoId || !String(empresaVisualizacaoId).trim()) {
     return null
   }
 
-  try {
-    const dados = JSON.parse(dadosSalvos)
-    const id = dados?.id ?? dados?.empresaVisualizacaoId
-
-    if (!id) {
-      return null
-    }
-
-    return {
-      id: String(id),
-      nome: String(dados?.nome || dados?.empresaVisualizacaoNome || 'Empresa').trim() || 'Empresa',
-    }
-  } catch (error) {
-    console.error(error)
-    return null
+  return {
+    id: String(empresaVisualizacaoId).trim(),
+    nome: String(empresaVisualizacaoNome || 'Empresa').trim() || 'Empresa',
   }
 }
 

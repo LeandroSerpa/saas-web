@@ -205,7 +205,7 @@ const mensagemModoEstoque = computed(() => {
   }
 
   if (modoVisualizacaoSuperAdmin.value) {
-    return 'Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    return 'Selecione uma empresa para operar o estoque.'
   }
 
   if (empresaVisualizacaoEhPropria.value) {
@@ -485,7 +485,7 @@ function criarPaginacaoLocal(size = 10) {
 
 function obterMensagemErroEstoque(errorAtual, fallback) {
   if (modoVisualizacaoSuperAdmin.value && (errorAtual?.status === 403 || mensagemIndicaBloqueioPlanoEstoque(errorAtual?.message))) {
-    return 'Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    return 'Selecione uma empresa para operar o estoque.'
   }
 
   if (errorAtual?.status === 403 || mensagemIndicaBloqueioPlanoEstoque(errorAtual?.message)) {
@@ -834,7 +834,7 @@ function validarNumeroNaoNegativo(valor, mensagem) {
 }
 
 function bloquearAcaoOperacional() {
-  erro.value = 'Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+  erro.value = 'Selecione uma empresa para operar o estoque.'
 }
 
 async function salvarProduto() {
@@ -1022,7 +1022,7 @@ async function enviarProdutoParaLixeira(item) {
 
 function obterMensagemErroExclusaoEstoque(errorAtual) {
   if (modoVisualizacaoSuperAdmin.value && errorAtual?.status === 403) {
-    return 'Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+    return 'Selecione uma empresa para operar o estoque.'
   }
 
   if (errorAtual?.status === 403) {
