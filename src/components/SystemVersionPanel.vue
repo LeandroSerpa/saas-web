@@ -3,10 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import {
   APP_ENVIRONMENT,
   APP_NAME,
-  APP_VERSION,
   ambienteExibeSelo,
   buscarVersaoSistema,
   formatarRotuloAmbiente,
+  obterInfoVersaoSistemaPadrao,
 } from '@/services/api'
 
 const props = defineProps({
@@ -18,16 +18,21 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  novidadesPadrao: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const carregando = ref(true)
 const versaoApi = ref(null)
 
 const dadosVersao = computed(() => {
+  const fallback = obterInfoVersaoSistemaPadrao()
   const origem = normalizarObjeto(versaoApi.value)
   const ambienteResposta = obterCampo(origem, 'ambiente', 'environment', 'perfil', 'stage')
-  const ambiente = ambienteResposta || APP_ENVIRONMENT
-  const novidades = normalizarNovidades(
+  const ambiente = ambienteResposta || fallback.ambiente || APP_ENVIRONMENT
+  const novidadesApi = normalizarNovidades(
     origem.novidades ??
       origem.changelog ??
       origem.itens ??
@@ -35,13 +40,15 @@ const dadosVersao = computed(() => {
       origem.alteracoes ??
       origem.changes,
   )
+  const novidades = novidadesApi.length ? novidadesApi : props.novidadesPadrao.length ? props.novidadesPadrao : fallback.novidades
 
   return {
     nome: APP_NAME,
-    versao: obterCampo(origem, 'versao', 'version', 'appVersion') || APP_VERSION || '-',
+    versao: obterCampo(origem, 'versao', 'version', 'appVersion') || fallback.versao || '-',
     ambiente,
     exibirAmbiente: ambienteExibeSelo(ambiente),
-    dataPublicacao: obterCampo(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt'),
+    dataPublicacao:
+      obterCampo(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt') || fallback.dataPublicacao,
     novidades,
   }
 })

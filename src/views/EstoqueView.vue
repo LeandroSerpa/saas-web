@@ -43,11 +43,14 @@ const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminOperacional = computed(() => ehAdmin(usuario.value))
 const empresaVisualizacao = ref(obterEmpresaVisualizacao())
 const empresaUsuarioId = computed(() => usuario.value?.empresaId || '')
+const superAdminComEmpresaSelecionada = computed(() =>
+  Boolean(superAdmin.value && String(empresaVisualizacao.value?.id || '').trim()),
+)
 const empresaVisualizacaoEhPropria = computed(() =>
   Boolean(superAdmin.value && empresaVisualizacao.value?.id && empresaUsuarioId.value) &&
   String(empresaVisualizacao.value.id) === String(empresaUsuarioId.value),
 )
-const modoVisualizacaoSuperAdmin = computed(() => superAdmin.value && !empresaVisualizacaoEhPropria.value)
+const modoVisualizacaoSuperAdmin = computed(() => superAdmin.value && !superAdminComEmpresaSelecionada.value)
 const podeExcluirProduto = computed(() => adminOperacional.value && !modoVisualizacaoSuperAdmin.value)
 const abaAtiva = ref('produtos')
 const empresas = ref([])
@@ -210,7 +213,7 @@ const mensagemModoEstoque = computed(() => {
   }
 
   if (empresaVisualizacao.value?.id) {
-    return `Modo visualização: você está vendo dados da empresa ${empresaVisualizacao.value.nome}. Alterações estão bloqueadas.`
+    return `Modo operação: você está atuando na empresa ${empresaVisualizacao.value.nome}.`
   }
 
   return 'Visão global: você está vendo dados consolidados da plataforma. Alterações estão bloqueadas.'

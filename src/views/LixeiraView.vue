@@ -35,12 +35,16 @@ const MAPA_ROTULO_TIPO = new Map(TIPOS_PADRAO.map((item) => [item.tipo, item.rot
 const ALIAS_TIPOS = {
   EMPRESA: 'EMPRESAS',
   USUARIO: 'USUARIOS',
+  USUARIOSSISTEMA: 'USUARIOS',
   CLIENTE: 'CLIENTES',
   SERVICO: 'SERVICOS',
   FUNCIONARIO: 'FUNCIONARIOS',
   PRODUTO: 'PRODUTOS_ESTOQUE',
   PRODUTOS: 'PRODUTOS_ESTOQUE',
   PRODUTO_ESTOQUE: 'PRODUTOS_ESTOQUE',
+  PRODUTOS_ESTOQUE: 'PRODUTOS_ESTOQUE',
+  PRODUTOSESTOQUE: 'PRODUTOS_ESTOQUE',
+  PRODUTO_ESTOQUES: 'PRODUTOS_ESTOQUE',
   PRODUTOS_ESTOQUES: 'PRODUTOS_ESTOQUE',
   AGENDAMENTO: 'AGENDAMENTOS',
 }
@@ -57,8 +61,10 @@ const filtrosIniciais = {
 const filtros = ref({ ...filtrosIniciais })
 const empresas = ref([])
 const resumoLixeira = ref([])
+const totalResumoGeral = ref(0)
 const resumoCarregado = ref(false)
 const resumoIndisponivel = ref(false)
+const avisoResumo = ref('')
 const itensLixeira = ref([])
 const paginacao = ref(criarPaginacaoInicial())
 const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
@@ -82,15 +88,6 @@ const mapaResumo = computed(() => {
       const tipo = normalizarTipo(item.tipo)
       if (!tipo) continue
       mapa.set(tipo, numeroSeguro(item.total))
-    }
-    return mapa
-  }
-
-  if (resumoIndisponivel.value) {
-    for (const item of itensLixeira.value) {
-      const tipo = obterTipoItemApi(item)
-      if (!tipo) continue
-      mapa.set(tipo, (mapa.get(tipo) || 0) + 1)
     }
   }
 
@@ -131,8 +128,9 @@ async function carregarLixeira() {
   try {
     carregando.value = true
     erro.value = ''
-      sucesso.value = ''
-      resumoIndisponivel.value = false
+    sucesso.value = ''
+    resumoIndisponivel.value = false
+    avisoResumo.value = ''
 
     const [respostaItens, respostaResumo] = await Promise.allSettled([
       listarLixeiraAdmin(filtros.value.tipo, {
@@ -175,13 +173,21 @@ async function carregarLixeira() {
     }
 
     if (respostaResumo.status === 'fulfilled') {
-      resumoLixeira.value = normalizarResumoLixeira(respostaResumo.value)
+      const resumoExtraido = extrairResumoLixeira(respostaResumo.value)
+      resumoLixeira.value = resumoExtraido.lista
+      totalResumoGeral.value = resumoExtraido.totalGeral
       resumoCarregado.value = true
       resumoIndisponivel.value = false
+      if (resumoExtraido.sinalizouDados && resumoExtraido.totalGeral === 0) {
+        avisoResumo.value =
+          'Resumo recebido em formato inesperado. Verifique o endpoint /admin/lixeira/resumo para ajustar os contadores.'
+      }
     } else {
       resumoLixeira.value = []
+      totalResumoGeral.value = 0
       resumoCarregado.value = true
       resumoIndisponivel.value = true
+      avisoResumo.value = ''
       console.error('Resumo da lixeira indisponivel:', respostaResumo.reason)
     }
   } catch (error) {
@@ -344,13 +350,21 @@ async function removerItemDaListaAtual(itemRemovido) {
 async function atualizarResumo() {
   try {
     const resposta = await listarResumoLixeiraAdmin(montarFiltrosConsulta())
-    resumoLixeira.value = normalizarResumoLixeira(resposta)
+    const resumoExtraido = extrairResumoLixeira(resposta)
+    resumoLixeira.value = resumoExtraido.lista
+    totalResumoGeral.value = resumoExtraido.totalGeral
     resumoCarregado.value = true
     resumoIndisponivel.value = false
+    avisoResumo.value =
+      resumoExtraido.sinalizouDados && resumoExtraido.totalGeral === 0
+        ? 'Resumo recebido em formato inesperado. Verifique o endpoint /admin/lixeira/resumo para ajustar os contadores.'
+        : ''
   } catch (error) {
     resumoLixeira.value = []
+    totalResumoGeral.value = 0
     resumoCarregado.value = true
     resumoIndisponivel.value = true
+    avisoResumo.value = ''
     console.error('Nao foi possivel atualizar o resumo da lixeira:', error)
   }
 }
@@ -392,88 +406,133 @@ function normalizarLista(valor) {
   return valor?.content || valor?.items || valor?.dados || valor?.data || []
 }
 
-function normalizarResumoLixeira(resposta) {
-  const lista = []
+function extrairResumoLixeira(resposta) {
+  const objeto =
+    resposta && typeof resposta === 'object' && !Array.isArray(resposta.data) && typeof resposta.data === 'object'
+      ? resposta.data
+      : resposta
+  const mapa = new Map(TIPOS_BACKEND_SUPORTADOS.map((tipo) => [tipo, 0]))
+  let sinalizouDados = false
 
-  if (Array.isArray(resposta)) {
-    for (const item of resposta) {
-      const tipo = normalizarTipo(obterCampo(item, 'tipo', 'entidade', 'entityType', 'nomeTipo'))
-      const total = numeroSeguro(obterCampo(item, 'total', 'quantidade', 'count', 'qtd'))
+  if (Array.isArray(objeto)) {
+    for (const item of objeto) {
+      const tipoItem = normalizarTipo(obterCampo(item, 'tipo', 'entidade', 'entityType', 'nomeTipo'))
 
-      if (!tipo) continue
+      if (tipoItem) {
+        mapa.set(tipoItem, (mapa.get(tipoItem) || 0) + numeroSeguro(obterCampo(item, 'total', 'quantidade', 'count', 'qtd')))
+        sinalizouDados = true
+        continue
+      }
 
-      lista.push({
-        tipo,
-        rotulo: mapearRotuloTipo(tipo),
-        total,
-      })
+      if (item && typeof item === 'object') {
+        if (aplicarContagensResumo(item, mapa)) {
+          sinalizouDados = true
+        }
+      }
     }
-
-    return lista
-  }
-
-  if (!resposta || typeof resposta !== 'object') {
-    return []
-  }
-
-  const objeto = resposta.data && typeof resposta.data === 'object' && !Array.isArray(resposta.data) ? resposta.data : resposta
-  const possivelMapa =
-    extrairPrimeiroObjetoValido(
-      objeto?.resumo,
-      objeto?.totais,
+  } else if (objeto && typeof objeto === 'object') {
+    const blocos = [
       objeto?.porTipo,
       objeto?.tipos,
       objeto?.countByType,
+      objeto?.contadores,
+      objeto?.totaisPorTipo,
+      objeto?.resumo,
+      objeto?.totais,
       objeto,
-    ) || {}
-  const chavesIgnoradas = new Set([
-    'PAGE',
-    'SIZE',
-    'TOTAL',
-    'TOTALELEMENTS',
-    'TOTALPAGES',
-    'FIRST',
-    'LAST',
-    'NUMBER',
-    'NUMBERELEMENTS',
-    'CONTENT',
-    'DATA',
-    'ITEMS',
-    'ITENS',
-    'DADOS',
-    'TOTALREGISTROS',
-  ])
+    ]
 
-  for (const [chave, valor] of Object.entries(possivelMapa)) {
+    for (const bloco of blocos) {
+      if (aplicarContagensResumo(bloco, mapa)) {
+        sinalizouDados = true
+      }
+    }
+  }
+
+  const lista = TIPOS_BACKEND_SUPORTADOS.map((tipo) => ({
+    tipo,
+    rotulo: mapearRotuloTipo(tipo),
+    total: numeroSeguro(mapa.get(tipo)),
+  }))
+  const totalInformado = extrairTotalResumoLixeira(objeto)
+  const totalCalculado = lista.reduce((acumulado, item) => acumulado + item.total, 0)
+  const totalGeral = totalInformado > 0 ? totalInformado : totalCalculado
+
+  return {
+    lista,
+    totalGeral,
+    sinalizouDados: sinalizouDados || totalInformado > 0,
+  }
+}
+
+function aplicarContagensResumoPorChaves(origem, mapa) {
+  if (!origem || typeof origem !== 'object' || Array.isArray(origem)) {
+    return false
+  }
+
+  let encontrou = false
+
+  for (const [chave, valor] of Object.entries(origem)) {
     const tipo = normalizarTipo(chave)
 
-    if (!tipo || chavesIgnoradas.has(normalizarTipo(chave).replace(/_/g, ''))) {
+    if (!tipo) {
       continue
     }
 
-    lista.push({
-      tipo,
-      rotulo: mapearRotuloTipo(tipo),
-      total: numeroSeguro(valor),
-    })
+    mapa.set(tipo, (mapa.get(tipo) || 0) + numeroSeguro(valor))
+    encontrou = true
   }
 
-  return lista
+  return encontrou
+}
+
+function aplicarContagensResumo(origem, mapa) {
+  if (Array.isArray(origem)) {
+    let encontrou = false
+
+    for (const item of origem) {
+      const tipoItem = normalizarTipo(obterCampo(item, 'tipo', 'entidade', 'entityType', 'nomeTipo'))
+
+      if (tipoItem) {
+        mapa.set(tipoItem, (mapa.get(tipoItem) || 0) + numeroSeguro(obterCampo(item, 'total', 'quantidade', 'count', 'qtd')))
+        encontrou = true
+        continue
+      }
+
+      if (aplicarContagensResumoPorChaves(item, mapa)) {
+        encontrou = true
+      }
+    }
+
+    return encontrou
+  }
+
+  return aplicarContagensResumoPorChaves(origem, mapa)
+}
+
+function extrairTotalResumoLixeira(origem) {
+  if (!origem || typeof origem !== 'object') {
+    return 0
+  }
+
+  return numeroSeguro(
+    obterCampo(
+      origem,
+      'total',
+      'todos',
+      'totalRegistros',
+      'totalItens',
+      'totalItems',
+      'totalElementos',
+      'count',
+      'quantidadeTotal',
+    ),
+  )
 }
 
 function numeroSeguro(valor) {
   const numero = Number(typeof valor === 'object' ? obterCampo(valor, 'total', 'count', 'quantidade') : valor)
   return Number.isFinite(numero) ? numero : 0
-}
-
-function extrairPrimeiroObjetoValido(...candidatos) {
-  for (const candidato of candidatos) {
-    if (candidato && typeof candidato === 'object' && !Array.isArray(candidato)) {
-      return candidato
-    }
-  }
-
-  return null
 }
 
 function obterCampo(origem, ...campos) {
@@ -491,8 +550,14 @@ function obterCampo(origem, ...campos) {
 function normalizarTipo(valor) {
   const tipoBruto = String(valor || '')
     .trim()
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toUpperCase()
-    .replace(/\s+/g, '_')
+    .replace(/[\s-]+/g, '_')
+    .replace(/[^A-Z0-9_]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
   const tipo = ALIAS_TIPOS[tipoBruto] || tipoBruto
 
   if (!tipo || tipo === TIPO_TODOS || tipo === 'ALL') {
@@ -528,9 +593,15 @@ function mapearRotuloTipo(tipo) {
 function totalPorTipo(tipo) {
   if (tipo === TIPO_TODOS) {
     if (resumoIndisponivel.value) {
-      return itensLixeira.value.length
+      return 0
     }
-    return TIPOS_BACKEND_SUPORTADOS.reduce((acumulado, tipoAtual) => acumulado + (mapaResumo.value.get(tipoAtual) || 0), 0)
+
+    const somaPorTipo = TIPOS_BACKEND_SUPORTADOS.reduce(
+      (acumulado, tipoAtual) => acumulado + (mapaResumo.value.get(tipoAtual) || 0),
+      0,
+    )
+
+    return totalResumoGeral.value > 0 ? totalResumoGeral.value : somaPorTipo
   }
 
   const tipoNormalizado = normalizarTipo(tipo)
@@ -726,7 +797,10 @@ function montarMensagemErroOperacao(acao, error) {
         </button>
       </div>
       <p v-if="resumoIndisponivel" class="observacao-resumo">
-        Resumo global temporariamente indisponível. Contadores exibem apenas a lista atual até a API voltar.
+        Resumo global temporariamente indisponível. Os contadores permanecerão em 0 até o endpoint voltar.
+      </p>
+      <p v-else-if="avisoResumo" class="observacao-resumo">
+        {{ avisoResumo }}
       </p>
 
       <div class="campos">

@@ -6,7 +6,6 @@ import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
   APP_ENVIRONMENT,
-  APP_VERSION,
   ambienteExibeSelo,
   buscarStatusFinanceiroMinhaEmpresa,
   buscarVersaoSistema,
@@ -256,6 +255,7 @@ const mensagemGlobal = ref('')
 const tipoMensagemGlobal = ref('erro')
 const erroInesperado = ref(false)
 const ambienteVersaoApi = ref('')
+const versaoSistemaApi = ref('')
 const conteudoRotaRef = ref(null)
 const cabecalhoPagina = ref(criarCabecalhoPagina())
 const recarregamentoVisualizacaoEmpresa = ref(0)
@@ -274,7 +274,7 @@ const cabecalhoExibido = computed(() => {
 const mostrarSeloHomologacao = computed(() => ambienteExibeSelo(ambienteVersaoApi.value || APP_ENVIRONMENT))
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(APP_VERSION || '').trim() || '0.0.0'
+  const versaoBase = String(versaoSistemaApi.value || '').trim() || '0.0.0'
   const ambiente = normalizarAmbienteAplicacao(ambienteVersaoApi.value || APP_ENVIRONMENT)
   const sufixoAmbiente = resolverSufixoAmbienteVersao(ambiente)
 
@@ -400,10 +400,12 @@ async function carregarAmbienteAplicacao() {
   try {
     const resposta = await buscarVersaoSistema()
     const dados = resposta?.data && typeof resposta.data === 'object' ? resposta.data : resposta
+    versaoSistemaApi.value = String(dados?.versao || dados?.version || dados?.appVersion || '').trim()
     ambienteVersaoApi.value = normalizarAmbienteAplicacao(
       dados?.ambiente || dados?.environment || dados?.perfil || dados?.stage,
     )
   } catch (error) {
+    versaoSistemaApi.value = ''
     ambienteVersaoApi.value = ''
     console.error(error)
   }
@@ -434,6 +436,11 @@ function abrirMenuMobile() {
 
 function fecharMenuMobile() {
   menuMobileAberto.value = false
+}
+
+function irParaAjudaVersao() {
+  fecharMenuMobile()
+  router.push({ path: '/ajuda', hash: '#versao-novidades' })
 }
 
 function sincronizarCabecalhoPagina() {
@@ -646,7 +653,9 @@ onBeforeUnmount(() => {
       </nav>
 
       <footer class="rodape-versao-menu" aria-label="Versão do sistema">
-        <small>{{ versaoMenuLateral }}</small>
+        <button type="button" class="link-versao-menu" @click="irParaAjudaVersao">
+          {{ versaoMenuLateral }}
+        </button>
       </footer>
     </aside>
 
@@ -865,11 +874,22 @@ onBeforeUnmount(() => {
   color: #94a3b8;
 }
 
-.rodape-versao-menu small {
+.link-versao-menu {
+  border: none;
+  background: transparent;
+  color: inherit;
   display: inline-flex;
   font-size: 11px;
   letter-spacing: 0.04em;
   font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-versao-menu:hover {
+  color: #cbd5e1;
 }
 
 .app-main {

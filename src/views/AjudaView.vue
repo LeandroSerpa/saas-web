@@ -478,13 +478,8 @@ function selecionarTopico(topicoId) {
       </p>
     </section>
 
-    <SystemVersionPanel titulo="Versão e novidades" />
-
-    <section class="notas-atualizacao" aria-label="Novidades da ajuda">
-      <strong>Novidades</strong>
-      <ul>
-        <li v-for="nota in notasAtualizacaoAjuda" :key="nota">{{ nota }}</li>
-      </ul>
+    <section id="versao-novidades">
+      <SystemVersionPanel titulo="Versão e novidades" :novidades-padrao="notasAtualizacaoAjuda" />
     </section>
 
     <section class="layout-ajuda">
@@ -677,25 +672,6 @@ function selecionarTopico(topicoId) {
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
-}
-
-.notas-atualizacao {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid #dbeafe;
-  border-radius: 8px;
-  background: #eff6ff;
-}
-
-.notas-atualizacao strong {
-  color: #1e3a8a;
-}
-
-.notas-atualizacao ul {
-  margin: 0;
-  padding-left: 18px;
-  color: #1f2937;
 }
 
 .layout-ajuda {

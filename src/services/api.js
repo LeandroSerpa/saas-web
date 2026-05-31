@@ -42,6 +42,16 @@ const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PU
 export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
+const VERSAO_HML_MINIMA = '1.1.1-hml'
+const DATA_PUBLICACAO_VERSAO_PADRAO =
+  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-05-31').trim() || '2026-05-31'
+const NOVIDADES_VERSAO_PADRAO = Object.freeze([
+  'Lixeira Global integrada aos cadastros principais.',
+  'Restauracao de registros da lixeira com atualizacao automatica da listagem e dos contadores.',
+  'Exclusao definitiva disponivel na Lixeira Global para remocao irreversivel.',
+  'Produtos de estoque participam do fluxo completo da lixeira.',
+  'Acoes de exclusao, restauracao e exclusao definitiva registradas em auditoria/log.',
+])
 
 export function obterUrlPublicaFrontend() {
   if (PUBLIC_APP_URL) {
@@ -113,6 +123,26 @@ export function formatarRotuloAmbiente(valor) {
   }
 
   return ambiente ? ambiente.charAt(0).toUpperCase() + ambiente.slice(1) : ''
+}
+
+export function obterInfoVersaoSistemaPadrao() {
+  const versaoBase = String(APP_VERSION || '').trim()
+  const ambientePorVersao = /-hml$/i.test(versaoBase) ? 'homologacao' : APP_ENVIRONMENT
+  const ambiente = normalizarAmbienteAplicacao(ambientePorVersao || 'homologacao')
+  const versaoHomologacao =
+    !versaoBase || versaoEhMenorQue(versaoBase, VERSAO_HML_MINIMA) ? VERSAO_HML_MINIMA : versaoBase
+  const versao =
+    ambiente === 'homologacao'
+      ? versaoHomologacao
+      : versaoBase || '1.0.0'
+
+  return {
+    nome: APP_NAME,
+    versao,
+    ambiente,
+    dataPublicacao: DATA_PUBLICACAO_VERSAO_PADRAO,
+    novidades: [...NOVIDADES_VERSAO_PADRAO],
+  }
 }
 
 function valorPreenchido(valor) {
@@ -1231,32 +1261,164 @@ async function tentarRotas(candidatas = [], init = {}, opcoesTratamento = {}) {
   throw ultimoErro || criarErroHttp(404)
 }
 
-export async function buscarVersaoSistema() {
-  return tentarRotas(
-    [
-      {
-        url: `${API_URL}/publico/versao`,
-        init: {
-          headers: montarHeadersPublicos(),
-        },
-      },
-      {
-        url: `${API_URL}/versao`,
-        init: {
-          headers: montarHeaders(),
-        },
-      },
-    ],
-    {
-      headers: montarHeadersPublicos(),
-    },
-    {
-      encerrarSessao401: false,
-      emitir403: false,
-      mensagem401: MENSAGENS_PADRAO.erroCarregarDados,
-      mensagem403: MENSAGENS_PADRAO.erroCarregarDados,
-    },
+function normalizarObjetoVersaoSistema(valor) {
+  if (!valor || typeof valor !== 'object') {
+    return {}
+  }
+
+  if (valor.data && typeof valor.data === 'object' && !Array.isArray(valor.data)) {
+    return valor.data
+  }
+
+  return valor
+}
+
+function obterCampoVersaoSistema(origem, ...campos) {
+  for (const campo of campos) {
+    const valor = origem?.[campo]
+
+    if (valor !== null && valor !== undefined && String(valor).trim()) {
+      return valor
+    }
+  }
+
+  return ''
+}
+
+function normalizarNovidadesVersaoSistema(valor) {
+  if (Array.isArray(valor)) {
+    return valor
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item.trim()
+        }
+
+        if (item && typeof item === 'object') {
+          return String(
+            item.titulo ||
+              item.descricao ||
+              item.texto ||
+              item.label ||
+              item.nome ||
+              '',
+          ).trim()
+        }
+
+        return ''
+      })
+      .filter(Boolean)
+  }
+
+  if (typeof valor === 'string' && valor.trim()) {
+    return valor
+      .split(/\r?\n|;/)
+      .map((item) => item.replace(/^[-*]\s*/, '').trim())
+      .filter(Boolean)
+  }
+
+  return []
+}
+
+function extrairVersaoSemSufixo(versao) {
+  const texto = String(versao || '').trim().toLowerCase()
+  const semSufixo = texto.split('-')[0]
+  const partes = semSufixo.split('.').map((parte) => Number(parte))
+
+  if (partes.length < 3 || partes.some((parte) => !Number.isFinite(parte))) {
+    return null
+  }
+
+  return partes
+}
+
+function versaoEhMenorQue(versaoA, versaoB) {
+  const partesA = extrairVersaoSemSufixo(versaoA)
+  const partesB = extrairVersaoSemSufixo(versaoB)
+
+  if (!partesA || !partesB) {
+    return false
+  }
+
+  for (let indice = 0; indice < 3; indice += 1) {
+    if (partesA[indice] < partesB[indice]) {
+      return true
+    }
+
+    if (partesA[indice] > partesB[indice]) {
+      return false
+    }
+  }
+
+  return false
+}
+
+function mesclarInfoVersaoSistema(respostaApi) {
+  const padrao = obterInfoVersaoSistemaPadrao()
+  const origem = normalizarObjetoVersaoSistema(respostaApi)
+  const ambienteApi = normalizarAmbienteAplicacao(
+    obterCampoVersaoSistema(origem, 'ambiente', 'environment', 'perfil', 'stage') || padrao.ambiente,
   )
+  const versaoApi = String(obterCampoVersaoSistema(origem, 'versao', 'version', 'appVersion') || '').trim()
+  const novidadesApi = normalizarNovidadesVersaoSistema(
+    origem.novidades ??
+      origem.changelog ??
+      origem.itens ??
+      origem.items ??
+      origem.alteracoes ??
+      origem.changes,
+  )
+  const versaoFinal =
+    ambienteApi === 'homologacao' && versaoEhMenorQue(versaoApi, VERSAO_HML_MINIMA)
+      ? VERSAO_HML_MINIMA
+      : versaoApi || padrao.versao
+
+  return {
+    nome: padrao.nome,
+    versao: versaoFinal,
+    ambiente: ambienteApi,
+    dataPublicacao:
+      obterCampoVersaoSistema(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt') ||
+      padrao.dataPublicacao,
+    novidades: novidadesApi.length ? novidadesApi : padrao.novidades,
+  }
+}
+
+export async function buscarVersaoSistema() {
+  try {
+    const respostaApi = await tentarRotas(
+      [
+        {
+          url: `${API_URL}/publico/versao`,
+          init: {
+            headers: montarHeadersPublicos(),
+          },
+        },
+        {
+          url: `${API_URL}/versao`,
+          init: {
+            headers: montarHeaders(),
+          },
+        },
+      ],
+      {
+        headers: montarHeadersPublicos(),
+      },
+      {
+        encerrarSessao401: false,
+        emitir403: false,
+        mensagem401: MENSAGENS_PADRAO.erroCarregarDados,
+        mensagem403: MENSAGENS_PADRAO.erroCarregarDados,
+      },
+    )
+
+    return mesclarInfoVersaoSistema(respostaApi)
+  } catch (error) {
+    if (error?.status === 404 || error?.status >= 500 || error?.status === 0) {
+      return obterInfoVersaoSistemaPadrao()
+    }
+
+    throw error
+  }
 }
 
 export function mensagemIndicaBloqueioPlanoEstoque(mensagem) {
