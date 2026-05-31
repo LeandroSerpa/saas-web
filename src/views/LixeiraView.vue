@@ -229,8 +229,8 @@ async function restaurar(item) {
     sucesso.value = ''
 
     await restaurarItemLixeiraAdmin(obterTipoItemApi(item), item.id)
+    await carregarLixeira()
     sucesso.value = 'Registro restaurado com sucesso.'
-    await removerItemDaListaAtual(item.id)
   } catch (error) {
     erro.value = obterMensagemAmigavelErro(error, 'Nao foi possivel restaurar o registro.')
     console.error(error)
@@ -260,8 +260,8 @@ async function excluirDefinitivamente(item) {
     sucesso.value = ''
 
     await excluirDefinitivoItemLixeiraAdmin(obterTipoItemApi(item), item.id)
+    await carregarLixeira()
     sucesso.value = 'Registro excluido definitivamente com sucesso.'
-    await removerItemDaListaAtual(item.id)
   } catch (error) {
     erro.value = obterMensagemAmigavelErro(
       error,

@@ -300,12 +300,12 @@ async function alternarAtivoUsuario(usuarioItem) {
 async function enviarUsuarioParaLixeira(usuarioItem) {
   try {
     if (usuarioAtual(usuarioItem)) {
-      erro.value = 'O usuario atual nao pode ser excluido.'
+      erro.value = 'O usuário atual não pode ser excluído.'
       return
     }
 
     if (!podeAlterarAtivoUsuario(usuarioItem)) {
-      erro.value = 'Voce nao tem permissao para excluir este usuario.'
+      erro.value = 'Você não tem permissão para excluir este registro.'
       return
     }
 
@@ -327,9 +327,10 @@ async function enviarUsuarioParaLixeira(usuarioItem) {
     mensagemSucessoStatus.value = ''
 
     await excluirUsuario(usuarioItem.id, String(motivoInformado || '').trim())
+    usuarios.value = usuarios.value.filter((item) => String(item.id) !== String(usuarioItem.id))
     await carregarDados()
 
-    mensagemSucessoStatus.value = 'Usuario enviado para a lixeira com sucesso.'
+    mensagemSucessoStatus.value = 'Registro enviado para a lixeira com sucesso.'
   } catch (error) {
     erro.value = obterMensagemErroExclusaoUsuario(error)
     console.error(error)
@@ -431,15 +432,23 @@ function obterMensagemErroUsuario(error, fallback) {
 }
 
 function obterMensagemErroExclusaoUsuario(error) {
-  const mensagem = obterMensagemAmigavelErro(error, 'Nao foi possivel excluir o usuario.')
+  const mensagem = obterMensagemAmigavelErro(error, 'Não foi possível enviar o registro para a lixeira. Tente novamente.')
   const normalizada = normalizarMensagem(mensagem)
 
   if (normalizada.includes('ultimo') && normalizada.includes('super_admin')) {
-    return 'Nao e possivel excluir o ultimo SUPER_ADMIN ativo.'
+    return mensagem
+  }
+
+  if (error?.status === 403) {
+    return 'Você não tem permissão para excluir este registro.'
+  }
+
+  if (error?.status === 404) {
+    return 'Registro não encontrado ou já removido.'
   }
 
   if (normalizada.includes('acesso negado') || normalizada.includes('permiss')) {
-    return 'Voce nao tem permissao para excluir este usuario.'
+    return 'Você não tem permissão para excluir este registro.'
   }
 
   return mensagem

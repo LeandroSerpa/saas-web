@@ -260,10 +260,11 @@ async function enviarServicoParaLixeira(servicoItem) {
     mensagemSucessoServico.value = ''
     mensagemSucessoStatus.value = ''
     await excluirServico(servicoItem.id, String(motivoInformado || '').trim())
-    mensagemSucessoStatus.value = 'Servico enviado para a lixeira com sucesso.'
+    servicos.value = servicos.value.filter((item) => String(item.id) !== String(servicoItem.id))
+    mensagemSucessoStatus.value = 'Registro enviado para a lixeira com sucesso.'
     await carregarServicos()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel enviar o servico para a lixeira.')
+    erro.value = obterMensagemErroExclusao(error)
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -338,6 +339,18 @@ function obterMensagemErro(error, fallback) {
   const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
 
   return mensagem || fallback
+}
+
+function obterMensagemErroExclusao(error) {
+  if (error?.status === 403) {
+    return 'Você não tem permissão para excluir este registro.'
+  }
+
+  if (error?.status === 404) {
+    return 'Registro não encontrado ou já removido.'
+  }
+
+  return obterMensagemErro(error, 'Não foi possível enviar o registro para a lixeira. Tente novamente.')
 }
 
 function limparFiltros() {

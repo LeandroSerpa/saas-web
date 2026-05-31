@@ -56,6 +56,21 @@ const perguntasFrequentes = [
       'Entre em Estoque, cadastre seus produtos, informe a quantidade atual e o estoque mínimo. Depois use Entrada, Saída ou Ajuste para manter as quantidades atualizadas.',
   },
   {
+    pergunta: 'Qual a diferença entre Desativar e Excluir?',
+    resposta:
+      'Desativar mantém o cadastro no sistema, mas tira o registro do uso operacional. Excluir envia o registro para a lixeira, onde ele pode ser restaurado por quem tem permissão.',
+  },
+  {
+    pergunta: 'O que acontece ao excluir definitivamente um registro?',
+    resposta:
+      'Excluir definitivamente remove o registro da lixeira de forma irreversível. Essa ação não pode ser desfeita.',
+  },
+  {
+    pergunta: 'As ações de exclusão ficam registradas?',
+    resposta:
+      'Sim. Exclusões, restaurações e exclusões definitivas ficam registradas em auditoria/log para acompanhamento administrativo.',
+  },
+  {
     pergunta: 'Onde encontro o link público da minha empresa?',
     resposta:
       'O link público fica na área Minha empresa. Ali você pode consultar, copiar e usar o endereço que seus clientes acessam para agendar.',
@@ -294,6 +309,22 @@ const topicos = [
     rota: '/usuarios',
   },
   {
+    id: 'lixeira-global',
+    titulo: 'Lixeira Global',
+    resumo: 'Restauração e exclusão definitiva de registros removidos logicamente.',
+    palavrasChave: ['lixeira', 'excluir', 'restaurar', 'exclusão definitiva', 'auditoria', 'logs'],
+    introducao:
+      'A Lixeira Global reúne registros enviados para a lixeira nos cadastros principais, como clientes, serviços, funcionários, usuários e produtos de estoque.',
+    pontos: [
+      'Excluir envia o registro para a lixeira e permite restauração posterior por quem tem permissão.',
+      'Desativar apenas bloqueia o uso operacional do cadastro, sem enviar o registro para a lixeira.',
+      'Excluir definitivamente é irreversível e deve ser usado apenas quando não houver necessidade de recuperação.',
+      'As ações de exclusão, restauração e exclusão definitiva ficam registradas em auditoria/log.',
+    ],
+    destaque: 'Use essa área para recuperar registros removidos por engano ou concluir exclusões permanentes com cuidado.',
+    rota: '/lixeira',
+  },
+  {
     id: 'minha-conta',
     titulo: 'Minha conta',
     resumo: 'Atualização dos seus dados pessoais.',
@@ -353,6 +384,10 @@ const topicos = [
     destaque: 'Boa opção para resolver dúvidas rápidas sem sair da tela de Ajuda.',
     perguntas: perguntasFrequentes,
   },
+]
+
+const notasAtualizacaoAjuda = [
+  'Lixeira Global integrada aos cadastros principais: clientes, serviços, funcionários, usuários e produtos de estoque.',
 ]
 
 const estatisticas = computed(() => [
@@ -440,6 +475,13 @@ function selecionarTopico(topicoId) {
     </section>
 
     <SystemVersionPanel titulo="Versão e novidades" />
+
+    <section class="notas-atualizacao" aria-label="Novidades da ajuda">
+      <strong>Novidades</strong>
+      <ul>
+        <li v-for="nota in notasAtualizacaoAjuda" :key="nota">{{ nota }}</li>
+      </ul>
+    </section>
 
     <section class="layout-ajuda">
       <aside class="lista-topicos" aria-label="Tópicos da central de ajuda">
@@ -631,6 +673,25 @@ function selecionarTopico(topicoId) {
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.notas-atualizacao {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.notas-atualizacao strong {
+  color: #1e3a8a;
+}
+
+.notas-atualizacao ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #1f2937;
 }
 
 .layout-ajuda {

@@ -150,7 +150,8 @@ async function enviarClienteParaLixeira(clienteItem) {
     erro.value = ''
     mensagemSucessoCliente.value = ''
     await excluirCliente(clienteItem.id, String(motivoInformado || '').trim())
-    mensagemSucessoCliente.value = 'Cliente enviado para a lixeira com sucesso.'
+    clientes.value = clientes.value.filter((item) => String(item.id) !== String(clienteItem.id))
+    mensagemSucessoCliente.value = 'Registro enviado para a lixeira com sucesso.'
 
     if (clienteEditandoId.value && String(clienteEditandoId.value) === String(clienteItem.id)) {
       cancelarEdicaoCliente(false)
@@ -158,7 +159,7 @@ async function enviarClienteParaLixeira(clienteItem) {
 
     await carregarClientes()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Nao foi possivel enviar o cliente para a lixeira.')
+    erro.value = obterMensagemErroExclusao(error)
     console.error(error)
   }
 }
@@ -211,6 +212,18 @@ function obterMensagemErro(error, fallback) {
   const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
 
   return mensagem || fallback
+}
+
+function obterMensagemErroExclusao(error) {
+  if (error?.status === 403) {
+    return 'Você não tem permissão para excluir este registro.'
+  }
+
+  if (error?.status === 404) {
+    return 'Registro não encontrado ou já removido.'
+  }
+
+  return obterMensagemErro(error, 'Não foi possível enviar o registro para a lixeira. Tente novamente.')
 }
 
 async function irParaPaginaAnterior() {

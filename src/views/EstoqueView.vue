@@ -1007,11 +1007,28 @@ async function enviarProdutoParaLixeira(item) {
     erro.value = ''
     sucesso.value = ''
     await excluirProdutoEstoque(item.id, String(motivoInformado || '').trim())
-    sucesso.value = 'Produto enviado para a lixeira com sucesso.'
+    produtos.value = produtos.value.filter((produto) => String(produto.id) !== String(item.id))
+    sucesso.value = 'Registro enviado para a lixeira com sucesso.'
     await Promise.all([carregarProdutos(), carregarHistorico()])
   } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel enviar o produto para a lixeira.')
+    erro.value = obterMensagemErroExclusaoEstoque(errorAtual)
   }
+}
+
+function obterMensagemErroExclusaoEstoque(errorAtual) {
+  if (modoVisualizacaoSuperAdmin.value && errorAtual?.status === 403) {
+    return 'Modo visualização: SUPER_ADMIN pode acompanhar o estoque, mas não altera dados das empresas.'
+  }
+
+  if (errorAtual?.status === 403) {
+    return 'Você não tem permissão para excluir este registro.'
+  }
+
+  if (errorAtual?.status === 404) {
+    return 'Registro não encontrado ou já removido.'
+  }
+
+  return obterMensagemErroEstoque(errorAtual, 'Não foi possível enviar o registro para a lixeira. Tente novamente.')
 }
 
 function abrirMovimentacao(item, tipo = 'ENTRADA') {

@@ -682,6 +682,11 @@ export function obterMensagemAmigavelErro(error, fallback = MENSAGENS_PADRAO.err
   return mensagem || fallback
 }
 
+const OPCOES_EXCLUSAO_LOGICA = {
+  emitir403: false,
+  mensagem403: 'Você não tem permissão para excluir este registro.',
+}
+
 async function extrairMensagemResposta(response) {
   const mensagemPadrao = MENSAGENS_PADRAO.erroOperacao
 
@@ -2962,7 +2967,7 @@ export async function excluirEmpresa(id, motivo = '') {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
 }
 
 export async function buscarUsuarios(filtros = {}) {
@@ -3010,7 +3015,7 @@ export async function excluirUsuario(id, motivo = '') {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
 }
 
 export async function cadastrarCliente(cliente) {
@@ -3039,7 +3044,7 @@ export async function excluirCliente(id, motivo = '') {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
 }
 
 export async function cadastrarServico(servico) {
@@ -3068,7 +3073,7 @@ export async function excluirServico(id, motivo = '') {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
 }
 
 export async function atualizarAtivoServico(id, ativo) {
@@ -3107,7 +3112,7 @@ export async function excluirFuncionario(id, motivo = '') {
     headers: montarHeaders(),
   })
 
-  return tratarResposta(response)
+  return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
 }
 
 export async function atualizarAtivoFuncionario(id, ativo) {
@@ -3130,6 +3135,7 @@ export async function excluirProdutoEstoque(id, motivo = '') {
       method: 'DELETE',
       headers: montarHeaders(),
     },
+    OPCOES_EXCLUSAO_LOGICA,
   )
 }
 
