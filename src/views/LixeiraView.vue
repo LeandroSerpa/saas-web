@@ -162,10 +162,14 @@ async function carregarLixeira() {
       console.error('Resumo da lixeira indisponivel:', respostaResumo.reason)
     }
   } catch (error) {
-    erro.value = obterMensagemAmigavelErro(
-      error,
-      'Nao foi possivel carregar a lixeira global. Tente novamente em instantes.',
-    )
+    if (error?.status === 404) {
+      erro.value = 'Endpoint da Lixeira Global não encontrado na API HML. Verifique o deploy do backend.'
+    } else {
+      erro.value = obterMensagemAmigavelErro(
+        error,
+        'Nao foi possivel carregar a lixeira global. Tente novamente em instantes.',
+      )
+    }
     console.error(error)
   } finally {
     carregando.value = false
