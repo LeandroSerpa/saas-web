@@ -388,7 +388,7 @@ const topicos = [
 
 const historicoAtualizacoes = [
   {
-    versao: '1.1.1-hml',
+    versao: '1.1.1',
     dataPublicacao: '2026-05-31',
     itens: [
       'Lixeira Global integrada aos cadastros principais.',

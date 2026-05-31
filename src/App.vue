@@ -5,14 +5,13 @@ import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
-  APP_ENVIRONMENT,
-  ambienteExibeSelo,
   buscarStatusFinanceiroMinhaEmpresa,
   buscarVersaoSistema,
   carregarUsuarioSessao,
   EVENTO_EMPRESA_VISUALIZACAO,
   limparSessaoAutenticacao,
-  normalizarAmbienteAplicacao,
+  obterInfoVersaoSistemaPadrao,
+  obterTipoSeloAmbiente,
 } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
@@ -254,8 +253,7 @@ const ultimaConsultaFinanceira = ref(0)
 const mensagemGlobal = ref('')
 const tipoMensagemGlobal = ref('erro')
 const erroInesperado = ref(false)
-const ambienteVersaoApi = ref('')
-const versaoSistemaApi = ref('')
+const infoVersaoSistema = ref(obterInfoVersaoSistemaPadrao())
 const conteudoRotaRef = ref(null)
 const cabecalhoPagina = ref(criarCabecalhoPagina())
 const recarregamentoVisualizacaoEmpresa = ref(0)
@@ -271,18 +269,18 @@ const cabecalhoExibido = computed(() => {
     descricao: cabecalhoPagina.value.descricao || fallback.descricao,
   }
 })
-const mostrarSeloHomologacao = computed(() => ambienteExibeSelo(ambienteVersaoApi.value || APP_ENVIRONMENT))
+const tipoSeloAmbienteTopo = computed(() => obterTipoSeloAmbiente(infoVersaoSistema.value?.ambiente))
+const mostrarSeloAmbienteTopo = computed(() => Boolean(tipoSeloAmbienteTopo.value))
+const rotuloSeloAmbienteTopo = computed(() =>
+  tipoSeloAmbienteTopo.value === 'homologacao' ? 'HOMOLOGAÇÃO' : 'LOCAL',
+)
+const descricaoSeloAmbienteTopo = computed(() =>
+  tipoSeloAmbienteTopo.value === 'homologacao' ? 'Ambiente de homologação' : 'Ambiente local',
+)
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(versaoSistemaApi.value || '').trim() || '0.0.0'
-  const ambiente = normalizarAmbienteAplicacao(ambienteVersaoApi.value || APP_ENVIRONMENT)
-  const sufixoAmbiente = resolverSufixoAmbienteVersao(ambiente)
-
-  if (!sufixoAmbiente || versaoBase.toLowerCase().endsWith(`-${sufixoAmbiente}`)) {
-    return `v${versaoBase}`
-  }
-
-  return `v${versaoBase}-${sufixoAmbiente}`
+  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.1.1'
+  return `v${versaoBase}`
 })
 
 function criarCabecalhoPagina() {
@@ -342,22 +340,6 @@ function atualizarUsuarioLogado() {
   carregarStatusFinanceiro()
 }
 
-function resolverSufixoAmbienteVersao(ambiente) {
-  if (ambiente === 'homologacao') {
-    return 'hml'
-  }
-
-  if (ambiente === 'dev') {
-    return 'dev'
-  }
-
-  if (ambiente === 'local') {
-    return 'local'
-  }
-
-  return ''
-}
-
 async function atualizarVisualizacaoEmpresaGlobal() {
   if (rotaSemLayout.value) {
     return
@@ -398,15 +380,9 @@ function atualizarStatusFinanceiroGlobal() {
 
 async function carregarAmbienteAplicacao() {
   try {
-    const resposta = await buscarVersaoSistema()
-    const dados = resposta?.data && typeof resposta.data === 'object' ? resposta.data : resposta
-    versaoSistemaApi.value = String(dados?.versao || dados?.version || dados?.appVersion || '').trim()
-    ambienteVersaoApi.value = normalizarAmbienteAplicacao(
-      dados?.ambiente || dados?.environment || dados?.perfil || dados?.stage,
-    )
+    infoVersaoSistema.value = await buscarVersaoSistema()
   } catch (error) {
-    versaoSistemaApi.value = ''
-    ambienteVersaoApi.value = ''
+    infoVersaoSistema.value = obterInfoVersaoSistemaPadrao()
     console.error(error)
   }
 }
@@ -660,8 +636,8 @@ onBeforeUnmount(() => {
     </aside>
 
     <div class="app-main">
-      <section v-if="mostrarSeloHomologacao" class="selo-homologacao" aria-label="Ambiente de homologação">
-        HOMOLOGAÇÃO
+      <section v-if="mostrarSeloAmbienteTopo" class="selo-homologacao" :aria-label="descricaoSeloAmbienteTopo">
+        {{ rotuloSeloAmbienteTopo }}
       </section>
 
       <AppHeaderCompacto
@@ -1022,4 +998,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

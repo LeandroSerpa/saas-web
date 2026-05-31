@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import {
-  APP_ENVIRONMENT,
   APP_NAME,
   ambienteExibeSelo,
   buscarVersaoSistema,
@@ -35,7 +34,7 @@ const dadosVersao = computed(() => {
   const fallback = obterInfoVersaoSistemaPadrao()
   const origem = normalizarObjeto(versaoApi.value)
   const ambienteResposta = obterCampo(origem, 'ambiente', 'environment', 'perfil', 'stage')
-  const ambiente = ambienteResposta || fallback.ambiente || APP_ENVIRONMENT
+  const ambiente = ambienteResposta || fallback.ambiente
   const novidadesApi = normalizarNovidades(
     origem.novidades ??
       origem.changelog ??
@@ -61,7 +60,7 @@ async function carregarVersao() {
   try {
     versaoApi.value = await buscarVersaoSistema()
   } catch (error) {
-    versaoApi.value = null
+    versaoApi.value = obterInfoVersaoSistemaPadrao()
     console.error(error)
   } finally {
     carregando.value = false
@@ -164,7 +163,7 @@ onMounted(carregarVersao)
         <dt>Versão</dt>
         <dd>{{ dadosVersao.versao }}</dd>
       </div>
-      <div v-if="dadosVersao.exibirAmbiente">
+      <div>
         <dt>Ambiente</dt>
         <dd>{{ formatarRotuloAmbiente(dadosVersao.ambiente) }}</dd>
       </div>

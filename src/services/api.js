@@ -42,6 +42,7 @@ const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PU
 export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
+const VERSAO_PRODUCAO_PADRAO = '1.1.1'
 const VERSAO_HML_MINIMA = '1.1.1-hml'
 const DATA_PUBLICACAO_VERSAO_PADRAO =
   String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-05-31').trim() || '2026-05-31'
@@ -99,8 +100,102 @@ export function normalizarAmbienteAplicacao(valor) {
   return ambiente
 }
 
+function obterHostnameAtual() {
+  if (typeof window === 'undefined' || !window.location) {
+    return ''
+  }
+
+  return String(window.location.hostname || '')
+    .trim()
+    .toLowerCase()
+}
+
+function hostnameEhLocal(hostname = obterHostnameAtual()) {
+  return (
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    hostname === '[::1]' ||
+    hostname === '0.0.0.0' ||
+    hostname.startsWith('127.') ||
+    hostname.endsWith('.local')
+  )
+}
+
+function hostnameEhProducaoOficial(hostname = obterHostnameAtual()) {
+  return ['gestao.nuvemmais.com.br', 'www.gestao.nuvemmais.com.br'].includes(hostname)
+}
+
+function hostnameIndicaHomologacao(hostname = obterHostnameAtual()) {
+  if (!hostname) {
+    return false
+  }
+
+  if (['gestao-hml.nuvemmais.com.br', 'www.gestao-hml.nuvemmais.com.br'].includes(hostname)) {
+    return true
+  }
+
+  return /(^|[.-])hml([.-]|$)/i.test(hostname) || hostname.includes('homolog')
+}
+
+function resolverAmbienteSeguroPorHostname(hostname = obterHostnameAtual()) {
+  if (hostnameEhLocal(hostname)) {
+    return 'local'
+  }
+
+  if (hostnameIndicaHomologacao(hostname)) {
+    return 'homologacao'
+  }
+
+  if (hostnameEhProducaoOficial(hostname)) {
+    return 'production'
+  }
+
+  return ''
+}
+
+function resolverVersaoSeguraPorHostname(hostname = obterHostnameAtual()) {
+  if (hostnameIndicaHomologacao(hostname)) {
+    return VERSAO_HML_MINIMA
+  }
+
+  if (hostnameEhProducaoOficial(hostname)) {
+    return VERSAO_PRODUCAO_PADRAO
+  }
+
+  return ''
+}
+
+function garantirSufixoVersaoHomologacao(versao, fallback = VERSAO_HML_MINIMA) {
+  const valor = String(versao || '').trim()
+
+  if (!valor) {
+    return fallback
+  }
+
+  if (/-hml$/i.test(valor)) {
+    return valor
+  }
+
+  return `${valor}-hml`
+}
+
+export function obterTipoSeloAmbiente(valor) {
+  const ambiente = normalizarAmbienteAplicacao(valor)
+  const hostname = obterHostnameAtual()
+
+  if (ambiente === 'homologacao' || hostnameIndicaHomologacao(hostname)) {
+    return 'homologacao'
+  }
+
+  if (hostnameEhLocal(hostname) && ['local', 'dev'].includes(ambiente)) {
+    return 'local'
+  }
+
+  return ''
+}
+
 export function ambienteExibeSelo(valor) {
-  return ['homologacao', 'dev', 'local', 'hml', 'homolog'].includes(normalizarAmbienteAplicacao(valor))
+  return Boolean(obterTipoSeloAmbiente(valor))
 }
 
 export function formatarRotuloAmbiente(valor) {
@@ -126,15 +221,31 @@ export function formatarRotuloAmbiente(valor) {
 }
 
 export function obterInfoVersaoSistemaPadrao() {
+  const hostname = obterHostnameAtual()
+  const versaoSeguraPorHostname = resolverVersaoSeguraPorHostname(hostname)
+  const ambienteSegurancaHost = resolverAmbienteSeguroPorHostname(hostname)
   const versaoBase = String(APP_VERSION || '').trim()
   const ambientePorVersao = /-hml$/i.test(versaoBase) ? 'homologacao' : APP_ENVIRONMENT
-  const ambiente = normalizarAmbienteAplicacao(ambientePorVersao || 'homologacao')
-  const versaoHomologacao =
-    !versaoBase || versaoEhMenorQue(versaoBase, VERSAO_HML_MINIMA) ? VERSAO_HML_MINIMA : versaoBase
-  const versao =
-    ambiente === 'homologacao'
-      ? versaoHomologacao
-      : versaoBase || '1.0.0'
+  let ambiente = normalizarAmbienteAplicacao(ambienteSegurancaHost || ambientePorVersao || 'production')
+
+  if (!hostnameEhLocal(hostname) && ['dev', 'local'].includes(ambiente)) {
+    ambiente = hostnameIndicaHomologacao(hostname) ? 'homologacao' : 'production'
+  }
+
+  let versao = versaoBase
+
+  if (ambiente === 'homologacao') {
+    const versaoMinimaHomologacao = versaoSeguraPorHostname || VERSAO_HML_MINIMA
+    const versaoHomologacaoBase =
+      !versaoBase || versaoEhMenorQue(versaoBase, versaoMinimaHomologacao) ? versaoMinimaHomologacao : versaoBase
+    versao = garantirSufixoVersaoHomologacao(versaoHomologacaoBase, versaoMinimaHomologacao)
+  } else if (ambiente === 'production') {
+    versao = versaoSeguraPorHostname || versaoBase || VERSAO_PRODUCAO_PADRAO
+  } else if (['local', 'dev'].includes(ambiente)) {
+    versao = versaoBase || 'dev'
+  } else {
+    versao = versaoBase || versaoSeguraPorHostname || VERSAO_PRODUCAO_PADRAO
+  }
 
   return {
     nome: APP_NAME,
@@ -1366,9 +1477,14 @@ function versaoEhMenorQue(versaoA, versaoB) {
 function mesclarInfoVersaoSistema(respostaApi) {
   const padrao = obterInfoVersaoSistemaPadrao()
   const origem = normalizarObjetoVersaoSistema(respostaApi)
-  const ambienteApi = normalizarAmbienteAplicacao(
+  const hostname = obterHostnameAtual()
+  const ambienteResposta = normalizarAmbienteAplicacao(
     obterCampoVersaoSistema(origem, 'ambiente', 'environment', 'perfil', 'stage') || padrao.ambiente,
   )
+  const ambienteApi =
+    !hostnameEhLocal(hostname) && ['dev', 'local'].includes(ambienteResposta)
+      ? resolverAmbienteSeguroPorHostname(hostname) || padrao.ambiente
+      : ambienteResposta
   const versaoApi = String(obterCampoVersaoSistema(origem, 'versao', 'version', 'appVersion') || '').trim()
   const novidadesApi = normalizarNovidadesVersaoSistema(
     origem.novidades ??
@@ -1378,10 +1494,17 @@ function mesclarInfoVersaoSistema(respostaApi) {
       origem.alteracoes ??
       origem.changes,
   )
-  const versaoFinal =
-    ambienteApi === 'homologacao' && versaoEhMenorQue(versaoApi, VERSAO_HML_MINIMA)
-      ? VERSAO_HML_MINIMA
-      : versaoApi || padrao.versao
+  let versaoFinal = versaoApi || padrao.versao
+
+  if (ambienteApi === 'homologacao') {
+    const versaoMinimaHomologacao = resolverVersaoSeguraPorHostname(hostname) || VERSAO_HML_MINIMA
+    if (versaoEhMenorQue(versaoFinal, versaoMinimaHomologacao)) {
+      versaoFinal = versaoMinimaHomologacao
+    }
+    versaoFinal = garantirSufixoVersaoHomologacao(versaoFinal, versaoMinimaHomologacao)
+  } else if (ambienteApi === 'production') {
+    versaoFinal = versaoFinal || resolverVersaoSeguraPorHostname(hostname) || VERSAO_PRODUCAO_PADRAO
+  }
 
   return {
     nome: padrao.nome,
@@ -1424,11 +1547,7 @@ export async function buscarVersaoSistema() {
 
     return mesclarInfoVersaoSistema(respostaApi)
   } catch (error) {
-    if (error?.status === 404 || error?.status >= 500 || error?.status === 0) {
-      return obterInfoVersaoSistemaPadrao()
-    }
-
-    throw error
+    return obterInfoVersaoSistemaPadrao()
   }
 }
 
