@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   ativarProdutoEstoque,
   buscarEmpresas,
+  buscarMinhaEmpresa,
   buscarMovimentacoesProdutoEstoque,
   buscarProdutoEstoque,
   buscarProdutosBaixoEstoque,
@@ -17,6 +19,7 @@ import {
   EVENTO_EMPRESA_VISUALIZACAO,
   EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS,
   mensagemIndicaBloqueioPlanoEstoque,
+  montarLinkPublicoCatalogo,
   obterEmpresaVisualizacao,
   obterMensagemAmigavelErro,
   atualizarProdutoEstoque,
@@ -37,6 +40,9 @@ const UNIDADES_FALLBACK = Object.freeze([
   { valor: 'OUTRO', descricao: 'Outro' },
 ])
 const OPCOES_TAMANHO_PAGINA = Object.freeze([5, 10, 20, 50])
+const TEXTO_BOTAO_PUBLICO_PADRAO = 'Pedir pelo WhatsApp'
+
+const route = useRoute()
 
 const usuario = ref(carregarUsuarioSessao())
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
@@ -52,7 +58,7 @@ const empresaVisualizacaoEhPropria = computed(() =>
 )
 const modoVisualizacaoSuperAdmin = computed(() => superAdmin.value && !superAdminComEmpresaSelecionada.value)
 const podeExcluirProduto = computed(() => adminOperacional.value && !modoVisualizacaoSuperAdmin.value)
-const abaAtiva = ref('produtos')
+const abaAtiva = ref(obterAbaInicial())
 const empresas = ref([])
 const produtos = ref([])
 const movimentacoes = ref([])
@@ -70,6 +76,7 @@ const erroProdutos = ref('')
 const erroBaixoEstoque = ref('')
 const erroMovimentacoes = ref('')
 const sucesso = ref('')
+const mensagemLinkCatalogo = ref('')
 const bloqueioPlano = ref(false)
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
@@ -80,10 +87,12 @@ const filtrosHistorico = ref(criarFiltrosHistoricoIniciais())
 const paginacaoProdutos = ref(criarPaginacaoLocal(10))
 const paginacaoMovimentacoes = ref(criarPaginacaoLocal(10))
 const saldoPrevistoMovimentacao = computed(() => calcularSaldoPrevistoMovimentacao())
+const minhaEmpresa = ref({ slug: '' })
 
 const abasDisponiveis = computed(() => {
   const abas = [
     { id: 'produtos', rotulo: 'Produtos' },
+    { id: 'catalogo', rotulo: 'Catálogo público' },
     { id: 'movimentacoes', rotulo: 'Movimentações' },
   ]
 
@@ -219,6 +228,61 @@ const mensagemModoEstoque = computed(() => {
   return 'Visão global: você está vendo dados consolidados da plataforma. Alterações estão bloqueadas.'
 })
 
+const slugCatalogo = computed(() => String(minhaEmpresa.value?.slug || '').trim())
+const linkCatalogoPublico = computed(() => montarLinkPublicoCatalogo(slugCatalogo.value))
+const produtosCatalogoOrdenados = computed(() =>
+  [...produtos.value].sort((a, b) => {
+    const prioridadeExibicao = Number(obterExibirCatalogoPublico(b)) - Number(obterExibirCatalogoPublico(a))
+    if (prioridadeExibicao) return prioridadeExibicao
+
+    const prioridadeDisponibilidade = Number(produtoDisponivelNoCatalogo(b)) - Number(produtoDisponivelNoCatalogo(a))
+    if (prioridadeDisponibilidade) return prioridadeDisponibilidade
+
+    const prioridadeDestaque = Number(obterDestaqueCatalogo(b)) - Number(obterDestaqueCatalogo(a))
+    if (prioridadeDestaque) return prioridadeDestaque
+
+    return obterOrdemCatalogo(a) - obterOrdemCatalogo(b) || obterNomeProduto(a).localeCompare(obterNomeProduto(b), 'pt-BR')
+  }),
+)
+const cardsResumoCatalogo = computed(() => [
+  {
+    rotulo: 'Na vitrine',
+    valor: formatarNumero(produtos.value.filter((item) => statusCatalogoProduto(item) === 'Na vitrine').length),
+    destaque: 'Produtos visiveis e com saldo disponivel.',
+  },
+  {
+    rotulo: 'Ocultos',
+    valor: formatarNumero(produtos.value.filter((item) => statusCatalogoProduto(item) === 'Oculto').length),
+    destaque: 'Produtos que nao aparecem no link publico.',
+  },
+  {
+    rotulo: 'Esgotados',
+    valor: formatarNumero(produtos.value.filter((item) => statusCatalogoProduto(item) === 'Esgotado').length),
+    destaque: 'Itens exibidos, mas sem saldo disponivel no momento.',
+  },
+  {
+    rotulo: 'Destaques',
+    valor: formatarNumero(produtos.value.filter((item) => obterDestaqueCatalogo(item)).length),
+    destaque: 'Produtos marcados para ganhar prioridade na vitrine.',
+  },
+])
+
+function obterAbaInicial() {
+  if (route.name === 'catalogo-publico-interno' || String(route.query?.aba || '').trim() === 'catalogo') {
+    return 'catalogo'
+  }
+
+  return 'produtos'
+}
+
+function selecionarAba(aba) {
+  abaAtiva.value = aba
+}
+
+function normalizarCategoriaEnvio(valor) {
+  return valor === 'Sem categoria' ? '' : String(valor || '').trim()
+}
+
 const cardsResumo = computed(() => [
   {
     rotulo: 'Total de produtos',
@@ -256,6 +320,7 @@ async function carregarTela() {
     erroBaixoEstoque.value = ''
     erroMovimentacoes.value = ''
     sucesso.value = ''
+    mensagemLinkCatalogo.value = ''
     bloqueioPlano.value = false
     sincronizarEmpresaVisualizacaoEstoque()
 
@@ -265,13 +330,14 @@ async function carregarTela() {
       consultarEstoque(() => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()), 'Não foi possível carregar o histórico de movimentações.'),
       consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosProdutosApi(false)), 'Não foi possível carregar os alertas de baixo estoque.'),
       carregarUnidadesEstoque(),
+      carregarMinhaEmpresaContexto(),
     ]
 
     if (superAdmin.value) {
       promessas.push(buscarEmpresas().catch(() => []))
     }
 
-    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, , empresasApi] = await Promise.all(promessas)
+    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, , , empresasApi] = await Promise.all(promessas)
 
     const produtosApi = dadosConsulta(produtosResultado)
     const baixoEstoqueApi = dadosConsulta(baixoEstoqueResultado)
@@ -445,6 +511,15 @@ function criarProdutoInicial() {
     quantidadeAtual: '',
     estoqueMinimo: '',
     ativo: true,
+    exibirCatalogoPublico: false,
+    imagemUrl: '',
+    descricaoPublica: '',
+    categoriaPublica: '',
+    destaqueCatalogo: false,
+    mostrarQuantidadePublica: false,
+    mostrarPrecoPublico: true,
+    ordemCatalogo: '',
+    textoBotaoPublico: TEXTO_BOTAO_PUBLICO_PADRAO,
   }
 }
 
@@ -545,6 +620,15 @@ function dadosConsulta(resultado) {
 
 function mensagemConsulta(resultado) {
   return resultado?.sucesso ? '' : resultado?.mensagem || ''
+}
+
+async function carregarMinhaEmpresaContexto() {
+  try {
+    const empresaAtual = await buscarMinhaEmpresa()
+    minhaEmpresa.value = empresaAtual && typeof empresaAtual === 'object' ? empresaAtual : { slug: '' }
+  } catch {
+    minhaEmpresa.value = { slug: '' }
+  }
 }
 
 function normalizarResumo(resumoApi, baixoEstoqueApi, produtosApi) {
@@ -662,12 +746,43 @@ function obterCampo(item, ...campos) {
   return ''
 }
 
+function obterBooleanoCampo(item, campos = [], padrao = false) {
+  for (const campo of campos) {
+    const valor = item?.[campo]
+    const booleano = normalizarBooleanoFlex(valor)
+
+    if (booleano !== null) {
+      return booleano
+    }
+  }
+
+  return padrao
+}
+
+function normalizarBooleanoFlex(valor) {
+  if (typeof valor === 'boolean') return valor
+  if (typeof valor === 'number') return valor !== 0
+
+  if (typeof valor === 'string') {
+    const texto = valor.trim().toLowerCase()
+
+    if (['true', '1', 'sim', 'yes'].includes(texto)) return true
+    if (['false', '0', 'nao', 'não', 'no'].includes(texto)) return false
+  }
+
+  return null
+}
+
 function obterNomeProduto(item) {
   return obterCampo(item, 'nome', 'produtoNome', 'titulo') || 'Produto sem nome'
 }
 
 function obterDescricaoProduto(item) {
   return obterCampo(item, 'descricao', 'detalhes', 'observacao')
+}
+
+function obterDescricaoPublicaProduto(item) {
+  return obterCampo(item, 'descricaoPublica', 'descricaoCatalogoPublico', 'descricao')
 }
 
 function obterCodigoProduto(item) {
@@ -680,6 +795,10 @@ function obterCodigoProdutoCard(item) {
 
 function obterCategoriaProduto(item) {
   return obterCampo(item, 'categoria', 'categoriaNome') || 'Sem categoria'
+}
+
+function obterCategoriaPublicaProduto(item) {
+  return obterCampo(item, 'categoriaPublica', 'categoriaCatalogoPublico', 'categoria')
 }
 
 function obterUnidadeProduto(item) {
@@ -712,6 +831,60 @@ function obterPrecoCusto(item) {
 
 function obterPrecoVenda(item) {
   return Number(obterCampo(item, 'precoVenda', 'valorVenda', 'preco') || 0)
+}
+
+function obterExibirCatalogoPublico(item) {
+  return obterBooleanoCampo(item, ['exibirCatalogoPublico', 'catalogoPublicoAtivo'], false)
+}
+
+function obterImagemUrlProduto(item) {
+  return String(obterCampo(item, 'imagemUrl', 'fotoUrl', 'imagem') || '').trim()
+}
+
+function obterDestaqueCatalogo(item) {
+  return obterBooleanoCampo(item, ['destaqueCatalogo'], false)
+}
+
+function obterMostrarQuantidadePublica(item) {
+  return obterBooleanoCampo(item, ['mostrarQuantidadePublica'], false)
+}
+
+function obterMostrarPrecoPublico(item) {
+  return obterBooleanoCampo(item, ['mostrarPrecoPublico'], true)
+}
+
+function obterOrdemCatalogo(item) {
+  const valor = Number(obterCampo(item, 'ordemCatalogo', 'ordem'))
+  return Number.isFinite(valor) ? valor : 0
+}
+
+function obterTextoBotaoPublico(item) {
+  const valor = String(obterCampo(item, 'textoBotaoPublico') || '').trim()
+  return valor || TEXTO_BOTAO_PUBLICO_PADRAO
+}
+
+function produtoDisponivelNoCatalogo(item) {
+  return produtoAtivo(item) && obterQuantidadeAtual(item) > 0
+}
+
+function statusCatalogoProduto(item) {
+  if (!obterExibirCatalogoPublico(item)) {
+    return 'Oculto'
+  }
+
+  if (!produtoDisponivelNoCatalogo(item)) {
+    return 'Esgotado'
+  }
+
+  return 'Na vitrine'
+}
+
+function classeStatusCatalogo(item) {
+  const status = statusCatalogoProduto(item)
+
+  if (status === 'Na vitrine') return 'catalogo-vitrine'
+  if (status === 'Esgotado') return 'catalogo-esgotado'
+  return 'catalogo-oculto'
 }
 
 function obterEmpresaProdutoId(item) {
@@ -868,6 +1041,10 @@ async function salvarProduto() {
       return
     }
 
+    if (!validarNumeroNaoNegativo(formularioProduto.value.ordemCatalogo || 0, 'Informe uma ordem válida para o catálogo público.')) {
+      return
+    }
+
     salvandoProduto.value = true
     const payload = montarPayloadProduto()
 
@@ -901,6 +1078,15 @@ function montarPayloadProduto() {
     precoVenda: numeroOuZero(formularioProduto.value.precoVenda),
     estoqueMinimo: numeroOuZero(formularioProduto.value.estoqueMinimo),
     ativo: formularioProduto.value.ativo !== false,
+    exibirCatalogoPublico: formularioProduto.value.exibirCatalogoPublico === true,
+    imagemUrl: formularioProduto.value.imagemUrl.trim(),
+    descricaoPublica: formularioProduto.value.descricaoPublica.trim(),
+    categoriaPublica: formularioProduto.value.categoriaPublica.trim(),
+    destaqueCatalogo: formularioProduto.value.destaqueCatalogo === true,
+    mostrarQuantidadePublica: formularioProduto.value.mostrarQuantidadePublica === true,
+    mostrarPrecoPublico: formularioProduto.value.mostrarPrecoPublico !== false,
+    ordemCatalogo: numeroOuZero(formularioProduto.value.ordemCatalogo),
+    textoBotaoPublico: formularioProduto.value.textoBotaoPublico.trim() || TEXTO_BOTAO_PUBLICO_PADRAO,
   }
 
   if (!produtoEditandoId.value) {
@@ -914,6 +1100,123 @@ function montarPayloadProduto() {
 function numeroOuZero(valor) {
   const numero = Number(valor)
   return Number.isFinite(numero) ? numero : 0
+}
+
+function montarPayloadProdutoExistente(produtoOrigem, sobrescritas = {}) {
+  const payloadBase = {
+    nome: obterNomeProduto(produtoOrigem),
+    descricao: obterDescricaoProduto(produtoOrigem),
+    codigoSku: obterCodigoProduto(produtoOrigem),
+    sku: obterCodigoProduto(produtoOrigem),
+    categoria: normalizarCategoriaEnvio(obterCategoriaProduto(produtoOrigem)),
+    unidade: obterUnidadeProduto(produtoOrigem),
+    precoCusto: numeroOuZero(obterPrecoCusto(produtoOrigem)),
+    precoVenda: numeroOuZero(obterPrecoVenda(produtoOrigem)),
+    estoqueMinimo: numeroOuZero(obterEstoqueMinimo(produtoOrigem)),
+    ativo: produtoAtivo(produtoOrigem),
+    exibirCatalogoPublico: obterExibirCatalogoPublico(produtoOrigem),
+    imagemUrl: obterImagemUrlProduto(produtoOrigem),
+    descricaoPublica: obterDescricaoPublicaProduto(produtoOrigem),
+    categoriaPublica: normalizarCategoriaEnvio(obterCategoriaPublicaProduto(produtoOrigem)),
+    destaqueCatalogo: obterDestaqueCatalogo(produtoOrigem),
+    mostrarQuantidadePublica: obterMostrarQuantidadePublica(produtoOrigem),
+    mostrarPrecoPublico: obterMostrarPrecoPublico(produtoOrigem),
+    ordemCatalogo: numeroOuZero(obterOrdemCatalogo(produtoOrigem)),
+    textoBotaoPublico: obterTextoBotaoPublico(produtoOrigem),
+  }
+
+  return {
+    ...payloadBase,
+    ...sobrescritas,
+    nome: String((sobrescritas.nome ?? payloadBase.nome) || '').trim(),
+    descricao: String((sobrescritas.descricao ?? payloadBase.descricao) || '').trim(),
+    codigoSku: String((sobrescritas.codigoSku ?? payloadBase.codigoSku) || '').trim(),
+    sku: String((sobrescritas.sku ?? sobrescritas.codigoSku ?? payloadBase.sku) || '').trim(),
+    categoria: normalizarCategoriaEnvio(sobrescritas.categoria ?? payloadBase.categoria),
+    imagemUrl: String((sobrescritas.imagemUrl ?? payloadBase.imagemUrl) || '').trim(),
+    descricaoPublica: String((sobrescritas.descricaoPublica ?? payloadBase.descricaoPublica) || '').trim(),
+    categoriaPublica: normalizarCategoriaEnvio(sobrescritas.categoriaPublica ?? payloadBase.categoriaPublica),
+    ordemCatalogo: numeroOuZero(sobrescritas.ordemCatalogo ?? payloadBase.ordemCatalogo),
+    textoBotaoPublico:
+      String((sobrescritas.textoBotaoPublico ?? payloadBase.textoBotaoPublico) || '').trim() || TEXTO_BOTAO_PUBLICO_PADRAO,
+  }
+}
+
+async function alternarVisibilidadeCatalogo(item, exibir) {
+  if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
+    return
+  }
+
+  try {
+    erro.value = ''
+    sucesso.value = ''
+
+    const produtoDetalhado = await buscarProdutoEstoque(item.id).catch(() => item)
+    const payload = montarPayloadProdutoExistente(produtoDetalhado, {
+      exibirCatalogoPublico: exibir === true,
+    })
+
+    await atualizarProdutoEstoque(item.id, payload)
+    sucesso.value = exibir ? 'Produto exibido na vitrine com sucesso.' : 'Produto ocultado da vitrine com sucesso.'
+    await carregarProdutos()
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel atualizar a vitrine deste produto.')
+  }
+}
+
+async function copiarTexto(texto) {
+  if (!texto) {
+    return false
+  }
+
+  if (navigator?.clipboard?.writeText) {
+    await navigator.clipboard.writeText(texto)
+    return true
+  }
+
+  const campo = document.createElement('textarea')
+  campo.value = texto
+  campo.setAttribute('readonly', 'true')
+  campo.style.position = 'fixed'
+  campo.style.opacity = '0'
+  document.body.appendChild(campo)
+  campo.select()
+
+  let copiado = false
+
+  try {
+    copiado = document.execCommand('copy')
+  } finally {
+    document.body.removeChild(campo)
+  }
+
+  return copiado
+}
+
+async function copiarLinkCatalogo() {
+  if (!linkCatalogoPublico.value) {
+    mensagemLinkCatalogo.value = 'Defina o slug da empresa para gerar o link publico do catalogo.'
+    return
+  }
+
+  try {
+    const copiado = await copiarTexto(linkCatalogoPublico.value)
+    mensagemLinkCatalogo.value = copiado
+      ? 'Link do catalogo copiado com sucesso.'
+      : 'Nao foi possivel copiar automaticamente. O link continua disponivel abaixo.'
+  } catch {
+    mensagemLinkCatalogo.value = 'Nao foi possivel copiar automaticamente. O link continua disponivel abaixo.'
+  }
+}
+
+function abrirCatalogoPublico() {
+  if (!linkCatalogoPublico.value) {
+    mensagemLinkCatalogo.value = 'Defina o slug da empresa para abrir o catalogo publico.'
+    return
+  }
+
+  window.open(linkCatalogoPublico.value, '_blank', 'noopener,noreferrer')
 }
 
 async function editarProduto(item) {
@@ -949,6 +1252,15 @@ async function editarProduto(item) {
       quantidadeAtual: obterQuantidadeAtual(produtoDetalhado),
       estoqueMinimo: obterEstoqueMinimo(produtoDetalhado),
       ativo: produtoAtivo(produtoDetalhado),
+      exibirCatalogoPublico: obterExibirCatalogoPublico(produtoDetalhado),
+      imagemUrl: obterImagemUrlProduto(produtoDetalhado),
+      descricaoPublica: obterDescricaoPublicaProduto(produtoDetalhado),
+      categoriaPublica: obterCategoriaPublicaProduto(produtoDetalhado),
+      destaqueCatalogo: obterDestaqueCatalogo(produtoDetalhado),
+      mostrarQuantidadePublica: obterMostrarQuantidadePublica(produtoDetalhado),
+      mostrarPrecoPublico: obterMostrarPrecoPublico(produtoDetalhado),
+      ordemCatalogo: obterOrdemCatalogo(produtoDetalhado),
+      textoBotaoPublico: obterTextoBotaoPublico(produtoDetalhado),
     }
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar os dados do produto.')
@@ -1168,6 +1480,7 @@ function usuarioMovimentacao(item) {
 
 function atualizarContextoEstoque() {
   usuario.value = carregarUsuarioSessao()
+  abaAtiva.value = obterAbaInicial()
   paginacaoProdutos.value.page = 1
   paginacaoMovimentacoes.value.page = 1
   carregarTela()
@@ -1326,6 +1639,8 @@ onBeforeUnmount(() => {
               <div class="badges-topo">
                 <span :class="['status', produtoAtivo(produto) ? 'ativo' : 'inativo']">{{ produtoAtivo(produto) ? 'Ativo' : 'Inativo' }}</span>
                 <span v-if="produtoBaixoEstoque(produto)" class="status alerta">Baixo estoque</span>
+                <span :class="['status', classeStatusCatalogo(produto)]">{{ statusCatalogoProduto(produto) }}</span>
+                <span v-if="obterDestaqueCatalogo(produto)" class="status catalogo-destaque">Destaque</span>
               </div>
             </div>
 
@@ -1342,6 +1657,9 @@ onBeforeUnmount(() => {
 
             <div v-if="!modoVisualizacaoSuperAdmin" class="acoes acoes-produto-card">
               <button class="botao secundario" @click="editarProduto(produto)">Editar</button>
+              <button class="botao secundario" @click="alternarVisibilidadeCatalogo(produto, !obterExibirCatalogoPublico(produto))">
+                {{ obterExibirCatalogoPublico(produto) ? 'Ocultar da vitrine' : 'Mostrar na vitrine' }}
+              </button>
               <button class="botao secundario" @click="abrirMovimentacao(produto, 'ENTRADA')">Entrada</button>
               <button class="botao secundario" @click="abrirMovimentacao(produto, 'SAIDA')">Saída</button>
               <button class="botao secundario" @click="abrirMovimentacao(produto, 'AJUSTE')">Ajuste</button>
@@ -1365,6 +1683,105 @@ onBeforeUnmount(() => {
             <button class="botao secundario" :disabled="!podePaginaAnterior(paginacaoProdutos)" @click="irPaginaAnterior(paginacaoProdutos)">Anterior</button>
             <button class="botao secundario" :disabled="!podeProximaPagina(produtosVisiveis.length, paginacaoProdutos)" @click="irProximaPagina(produtosVisiveis.length, paginacaoProdutos)">Próxima</button>
           </div>
+        </section>
+      </section>
+
+      <section v-if="abaAtiva === 'catalogo'" class="secao-lista">
+        <section class="card catalogo-link-card">
+          <div class="titulo-card">
+            <h2>Link publico do catalogo</h2>
+            <p>Compartilhe este endereco com seus clientes para apresentar os produtos do dia e receber contatos pelo WhatsApp.</p>
+          </div>
+
+          <div class="catalogo-link-conteudo">
+            <div class="catalogo-link-bloco">
+              <span class="link-rotulo">Endereco do catalogo</span>
+              <strong class="link-publico">
+                {{ linkCatalogoPublico || 'Configure o slug da empresa em Minha empresa para liberar o link.' }}
+              </strong>
+              <p class="ajuda-inline">
+                {{ slugCatalogo ? 'O host acompanha automaticamente o ambiente atual.' : 'Sem slug nao e possivel gerar o link publico.' }}
+              </p>
+            </div>
+
+            <div class="acoes">
+              <button class="botao principal" type="button" :disabled="!linkCatalogoPublico" @click="copiarLinkCatalogo">
+                Copiar link do catalogo
+              </button>
+              <button class="botao secundario" type="button" :disabled="!linkCatalogoPublico" @click="abrirCatalogoPublico">
+                Abrir catalogo
+              </button>
+            </div>
+          </div>
+
+          <p v-if="mensagemLinkCatalogo" class="ajuda-inline">{{ mensagemLinkCatalogo }}</p>
+        </section>
+
+        <section class="cards-resumo">
+          <article v-for="card in cardsResumoCatalogo" :key="card.rotulo" class="card resumo-card">
+            <span>{{ card.rotulo }}</span>
+            <strong>{{ card.valor }}</strong>
+            <p>{{ card.destaque }}</p>
+          </article>
+        </section>
+
+        <div class="cabecalho-secao">
+          <div>
+            <h2>Produtos na vitrine</h2>
+            <p>Revise o que esta visivel no catalogo publico e ajuste rapidamente sem sair do estoque.</p>
+          </div>
+          <span class="contador">{{ pluralizar(produtosCatalogoOrdenados.length, 'produto', 'produtos') }}</span>
+        </div>
+
+        <section v-if="!produtosCatalogoOrdenados.length" class="card estado">
+          <p>Cadastre um produto para comecar a montar o catalogo publico.</p>
+        </section>
+
+        <section v-else class="grade-produtos">
+          <article v-for="produto in produtosCatalogoOrdenados" :key="`catalogo-${produto.id}`" class="card produto-card">
+            <img
+              v-if="obterImagemUrlProduto(produto)"
+              :src="obterImagemUrlProduto(produto)"
+              :alt="`Imagem de ${obterNomeProduto(produto)}`"
+              class="catalogo-imagem"
+            />
+
+            <div class="topo-card">
+              <div>
+                <h3>{{ obterNomeProduto(produto) }}</h3>
+                <p>{{ obterCategoriaPublicaProduto(produto) || obterCategoriaProduto(produto) }}</p>
+              </div>
+              <div class="badges-topo">
+                <span :class="['status', classeStatusCatalogo(produto)]">{{ statusCatalogoProduto(produto) }}</span>
+                <span v-if="obterDestaqueCatalogo(produto)" class="status catalogo-destaque">Destaque</span>
+                <span v-if="produtoBaixoEstoque(produto)" class="status alerta">Baixo estoque</span>
+              </div>
+            </div>
+
+            <p v-if="obterDescricaoPublicaProduto(produto)" class="descricao-produto">{{ obterDescricaoPublicaProduto(produto) }}</p>
+
+            <div class="detalhes-produto">
+              <p><strong>Categoria publica:</strong> {{ obterCategoriaPublicaProduto(produto) || 'Nao informada' }}</p>
+              <p><strong>Ordem no catalogo:</strong> {{ formatarNumero(obterOrdemCatalogo(produto)) }}</p>
+              <p><strong>Preco publico:</strong> {{ obterMostrarPrecoPublico(produto) ? formatarMoeda(obterPrecoVenda(produto)) : 'Oculto' }}</p>
+              <p><strong>Quantidade publica:</strong> {{ obterMostrarQuantidadePublica(produto) ? formatarNumero(obterQuantidadeAtual(produto)) : 'Oculta' }}</p>
+              <p><strong>Botao:</strong> {{ obterTextoBotaoPublico(produto) }}</p>
+            </div>
+
+            <div v-if="!modoVisualizacaoSuperAdmin" class="acoes acoes-produto-card">
+              <button class="botao secundario" type="button" @click="editarProduto(produto)">Editar produto</button>
+              <button
+                class="botao secundario"
+                type="button"
+                @click="alternarVisibilidadeCatalogo(produto, !obterExibirCatalogoPublico(produto))"
+              >
+                {{ obterExibirCatalogoPublico(produto) ? 'Ocultar da vitrine' : 'Mostrar na vitrine' }}
+              </button>
+              <button class="botao principal" type="button" :disabled="!linkCatalogoPublico" @click="abrirCatalogoPublico">
+                Abrir catalogo
+              </button>
+            </div>
+          </article>
         </section>
       </section>
 
@@ -1427,6 +1844,57 @@ onBeforeUnmount(() => {
               Produto ativo
             </label>
           </div>
+
+          <section class="secao-formulario-publico">
+            <div class="titulo-card">
+              <h2>Catalogo publico</h2>
+              <p>Defina como este produto aparece na vitrine publica e no botao de WhatsApp.</p>
+            </div>
+
+            <div class="campos">
+              <label class="campo-checkbox destaque-checkbox">
+                <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
+                Exibir no catalogo publico
+              </label>
+              <label class="campo-checkbox destaque-checkbox">
+                <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
+                Produto em destaque
+              </label>
+              <label>
+                Imagem do produto por URL
+                <input v-model="formularioProduto.imagemUrl" type="url" placeholder="https://..." />
+                <small>O upload de imagem fica para uma proxima fase. Por enquanto, use um link direto.</small>
+              </label>
+              <label>
+                Categoria publica
+                <input v-model="formularioProduto.categoriaPublica" type="text" placeholder="Ex: Doces do dia" />
+              </label>
+              <label class="campo-grande">
+                Descricao para o cliente
+                <textarea
+                  v-model="formularioProduto.descricaoPublica"
+                  rows="3"
+                  placeholder="Explique sabor, tamanho, recheio ou observacoes importantes."
+                ></textarea>
+              </label>
+              <label>
+                Ordem no catalogo
+                <input v-model="formularioProduto.ordemCatalogo" type="number" min="0" step="1" />
+              </label>
+              <label>
+                Texto do botao
+                <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_PUBLICO_PADRAO" />
+              </label>
+              <label class="campo-checkbox destaque-checkbox">
+                <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
+                Mostrar quantidade ao cliente
+              </label>
+              <label class="campo-checkbox destaque-checkbox">
+                <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
+                Mostrar preco ao cliente
+              </label>
+            </div>
+          </section>
 
           <div class="acoes">
             <button class="botao principal" :disabled="salvandoProduto">
@@ -1656,6 +2124,23 @@ small { color: #64748b; }
 .aviso-plano h2 { font-size: 22px; }
 .estado,
 .estado-inline { color: #64748b; font-weight: 700; }
+.catalogo-link-card,
+.catalogo-link-conteudo,
+.catalogo-link-bloco,
+.secao-formulario-publico { display: grid; gap: 14px; }
+.catalogo-link-conteudo { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.link-rotulo {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.link-publico {
+  word-break: break-word;
+  color: #0f172a;
+  font-size: 15px;
+}
 .cards-resumo { grid-template-columns: repeat(4, minmax(180px, 1fr)); }
 .resumo-card { display: grid; gap: 10px; border-left: 4px solid #2563eb; }
 .resumo-card span { color: #64748b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
@@ -1715,6 +2200,13 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 .lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
 .produto-card,
 .historico-card { display: grid; gap: 14px; }
+.catalogo-imagem {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #dbe4f0;
+}
 .badges-topo { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .status {
   display: inline-flex;
@@ -1729,6 +2221,10 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 .status.ativo, .status.entrada { background: #dcfce7; color: #166534; }
 .status.inativo, .status.saida { background: #fee2e2; color: #b91c1c; }
 .status.alerta, .status.ajuste { background: #fef3c7; color: #92400e; }
+.status.catalogo-vitrine { background: #dbeafe; color: #1d4ed8; }
+.status.catalogo-esgotado { background: #fee2e2; color: #b91c1c; }
+.status.catalogo-oculto { background: #e2e8f0; color: #334155; }
+.status.catalogo-destaque { background: #fde68a; color: #92400e; }
 .detalhes-produto { display: grid; gap: 8px; }
 .detalhes-produto p { color: #374151; }
 .detalhes-produto strong { font-weight: 800; }
@@ -1746,6 +2242,10 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 .paginacao label { display: flex; align-items: center; gap: 8px; }
 .paginacao select { width: auto; }
 .botoes-paginacao { display: flex; gap: 8px; flex-wrap: wrap; }
+.secao-formulario-publico {
+  padding-top: 18px;
+  border-top: 1px solid #dbe4f0;
+}
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1776,7 +2276,8 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .cards-resumo { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
   .filtros-campos,
   .grade-produtos,
-  .lista-historico { grid-template-columns: 1fr; }
+  .lista-historico,
+  .catalogo-link-conteudo { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
   .cabecalho-pagina,

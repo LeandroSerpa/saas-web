@@ -69,6 +69,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Estoque',
     descricao: 'Controle produtos, quantidades e alertas de baixo estoque.',
   },
+  'catalogo-publico-interno': {
+    subtitulo: 'Operacao',
+    titulo: 'Catalogo publico',
+    descricao: 'Configure a vitrine publica de produtos e compartilhe o link com seus clientes.',
+  },
   'minha-empresa': {
     subtitulo: 'Configuração empresarial',
     titulo: 'Minha empresa',
@@ -199,6 +204,7 @@ const CABECALHOS_PADRAO = {
 const routeName = computed(() => (typeof route.name === 'string' ? route.name : ''))
 const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
+const rotaCatalogoPublico = computed(() => route.path.startsWith('/catalogo/') || route.path.startsWith('/cardapio/'))
 const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(route.path))
 const rotaInstitucionalPublica = computed(() => ['/termos', '/privacidade', '/sobre'].includes(route.path))
 const rotaCadastroPendente = computed(() => route.path === '/cadastro-pendente')
@@ -207,6 +213,7 @@ const trocaSenhaObrigatoria = computed(() => usuario.value?.trocaSenhaObrigatori
 const rotaSemLayout = computed(() =>
   rotaLogin.value ||
   rotaAgendamentoPublico.value ||
+  rotaCatalogoPublico.value ||
   rotaCadastroPublico.value ||
   rotaInstitucionalPublica.value ||
   rotaCadastroPendente.value ||
@@ -245,7 +252,13 @@ const nomeUsuario = computed(() => usuario.value?.nome || 'Usuário')
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
-const menuAdminAberto = ref(true)
+const gruposMenuAbertos = ref({
+  principal: true,
+  operacao: true,
+  financeiro: true,
+  configuracoes: true,
+  administracaoSaas: true,
+})
 const menuMobileAberto = ref(false)
 const statusFinanceiro = ref(null)
 const carregandoStatusFinanceiro = ref(false)
@@ -412,6 +425,14 @@ function abrirMenuMobile() {
 
 function fecharMenuMobile() {
   menuMobileAberto.value = false
+}
+
+function grupoMenuAberto(chave) {
+  return gruposMenuAbertos.value?.[chave] !== false
+}
+
+function alternarGrupoMenu(chave) {
+  gruposMenuAbertos.value[chave] = !grupoMenuAberto(chave)
 }
 
 function irParaAjudaVersao() {
@@ -582,30 +603,67 @@ onBeforeUnmount(() => {
       </div>
 
       <nav class="menu-principal" aria-label="Navegação principal">
-        <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
-        <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
-        <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
-        <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
-        <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">Disponibilidade</RouterLink>
-        <RouterLink v-if="adminEmpresa" to="/onboarding" @click="fecharMenuMobile">Primeiros passos</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">Relatórios</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa" @click="fecharMenuMobile">Minha empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">Notificações da empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano" @click="fecharMenuMobile">Meu plano</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/faturas" @click="fecharMenuMobile">Faturas</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
+        <section class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('principal')">
+            <span>Principal</span>
+            <span>{{ grupoMenuAberto('principal') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('principal')" class="submenu">
+            <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
+            <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
+            <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
+          </div>
+        </section>
+
+        <section class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('operacao')">
+            <span>Operação</span>
+            <span>{{ grupoMenuAberto('operacao') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('operacao')" class="submenu">
+            <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
+            <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">Disponibilidade</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">Relatórios</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/catalogo-publico" @click="fecharMenuMobile">Catálogo público</RouterLink>
+            <RouterLink v-if="adminEmpresa" to="/onboarding" @click="fecharMenuMobile">Primeiros passos</RouterLink>
+          </div>
+        </section>
+
+        <section v-if="podeGerenciarUsuarios" class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('financeiro')">
+            <span>Financeiro</span>
+            <span>{{ grupoMenuAberto('financeiro') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('financeiro')" class="submenu">
+            <RouterLink to="/faturas" @click="fecharMenuMobile">Faturas</RouterLink>
+            <RouterLink to="/meu-plano" @click="fecharMenuMobile">Meu plano</RouterLink>
+          </div>
+        </section>
+
+        <section class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('configuracoes')">
+            <span>Configurações</span>
+            <span>{{ grupoMenuAberto('configuracoes') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('configuracoes')" class="submenu">
+            <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa" @click="fecharMenuMobile">Minha empresa</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">Notificações da empresa</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
+            <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
+            <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
+          </div>
+        </section>
 
         <section v-if="superAdmin" class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
-            <span>Administração NuvemMais</span>
-            <span>{{ menuAdminAberto ? '−' : '+' }}</span>
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('administracaoSaas')">
+            <span>Administração SaaS</span>
+            <span>{{ grupoMenuAberto('administracaoSaas') ? '−' : '+' }}</span>
           </button>
-
-          <div v-if="menuAdminAberto" class="submenu">
+          <div v-if="grupoMenuAberto('administracaoSaas')" class="submenu">
             <RouterLink to="/admin-dashboard" @click="fecharMenuMobile">Dashboard NuvemMais</RouterLink>
             <RouterLink to="/empresas" @click="fecharMenuMobile">Empresas</RouterLink>
             <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
@@ -623,9 +681,6 @@ onBeforeUnmount(() => {
             <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
           </div>
         </section>
-
-        <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
-        <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
       </nav>
 
       <footer class="rodape-versao-menu" aria-label="Versão do sistema">

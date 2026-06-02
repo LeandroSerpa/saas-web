@@ -16,6 +16,7 @@ import MinhaEmpresaView from '../views/MinhaEmpresaView.vue'
 import RelatoriosView from '../views/RelatoriosView.vue'
 import PersonalizacaoPublicaView from '../views/PersonalizacaoPublicaView.vue'
 import AgendamentoPublicoView from '../views/AgendamentoPublicoView.vue'
+import CatalogoPublicoView from '../views/CatalogoPublicoView.vue'
 import AuditoriaView from '../views/AuditoriaView.vue'
 import LixeiraView from '../views/LixeiraView.vue'
 import PlanosView from '../views/PlanosView.vue'
@@ -174,6 +175,12 @@ const router = createRouter({
     {
       path: '/estoque',
       name: 'estoque',
+      component: EstoqueView,
+      meta: rotasAdmin,
+    },
+    {
+      path: '/catalogo-publico',
+      name: 'catalogo-publico-interno',
       component: EstoqueView,
       meta: rotasAdmin,
     },
@@ -385,6 +392,12 @@ const router = createRouter({
       component: AgendamentoPublicoView,
     },
     {
+      path: '/catalogo/:slug',
+      alias: ['/cardapio/:slug'],
+      name: 'catalogo-publico',
+      component: CatalogoPublicoView,
+    },
+    {
       path: '/cadastro',
       name: 'cadastro-empresa-publico',
       component: CadastroEmpresaPublicoView,
@@ -445,7 +458,12 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.path.startsWith('/agendar') || caminhosPublicos.includes(to.path)) {
+  if (
+    to.path.startsWith('/agendar') ||
+    to.path.startsWith('/catalogo/') ||
+    to.path.startsWith('/cardapio/') ||
+    caminhosPublicos.includes(to.path)
+  ) {
     return true
   }
 

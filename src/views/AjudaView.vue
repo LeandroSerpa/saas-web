@@ -56,6 +56,11 @@ const perguntasFrequentes = [
       'Entre em Estoque, cadastre seus produtos, informe a quantidade atual e o estoque mínimo. Depois use Entrada, Saída ou Ajuste para manter as quantidades atualizadas.',
   },
   {
+    pergunta: 'Como funciona o catalogo publico?',
+    resposta:
+      'O catalogo publico e uma vitrine online sem carrinho e sem pagamento. O cliente visualiza os produtos disponiveis e chama sua empresa pelo botao de WhatsApp.',
+  },
+  {
     pergunta: 'Qual a diferença entre Desativar e Excluir?',
     resposta:
       'Desativar mantém o cadastro no sistema, mas tira o registro do uso operacional. Excluir envia o registro para a lixeira, onde ele pode ser restaurado por quem tem permissão.',
@@ -203,6 +208,23 @@ const topicos = [
     ],
     destaque: 'Ideal para manter o controle dos produtos sem planilhas paralelas.',
     rota: '/estoque',
+  },
+  {
+    id: 'catalogo-publico',
+    titulo: 'Catalogo publico / vitrine de produtos',
+    resumo: 'Mostre produtos do dia em um link publico e receba contatos pelo WhatsApp.',
+    palavrasChave: ['catalogo', 'vitrine', 'whatsapp', 'estoque', 'link publico', 'cardapio'],
+    introducao:
+      'O Catalogo publico e a Fase 1 da vitrine de produtos do NuvemMais Gestao. Nesta etapa, o cliente acessa o link da sua empresa, ve os produtos disponiveis ou esgotados e fala com voce pelo WhatsApp.',
+    pontos: [
+      'No cadastro ou edicao do produto, marque Exibir no catalogo publico e preencha os campos visuais que quiser mostrar ao cliente.',
+      'Atualize a quantidade do produto por Entrada, Saida ou Ajuste no Estoque. A disponibilidade na vitrine acompanha o saldo atual.',
+      'Na aba Catalogo publico do Estoque, copie o link da vitrine e abra o catalogo para revisar como o cliente vai enxergar os produtos.',
+      'Voce pode escolher se o cliente vai ver preco, quantidade, destaque, categoria publica e o texto do botao.',
+      'A Fase 1 nao possui pedido, carrinho ou pagamento. Ela funciona como vitrine online com contato por WhatsApp.',
+    ],
+    destaque: 'Ideal para doces, lanches, marmitas e outros produtos do dia que mudam rapido.',
+    rota: '/catalogo-publico',
   },
   {
     id: 'dashboard-nuvemmais',

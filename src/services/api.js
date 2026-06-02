@@ -55,17 +55,31 @@ const NOVIDADES_VERSAO_PADRAO = Object.freeze([
 ])
 
 export function obterUrlPublicaFrontend() {
+  const origemAtual =
+    typeof window !== 'undefined' && window.location?.origin ? normalizarUrlBase(window.location.origin) : ''
+  const hostnameAtual = obterHostnameAtual()
+
+  if (origemAtual && (hostnameEhLocal(hostnameAtual) || hostnameIndicaHomologacao(hostnameAtual) || hostnameEhProducaoOficial(hostnameAtual))) {
+    return origemAtual
+  }
+
   if (PUBLIC_APP_URL) {
     return PUBLIC_APP_URL
   }
 
-  return normalizarUrlBase(window.location.origin)
+  return origemAtual
 }
 
 export function montarLinkPublicoAgendamento(slug) {
   const slugNormalizado = String(slug || '').trim()
 
   return slugNormalizado ? `${obterUrlPublicaFrontend()}/agendar/${slugNormalizado}` : ''
+}
+
+export function montarLinkPublicoCatalogo(slug) {
+  const slugNormalizado = String(slug || '').trim()
+
+  return slugNormalizado ? `${obterUrlPublicaFrontend()}/catalogo/${slugNormalizado}` : ''
 }
 
 function normalizarBooleano(valor) {
@@ -989,6 +1003,14 @@ export async function buscarServicosPublicos(slug) {
   })
 
   return tratarRespostaPublica(response)
+}
+
+export async function buscarCatalogoPublico(slug) {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/catalogo`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return normalizarRespostaProdutosEstoque(await tratarRespostaPublica(response))
 }
 
 export async function buscarSegmentosPublicos() {
@@ -2297,6 +2319,122 @@ function registrarDiagnosticoEstoque(error) {
   })
 }
 
+function normalizarBooleanoFlexivelEstoque(valor, padrao = false) {
+  if (typeof valor === 'boolean') {
+    return valor
+  }
+
+  if (typeof valor === 'number') {
+    return valor !== 0
+  }
+
+  if (typeof valor === 'string') {
+    const texto = valor.trim().toLowerCase()
+
+    if (['true', '1', 'sim', 'yes'].includes(texto)) {
+      return true
+    }
+
+    if (['false', '0', 'nao', 'não', 'no'].includes(texto)) {
+      return false
+    }
+  }
+
+  return padrao
+}
+
+function normalizarNumeroEstoque(valor, padrao = 0) {
+  const numero = Number(valor)
+
+  return Number.isFinite(numero) ? numero : padrao
+}
+
+function normalizarProdutoEstoqueResposta(produto) {
+  if (!produto || typeof produto !== 'object' || Array.isArray(produto)) {
+    return produto
+  }
+
+  const codigoSku = primeiroValorPreenchido(produto.codigoSku, produto.sku, produto.codigo) || ''
+  const quantidadeAtual = normalizarNumeroEstoque(
+    primeiroValorPreenchido(produto.quantidadeAtual, produto.saldoAtual, produto.quantidade, produto.estoqueAtual),
+    0,
+  )
+  const estoqueMinimo = normalizarNumeroEstoque(
+    primeiroValorPreenchido(produto.estoqueMinimo, produto.quantidadeMinima, produto.minimo),
+    0,
+  )
+  const precoCusto = normalizarNumeroEstoque(primeiroValorPreenchido(produto.precoCusto, produto.valorCusto, produto.custo), 0)
+  const precoVenda = normalizarNumeroEstoque(primeiroValorPreenchido(produto.precoVenda, produto.valorVenda, produto.preco), 0)
+  const ordemCatalogo = normalizarNumeroEstoque(primeiroValorPreenchido(produto.ordemCatalogo, produto.ordem), 0)
+  const ativo =
+    produto.ativo === false || String(produto.status || '').trim().toUpperCase() === 'INATIVO'
+      ? false
+      : normalizarBooleanoFlexivelEstoque(primeiroValorPreenchido(produto.ativo, produto.status), true)
+  const exibirCatalogoPublico = normalizarBooleanoFlexivelEstoque(
+    primeiroValorPreenchido(produto.exibirCatalogoPublico, produto.catalogoPublicoAtivo),
+    false,
+  )
+  const mostrarQuantidadePublica = normalizarBooleanoFlexivelEstoque(produto.mostrarQuantidadePublica, false)
+  const mostrarPrecoPublico = normalizarBooleanoFlexivelEstoque(produto.mostrarPrecoPublico, true)
+
+  return {
+    ...produto,
+    nome: String(primeiroValorPreenchido(produto.nome, produto.produtoNome, produto.titulo) || '').trim(),
+    descricao: String(primeiroValorPreenchido(produto.descricao, produto.detalhes, produto.observacao) || '').trim(),
+    codigoSku: String(codigoSku).trim(),
+    sku: String(codigoSku).trim(),
+    categoria: String(primeiroValorPreenchido(produto.categoria, produto.categoriaNome) || '').trim(),
+    unidade: String(primeiroValorPreenchido(produto.unidade, produto.unidadeMedida) || 'UN').trim().toUpperCase(),
+    precoCusto,
+    precoVenda,
+    quantidadeAtual,
+    estoqueMinimo,
+    ativo,
+    exibirCatalogoPublico,
+    imagemUrl: String(primeiroValorPreenchido(produto.imagemUrl, produto.fotoUrl, produto.imagem) || '').trim(),
+    descricaoPublica: String(primeiroValorPreenchido(produto.descricaoPublica, produto.descricaoCatalogoPublico, produto.descricao) || '').trim(),
+    categoriaPublica: String(primeiroValorPreenchido(produto.categoriaPublica, produto.categoriaCatalogoPublico, produto.categoria) || '').trim(),
+    destaqueCatalogo: normalizarBooleanoFlexivelEstoque(produto.destaqueCatalogo, false),
+    mostrarQuantidadePublica,
+    mostrarPrecoPublico,
+    ordemCatalogo,
+    textoBotaoPublico:
+      String(produto.textoBotaoPublico || '').trim() || 'Pedir pelo WhatsApp',
+  }
+}
+
+function normalizarRespostaProdutosEstoque(dados) {
+  if (Array.isArray(dados)) {
+    return dados.map(normalizarProdutoEstoqueResposta)
+  }
+
+  if (!dados || typeof dados !== 'object') {
+    return dados
+  }
+
+  const colecoes = ['value', 'Value', 'content', 'items', 'itens', 'resultado', 'produtos']
+  const colecoesAninhadas = ['value', 'Value', 'content', 'items', 'itens', 'resultado', 'produtos']
+  const resposta = { ...dados }
+
+  for (const chave of colecoes) {
+    if (Array.isArray(resposta[chave])) {
+      resposta[chave] = resposta[chave].map(normalizarProdutoEstoqueResposta)
+    }
+  }
+
+  if (resposta.data && typeof resposta.data === 'object' && !Array.isArray(resposta.data)) {
+    resposta.data = { ...resposta.data }
+
+    for (const chave of colecoesAninhadas) {
+      if (Array.isArray(resposta.data[chave])) {
+        resposta.data[chave] = resposta.data[chave].map(normalizarProdutoEstoqueResposta)
+      }
+    }
+  }
+
+  return resposta
+}
+
 export async function buscarResumoEstoque(filtros = {}) {
   return buscarRecursoEstoque('/estoque/resumo', filtros)
 }
@@ -2411,13 +2549,14 @@ export async function desativarUnidadeEstoqueAdmin(id) {
 }
 
 export async function buscarProdutosEstoque(filtros = {}) {
-  const dados = await buscarRecursoEstoque('/estoque/produtos', filtros)
+  const dados = normalizarRespostaProdutosEstoque(await buscarRecursoEstoque('/estoque/produtos', filtros))
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarProdutoEstoque(id) {
-  return tentarRotas(
+  return normalizarProdutoEstoqueResposta(
+    await tentarRotas(
     [
       `${API_URL}/estoque/produtos/${id}`,
       `${API_URL}/produtos/${id}`,
@@ -2426,10 +2565,12 @@ export async function buscarProdutoEstoque(id) {
       headers: montarHeaders(),
     },
   )
+  )
 }
 
 export async function criarProdutoEstoque(dados) {
-  return tentarRotas(
+  return normalizarProdutoEstoqueResposta(
+    await tentarRotas(
     [
       `${API_URL}/estoque/produtos`,
       `${API_URL}/produtos`,
@@ -2440,10 +2581,12 @@ export async function criarProdutoEstoque(dados) {
       body: JSON.stringify(dados),
     },
   )
+  )
 }
 
 export async function atualizarProdutoEstoque(id, dados) {
-  return tentarRotas(
+  return normalizarProdutoEstoqueResposta(
+    await tentarRotas(
     [
       `${API_URL}/estoque/produtos/${id}`,
       `${API_URL}/produtos/${id}`,
@@ -2453,6 +2596,7 @@ export async function atualizarProdutoEstoque(id, dados) {
       headers: montarHeaders(true),
       body: JSON.stringify(dados),
     },
+  )
   )
 }
 
@@ -2483,7 +2627,7 @@ export async function desativarProdutoEstoque(id) {
 }
 
 export async function buscarProdutosBaixoEstoque(filtros = {}) {
-  const dados = await buscarRecursoEstoque('/estoque/produtos/baixo-estoque', filtros)
+  const dados = normalizarRespostaProdutosEstoque(await buscarRecursoEstoque('/estoque/produtos/baixo-estoque', filtros))
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
