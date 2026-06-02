@@ -61,6 +61,11 @@ const perguntasFrequentes = [
       'O catalogo publico e a Fase 1 da vitrine de produtos. O cliente visualiza itens disponiveis ou esgotados, e fala com sua empresa pelo botao de WhatsApp, sem carrinho, pedido ou pagamento.',
   },
   {
+    pergunta: 'Como funciona o estoque do dia?',
+    resposta:
+      'O estoque do dia foi pensado para doces, lanches, cupcakes, marmitas e produtos artesanais. A empresa prepara uma quantidade para o dia, atualiza esse saldo no Estoque do dia e o cliente acompanha a disponibilidade no catalogo publico. Nesta fase, a venda continua pelo WhatsApp, sem pedido, carrinho ou pagamento online.',
+  },
+  {
     pergunta: 'Qual a diferença entre Desativar e Excluir?',
     resposta:
       'Desativar mantém o cadastro no sistema, mas tira o registro do uso operacional. Excluir envia o registro para a lixeira, onde ele pode ser restaurado por quem tem permissão.',
@@ -204,9 +209,26 @@ const topicos = [
       'Cadastre produtos com nome, categoria, código, unidade, preços e estoque mínimo.',
       'Use Entrada para somar quantidade, Saída para registrar consumo ou venda e Ajuste para definir um novo saldo final.',
       'Acompanhe os alertas de baixo estoque para saber quando um produto precisa de reposição.',
+      'Use a aba Estoque do dia para fazer atualizacoes rapidas de quantidade no celular quando os produtos do dia forem acabando.',
       'O recurso pode depender do plano contratado pela empresa.',
     ],
     destaque: 'Ideal para manter o controle dos produtos sem planilhas paralelas.',
+    rota: '/estoque',
+  },
+  {
+    id: 'estoque-do-dia',
+    titulo: 'Estoque do dia',
+    resumo: 'Atualizacao rapida diaria para produtos que mudam de disponibilidade ao longo do dia.',
+    palavrasChave: ['estoque do dia', 'doces', 'lanches', 'cupcakes', 'marmitas', 'catalogo', 'whatsapp'],
+    introducao:
+      'O Estoque do dia foi criado para miniempresas que vendem produtos frescos ou limitados, como doces, lanches, cupcakes, marmitas e comidas tipicas.',
+    pontos: [
+      'Prepare a quantidade do dia antes de abrir as vendas e aplique em lote nos produtos selecionados.',
+      'Use os botoes de +1, -1 e o campo de quantidade para atualizar rapidamente o saldo disponivel ao longo do dia.',
+      'Quando a quantidade chega a zero, o item passa a aparecer como esgotado no catalogo publico.',
+      'Nesta fase nao existe pedido, carrinho, checkout ou pagamento online. O atendimento continua pelo WhatsApp.',
+    ],
+    destaque: 'Bom para operacoes que precisam refletir disponibilidade em tempo real sem complicar o atendimento.',
     rota: '/estoque',
   },
   {
@@ -218,7 +240,7 @@ const topicos = [
       'O Catalogo publico e a Fase 1 da vitrine de produtos do NuvemMais Gestao. Nesta etapa, o cliente acessa o link da sua empresa, visualiza os produtos publicados, entende o que esta disponivel no dia e entra em contato pelo WhatsApp.',
     pontos: [
       'No cadastro ou na edicao do produto, marque Exibir no catalogo publico e preencha imagem, descricao publica, categoria publica, destaque, ordem e texto do botao, se desejar.',
-      'Atualize a quantidade por Entrada, Saida ou Ajuste no Estoque. O saldo atual define se o item aparece como disponivel ou esgotado na vitrine.',
+      'Atualize a quantidade no Estoque do dia para refletir em tempo real o que esta disponivel ou esgotado na vitrine.',
       'Na aba Catalogo publico do Estoque, copie o link da vitrine e abra a pagina para revisar a experiencia que o cliente vera no celular.',
       'Voce pode escolher se o cliente vai ver preco, quantidade disponivel e qual texto aparece no botao de WhatsApp.',
       'A Fase 1 nao possui carrinho, pedido, pagamento, checkout ou reserva automatica. Ela funciona como vitrine online com contato por WhatsApp.',

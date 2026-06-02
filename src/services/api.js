@@ -906,22 +906,23 @@ async function extrairMensagemResposta(response) {
   return mensagemPadrao
 }
 
-async function tratarResposta(response, opcoes = {}) {
+async function tratarRespostaCustomizada(response, opcoes = {}) {
   const {
     encerrarSessao401 = true,
     emitir403 = true,
     mensagem401 = '',
     mensagem403 = '',
+    mensagensPorStatus = {},
   } = opcoes
 
   if (!response.ok) {
     const mensagem = await extrairMensagemErro(response)
     const mensagemTratada =
       response.status === 401
-        ? mensagem401 || mensagemPadraoPorStatus(response.status)
+        ? mensagem401 || mensagensPorStatus[401] || mensagemPadraoPorStatus(response.status)
         : response.status === 403
-          ? mensagem403 || mensagemPadraoPorStatus(response.status)
-          : mensagem
+          ? mensagem403 || mensagensPorStatus[403] || mensagemPadraoPorStatus(response.status)
+          : mensagensPorStatus[response.status] || mensagem
     const erro = new Error(mensagemTratada)
     erro.status = response.status
 
@@ -947,6 +948,10 @@ async function tratarResposta(response, opcoes = {}) {
   }
 
   return response.text()
+}
+
+async function tratarResposta(response, opcoes = {}) {
+  return tratarRespostaCustomizada(response, opcoes)
 }
 
 async function tratarRespostaPublica(response) {
@@ -2396,6 +2401,32 @@ function normalizarProdutoEstoqueResposta(produto) {
   )
   const mostrarQuantidadePublica = normalizarBooleanoFlexivelEstoque(produto.mostrarQuantidadePublica, false)
   const mostrarPrecoPublico = normalizarBooleanoFlexivelEstoque(produto.mostrarPrecoPublico, true)
+  const quantidadeInicialDia = normalizarNumeroEstoque(
+    primeiroValorPreenchido(
+      produto.quantidadeInicialDia,
+      produto.quantidadeInicialEstoqueDia,
+      produto.quantidadeInicialDoDia,
+      produto.quantidadeInicial,
+      produto.estoqueDiaQuantidadeInicial,
+    ),
+    0,
+  )
+  const dataEstoqueDia = String(
+    primeiroValorPreenchido(
+      produto.dataEstoqueDia,
+      produto.dataReferenciaEstoqueDia,
+      produto.dataDoEstoqueDia,
+      produto.dataReferencia,
+    ) || '',
+  ).trim()
+  const atualizadoEstoqueDiaEm = String(
+    primeiroValorPreenchido(
+      produto.atualizadoEstoqueDiaEm,
+      produto.estoqueDiaAtualizadoEm,
+      produto.dataAtualizacaoEstoqueDia,
+      produto.dataHoraAtualizacaoEstoqueDia,
+    ) || '',
+  ).trim()
 
   return {
     ...produto,
@@ -2408,9 +2439,12 @@ function normalizarProdutoEstoqueResposta(produto) {
     precoCusto,
     precoVenda,
     quantidadeAtual,
+    quantidadeInicialDia,
     estoqueMinimo,
     ativo,
     exibirCatalogoPublico,
+    dataEstoqueDia,
+    atualizadoEstoqueDiaEm,
     imagemUrl: String(primeiroValorPreenchido(produto.imagemUrl, produto.fotoUrl, produto.imagem) || '').trim(),
     descricaoPublica: String(primeiroValorPreenchido(produto.descricaoPublica, produto.descricaoCatalogoPublico, produto.descricao) || '').trim(),
     categoriaPublica: String(primeiroValorPreenchido(produto.categoriaPublica, produto.categoriaCatalogoPublico, produto.categoria) || '').trim(),
@@ -2690,6 +2724,88 @@ export async function buscarProdutosEstoque(filtros = {}) {
   const dados = normalizarRespostaProdutosEstoque(await buscarRecursoEstoque('/estoque/produtos', filtros))
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function listarEstoqueDia(filtros = {}) {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/estoque/produtos/estoque-dia${montarQueryString(filtrosConsulta)}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = normalizarRespostaProdutosEstoque(
+    await tratarRespostaCustomizada(response, {
+      emitir403: false,
+      mensagensPorStatus: {
+        400: 'Nao foi possivel listar o estoque do dia com os filtros informados.',
+        403: 'Voce nao tem permissao para visualizar o estoque do dia desta empresa.',
+        404: 'O estoque do dia ainda nao esta disponivel para esta empresa.',
+      },
+    }),
+  )
+
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function atualizarQuantidadeRapidaProduto(produtoId, quantidadeAtual) {
+  const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/quantidade-rapida`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify({
+      quantidadeAtual,
+      quantidade: quantidadeAtual,
+      saldoAtual: quantidadeAtual,
+    }),
+  })
+
+  return normalizarProdutoEstoqueResposta(
+    await tratarRespostaCustomizada(response, {
+      emitir403: false,
+      mensagensPorStatus: {
+        400: 'Informe uma quantidade valida para atualizar o estoque do dia.',
+        403: 'Voce nao tem permissao para atualizar rapidamente este produto.',
+        404: 'Produto nao encontrado para atualizar o estoque do dia.',
+      },
+    }),
+  )
+}
+
+export async function configurarEstoqueDiaProduto(produtoId, payload) {
+  const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/estoque-dia`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return normalizarProdutoEstoqueResposta(
+    await tratarRespostaCustomizada(response, {
+      emitir403: false,
+      mensagensPorStatus: {
+        400: 'Revise os dados do estoque do dia informados para este produto.',
+        403: 'Voce nao tem permissao para configurar o estoque do dia deste produto.',
+        404: 'Produto nao encontrado para configurar o estoque do dia.',
+      },
+    }),
+  )
+}
+
+export async function reiniciarEstoqueDia(payload) {
+  const response = await executarFetch(`${API_URL}/estoque/estoque-dia/reiniciar`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return normalizarRespostaProdutosEstoque(
+    await tratarRespostaCustomizada(response, {
+      emitir403: false,
+      mensagensPorStatus: {
+        400: 'Revise a data e as quantidades informadas antes de reiniciar o estoque do dia.',
+        403: 'Voce nao tem permissao para reiniciar o estoque do dia desta empresa.',
+        404: 'Nao foi possivel localizar o recurso de reinicio do estoque do dia.',
+      },
+    }),
+  )
 }
 
 export async function buscarProdutoEstoque(id) {

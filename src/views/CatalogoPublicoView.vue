@@ -227,6 +227,51 @@ function formatarQuantidadePublica(produto) {
   return `${formatarQuantidade(produto.quantidadeAtual)} ${unidade}`
 }
 
+function normalizarData(valor) {
+  if (!valor) {
+    return null
+  }
+
+  const texto = String(valor).trim()
+  const data = /^\d{4}-\d{2}-\d{2}$/.test(texto) ? new Date(`${texto}T00:00:00`) : new Date(texto)
+
+  return Number.isNaN(data.getTime()) ? null : data
+}
+
+function formatarAtualizacaoProduto(produto) {
+  const dataAtualizacao = normalizarData(produto.atualizadoEstoqueDiaEm || produto.dataEstoqueDia)
+
+  if (!dataAtualizacao) {
+    return ''
+  }
+
+  const agora = new Date()
+  const ehHoje =
+    dataAtualizacao.getFullYear() === agora.getFullYear() &&
+    dataAtualizacao.getMonth() === agora.getMonth() &&
+    dataAtualizacao.getDate() === agora.getDate()
+
+  if (produto.atualizadoEstoqueDiaEm) {
+    return ehHoje
+      ? `Atualizado hoje as ${dataAtualizacao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+      : `Atualizado em ${dataAtualizacao.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}`
+  }
+
+  return ehHoje
+    ? 'Atualizado hoje'
+    : `Estoque do dia em ${dataAtualizacao.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })}`
+}
+
 function extrairIniciais(texto) {
   const palavras = String(texto || '')
     .trim()
@@ -414,8 +459,8 @@ async function carregarCatalogo() {
 
       <section v-if="!produtosPublicados.length" class="card estado-shell">
         <span class="estado-selo">Vitrine vazia</span>
-        <h2>Nenhum produto disponivel no catalogo no momento.</h2>
-        <p>Volte mais tarde para conferir novas opcoes publicadas pela empresa.</p>
+        <h2>Nenhum produto publicado no catalogo no momento.</h2>
+        <p>A empresa ainda pode estar preparando o estoque do dia. Volte mais tarde ou chame no WhatsApp para consultar disponibilidade.</p>
       </section>
 
       <section v-else-if="!produtosFiltrados.length" class="card estado-shell">
@@ -443,6 +488,7 @@ async function carregarCatalogo() {
                 {{ produto.disponivel ? 'Disponivel' : 'Esgotado hoje' }}
               </span>
               <span v-if="produto.destaqueCatalogo" class="badge destaque">Destaque</span>
+              <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
             </div>
           </div>
 
@@ -461,6 +507,7 @@ async function carregarCatalogo() {
               <p v-if="produto.mostrarQuantidadePublica" class="quantidade">
                 Disponivel hoje: {{ formatarQuantidadePublica(produto) }}
               </p>
+              <p v-if="!produto.disponivel" class="quantidade esgotado-texto">Estoque do dia encerrado no momento.</p>
             </div>
 
             <div class="produto-rodape">
@@ -851,6 +898,11 @@ async function carregarCatalogo() {
   color: var(--catalogo-destaque);
 }
 
+.badge.atualizacao {
+  background: rgba(219, 234, 254, 0.96);
+  color: #1d4ed8;
+}
+
 .produto-corpo {
   display: grid;
   gap: 14px;
@@ -896,6 +948,10 @@ async function carregarCatalogo() {
   color: #334155;
   font-size: 14px;
   font-weight: 700;
+}
+
+.esgotado-texto {
+  color: var(--catalogo-perigo);
 }
 
 .produto-rodape {
