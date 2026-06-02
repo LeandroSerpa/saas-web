@@ -19,9 +19,11 @@ import {
   EVENTO_EMPRESA_VISUALIZACAO,
   EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS,
   mensagemIndicaBloqueioPlanoEstoque,
+  montarLinkPublicoCardapio,
   montarLinkPublicoCatalogo,
   obterEmpresaVisualizacao,
   obterMensagemAmigavelErro,
+  TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   atualizarProdutoEstoque,
 } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
@@ -40,7 +42,6 @@ const UNIDADES_FALLBACK = Object.freeze([
   { valor: 'OUTRO', descricao: 'Outro' },
 ])
 const OPCOES_TAMANHO_PAGINA = Object.freeze([5, 10, 20, 50])
-const TEXTO_BOTAO_PUBLICO_PADRAO = 'Pedir pelo WhatsApp'
 
 const route = useRoute()
 
@@ -230,6 +231,8 @@ const mensagemModoEstoque = computed(() => {
 
 const slugCatalogo = computed(() => String(minhaEmpresa.value?.slug || '').trim())
 const linkCatalogoPublico = computed(() => montarLinkPublicoCatalogo(slugCatalogo.value))
+const linkCardapioPublico = computed(() => montarLinkPublicoCardapio(slugCatalogo.value))
+const temLinkCatalogoPublico = computed(() => Boolean(linkCatalogoPublico.value))
 const produtosCatalogoOrdenados = computed(() =>
   [...produtos.value].sort((a, b) => {
     const prioridadeExibicao = Number(obterExibirCatalogoPublico(b)) - Number(obterExibirCatalogoPublico(a))
@@ -519,7 +522,7 @@ function criarProdutoInicial() {
     mostrarQuantidadePublica: false,
     mostrarPrecoPublico: true,
     ordemCatalogo: '',
-    textoBotaoPublico: TEXTO_BOTAO_PUBLICO_PADRAO,
+    textoBotaoPublico: TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   }
 }
 
@@ -860,7 +863,25 @@ function obterOrdemCatalogo(item) {
 
 function obterTextoBotaoPublico(item) {
   const valor = String(obterCampo(item, 'textoBotaoPublico') || '').trim()
-  return valor || TEXTO_BOTAO_PUBLICO_PADRAO
+  return valor || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
+}
+
+function extrairIniciaisCatalogo(texto) {
+  const palavras = String(texto || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+
+  if (!palavras.length) {
+    return 'NM'
+  }
+
+  return palavras.map((parte) => parte.charAt(0).toUpperCase()).join('')
+}
+
+function formatarQuantidadeCatalogo(item) {
+  return `${formatarNumero(obterQuantidadeAtual(item))} ${obterUnidadeProduto(item)}`
 }
 
 function produtoDisponivelNoCatalogo(item) {
@@ -1086,7 +1107,7 @@ function montarPayloadProduto() {
     mostrarQuantidadePublica: formularioProduto.value.mostrarQuantidadePublica === true,
     mostrarPrecoPublico: formularioProduto.value.mostrarPrecoPublico !== false,
     ordemCatalogo: numeroOuZero(formularioProduto.value.ordemCatalogo),
-    textoBotaoPublico: formularioProduto.value.textoBotaoPublico.trim() || TEXTO_BOTAO_PUBLICO_PADRAO,
+    textoBotaoPublico: formularioProduto.value.textoBotaoPublico.trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   }
 
   if (!produtoEditandoId.value) {
@@ -1138,7 +1159,7 @@ function montarPayloadProdutoExistente(produtoOrigem, sobrescritas = {}) {
     categoriaPublica: normalizarCategoriaEnvio(sobrescritas.categoriaPublica ?? payloadBase.categoriaPublica),
     ordemCatalogo: numeroOuZero(sobrescritas.ordemCatalogo ?? payloadBase.ordemCatalogo),
     textoBotaoPublico:
-      String((sobrescritas.textoBotaoPublico ?? payloadBase.textoBotaoPublico) || '').trim() || TEXTO_BOTAO_PUBLICO_PADRAO,
+      String((sobrescritas.textoBotaoPublico ?? payloadBase.textoBotaoPublico) || '').trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   }
 }
 
@@ -1695,20 +1716,30 @@ onBeforeUnmount(() => {
 
           <div class="catalogo-link-conteudo">
             <div class="catalogo-link-bloco">
-              <span class="link-rotulo">Endereco do catalogo</span>
+              <span class="link-rotulo">Endereco principal</span>
               <strong class="link-publico">
                 {{ linkCatalogoPublico || 'Configure o slug da empresa em Minha empresa para liberar o link.' }}
               </strong>
               <p class="ajuda-inline">
-                {{ slugCatalogo ? 'O host acompanha automaticamente o ambiente atual.' : 'Sem slug nao e possivel gerar o link publico.' }}
+                {{
+                  slugCatalogo
+                    ? 'O host acompanha automaticamente o ambiente atual: localhost no local, gestao-hml.nuvemmais.com.br em HML e gestao.nuvemmais.com.br em producao.'
+                    : 'Sem slug nao e possivel gerar o link publico.'
+                }}
               </p>
+
+              <div v-if="temLinkCatalogoPublico" class="catalogo-link-alternativo">
+                <span class="link-rotulo">Alias opcional</span>
+                <strong class="link-publico">{{ linkCardapioPublico }}</strong>
+                <p class="ajuda-inline">A rota /cardapio/:slug tambem funciona e abre a mesma vitrine publica.</p>
+              </div>
             </div>
 
             <div class="acoes">
-              <button class="botao principal" type="button" :disabled="!linkCatalogoPublico" @click="copiarLinkCatalogo">
+              <button class="botao principal" type="button" :disabled="!temLinkCatalogoPublico" @click="copiarLinkCatalogo">
                 Copiar link do catalogo
               </button>
-              <button class="botao secundario" type="button" :disabled="!linkCatalogoPublico" @click="abrirCatalogoPublico">
+              <button class="botao secundario" type="button" :disabled="!temLinkCatalogoPublico" @click="abrirCatalogoPublico">
                 Abrir catalogo
               </button>
             </div>
@@ -1728,7 +1759,7 @@ onBeforeUnmount(() => {
         <div class="cabecalho-secao">
           <div>
             <h2>Produtos na vitrine</h2>
-            <p>Revise o que esta visivel no catalogo publico e ajuste rapidamente sem sair do estoque.</p>
+            <p>Revise o que esta visivel no catalogo publico, veja os indicadores e ajuste rapidamente sem sair do estoque.</p>
           </div>
           <span class="contador">{{ pluralizar(produtosCatalogoOrdenados.length, 'produto', 'produtos') }}</span>
         </div>
@@ -1745,6 +1776,10 @@ onBeforeUnmount(() => {
               :alt="`Imagem de ${obterNomeProduto(produto)}`"
               class="catalogo-imagem"
             />
+            <div v-else class="catalogo-imagem catalogo-imagem-placeholder">
+              <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
+              <span>Sem imagem</span>
+            </div>
 
             <div class="topo-card">
               <div>
@@ -1764,12 +1799,27 @@ onBeforeUnmount(() => {
               <p><strong>Categoria publica:</strong> {{ obterCategoriaPublicaProduto(produto) || 'Nao informada' }}</p>
               <p><strong>Ordem no catalogo:</strong> {{ formatarNumero(obterOrdemCatalogo(produto)) }}</p>
               <p><strong>Preco publico:</strong> {{ obterMostrarPrecoPublico(produto) ? formatarMoeda(obterPrecoVenda(produto)) : 'Oculto' }}</p>
-              <p><strong>Quantidade publica:</strong> {{ obterMostrarQuantidadePublica(produto) ? formatarNumero(obterQuantidadeAtual(produto)) : 'Oculta' }}</p>
+              <p><strong>Quantidade publica:</strong> {{ obterMostrarQuantidadePublica(produto) ? formatarQuantidadeCatalogo(produto) : 'Oculta' }}</p>
               <p><strong>Botao:</strong> {{ obterTextoBotaoPublico(produto) }}</p>
             </div>
 
+            <div class="chips-apoio-catalogo">
+              <span class="chip-catalogo" :class="obterExibirCatalogoPublico(produto) ? 'ativo' : 'inativo'">
+                {{ obterExibirCatalogoPublico(produto) ? 'Na vitrine' : 'Oculto' }}
+              </span>
+              <span class="chip-catalogo" :class="obterMostrarPrecoPublico(produto) ? 'ativo' : 'inativo'">
+                {{ obterMostrarPrecoPublico(produto) ? 'Mostra preco' : 'Preco oculto' }}
+              </span>
+              <span class="chip-catalogo" :class="obterMostrarQuantidadePublica(produto) ? 'ativo' : 'inativo'">
+                {{ obterMostrarQuantidadePublica(produto) ? 'Mostra quantidade' : 'Quantidade oculta' }}
+              </span>
+              <span class="chip-catalogo" :class="produtoDisponivelNoCatalogo(produto) ? 'ativo' : 'inativo'">
+                {{ produtoDisponivelNoCatalogo(produto) ? 'Disponivel' : 'Esgotado' }}
+              </span>
+            </div>
+
             <div v-if="!modoVisualizacaoSuperAdmin" class="acoes acoes-produto-card">
-              <button class="botao secundario" type="button" @click="editarProduto(produto)">Editar produto</button>
+              <button class="botao secundario" type="button" @click="editarProduto(produto)">Editar vitrine</button>
               <button
                 class="botao secundario"
                 type="button"
@@ -1777,7 +1827,7 @@ onBeforeUnmount(() => {
               >
                 {{ obterExibirCatalogoPublico(produto) ? 'Ocultar da vitrine' : 'Mostrar na vitrine' }}
               </button>
-              <button class="botao principal" type="button" :disabled="!linkCatalogoPublico" @click="abrirCatalogoPublico">
+              <button class="botao principal" type="button" :disabled="!temLinkCatalogoPublico" @click="abrirCatalogoPublico">
                 Abrir catalogo
               </button>
             </div>
@@ -1883,7 +1933,7 @@ onBeforeUnmount(() => {
               </label>
               <label>
                 Texto do botao
-                <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_PUBLICO_PADRAO" />
+                <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
               </label>
               <label class="campo-checkbox destaque-checkbox">
                 <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
@@ -2129,6 +2179,14 @@ small { color: #64748b; }
 .catalogo-link-bloco,
 .secao-formulario-publico { display: grid; gap: 14px; }
 .catalogo-link-conteudo { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.catalogo-link-alternativo {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
 .link-rotulo {
   color: #64748b;
   font-size: 13px;
@@ -2207,6 +2265,25 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   border-radius: 10px;
   border: 1px solid #dbe4f0;
 }
+.catalogo-imagem-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #eff6ff, #f8fafc);
+  color: #1d4ed8;
+}
+.catalogo-imagem-placeholder strong {
+  font-size: 30px;
+  font-weight: 900;
+}
+.catalogo-imagem-placeholder span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .badges-topo { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .status {
   display: inline-flex;
@@ -2237,6 +2314,27 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 .sucesso-botao { background: #15803d; }
 .acoes-produto-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .acoes-produto-card .botao { width: 100%; }
+.chips-apoio-catalogo {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip-catalogo {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.chip-catalogo.ativo {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.chip-catalogo.inativo {
+  background: #e2e8f0;
+  color: #334155;
+}
 .filtro-historico { border-style: dashed; border-width: 1px; border-color: #bfdbfe; background: #f8fbff; }
 .paginacao p { color: #475569; font-weight: 800; }
 .paginacao label { display: flex; align-items: center; gap: 8px; }

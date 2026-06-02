@@ -623,10 +623,10 @@ onBeforeUnmount(() => {
           <div v-if="grupoMenuAberto('operacao')" class="submenu">
             <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
             <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">Disponibilidade</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">Relatórios</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/catalogo-publico" @click="fecharMenuMobile">Catálogo público</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">Disponibilidade</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">Relatórios</RouterLink>
             <RouterLink v-if="adminEmpresa" to="/onboarding" @click="fecharMenuMobile">Primeiros passos</RouterLink>
           </div>
         </section>
@@ -650,9 +650,9 @@ onBeforeUnmount(() => {
           <div v-if="grupoMenuAberto('configuracoes')" class="submenu">
             <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa" @click="fecharMenuMobile">Minha empresa</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">Notificações da empresa</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">Notificações da empresa</RouterLink>
             <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
             <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
           </div>
@@ -666,19 +666,19 @@ onBeforeUnmount(() => {
           <div v-if="grupoMenuAberto('administracaoSaas')" class="submenu">
             <RouterLink to="/admin-dashboard" @click="fecharMenuMobile">Dashboard NuvemMais</RouterLink>
             <RouterLink to="/empresas" @click="fecharMenuMobile">Empresas</RouterLink>
-            <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
             <RouterLink to="/planos" @click="fecharMenuMobile">Planos</RouterLink>
             <RouterLink to="/assinaturas" @click="fecharMenuMobile">Assinaturas</RouterLink>
+            <RouterLink to="/solicitacoes" @click="fecharMenuMobile">Solicitações</RouterLink>
+            <RouterLink to="/auditoria" @click="fecharMenuMobile">Auditoria</RouterLink>
+            <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
+            <RouterLink to="/admin/estoque" @click="fecharMenuMobile">Administração de Estoque</RouterLink>
             <RouterLink to="/admin/notificacoes" @click="fecharMenuMobile">Notificações NuvemMais</RouterLink>
             <RouterLink to="/admin/automacoes" @click="fecharMenuMobile">Automações</RouterLink>
-            <RouterLink to="/admin/estoque" @click="fecharMenuMobile">Administração de Estoque</RouterLink>
             <RouterLink to="/admin/financeiro" @click="fecharMenuMobile">Inadimplência</RouterLink>
             <RouterLink to="/faturas-recorrentes" @click="fecharMenuMobile">Faturas recorrentes</RouterLink>
             <RouterLink to="/configuracoes-pagamento" @click="fecharMenuMobile">Configuração de pagamento</RouterLink>
             <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/Módulos</RouterLink>
-            <RouterLink to="/solicitacoes" @click="fecharMenuMobile">Solicitações</RouterLink>
-            <RouterLink to="/auditoria" @click="fecharMenuMobile">Auditoria</RouterLink>
-            <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
+            <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
           </div>
         </section>
       </nav>

@@ -58,7 +58,7 @@ const perguntasFrequentes = [
   {
     pergunta: 'Como funciona o catalogo publico?',
     resposta:
-      'O catalogo publico e uma vitrine online sem carrinho e sem pagamento. O cliente visualiza os produtos disponiveis e chama sua empresa pelo botao de WhatsApp.',
+      'O catalogo publico e a Fase 1 da vitrine de produtos. O cliente visualiza itens disponiveis ou esgotados, e fala com sua empresa pelo botao de WhatsApp, sem carrinho, pedido ou pagamento.',
   },
   {
     pergunta: 'Qual a diferença entre Desativar e Excluir?',
@@ -215,13 +215,13 @@ const topicos = [
     resumo: 'Mostre produtos do dia em um link publico e receba contatos pelo WhatsApp.',
     palavrasChave: ['catalogo', 'vitrine', 'whatsapp', 'estoque', 'link publico', 'cardapio'],
     introducao:
-      'O Catalogo publico e a Fase 1 da vitrine de produtos do NuvemMais Gestao. Nesta etapa, o cliente acessa o link da sua empresa, ve os produtos disponiveis ou esgotados e fala com voce pelo WhatsApp.',
+      'O Catalogo publico e a Fase 1 da vitrine de produtos do NuvemMais Gestao. Nesta etapa, o cliente acessa o link da sua empresa, visualiza os produtos publicados, entende o que esta disponivel no dia e entra em contato pelo WhatsApp.',
     pontos: [
-      'No cadastro ou edicao do produto, marque Exibir no catalogo publico e preencha os campos visuais que quiser mostrar ao cliente.',
-      'Atualize a quantidade do produto por Entrada, Saida ou Ajuste no Estoque. A disponibilidade na vitrine acompanha o saldo atual.',
-      'Na aba Catalogo publico do Estoque, copie o link da vitrine e abra o catalogo para revisar como o cliente vai enxergar os produtos.',
-      'Voce pode escolher se o cliente vai ver preco, quantidade, destaque, categoria publica e o texto do botao.',
-      'A Fase 1 nao possui pedido, carrinho ou pagamento. Ela funciona como vitrine online com contato por WhatsApp.',
+      'No cadastro ou na edicao do produto, marque Exibir no catalogo publico e preencha imagem, descricao publica, categoria publica, destaque, ordem e texto do botao, se desejar.',
+      'Atualize a quantidade por Entrada, Saida ou Ajuste no Estoque. O saldo atual define se o item aparece como disponivel ou esgotado na vitrine.',
+      'Na aba Catalogo publico do Estoque, copie o link da vitrine e abra a pagina para revisar a experiencia que o cliente vera no celular.',
+      'Voce pode escolher se o cliente vai ver preco, quantidade disponivel e qual texto aparece no botao de WhatsApp.',
+      'A Fase 1 nao possui carrinho, pedido, pagamento, checkout ou reserva automatica. Ela funciona como vitrine online com contato por WhatsApp.',
     ],
     destaque: 'Ideal para doces, lanches, marmitas e outros produtos do dia que mudam rapido.',
     rota: '/catalogo-publico',

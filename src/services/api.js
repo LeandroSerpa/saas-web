@@ -1,7 +1,11 @@
 import { debugLog } from '@/utils/devDebug'
 
+const PUBLIC_APP_URL_HOMOLOGACAO = 'https://gestao-hml.nuvemmais.com.br'
+const PUBLIC_APP_URL_PRODUCAO = 'https://gestao.nuvemmais.com.br'
+export const TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO = 'Pedir pelo WhatsApp'
+
 const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
-const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : 'https://gestao.nuvemmais.com.br'
+const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : PUBLIC_APP_URL_PRODUCAO
 export const APP_NAME = String(import.meta.env.VITE_APP_NAME || 'NuvemMais Gestão').trim() || 'NuvemMais Gestão'
 export const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || '').trim()
 const MENSAGENS_PADRAO = {
@@ -58,16 +62,25 @@ export function obterUrlPublicaFrontend() {
   const origemAtual =
     typeof window !== 'undefined' && window.location?.origin ? normalizarUrlBase(window.location.origin) : ''
   const hostnameAtual = obterHostnameAtual()
+  const ambienteAtual = resolverAmbienteSeguroPorHostname(hostnameAtual) || APP_ENVIRONMENT
 
-  if (origemAtual && (hostnameEhLocal(hostnameAtual) || hostnameIndicaHomologacao(hostnameAtual) || hostnameEhProducaoOficial(hostnameAtual))) {
+  if (origemAtual && hostnameEhLocal(hostnameAtual)) {
     return origemAtual
+  }
+
+  if (hostnameIndicaHomologacao(hostnameAtual) || ambienteAtual === 'homologacao') {
+    return PUBLIC_APP_URL_HOMOLOGACAO
+  }
+
+  if (hostnameEhProducaoOficial(hostnameAtual) || ambienteAtual === 'production') {
+    return PUBLIC_APP_URL_PRODUCAO
   }
 
   if (PUBLIC_APP_URL) {
     return PUBLIC_APP_URL
   }
 
-  return origemAtual
+  return origemAtual || PUBLIC_APP_URL_FALLBACK
 }
 
 export function montarLinkPublicoAgendamento(slug) {
@@ -80,6 +93,12 @@ export function montarLinkPublicoCatalogo(slug) {
   const slugNormalizado = String(slug || '').trim()
 
   return slugNormalizado ? `${obterUrlPublicaFrontend()}/catalogo/${slugNormalizado}` : ''
+}
+
+export function montarLinkPublicoCardapio(slug) {
+  const slugNormalizado = String(slug || '').trim()
+
+  return slugNormalizado ? `${obterUrlPublicaFrontend()}/cardapio/${slugNormalizado}` : ''
 }
 
 function normalizarBooleano(valor) {
@@ -1006,11 +1025,12 @@ export async function buscarServicosPublicos(slug) {
 }
 
 export async function buscarCatalogoPublico(slug) {
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/catalogo`, {
+  const slugNormalizado = encodeURIComponent(String(slug || '').trim())
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/catalogo`, {
     headers: montarHeadersPublicos(),
   })
 
-  return normalizarRespostaProdutosEstoque(await tratarRespostaPublica(response))
+  return normalizarRespostaCatalogoPublico(await tratarRespostaPublica(response))
 }
 
 export async function buscarSegmentosPublicos() {
@@ -2399,7 +2419,92 @@ function normalizarProdutoEstoqueResposta(produto) {
     mostrarPrecoPublico,
     ordemCatalogo,
     textoBotaoPublico:
-      String(produto.textoBotaoPublico || '').trim() || 'Pedir pelo WhatsApp',
+      String(primeiroValorPreenchido(produto.textoBotaoPublico, produto.textoBotaoCatalogo, produto.textoBotaoWhatsapp) || '').trim() ||
+      TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+  }
+}
+
+export function normalizarProdutoCatalogoPublico(produto) {
+  const produtoBase = normalizarProdutoEstoqueResposta(produto)
+
+  if (!produtoBase || typeof produtoBase !== 'object' || Array.isArray(produtoBase)) {
+    return produtoBase
+  }
+
+  const esgotado = normalizarBooleanoFlexivelEstoque(
+    primeiroValorPreenchido(produtoBase.esgotado, produtoBase.indisponivel, produtoBase.semEstoque),
+    false,
+  )
+  const disponibilidadeExplicita = primeiroValorPreenchido(
+    produtoBase.disponivel,
+    produtoBase.disponibilidade,
+    produtoBase.estoqueDisponivel,
+  )
+  const disponibilidadeNormalizada =
+    disponibilidadeExplicita === '' || disponibilidadeExplicita === null || disponibilidadeExplicita === undefined
+      ? null
+      : normalizarBooleanoFlexivelEstoque(disponibilidadeExplicita, false)
+  const disponivel =
+    disponibilidadeNormalizada !== null
+      ? disponibilidadeNormalizada && !esgotado && produtoBase.ativo !== false
+      : produtoBase.ativo !== false && !esgotado && Number(produtoBase.quantidadeAtual || 0) > 0
+
+  return {
+    ...produtoBase,
+    imagemUrl: String(
+      primeiroValorPreenchido(
+        produtoBase.imagemUrl,
+        produtoBase.fotoUrl,
+        produtoBase.imagem,
+        produtoBase.imagemCatalogoPublico,
+      ) || '',
+    ).trim(),
+    descricaoPublica: String(
+      primeiroValorPreenchido(
+        produtoBase.descricaoPublica,
+        produtoBase.descricaoCatalogoPublico,
+        produtoBase.descricaoResumida,
+        produtoBase.descricao,
+      ) || '',
+    ).trim(),
+    categoriaPublica: String(
+      primeiroValorPreenchido(
+        produtoBase.categoriaPublica,
+        produtoBase.categoriaCatalogoPublico,
+        produtoBase.sabor,
+        produtoBase.categoria,
+      ) || '',
+    ).trim(),
+    destaqueCatalogo: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.destaqueCatalogo, produtoBase.destacarNoCatalogo),
+      false,
+    ),
+    mostrarQuantidadePublica: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.mostrarQuantidadePublica, produtoBase.exibirQuantidadePublica),
+      false,
+    ),
+    mostrarPrecoPublico: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.mostrarPrecoPublico, produtoBase.exibirPrecoPublico),
+      true,
+    ),
+    ordemCatalogo: normalizarNumeroEstoque(
+      primeiroValorPreenchido(produtoBase.ordemCatalogo, produtoBase.ordemExibicaoCatalogo, produtoBase.ordem),
+      0,
+    ),
+    textoBotaoPublico:
+      String(
+        primeiroValorPreenchido(
+          produtoBase.textoBotaoPublico,
+          produtoBase.textoBotaoCatalogo,
+          produtoBase.textoBotaoWhatsapp,
+        ) || '',
+      ).trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    exibirCatalogoPublico: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.exibirCatalogoPublico, produtoBase.catalogoPublicoAtivo),
+      false,
+    ),
+    esgotado,
+    disponivel,
   }
 }
 
@@ -2428,6 +2533,39 @@ function normalizarRespostaProdutosEstoque(dados) {
     for (const chave of colecoesAninhadas) {
       if (Array.isArray(resposta.data[chave])) {
         resposta.data[chave] = resposta.data[chave].map(normalizarProdutoEstoqueResposta)
+      }
+    }
+  }
+
+  return resposta
+}
+
+function normalizarRespostaCatalogoPublico(dados) {
+  const dadosNormalizados = normalizarRespostaProdutosEstoque(dados)
+
+  if (Array.isArray(dadosNormalizados)) {
+    return dadosNormalizados.map(normalizarProdutoCatalogoPublico)
+  }
+
+  if (!dadosNormalizados || typeof dadosNormalizados !== 'object') {
+    return dadosNormalizados
+  }
+
+  const resposta = { ...dadosNormalizados }
+  const colecoes = ['value', 'Value', 'content', 'items', 'itens', 'resultado', 'produtos']
+
+  for (const chave of colecoes) {
+    if (Array.isArray(resposta[chave])) {
+      resposta[chave] = resposta[chave].map(normalizarProdutoCatalogoPublico)
+    }
+  }
+
+  if (resposta.data && typeof resposta.data === 'object' && !Array.isArray(resposta.data)) {
+    resposta.data = { ...resposta.data }
+
+    for (const chave of colecoes) {
+      if (Array.isArray(resposta.data[chave])) {
+        resposta.data[chave] = resposta.data[chave].map(normalizarProdutoCatalogoPublico)
       }
     }
   }
