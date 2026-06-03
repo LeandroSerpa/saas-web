@@ -629,63 +629,63 @@ async function carregarCatalogo() {
         </div>
 
         <div class="grid-produtos">
-        <article v-for="produto in produtosFiltrados" :key="produto.id" class="card produto-card">
-          <div class="produto-midia">
-            <img
-              v-if="produto.imagemUrl"
-              :src="produto.imagemUrl"
-              :alt="`Imagem de ${produto.nome}`"
-              class="produto-imagem"
-            />
-            <div v-else class="produto-placeholder">
-              <span class="produto-placeholder-iniciais">{{ extrairIniciais(produto.nome) }}</span>
-              <strong>{{ produto.categoriaPublica || 'Produto especial' }}</strong>
-              <small>Foto em breve</small>
-            </div>
+          <article v-for="produto in produtosFiltrados" :key="produto.id" class="card produto-card">
+            <div class="produto-midia">
+              <img
+                v-if="produto.imagemUrl"
+                :src="produto.imagemUrl"
+                :alt="`Imagem de ${produto.nome}`"
+                class="produto-imagem"
+              />
+              <div v-else class="produto-placeholder">
+                <span class="produto-placeholder-iniciais">{{ extrairIniciais(produto.nome) }}</span>
+                <strong>{{ produto.categoriaPublica || 'Produto especial' }}</strong>
+                <small>Foto em breve</small>
+              </div>
 
-            <div class="badges">
-              <span class="badge" :class="produto.disponivel ? 'disponivel' : 'esgotado'">
-                {{ produto.disponivel ? 'Disponivel' : 'Esgotado' }}
-              </span>
-              <span v-if="produto.destaque" class="badge destaque">Destaque</span>
-              <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
-            </div>
-          </div>
-
-          <div class="produto-corpo">
-            <div class="produto-cabecalho">
-              <div>
-                <h2>{{ produto.nome }}</h2>
-                <p v-if="produto.categoriaPublica" class="categoria">{{ produto.categoriaPublica }}</p>
+              <div class="badges">
+                <span class="badge" :class="produto.disponivel ? 'disponivel' : 'esgotado'">
+                  {{ produto.disponivel ? 'Disponivel' : 'Esgotado' }}
+                </span>
+                <span v-if="produto.destaque" class="badge destaque">Destaque</span>
+                <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
               </div>
             </div>
 
-            <p v-if="produto.descricaoPublica" class="descricao">{{ produto.descricaoPublica }}</p>
+            <div class="produto-corpo">
+              <div class="produto-cabecalho">
+                <div>
+                  <h2>{{ produto.nome }}</h2>
+                  <p v-if="produto.categoriaPublica" class="categoria">{{ produto.categoriaPublica }}</p>
+                </div>
+              </div>
 
-            <div class="produto-infos">
-              <p v-if="produto.mostrarPrecoPublico" class="preco">{{ formatarMoeda(produto.precoVenda) }}</p>
-              <p v-if="produto.mostrarQuantidadePublica" class="quantidade">
-                Disponivel hoje: {{ formatarQuantidadePublica(produto) }}
-              </p>
-              <p v-if="!produto.disponivel" class="quantidade esgotado-texto">Estoque do dia encerrado no momento.</p>
+              <p v-if="produto.descricaoPublica" class="descricao">{{ produto.descricaoPublica }}</p>
+
+              <div class="produto-infos">
+                <p v-if="produto.mostrarPrecoPublico" class="preco">{{ formatarMoeda(produto.precoVenda) }}</p>
+                <p v-if="produto.mostrarQuantidadePublica" class="quantidade">
+                  Disponivel hoje: {{ formatarQuantidadePublica(produto) }}
+                </p>
+                <p v-if="!produto.disponivel" class="quantidade esgotado-texto">Estoque do dia encerrado no momento.</p>
+              </div>
+
+              <div class="produto-rodape">
+                <a
+                  v-if="temWhatsapp"
+                  class="botao-whatsapp"
+                  :class="{ secundario: !produto.disponivel }"
+                  :href="linkWhatsappProduto(produto)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {{ produto.disponivel ? produto.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
+                </a>
+
+                <p v-else class="aviso-card">WhatsApp da empresa nao informado.</p>
+              </div>
             </div>
-
-            <div class="produto-rodape">
-              <a
-                v-if="temWhatsapp"
-                class="botao-whatsapp"
-                :class="{ secundario: !produto.disponivel }"
-                :href="linkWhatsappProduto(produto)"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {{ produto.disponivel ? produto.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
-              </a>
-
-              <p v-else class="aviso-card">WhatsApp da empresa nao informado.</p>
-            </div>
-          </div>
-        </article>
+          </article>
         </div>
       </section>
     </template>
@@ -1122,7 +1122,7 @@ async function carregarCatalogo() {
 
 .grid-produtos {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .produto-card {
@@ -1130,6 +1130,7 @@ async function carregarCatalogo() {
   padding: 0;
   display: flex;
   flex-direction: column;
+  min-height: 100%;
 }
 
 .produto-midia {
@@ -1139,7 +1140,8 @@ async function carregarCatalogo() {
 .produto-imagem,
 .produto-placeholder {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
+  max-height: 205px;
 }
 
 .produto-imagem {
@@ -1150,7 +1152,7 @@ async function carregarCatalogo() {
 .produto-placeholder {
   display: grid;
   place-items: center;
-  gap: 8px;
+  gap: 6px;
   background:
     radial-gradient(circle at top left, rgba(251, 191, 36, 0.46), transparent 28%),
     radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.18), transparent 28%),
@@ -1188,8 +1190,8 @@ async function carregarCatalogo() {
 .produto-placeholder-iniciais {
   position: relative;
   z-index: 1;
-  width: 68px;
-  height: 68px;
+  width: 60px;
+  height: 60px;
   display: grid;
   place-items: center;
   border-radius: 22px;
@@ -1207,7 +1209,7 @@ async function carregarCatalogo() {
 }
 
 .produto-placeholder strong {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -1262,8 +1264,8 @@ async function carregarCatalogo() {
 
 .produto-corpo {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   flex: 1;
 }
 
@@ -1274,7 +1276,7 @@ async function carregarCatalogo() {
 }
 
 .produto-cabecalho h2 {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   line-height: 1.15;
 }
@@ -1288,21 +1290,22 @@ async function carregarCatalogo() {
 
 .descricao {
   color: var(--catalogo-texto-suave);
-  line-height: 1.6;
+  line-height: 1.55;
+  font-size: 14px;
 }
 
 .produto-infos {
   display: grid;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 18px;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
   background: rgba(248, 250, 252, 0.92);
   border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
 .preco {
   color: var(--catalogo-sucesso);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 900;
 }
 
@@ -1326,9 +1329,9 @@ async function carregarCatalogo() {
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  min-height: 48px;
-  border-radius: 16px;
-  padding: 12px 16px;
+  min-height: 44px;
+  border-radius: 14px;
+  padding: 10px 14px;
   background: linear-gradient(135deg, #16a34a, #15803d);
   color: white;
   text-decoration: none;
@@ -1392,6 +1395,12 @@ async function carregarCatalogo() {
   }
 }
 
+@media (min-width: 1320px) {
+  .grid-produtos {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 560px) {
   .hero-banner-shell,
   .hero-banner {
@@ -1428,6 +1437,11 @@ async function carregarCatalogo() {
   .botao-primario,
   .botao-secundario {
     width: 100%;
+  }
+
+  .produto-imagem,
+  .produto-placeholder {
+    max-height: 180px;
   }
 }
 </style>
