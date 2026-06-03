@@ -6,7 +6,6 @@ import {
   buscarCatalogoPublico,
   buscarEmpresaPublica,
   buscarPersonalizacaoPublica,
-  normalizarProdutoCatalogoPublico,
 } from '@/services/api'
 
 const route = useRoute()
@@ -23,12 +22,11 @@ const categoriaAtiva = ref('')
 
 const produtosPublicados = computed(() =>
   produtos.value
-    .filter((item) => item.exibirCatalogoPublico !== false)
     .sort((a, b) => {
       const ordemA = Number.isFinite(a.ordemCatalogo) ? a.ordemCatalogo : Number.MAX_SAFE_INTEGER
       const ordemB = Number.isFinite(b.ordemCatalogo) ? b.ordemCatalogo : Number.MAX_SAFE_INTEGER
 
-      return ordemA - ordemB || Number(b.destaqueCatalogo) - Number(a.destaqueCatalogo) || a.nome.localeCompare(b.nome, 'pt-BR')
+      return ordemA - ordemB || Number(b.destaque === true) - Number(a.destaque === true) || a.nome.localeCompare(b.nome, 'pt-BR')
     }),
 )
 
@@ -140,8 +138,8 @@ const whatsappNumero = computed(() => {
 })
 
 const temWhatsapp = computed(() => Boolean(whatsappNumero.value))
-const totalDisponiveis = computed(() => produtosPublicados.value.filter((item) => item.disponivel).length)
-const totalDestaques = computed(() => produtosPublicados.value.filter((item) => item.destaqueCatalogo).length)
+const totalDisponiveis = computed(() => produtosPublicados.value.filter((item) => item.disponivel === true).length)
+const totalDestaques = computed(() => produtosPublicados.value.filter((item) => item.destaque === true).length)
 const quantidadeCategorias = computed(() => categorias.value.length)
 
 watch(
@@ -207,6 +205,36 @@ function normalizarCategoriasCatalogo(valor) {
   )
 }
 
+function normalizarProdutoCatalogo(produto) {
+  const item = produto && typeof produto === 'object' && !Array.isArray(produto) ? produto : {}
+  const categoriaPublica = String(item.categoriaPublica || item.categoria || '').trim()
+  const quantidadeDisponivel = Number(
+    item.quantidadeDisponivel ?? item.quantidadeAtual ?? item.quantidade ?? item.saldoAtual ?? 0,
+  )
+  const destaque = item.destaque === true
+  const disponivel = item.disponivel === true
+  const esgotado = item.esgotado === true
+  const ordemBruta = Number(item.ordemCatalogo ?? item.ordemExibicaoCatalogo ?? item.ordem)
+
+  return {
+    ...item,
+    nome: String(item.nome || '').trim(),
+    descricaoPublica: String(item.descricaoPublica || item.descricao || '').trim(),
+    categoriaPublica,
+    imagemUrl: String(item.imagemUrl || item.fotoUrl || item.imagem || '').trim(),
+    precoVenda: Number(item.precoVenda ?? item.preco ?? 0),
+    quantidadeDisponivel: Number.isFinite(quantidadeDisponivel) ? quantidadeDisponivel : 0,
+    unidade: String(item.unidade || item.unidadeMedida || 'UN').trim().toUpperCase(),
+    disponivel,
+    esgotado,
+    destaque,
+    mostrarQuantidadePublica: item.mostrarQuantidadePublica === true,
+    mostrarPrecoPublico: item.mostrarPrecoPublico !== false,
+    textoBotaoPublico: String(item.textoBotaoPublico || '').trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    ordemCatalogo: Number.isFinite(ordemBruta) ? ordemBruta : Number.MAX_SAFE_INTEGER,
+  }
+}
+
 function normalizarObjeto(valor) {
   if (!valor || typeof valor !== 'object' || Array.isArray(valor)) {
     return {}
@@ -252,7 +280,7 @@ function formatarQuantidade(valor) {
 
 function formatarQuantidadePublica(produto) {
   const unidade = String(produto.unidade || 'UN').trim().toUpperCase()
-  return `${formatarQuantidade(produto.quantidadeAtual)} ${unidade}`
+  return `${formatarQuantidade(produto.quantidadeDisponivel)} ${unidade}`
 }
 
 function normalizarData(valor) {
@@ -367,7 +395,7 @@ async function carregarCatalogo() {
       ...criarPersonalizacaoPadrao(),
       ...normalizarObjeto(personalizacaoApi),
     }
-    produtos.value = normalizarLista(catalogoApi?.produtos ?? catalogoApi).map(normalizarProdutoCatalogoPublico)
+    produtos.value = normalizarLista(catalogoApi?.produtos || []).map(normalizarProdutoCatalogo)
     categoriasResposta.value = normalizarLista(catalogoApi?.categorias)
   } catch (errorAtual) {
     indisponivel.value = true
@@ -514,10 +542,10 @@ async function carregarCatalogo() {
             </div>
 
             <div class="badges">
-              <span class="badge" :class="produto.disponivel ? 'disponivel' : 'esgotado'">
-                {{ produto.disponivel ? 'Disponivel' : 'Esgotado hoje' }}
+              <span class="badge" :class="produto.esgotado ? 'esgotado' : 'disponivel'">
+                {{ produto.esgotado ? 'Esgotado hoje' : 'Disponivel' }}
               </span>
-              <span v-if="produto.destaqueCatalogo" class="badge destaque">Destaque</span>
+              <span v-if="produto.destaque" class="badge destaque">Destaque</span>
               <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
             </div>
           </div>

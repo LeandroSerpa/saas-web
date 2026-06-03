@@ -2486,8 +2486,9 @@ export function normalizarProdutoCatalogoPublico(produto) {
       : normalizarBooleanoFlexivelEstoque(disponibilidadeExplicita, false)
   const disponivel =
     disponibilidadeNormalizada !== null
-      ? disponibilidadeNormalizada && !esgotado && produtoBase.ativo !== false
-      : produtoBase.ativo !== false && !esgotado && Number(produtoBase.quantidadeAtual || 0) > 0
+      ? disponibilidadeNormalizada
+      : !esgotado &&
+        Number(primeiroValorPreenchido(produtoBase.quantidadeDisponivel, produtoBase.quantidadeAtual, 0)) > 0
 
   return {
     ...produtoBase,
@@ -2515,8 +2516,12 @@ export function normalizarProdutoCatalogoPublico(produto) {
         produtoBase.categoria,
       ) || '',
     ).trim(),
+    destaque: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.destaque, produtoBase.destaqueCatalogo, produtoBase.destacarNoCatalogo),
+      false,
+    ),
     destaqueCatalogo: normalizarBooleanoFlexivelEstoque(
-      primeiroValorPreenchido(produtoBase.destaqueCatalogo, produtoBase.destacarNoCatalogo, produtoBase.destaque),
+      primeiroValorPreenchido(produtoBase.destaque, produtoBase.destaqueCatalogo, produtoBase.destacarNoCatalogo),
       false,
     ),
     mostrarQuantidadePublica: normalizarBooleanoFlexivelEstoque(
@@ -2539,6 +2544,15 @@ export function normalizarProdutoCatalogoPublico(produto) {
           produtoBase.textoBotaoWhatsapp,
         ) || '',
       ).trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    quantidadeDisponivel: normalizarNumeroEstoque(
+      primeiroValorPreenchido(
+        produtoBase.quantidadeDisponivel,
+        produtoBase.quantidadeAtual,
+        produtoBase.quantidade,
+        produtoBase.saldoAtual,
+      ),
+      0,
+    ),
     exibirCatalogoPublico: normalizarBooleanoFlexivelEstoque(
       primeiroValorPreenchido(produtoBase.exibirCatalogoPublico, produtoBase.catalogoPublicoAtivo),
       true,
