@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
@@ -20,6 +20,8 @@ const produtos = ref([])
 const categoriasResposta = ref([])
 const categoriaAtiva = ref('')
 const categoriasRef = ref(null)
+const produtoSelecionado = ref(null)
+const imagensComErro = ref({})
 
 const produtosPublicados = computed(() =>
   [...produtos.value]
@@ -300,6 +302,20 @@ function formatarQuantidadePublica(produto) {
   return `${formatarQuantidade(produto.quantidadeDisponivel)} ${unidade}`
 }
 
+function chaveImagemProduto(produto) {
+  return String(produto?.id ?? produto?.codigo ?? produto?.sku ?? produto?.nome ?? '').trim()
+}
+
+function imagemProdutoDisponivel(produto) {
+  const chave = chaveImagemProduto(produto)
+
+  if (!produto?.imagemUrl) {
+    return false
+  }
+
+  return !imagensComErro.value[chave]
+}
+
 function normalizarData(valor) {
   if (!valor) {
     return null
@@ -391,6 +407,27 @@ function linkWhatsappProduto(produto) {
   return `https://wa.me/${whatsappNumero.value}?text=${encodeURIComponent(montarMensagemWhatsapp(produto))}`
 }
 
+function abrirPreviaProduto(produto) {
+  produtoSelecionado.value = produto
+}
+
+function fecharPreviaProduto() {
+  produtoSelecionado.value = null
+}
+
+function aoFalharImagemProduto(produto) {
+  const chave = chaveImagemProduto(produto)
+
+  if (!chave) {
+    return
+  }
+
+  imagensComErro.value = {
+    ...imagensComErro.value,
+    [chave]: true,
+  }
+}
+
 async function carregarCatalogo() {
   if (!slug.value) {
     carregando.value = false
@@ -405,6 +442,8 @@ async function carregarCatalogo() {
     erro.value = ''
     categoriaAtiva.value = ''
     categoriasResposta.value = []
+    produtoSelecionado.value = null
+    imagensComErro.value = {}
 
     const [empresaApi, personalizacaoApi, catalogoApi] = await Promise.all([
       buscarEmpresaPublica(slug.value),
@@ -430,6 +469,24 @@ async function carregarCatalogo() {
     carregando.value = false
   }
 }
+
+watch(
+  produtoSelecionado,
+  (produto) => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    document.body.style.overflow = produto ? 'hidden' : ''
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = ''
+  }
+})
 </script>
 
 <template>
@@ -630,17 +687,23 @@ async function carregarCatalogo() {
 
         <div class="grid-produtos">
           <article v-for="produto in produtosFiltrados" :key="produto.id" class="card produto-card">
-            <div class="produto-midia">
+            <button
+              type="button"
+              class="produto-midia"
+              :aria-label="`Abrir prévia de ${produto.nome}`"
+              @click="abrirPreviaProduto(produto)"
+            >
               <img
-                v-if="produto.imagemUrl"
+                v-if="imagemProdutoDisponivel(produto)"
                 :src="produto.imagemUrl"
                 :alt="`Imagem de ${produto.nome}`"
                 class="produto-imagem"
+                @error="aoFalharImagemProduto(produto)"
               />
               <div v-else class="produto-placeholder">
                 <span class="produto-placeholder-iniciais">{{ extrairIniciais(produto.nome) }}</span>
                 <strong>{{ produto.categoriaPublica || 'Produto especial' }}</strong>
-                <small>Foto em breve</small>
+                <small>Toque para ampliar</small>
               </div>
 
               <div class="badges">
@@ -650,7 +713,8 @@ async function carregarCatalogo() {
                 <span v-if="produto.destaque" class="badge destaque">Destaque</span>
                 <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
               </div>
-            </div>
+              <span class="produto-midia-acoes">Toque para ampliar</span>
+            </button>
 
             <div class="produto-corpo">
               <div class="produto-cabecalho">
@@ -688,6 +752,68 @@ async function carregarCatalogo() {
           </article>
         </div>
       </section>
+
+      <teleport to="body">
+        <transition name="modal-previa">
+          <div v-if="produtoSelecionado" class="produto-modal" role="dialog" aria-modal="true" :aria-label="`Prévia de ${produtoSelecionado.nome}`" @click.self="fecharPreviaProduto">
+            <div class="produto-modal-conteudo">
+              <button type="button" class="produto-modal-fechar" aria-label="Fechar prévia" @click="fecharPreviaProduto">
+                ×
+              </button>
+
+              <div class="produto-modal-midia">
+                <img
+                  v-if="imagemProdutoDisponivel(produtoSelecionado)"
+                  :src="produtoSelecionado.imagemUrl"
+                  :alt="`Imagem ampliada de ${produtoSelecionado.nome}`"
+                  class="produto-modal-imagem"
+                  @error="aoFalharImagemProduto(produtoSelecionado)"
+                />
+                <div v-else class="produto-modal-placeholder">
+                  <span class="produto-placeholder-iniciais">{{ extrairIniciais(produtoSelecionado.nome) }}</span>
+                  <strong>{{ produtoSelecionado.categoriaPublica || 'Produto especial' }}</strong>
+                  <small>Sem imagem disponível</small>
+                </div>
+              </div>
+
+              <div class="produto-modal-corpo">
+                <div class="produto-modal-cabecalho">
+                  <p class="painel-selo">Prévia do produto</p>
+                  <h2>{{ produtoSelecionado.nome }}</h2>
+                  <p v-if="produtoSelecionado.categoriaPublica" class="produto-modal-categoria">{{ produtoSelecionado.categoriaPublica }}</p>
+                </div>
+
+                <div class="produto-modal-dados">
+                  <p v-if="produtoSelecionado.mostrarPrecoPublico" class="produto-modal-preco">{{ formatarMoeda(produtoSelecionado.precoVenda) }}</p>
+                  <p v-if="produtoSelecionado.mostrarQuantidadePublica" class="produto-modal-quantidade">
+                    Disponivel hoje: {{ formatarQuantidadePublica(produtoSelecionado) }}
+                  </p>
+                  <p v-if="!produtoSelecionado.disponivel" class="produto-modal-quantidade produto-modal-esgotado">
+                    Estoque do dia encerrado no momento.
+                  </p>
+                </div>
+
+                <p v-if="produtoSelecionado.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionado.descricaoPublica }}</p>
+
+                <div class="produto-modal-acoes">
+                  <a
+                    v-if="temWhatsapp"
+                    class="botao-whatsapp botao-whatsapp-modal"
+                    :href="linkWhatsappProduto(produtoSelecionado)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {{ produtoSelecionado.disponivel ? produtoSelecionado.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
+                  </a>
+                  <button type="button" class="botao-secundario botao-fechar-modal" @click="fecharPreviaProduto">
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </teleport>
     </template>
   </main>
 </template>
@@ -1131,22 +1257,35 @@ async function carregarCatalogo() {
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .produto-midia {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  display: block;
   position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: inherit;
+  outline: none;
 }
 
 .produto-imagem,
 .produto-placeholder {
   width: 100%;
-  aspect-ratio: 16 / 10;
-  max-height: 205px;
+  height: 100%;
 }
 
 .produto-imagem {
   object-fit: cover;
   display: block;
+  transform: scale(1);
+  transition: transform 0.28s ease, filter 0.28s ease;
 }
 
 .produto-placeholder {
@@ -1162,6 +1301,34 @@ async function carregarCatalogo() {
   position: relative;
   overflow: hidden;
   padding: 18px;
+}
+
+.produto-midia:hover .produto-imagem,
+.produto-midia:focus-visible .produto-imagem {
+  transform: scale(1.05);
+  filter: saturate(1.04) contrast(1.02);
+}
+
+.produto-midia:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(194, 65, 12, 0.28);
+}
+
+.produto-midia-acoes {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(15, 23, 42, 0.56);
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
 }
 
 .produto-placeholder::before,
@@ -1350,6 +1517,149 @@ async function carregarCatalogo() {
   font-size: 14px;
 }
 
+.produto-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(10px);
+  display: grid;
+  place-items: center;
+}
+
+.produto-modal-conteudo {
+  position: relative;
+  width: min(100%, 920px);
+  max-height: min(100%, calc(100vh - 28px));
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.28);
+  display: grid;
+}
+
+.produto-modal-fechar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.86);
+  color: white;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.produto-modal-midia {
+  background: linear-gradient(180deg, #fff7ed, #fff);
+}
+
+.produto-modal-imagem,
+.produto-modal-placeholder {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: block;
+}
+
+.produto-modal-imagem {
+  object-fit: cover;
+}
+
+.produto-modal-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.35), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.16), transparent 30%),
+    linear-gradient(135deg, #fff7ed, #fde68a);
+  color: #9a3412;
+  padding: 22px;
+}
+
+.produto-modal-placeholder .produto-placeholder-iniciais {
+  width: 86px;
+  height: 86px;
+  font-size: 36px;
+}
+
+.produto-modal-corpo {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.produto-modal-cabecalho {
+  display: grid;
+  gap: 8px;
+  padding-right: 42px;
+}
+
+.produto-modal-cabecalho h2 {
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 900;
+  line-height: 1.08;
+  margin: 0;
+}
+
+.produto-modal-categoria {
+  margin: 0;
+  color: var(--catalogo-texto-suave);
+  font-weight: 700;
+}
+
+.produto-modal-dados {
+  display: grid;
+  gap: 8px;
+}
+
+.produto-modal-preco {
+  color: var(--catalogo-sucesso);
+  font-size: clamp(24px, 5vw, 34px);
+  font-weight: 900;
+  margin: 0;
+}
+
+.produto-modal-quantidade,
+.produto-modal-descricao {
+  margin: 0;
+  color: var(--catalogo-texto-suave);
+  line-height: 1.6;
+}
+
+.produto-modal-esgotado {
+  color: var(--catalogo-perigo);
+  font-weight: 700;
+}
+
+.produto-modal-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.botao-whatsapp-modal,
+.botao-fechar-modal {
+  flex: 1 1 180px;
+}
+
+.modal-previa-enter-active,
+.modal-previa-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.modal-previa-enter-from,
+.modal-previa-leave-to {
+  opacity: 0;
+}
+
 @media (min-width: 720px) {
   .catalogo-publico {
     padding: 22px;
@@ -1377,6 +1687,18 @@ async function carregarCatalogo() {
 
   .grid-produtos {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .produto-modal-conteudo {
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  }
+
+  .produto-modal-midia {
+    min-height: 100%;
+  }
+
+  .produto-modal-corpo {
+    align-content: start;
   }
 }
 
@@ -1438,10 +1760,26 @@ async function carregarCatalogo() {
   .botao-secundario {
     width: 100%;
   }
+}
 
-  .produto-imagem,
-  .produto-placeholder {
-    max-height: 180px;
+@media (max-width: 719px) {
+  .produto-modal {
+    padding: 10px;
+  }
+
+  .produto-modal-conteudo {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+  }
+
+  .produto-modal-corpo {
+    padding: 18px;
+  }
+
+  .produto-midia-acoes {
+    right: 10px;
+    bottom: 10px;
+    font-size: 10px;
   }
 }
 </style>
