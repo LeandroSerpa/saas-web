@@ -2381,7 +2381,13 @@ function normalizarProdutoEstoqueResposta(produto) {
 
   const codigoSku = primeiroValorPreenchido(produto.codigoSku, produto.sku, produto.codigo) || ''
   const quantidadeAtual = normalizarNumeroEstoque(
-    primeiroValorPreenchido(produto.quantidadeAtual, produto.saldoAtual, produto.quantidade, produto.estoqueAtual),
+    primeiroValorPreenchido(
+      produto.quantidadeAtual,
+      produto.quantidadeDisponivel,
+      produto.saldoAtual,
+      produto.quantidade,
+      produto.estoqueAtual,
+    ),
     0,
   )
   const estoqueMinimo = normalizarNumeroEstoque(
@@ -2510,7 +2516,7 @@ export function normalizarProdutoCatalogoPublico(produto) {
       ) || '',
     ).trim(),
     destaqueCatalogo: normalizarBooleanoFlexivelEstoque(
-      primeiroValorPreenchido(produtoBase.destaqueCatalogo, produtoBase.destacarNoCatalogo),
+      primeiroValorPreenchido(produtoBase.destaqueCatalogo, produtoBase.destacarNoCatalogo, produtoBase.destaque),
       false,
     ),
     mostrarQuantidadePublica: normalizarBooleanoFlexivelEstoque(
@@ -2535,7 +2541,7 @@ export function normalizarProdutoCatalogoPublico(produto) {
       ).trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
     exibirCatalogoPublico: normalizarBooleanoFlexivelEstoque(
       primeiroValorPreenchido(produtoBase.exibirCatalogoPublico, produtoBase.catalogoPublicoAtivo),
-      false,
+      true,
     ),
     esgotado,
     disponivel,

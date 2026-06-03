@@ -18,11 +18,12 @@ const erro = ref('')
 const empresa = ref(criarEmpresaPadrao())
 const personalizacao = ref(criarPersonalizacaoPadrao())
 const produtos = ref([])
+const categoriasResposta = ref([])
 const categoriaAtiva = ref('')
 
 const produtosPublicados = computed(() =>
   produtos.value
-    .filter((item) => item.exibirCatalogoPublico)
+    .filter((item) => item.exibirCatalogoPublico !== false)
     .sort((a, b) => {
       const ordemA = Number.isFinite(a.ordemCatalogo) ? a.ordemCatalogo : Number.MAX_SAFE_INTEGER
       const ordemB = Number.isFinite(b.ordemCatalogo) ? b.ordemCatalogo : Number.MAX_SAFE_INTEGER
@@ -32,6 +33,27 @@ const produtosPublicados = computed(() =>
 )
 
 const categorias = computed(() => {
+  const categoriasApi = normalizarCategoriasCatalogo(categoriasResposta.value)
+
+  if (categoriasApi.length) {
+    const contagemPorCategoria = new Map()
+
+    for (const produto of produtosPublicados.value) {
+      const categoria = String(produto.categoriaPublica || '').trim()
+
+      if (!categoria) {
+        continue
+      }
+
+      contagemPorCategoria.set(categoria, (contagemPorCategoria.get(categoria) || 0) + 1)
+    }
+
+    return categoriasApi.map((nome) => ({
+      nome,
+      quantidade: contagemPorCategoria.get(nome) || 0,
+    }))
+  }
+
   const mapa = new Map()
 
   for (const produto of produtosPublicados.value) {
@@ -179,6 +201,12 @@ function normalizarLista(valor) {
   return candidatos.find(Array.isArray) || []
 }
 
+function normalizarCategoriasCatalogo(valor) {
+  return [...new Set(normalizarLista(valor).map((item) => String(item || '').trim()).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, 'pt-BR'),
+  )
+}
+
 function normalizarObjeto(valor) {
   if (!valor || typeof valor !== 'object' || Array.isArray(valor)) {
     return {}
@@ -323,6 +351,7 @@ async function carregarCatalogo() {
     indisponivel.value = false
     erro.value = ''
     categoriaAtiva.value = ''
+    categoriasResposta.value = []
 
     const [empresaApi, personalizacaoApi, catalogoApi] = await Promise.all([
       buscarEmpresaPublica(slug.value),
@@ -338,7 +367,8 @@ async function carregarCatalogo() {
       ...criarPersonalizacaoPadrao(),
       ...normalizarObjeto(personalizacaoApi),
     }
-    produtos.value = normalizarLista(catalogoApi).map(normalizarProdutoCatalogoPublico)
+    produtos.value = normalizarLista(catalogoApi?.produtos ?? catalogoApi).map(normalizarProdutoCatalogoPublico)
+    categoriasResposta.value = normalizarLista(catalogoApi?.categorias)
   } catch (errorAtual) {
     indisponivel.value = true
     erro.value = 'Nao foi possivel carregar o catalogo desta empresa agora.'
