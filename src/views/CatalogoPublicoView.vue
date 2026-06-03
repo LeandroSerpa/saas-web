@@ -19,9 +19,10 @@ const personalizacao = ref(criarPersonalizacaoPadrao())
 const produtos = ref([])
 const categoriasResposta = ref([])
 const categoriaAtiva = ref('')
+const categoriasRef = ref(null)
 
 const produtosPublicados = computed(() =>
-  produtos.value
+  [...produtos.value]
     .sort((a, b) => {
       const ordemA = Number.isFinite(a.ordemCatalogo) ? a.ordemCatalogo : Number.MAX_SAFE_INTEGER
       const ordemB = Number.isFinite(b.ordemCatalogo) ? b.ordemCatalogo : Number.MAX_SAFE_INTEGER
@@ -141,6 +142,22 @@ const temWhatsapp = computed(() => Boolean(whatsappNumero.value))
 const totalDisponiveis = computed(() => produtosPublicados.value.filter((item) => item.disponivel === true).length)
 const totalDestaques = computed(() => produtosPublicados.value.filter((item) => item.destaque === true).length)
 const quantidadeCategorias = computed(() => categorias.value.length)
+const categoriaAtivaSelecionada = computed(() => categorias.value.find((item) => item.nome === categoriaAtiva.value) || null)
+const totalVisiveis = computed(() => produtosFiltrados.value.length)
+const totalProdutosPublicados = computed(() => produtosPublicados.value.length)
+const linkWhatsappContato = computed(() => {
+  if (!temWhatsapp.value) {
+    return ''
+  }
+
+  const nomeEmpresa = empresa.value.nome || 'empresa'
+  const linhas = [
+    `Ola! Vim pelo catalogo da ${nomeEmpresa}.`,
+    'Quero ver os produtos disponiveis hoje e fazer meu pedido pelo WhatsApp.',
+  ]
+
+  return `https://wa.me/${whatsappNumero.value}?text=${encodeURIComponent(linhas.join('\n'))}`
+})
 
 watch(
   slug,
@@ -346,6 +363,14 @@ function selecionarCategoria(categoria) {
   categoriaAtiva.value = categoria
 }
 
+function limparFiltroCategoria() {
+  categoriaAtiva.value = ''
+}
+
+function irParaCategorias() {
+  categoriasRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 function montarMensagemWhatsapp(produto) {
   const linhas = [`Ola! Vim pelo catalogo da NuvemMais e tenho interesse em: ${produto.nome}.`]
 
@@ -435,17 +460,28 @@ async function carregarCatalogo() {
         </div>
 
         <div class="hero-conteudo">
-          <div class="hero-identidade">
-            <div class="logo-shell">
-              <img v-if="logoEmpresa" :src="logoEmpresa" alt="Logo da empresa" class="logo-empresa" />
-              <span v-else>{{ extrairIniciais(empresa.nome || tituloPagina) }}</span>
+          <div class="hero-principal">
+            <div class="hero-identidade">
+              <div class="logo-shell">
+                <img v-if="logoEmpresa" :src="logoEmpresa" alt="Logo da empresa" class="logo-empresa" />
+                <span v-else>{{ extrairIniciais(empresa.nome || tituloPagina) }}</span>
+              </div>
+
+              <div class="hero-textos">
+                <p class="selo">Catalogo publico</p>
+                <h1>{{ empresa.nome || 'Empresa' }}</h1>
+                <p class="titulo">{{ tituloPagina }}</p>
+                <p class="subtitulo">{{ descricaoCatalogo }}</p>
+              </div>
             </div>
 
-            <div class="hero-textos">
-              <p class="selo">Catalogo publico</p>
-              <h1>{{ empresa.nome || 'Empresa' }}</h1>
-              <p class="titulo">{{ tituloPagina }}</p>
-              <p class="subtitulo">{{ descricaoCatalogo }}</p>
+            <div class="hero-cta">
+              <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
+                Pedir no WhatsApp
+              </a>
+              <button v-if="categorias.length" type="button" class="botao-secundario" @click="irParaCategorias">
+                Ver categorias
+              </button>
             </div>
           </div>
 
@@ -453,14 +489,17 @@ async function carregarCatalogo() {
             <article class="resumo-pill">
               <span>Disponiveis</span>
               <strong>{{ totalDisponiveis }}</strong>
+              <small>Itens prontos para venda</small>
             </article>
             <article class="resumo-pill">
               <span>Destaques</span>
               <strong>{{ totalDestaques }}</strong>
+              <small>Produtos em evidência</small>
             </article>
             <article class="resumo-pill">
               <span>Categorias</span>
               <strong>{{ quantidadeCategorias }}</strong>
+              <small>Organização da vitrine</small>
             </article>
           </div>
         </div>
@@ -468,12 +507,37 @@ async function carregarCatalogo() {
 
       <section class="painel-superior">
         <article class="card painel-intro">
-          <p class="painel-selo">Como comprar</p>
-          <h2>Escolha um produto e chame no WhatsApp</h2>
-          <p>
-            Esta vitrine nao possui carrinho, pedido, pagamento ou checkout nesta fase.
-            O atendimento acontece direto com a empresa.
-          </p>
+          <div class="painel-intro-topo">
+            <div>
+              <p class="painel-selo">Como comprar</p>
+              <h2>Escolha um produto e finalize o pedido no WhatsApp</h2>
+              <p>
+                Esta vitrine nao possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.
+              </p>
+            </div>
+
+            <a v-if="temWhatsapp" class="botao-primario botao-bloco" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
+              Abrir WhatsApp
+            </a>
+          </div>
+
+          <div class="passos-compra">
+            <article class="passo-compra">
+              <span>1</span>
+              <strong>Escolha</strong>
+              <p>Veja os produtos, preços e disponibilidade do dia.</p>
+            </article>
+            <article class="passo-compra">
+              <span>2</span>
+              <strong>Chame</strong>
+              <p>Toque no botao do WhatsApp para abrir a conversa pronta.</p>
+            </article>
+            <article class="passo-compra">
+              <span>3</span>
+              <strong>Confirme</strong>
+              <p>Combine retirada, entrega e detalhes com a empresa.</p>
+            </article>
+          </div>
         </article>
 
         <article v-if="!temWhatsapp" class="card painel-aviso">
@@ -483,13 +547,17 @@ async function carregarCatalogo() {
         </article>
       </section>
 
-      <section v-if="categorias.length" class="card filtros-categorias">
+      <section v-if="categorias.length" ref="categoriasRef" class="card filtros-categorias">
         <div class="filtros-topo">
           <div>
             <p class="painel-selo">Categorias</p>
             <h2>Filtre a vitrine</h2>
+            <p class="filtros-subtitulo">A navegação fica mais rapida quando o cliente toca na categoria desejada.</p>
           </div>
-          <span class="contador-filtros">{{ produtosPublicados.length }} item(ns)</span>
+          <div class="filtros-acoes">
+            <span class="contador-filtros">{{ totalProdutosPublicados }} item(ns)</span>
+            <button v-if="categoriaAtiva" type="button" class="link-limpar" @click="limparFiltroCategoria">Limpar filtro</button>
+          </div>
         </div>
 
         <div class="chips">
@@ -500,6 +568,7 @@ async function carregarCatalogo() {
             @click="selecionarCategoria('')"
           >
             Todas
+            <span>{{ totalProdutosPublicados }}</span>
           </button>
           <button
             v-for="categoria in categorias"
@@ -519,15 +588,47 @@ async function carregarCatalogo() {
         <span class="estado-selo">Vitrine vazia</span>
         <h2>Nenhum produto publicado no catalogo no momento.</h2>
         <p>A empresa ainda pode estar preparando o estoque do dia. Volte mais tarde ou chame no WhatsApp para consultar disponibilidade.</p>
+        <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
+          Perguntar no WhatsApp
+        </a>
       </section>
 
       <section v-else-if="!produtosFiltrados.length" class="card estado-shell">
         <span class="estado-selo">Sem resultados</span>
         <h2>Nenhum produto encontrado para esta categoria.</h2>
-        <p>Escolha outra categoria para visualizar os demais itens da vitrine.</p>
+        <p>
+          {{
+            categoriaAtivaSelecionada
+              ? `A categoria ${categoriaAtivaSelecionada.nome} nao possui itens publicados agora.`
+              : 'Escolha outra categoria para visualizar os demais itens da vitrine.'
+          }}
+        </p>
+        <div class="estado-acoes">
+          <button type="button" class="botao-secundario" @click="limparFiltroCategoria">Ver todas as categorias</button>
+          <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
+            Falar no WhatsApp
+          </a>
+        </div>
       </section>
 
-      <section v-else class="grid-produtos">
+      <section v-else class="secao-produtos">
+        <div class="secao-produtos-topo">
+          <div>
+            <p class="painel-selo">Produtos</p>
+            <h2>{{ categoriaAtivaSelecionada ? categoriaAtivaSelecionada.nome : 'Vitrine completa' }}</h2>
+            <p>
+              {{
+                categoriaAtivaSelecionada
+                  ? `${totalVisiveis} produto(s) nesta categoria.`
+                  : `${totalVisiveis} produto(s) para explorar nesta vitrine.`
+              }}
+            </p>
+          </div>
+
+          <span class="contador-filtros">{{ totalVisiveis }} visiveis</span>
+        </div>
+
+        <div class="grid-produtos">
         <article v-for="produto in produtosFiltrados" :key="produto.id" class="card produto-card">
           <div class="produto-midia">
             <img
@@ -537,13 +638,14 @@ async function carregarCatalogo() {
               class="produto-imagem"
             />
             <div v-else class="produto-placeholder">
-              <span>{{ extrairIniciais(produto.nome) }}</span>
-              <small>Imagem em breve</small>
+              <span class="produto-placeholder-iniciais">{{ extrairIniciais(produto.nome) }}</span>
+              <strong>{{ produto.categoriaPublica || 'Produto especial' }}</strong>
+              <small>Foto em breve</small>
             </div>
 
             <div class="badges">
-              <span class="badge" :class="produto.esgotado ? 'esgotado' : 'disponivel'">
-                {{ produto.esgotado ? 'Esgotado hoje' : 'Disponivel' }}
+              <span class="badge" :class="produto.disponivel ? 'disponivel' : 'esgotado'">
+                {{ produto.disponivel ? 'Disponivel' : 'Esgotado' }}
               </span>
               <span v-if="produto.destaque" class="badge destaque">Destaque</span>
               <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
@@ -584,6 +686,7 @@ async function carregarCatalogo() {
             </div>
           </div>
         </article>
+        </div>
       </section>
     </template>
   </main>
@@ -592,8 +695,8 @@ async function carregarCatalogo() {
 <style scoped>
 .catalogo-publico {
   --catalogo-bg: #f8f4ed;
-  --catalogo-card: rgba(255, 255, 255, 0.92);
-  --catalogo-borda: rgba(148, 163, 184, 0.24);
+  --catalogo-card: rgba(255, 255, 255, 0.9);
+  --catalogo-borda: rgba(148, 163, 184, 0.22);
   --catalogo-texto: #1f2937;
   --catalogo-texto-suave: #5b6474;
   --catalogo-destaque: #c2410c;
@@ -602,10 +705,12 @@ async function carregarCatalogo() {
   --catalogo-sucesso-suave: #dcfce7;
   --catalogo-perigo: #b91c1c;
   --catalogo-perigo-suave: #fee2e2;
+  --catalogo-azul: #1d4ed8;
+  --catalogo-azul-suave: #dbeafe;
   min-height: 100vh;
   padding: 14px;
   display: grid;
-  gap: 16px;
+  gap: 14px;
   background:
     radial-gradient(circle at top left, rgba(251, 191, 36, 0.22), transparent 28%),
     radial-gradient(circle at top right, rgba(234, 88, 12, 0.18), transparent 24%),
@@ -618,7 +723,7 @@ async function carregarCatalogo() {
   backdrop-filter: blur(10px);
   border: 1px solid var(--catalogo-borda);
   border-radius: 24px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
 }
 
 .hero {
@@ -627,13 +732,13 @@ async function carregarCatalogo() {
 
 .hero-banner-shell {
   position: relative;
-  min-height: 180px;
+  min-height: 140px;
 }
 
 .hero-banner {
   width: 100%;
-  min-height: 180px;
-  max-height: 280px;
+  min-height: 140px;
+  max-height: 210px;
   object-fit: cover;
   display: block;
 }
@@ -642,8 +747,8 @@ async function carregarCatalogo() {
   display: grid;
   place-items: center;
   background:
-    linear-gradient(135deg, rgba(194, 65, 12, 0.92), rgba(251, 191, 36, 0.88)),
-    linear-gradient(45deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.26), transparent 28%),
+    linear-gradient(135deg, rgba(194, 65, 12, 0.92), rgba(251, 191, 36, 0.88));
 }
 
 .hero-banner-texto {
@@ -651,6 +756,7 @@ async function carregarCatalogo() {
   gap: 6px;
   text-align: center;
   color: white;
+  padding: 18px;
 }
 
 .hero-banner-texto span {
@@ -661,7 +767,7 @@ async function carregarCatalogo() {
 }
 
 .hero-banner-texto strong {
-  font-size: clamp(24px, 5vw, 38px);
+  font-size: clamp(22px, 5vw, 34px);
   font-weight: 900;
 }
 
@@ -678,14 +784,19 @@ async function carregarCatalogo() {
   padding: 18px;
 }
 
+.hero-principal {
+  display: grid;
+  gap: 16px;
+}
+
 .hero-identidade {
   display: grid;
   gap: 16px;
 }
 
 .logo-shell {
-  width: 78px;
-  height: 78px;
+  width: 72px;
+  height: 72px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.42);
   background: linear-gradient(135deg, #fff7ed, #ffffff);
@@ -753,7 +864,7 @@ async function carregarCatalogo() {
 }
 
 .titulo {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
 }
 
@@ -775,6 +886,7 @@ async function carregarCatalogo() {
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(255, 237, 213, 0.86);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .resumo-pill span {
@@ -785,8 +897,55 @@ async function carregarCatalogo() {
 }
 
 .resumo-pill strong {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 900;
+}
+
+.resumo-pill small {
+  color: var(--catalogo-texto-suave);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.botao-primario,
+.botao-secundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  border-radius: 16px;
+  padding: 12px 16px;
+  font: inherit;
+  font-weight: 900;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.botao-primario {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: white;
+  box-shadow: 0 12px 24px rgba(22, 163, 74, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.botao-secundario {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--catalogo-texto);
+}
+
+.botao-primario:hover,
+.botao-secundario:hover,
+.chip:hover,
+.link-limpar:hover {
+  transform: translateY(-1px);
 }
 
 .painel-superior {
@@ -801,11 +960,68 @@ async function carregarCatalogo() {
   padding: 18px;
 }
 
+.painel-intro-topo,
+.secao-produtos-topo {
+  display: grid;
+  gap: 14px;
+}
+
 .painel-intro p:last-child,
 .painel-aviso p:last-child,
 .estado-shell p:last-child {
   color: var(--catalogo-texto-suave);
   line-height: 1.6;
+}
+
+.painel-intro h2,
+.painel-aviso h2,
+.secao-produtos-topo h2,
+.filtros-topo h2 {
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+.passos-compra {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.passo-compra {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 247, 237, 0.72);
+  border: 1px solid rgba(251, 146, 60, 0.16);
+}
+
+.passo-compra span {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffedd5, #fed7aa);
+  color: var(--catalogo-destaque);
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.passo-compra strong {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.passo-compra p {
+  color: var(--catalogo-texto-suave);
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.botao-bloco {
+  width: 100%;
 }
 
 .filtros-topo {
@@ -816,6 +1032,20 @@ async function carregarCatalogo() {
   margin-bottom: 14px;
 }
 
+.filtros-subtitulo {
+  margin-top: 6px;
+  color: var(--catalogo-texto-suave);
+  line-height: 1.55;
+}
+
+.filtros-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .contador-filtros {
   border-radius: 999px;
   padding: 8px 12px;
@@ -823,6 +1053,16 @@ async function carregarCatalogo() {
   color: var(--catalogo-destaque);
   font-size: 13px;
   font-weight: 800;
+}
+
+.link-limpar {
+  border: 0;
+  background: transparent;
+  color: var(--catalogo-azul);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .chips {
@@ -835,15 +1075,16 @@ async function carregarCatalogo() {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.34);
+  border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 999px;
   padding: 10px 14px;
-  background: white;
+  background: rgba(255, 255, 255, 0.9);
   color: #475569;
   font: inherit;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .chip span {
@@ -858,12 +1099,19 @@ async function carregarCatalogo() {
   background: linear-gradient(135deg, #fff7ed, #ffedd5);
   color: var(--catalogo-destaque);
   transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(194, 65, 12, 0.12);
 }
 
 .estado-shell {
   display: grid;
   gap: 12px;
   justify-items: start;
+}
+
+.estado-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .estado-shell h1,
@@ -880,6 +1128,8 @@ async function carregarCatalogo() {
 .produto-card {
   overflow: hidden;
   padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .produto-midia {
@@ -900,15 +1150,64 @@ async function carregarCatalogo() {
 .produto-placeholder {
   display: grid;
   place-items: center;
-  gap: 4px;
+  gap: 8px;
   background:
-    radial-gradient(circle at top left, rgba(251, 191, 36, 0.45), transparent 35%),
+    radial-gradient(circle at top left, rgba(251, 191, 36, 0.46), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.18), transparent 28%),
     linear-gradient(135deg, #fff7ed, #fde68a);
   color: #9a3412;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
 }
 
-.produto-placeholder span {
-  font-size: 34px;
+.produto-placeholder::before,
+.produto-placeholder::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  filter: blur(2px);
+}
+
+.produto-placeholder::before {
+  width: 90px;
+  height: 90px;
+  top: -24px;
+  right: -18px;
+}
+
+.produto-placeholder::after {
+  width: 120px;
+  height: 120px;
+  bottom: -52px;
+  left: -42px;
+}
+
+.produto-placeholder-iniciais {
+  position: relative;
+  z-index: 1;
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(154, 52, 18, 0.12);
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.produto-placeholder strong,
+.produto-placeholder small {
+  position: relative;
+  z-index: 1;
+}
+
+.produto-placeholder strong {
+  font-size: 14px;
   font-weight: 900;
 }
 
@@ -958,13 +1257,14 @@ async function carregarCatalogo() {
 
 .badge.atualizacao {
   background: rgba(219, 234, 254, 0.96);
-  color: #1d4ed8;
+  color: var(--catalogo-azul);
 }
 
 .produto-corpo {
   display: grid;
   gap: 14px;
   padding: 18px;
+  flex: 1;
 }
 
 .produto-cabecalho {
@@ -994,6 +1294,10 @@ async function carregarCatalogo() {
 .produto-infos {
   display: grid;
   gap: 8px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
 .preco {
@@ -1015,6 +1319,7 @@ async function carregarCatalogo() {
 .produto-rodape {
   display: grid;
   gap: 10px;
+  margin-top: auto;
 }
 
 .botao-whatsapp {
@@ -1029,6 +1334,7 @@ async function carregarCatalogo() {
   text-decoration: none;
   font-weight: 900;
   box-shadow: 0 12px 24px rgba(22, 163, 74, 0.2);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
 .botao-whatsapp.secundario {
@@ -1052,8 +1358,18 @@ async function carregarCatalogo() {
     align-items: center;
   }
 
+  .painel-intro-topo,
+  .secao-produtos-topo {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
   .painel-superior {
     grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  }
+
+  .passos-compra {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .grid-produtos {
@@ -1077,6 +1393,19 @@ async function carregarCatalogo() {
 }
 
 @media (max-width: 560px) {
+  .hero-banner-shell,
+  .hero-banner {
+    min-height: 120px;
+  }
+
+  .hero-conteudo,
+  .painel-intro,
+  .painel-aviso,
+  .filtros-categorias,
+  .estado-shell {
+    padding: 16px;
+  }
+
   .hero-resumo {
     grid-template-columns: 1fr;
   }
@@ -1089,6 +1418,16 @@ async function carregarCatalogo() {
   .chip {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .estado-acoes,
+  .hero-cta {
+    width: 100%;
+  }
+
+  .botao-primario,
+  .botao-secundario {
+    width: 100%;
   }
 }
 </style>
