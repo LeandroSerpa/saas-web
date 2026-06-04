@@ -97,9 +97,9 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 .app-page-heading {
   min-height: 0;
   height: auto;
-  border: 1px solid #e2e8f0;
-  background: white;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .app-topbar {
@@ -136,7 +136,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   height: 38px;
   border: none;
   border-radius: 9px;
-  background: #0f172a;
+  background: var(--app-sidebar-bg);
   color: white;
   place-content: center;
   gap: 4px;
@@ -167,13 +167,13 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-topbar-titulo strong {
-  color: #0f172a;
+  color: var(--app-text);
   font-size: 13px;
   font-weight: 900;
 }
 
 .app-topbar-titulo small {
-  color: #64748b;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 700;
 }
@@ -184,32 +184,32 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   display: grid;
   gap: 1px;
   padding: 6px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #f8fafc;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface-soft);
 }
 
 .app-account-card strong {
-  color: #0f172a;
+  color: var(--app-text);
   font-size: 12px;
   font-weight: 900;
 }
 
 .app-account-card span {
-  color: #334155;
+  color: var(--app-text);
   font-size: 11px;
   font-weight: 800;
 }
 
 .app-account-card small {
-  color: #64748b;
+  color: var(--app-text-muted);
   font-size: 11px;
 }
 
 .app-action-button {
   flex: 0 0 auto;
   border: none;
-  border-radius: 9px;
+  border-radius: 12px;
   padding: 8px 12px;
   color: white;
   cursor: pointer;
@@ -233,19 +233,19 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-action-button.primaria {
-  background: #2563eb;
+  background: var(--app-primary);
 }
 
 .app-action-button.primaria:hover {
-  background: #1d4ed8;
+  background: var(--app-primary-strong);
 }
 
 .app-action-button.sair {
-  background: #0f172a;
+  background: var(--app-sidebar-bg);
 }
 
 .app-action-button.sair:hover {
-  background: #1e293b;
+  background: color-mix(in srgb, var(--app-sidebar-bg) 88%, white);
 }
 
 .app-page-heading {
@@ -262,8 +262,8 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   align-items: center;
   border-radius: 999px;
   padding: 4px 8px;
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -279,7 +279,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 
 .app-page-title h1 {
   margin: 0;
-  color: #0f172a;
+  color: var(--app-text);
   font-size: clamp(22px, 2.1vw, 28px);
   font-weight: 900;
   line-height: 1.08;
@@ -288,7 +288,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 .app-page-title p {
   max-width: 74ch;
   margin: 0;
-  color: #475569;
+  color: var(--app-text-muted);
   display: -webkit-box;
   overflow: hidden;
   font-size: 13px;

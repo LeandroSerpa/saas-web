@@ -6,20 +6,471 @@
 }
 
 a {
-  transition: background 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 body.menu-mobile-aberto {
   overflow: hidden;
 }
 
-*,
-*::before,
-*::after {
+body[data-app-theme] :is(.app-shell .card, .pagina-login .login-card) {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow);
+}
+
+body[data-app-theme] .app-shell .card {
+  color: var(--app-text);
+}
+
+body[data-app-theme] .app-shell .card.erro,
+body[data-app-theme] .app-shell .card.feedback.erro,
+body[data-app-theme] .app-shell .card.alerta,
+body[data-app-theme] .app-shell .card.aviso {
+  border-color: var(--app-warning);
+  background: var(--app-warning-soft);
+}
+
+body[data-app-theme] .app-shell .card.sucesso,
+body[data-app-theme] .app-shell .card.sucesso-card,
+body[data-app-theme] .app-shell .card.feedback.sucesso,
+body[data-app-theme] .app-shell .card.confirmacao-card {
+  border-color: var(--app-success);
+  background: var(--app-success-soft);
+}
+
+body[data-app-theme] .app-shell :is(input, select, textarea),
+body[data-app-theme] .pagina-login :is(input, select, textarea) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  padding: 11px 12px;
+  background: var(--app-surface);
+  color: var(--app-text);
   box-sizing: border-box;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+body[data-app-theme] .app-shell :is(input, select, textarea):focus,
+body[data-app-theme] .pagina-login :is(input, select, textarea):focus {
+  outline: none;
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 3px var(--app-focus-ring);
+}
+
+body[data-app-theme] .app-shell textarea,
+body[data-app-theme] .pagina-login textarea {
+  min-height: 110px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+body[data-app-theme] .app-shell .botao,
+body[data-app-theme] .pagina-login .botao-login,
+body[data-app-theme] .pagina-login .botao-olho,
+body[data-app-theme] .app-shell .app-action-button,
+body[data-app-theme] .app-shell .botao-banner,
+body[data-app-theme] .app-shell .botao-sair-visualizacao,
+body[data-app-theme] .app-shell .botao-erro-interno,
+body[data-app-theme] .app-shell .link-botao,
+body[data-app-theme] .app-shell .botao-sino,
+body[data-app-theme] .app-shell .grupo-menu-botao,
+body[data-app-theme] .app-shell .botao-fechar-menu {
+  font: inherit;
+}
+
+body[data-app-theme] .app-shell .botao,
+body[data-app-theme] .pagina-login .botao-login,
+body[data-app-theme] .app-shell .app-action-button,
+body[data-app-theme] .app-shell .botao-banner,
+body[data-app-theme] .app-shell .botao-sair-visualizacao,
+body[data-app-theme] .app-shell .botao-erro-interno {
+  border: 1px solid transparent;
+  border-radius: 14px;
+  transition:
+    transform 0.16s ease,
+    opacity 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+body[data-app-theme] .app-shell .botao:hover:not(:disabled),
+body[data-app-theme] .pagina-login .botao-login:hover:not(:disabled),
+body[data-app-theme] .app-shell .app-action-button:hover:not(:disabled),
+body[data-app-theme] .app-shell .botao-banner:hover,
+body[data-app-theme] .app-shell .botao-sair-visualizacao:hover,
+body[data-app-theme] .app-shell .botao-erro-interno:hover {
+  transform: translateY(-1px);
+}
+
+body[data-app-theme] .app-shell .botao:disabled,
+body[data-app-theme] .pagina-login .botao-login:disabled,
+body[data-app-theme] .app-shell .app-action-button:disabled,
+body[data-app-theme] .app-shell .botao-sair-visualizacao:disabled,
+body[data-app-theme] .app-shell .botao-erro-interno:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+body[data-app-theme] .app-shell .botao.principal,
+body[data-app-theme] .pagina-login .botao-login,
+body[data-app-theme] .app-shell .app-action-button.primaria,
+body[data-app-theme] .app-shell .botao-banner,
+body[data-app-theme] .app-shell .botao-sair-visualizacao,
+body[data-app-theme] .app-shell .botao-erro-interno {
+  background: var(--app-primary);
+  color: white;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.16);
+}
+
+body[data-app-theme] .app-shell .botao.principal:hover:not(:disabled),
+body[data-app-theme] .pagina-login .botao-login:hover:not(:disabled),
+body[data-app-theme] .app-shell .app-action-button.primaria:hover:not(:disabled),
+body[data-app-theme] .app-shell .botao-banner:hover,
+body[data-app-theme] .app-shell .botao-sair-visualizacao:hover,
+body[data-app-theme] .app-shell .botao-erro-interno:hover {
+  background: var(--app-primary-strong);
+}
+
+body[data-app-theme] .app-shell .botao.secundario,
+body[data-app-theme] .app-shell .botao.neutro,
+body[data-app-theme] .app-shell .botao.compacto.secundario,
+body[data-app-theme] .app-shell .botao.compacto.neutro,
+body[data-app-theme] .app-shell .app-action-button.sair,
+body[data-app-theme] .pagina-login .botao-olho,
+body[data-app-theme] .app-shell .link-botao {
+  background: var(--app-surface);
+  color: var(--app-text);
+  border-color: var(--app-border);
+}
+
+body[data-app-theme] .app-shell .botao.secundario:hover:not(:disabled),
+body[data-app-theme] .app-shell .botao.neutro:hover:not(:disabled),
+body[data-app-theme] .app-shell .botao.compacto.secundario:hover:not(:disabled),
+body[data-app-theme] .app-shell .botao.compacto.neutro:hover:not(:disabled),
+body[data-app-theme] .app-shell .app-action-button.sair:hover:not(:disabled),
+body[data-app-theme] .app-shell .botao-olho:hover,
+body[data-app-theme] .pagina-login .botao-olho:hover {
+  background: var(--app-surface-soft);
+  border-color: var(--app-primary);
+}
+
+body[data-app-theme] .app-shell .botao.sucesso,
+body[data-app-theme] .app-shell .botao.sucesso-botao,
+body[data-app-theme] .app-shell .app-action-button.sucesso {
+  background: var(--app-success);
+  color: white;
+}
+
+body[data-app-theme] .app-shell .botao.perigo,
+body[data-app-theme] .app-shell .botao.excluir {
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
+  border-color: var(--app-danger);
+}
+
+body[data-app-theme] .app-shell .botao.alerta {
+  background: var(--app-warning-soft);
+  color: var(--app-warning);
+  border-color: var(--app-warning);
+}
+
+body[data-app-theme] .app-shell .botao.link-botao,
+body[data-app-theme] .app-shell .link-botao {
+  background: transparent;
+  border-color: transparent;
+  color: var(--app-primary);
+  padding: 0;
+  box-shadow: none;
+}
+
+body[data-app-theme] .app-shell .botao-olho {
+  background: var(--app-surface);
+  color: var(--app-text-muted);
+  border-color: var(--app-border);
+}
+
+body[data-app-theme] .app-shell .botao.compacto {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+body[data-app-theme] .app-shell .badge,
+body[data-app-theme] .app-shell .status,
+body[data-app-theme] .app-shell .prioridade,
+body[data-app-theme] .app-shell .etapa-tag,
+body[data-app-theme] .app-shell .selo-homologacao {
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+body[data-app-theme] .app-shell .badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--app-danger);
+  color: white;
+}
+
+body[data-app-theme] .app-shell .status {
+  padding: 4px 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+body[data-app-theme] .app-shell .prioridade {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+body[data-app-theme] .app-shell .etapa-tag {
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+  border: 1px solid var(--app-border);
+}
+
+body[data-app-theme] .app-shell .tabela-container,
+body[data-app-theme] .app-shell .table-wrapper,
+body[data-app-theme] .app-shell .tabela-wrapper,
+body[data-app-theme] .app-shell .auditoria-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+body[data-app-theme] .app-shell .tabela-container table,
+body[data-app-theme] .app-shell .table-wrapper table,
+body[data-app-theme] .app-shell .tabela-wrapper table,
+body[data-app-theme] .app-shell .auditoria-table-wrapper table,
+body[data-app-theme] .app-shell table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  color: var(--app-text);
+}
+
+body[data-app-theme] .app-shell .tabela-container th,
+body[data-app-theme] .app-shell .table-wrapper th,
+body[data-app-theme] .app-shell .tabela-wrapper th,
+body[data-app-theme] .app-shell .auditoria-table-wrapper th,
+body[data-app-theme] .app-shell table th {
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+body[data-app-theme] .app-shell .tabela-container th,
+body[data-app-theme] .app-shell .table-wrapper th,
+body[data-app-theme] .app-shell .tabela-wrapper th,
+body[data-app-theme] .app-shell .auditoria-table-wrapper th,
+body[data-app-theme] .app-shell table th,
+body[data-app-theme] .app-shell .tabela-container td,
+body[data-app-theme] .app-shell .table-wrapper td,
+body[data-app-theme] .app-shell .tabela-wrapper td,
+body[data-app-theme] .app-shell .auditoria-table-wrapper td,
+body[data-app-theme] .app-shell table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--app-border);
+  text-align: left;
+}
+
+body[data-app-theme] .app-shell .tabela-container tr:last-child td,
+body[data-app-theme] .app-shell .table-wrapper tr:last-child td,
+body[data-app-theme] .app-shell .tabela-wrapper tr:last-child td,
+body[data-app-theme] .app-shell .auditoria-table-wrapper tr:last-child td,
+body[data-app-theme] .app-shell table tr:last-child td {
+  border-bottom: none;
+}
+
+body[data-app-theme] .pagina-login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    var(--app-bg-overlay, none),
+    var(--app-bg);
+  color: var(--app-text);
+}
+
+body[data-app-theme] .pagina-login .login-card {
+  width: 100%;
+  max-width: 440px;
+  display: grid;
+  gap: 24px;
+  padding: 28px;
+}
+
+body[data-app-theme] .pagina-login .marca-login {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+body[data-app-theme] .pagina-login .marca-simbolo {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--app-primary) 0%, var(--app-brand-end) 100%);
+  color: white;
+  font-weight: 800;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+}
+
+body[data-app-theme] .pagina-login .marca-login strong,
+body[data-app-theme] .pagina-login .marca-login small {
+  display: block;
+}
+
+body[data-app-theme] .pagina-login .marca-login strong {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+body[data-app-theme] .pagina-login .marca-login small,
+body[data-app-theme] .pagina-login .cabecalho-login p {
+  color: var(--app-text-muted);
+}
+
+body[data-app-theme] .pagina-login .cabecalho-login {
+  display: grid;
+  gap: 6px;
+}
+
+body[data-app-theme] .pagina-login .subtitulo {
+  margin: 0;
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+body[data-app-theme] .pagina-login .cabecalho-login h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 900;
+}
+
+body[data-app-theme] .pagina-login .cabecalho-login p {
+  margin: 0;
+}
+
+body[data-app-theme] .pagina-login .formulario-login {
+  display: grid;
+  gap: 16px;
+}
+
+body[data-app-theme] .pagina-login label {
+  display: grid;
+  gap: 6px;
+  color: var(--app-text);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+body[data-app-theme] .pagina-login .campo-senha {
+  position: relative;
+  display: block;
+}
+
+body[data-app-theme] .pagina-login .campo-senha input {
+  padding-right: 46px;
+}
+
+body[data-app-theme] .pagina-login .botao-olho {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transform: translateY(-50%);
+  border-radius: 10px;
+  color: var(--app-text-muted);
+}
+
+body[data-app-theme] .pagina-login .botao-olho svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+body[data-app-theme] .pagina-login .link-cadastro {
+  justify-self: center;
+  color: var(--app-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+body[data-app-theme] .pagina-login .link-cadastro:hover {
+  color: var(--app-primary-strong);
+  text-decoration: underline;
+}
+
+body[data-app-theme] .pagina-login .links-institucionais {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+body[data-app-theme] .pagina-login .links-institucionais a {
+  color: var(--app-text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+body[data-app-theme] .pagina-login .links-institucionais a:hover {
+  color: var(--app-primary);
+  text-decoration: underline;
+}
+
+body[data-app-theme] .pagina-login .erro {
+  border: 1px solid var(--app-danger);
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+body[data-app-theme] .pagina-login .erro p {
+  margin: 0;
 }
 
 @media (max-width: 768px) {
+  body[data-app-theme] .pagina-login {
+    padding: 16px;
+  }
+
   .pagina,
   .page,
   .content,

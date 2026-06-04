@@ -49,12 +49,13 @@ const opcoes = [
 <style scoped>
 .modo-navegacao {
   display: grid;
-  gap: 6px;
-  padding: 10px 12px;
-  border: 1px solid #dbeafe;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #f8fbff 0%, #eff6ff 100%);
-  color: #1e3a8a;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: linear-gradient(180deg, var(--app-surface) 0%, var(--app-surface-soft) 100%);
+  color: var(--app-text);
+  box-shadow: var(--app-shadow);
 }
 
 .modo-navegacao-texto {
@@ -66,30 +67,29 @@ const opcoes = [
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
 }
 
 .modo-navegacao-texto p {
   margin: 0;
-  color: #31517e;
+  color: var(--app-text-muted);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.3;
 }
 
 .modo-navegacao-opcoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .modo-navegacao-botao {
-  flex: 1 1 0;
-  border: 1px solid #bfdbfe;
-  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
   padding: 8px 10px;
-  background: white;
-  color: #1e3a8a;
+  background: var(--app-surface);
+  color: var(--app-text);
   cursor: pointer;
   display: grid;
   gap: 1px;
@@ -102,13 +102,13 @@ const opcoes = [
 
 .modo-navegacao-botao:hover {
   transform: translateY(-1px);
-  border-color: #93c5fd;
+  border-color: var(--app-primary);
 }
 
 .modo-navegacao-botao.ativo {
-  border-color: #2563eb;
-  background: #dbeafe;
-  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+  border-color: var(--app-primary);
+  background: var(--app-primary-soft);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.1);
 }
 
 .modo-navegacao-botao span {
@@ -117,7 +117,7 @@ const opcoes = [
 }
 
 .modo-navegacao-botao small {
-  color: #516b8f;
+  color: var(--app-text-muted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.2;
@@ -125,7 +125,7 @@ const opcoes = [
 
 @media (max-width: 720px) {
   .modo-navegacao-botao {
-    flex-basis: 100%;
+    padding: 10px 12px;
   }
 }
 </style>

@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import ModoNavegacaoSelector from '@/components/ModoNavegacaoSelector.vue'
+import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
   buscarStatusFinanceiroMinhaEmpresa,
@@ -14,6 +15,12 @@ import {
   obterInfoVersaoSistemaPadrao,
   obterTipoSeloAmbiente,
 } from '@/services/api'
+import {
+  aplicarTemaAparenciaNoDocumento,
+  salvarTemaAparencia,
+  sincronizarTemaAparencia,
+  temaAparencia,
+} from '@/utils/aparencia'
 import {
   MODO_NAVEGACAO_COMPLETO,
   modoNavegacao,
@@ -260,6 +267,7 @@ const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
 const modoNavegacaoAtual = computed(() => modoNavegacao.value)
+const temaAparenciaAtual = computed(() => temaAparencia.value)
 const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
 const gruposMenuAbertos = ref({
   principal: true,
@@ -361,6 +369,10 @@ function alterarModoNavegacao(novoModo) {
   if (!modoSalvo) {
     return
   }
+}
+
+function alterarTemaAparencia(novoTema) {
+  salvarTemaAparencia(novoTema)
 }
 
 function atualizarUsuarioLogado() {
@@ -544,6 +556,14 @@ watch(
   { immediate: true },
 )
 
+watch(
+  temaAparencia,
+  (tema) => {
+    aplicarTemaAparenciaNoDocumento(tema)
+  },
+  { immediate: true },
+)
+
 watch(menuMobileAberto, (aberto) => {
   if (typeof document !== 'undefined') {
     document.body.classList.toggle('menu-mobile-aberto', aberto)
@@ -564,6 +584,7 @@ onMounted(() => {
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.addEventListener('mensagem-global', exibirMensagemGlobal)
   carregarAmbienteAplicacao()
+  sincronizarTemaAparencia()
   observarCabecalhoPagina()
   sincronizarCabecalhoPagina()
 })
@@ -630,6 +651,7 @@ onBeforeUnmount(() => {
 
       <div class="menu-preferencias">
         <ModoNavegacaoSelector :modo="modoNavegacaoAtual" @update:modo="alterarModoNavegacao" />
+        <TemaAparenciaSelector :tema="temaAparenciaAtual" @update:tema="alterarTemaAparencia" />
       </div>
 
       <nav class="menu-principal" aria-label="Navegação principal">
@@ -772,23 +794,23 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: #eef2f7;
-  color: #111827;
+  background: var(--app-bg);
+  color: var(--app-text);
 }
 
 .card-erro-interno {
   width: min(100%, 620px);
   display: grid;
   gap: 14px;
-  background: white;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
+  background: var(--app-surface);
+  border: 1px solid color-mix(in srgb, var(--app-danger) 24%, var(--app-border));
+  border-radius: var(--app-radius);
   padding: 28px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--app-shadow);
 }
 
 .selo-erro {
-  color: #b91c1c;
+  color: var(--app-danger);
   font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
@@ -805,7 +827,7 @@ onBeforeUnmount(() => {
 }
 
 .card-erro-interno p {
-  color: #475569;
+  color: var(--app-text-muted);
   line-height: 1.5;
 }
 
@@ -816,30 +838,33 @@ onBeforeUnmount(() => {
 
 .botao-erro-interno {
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 11px 16px;
   color: white;
-  background: #2563eb;
+  background: var(--app-primary);
   font-weight: 800;
   cursor: pointer;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
 }
 
 .botao-erro-interno:hover {
-  background: #1d4ed8;
+  background: var(--app-primary-strong);
 }
 
 .app-shell {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
-  background: #eef2f7;
-  color: #111827;
+  background:
+    var(--app-bg-overlay, none),
+    var(--app-bg);
+  color: var(--app-text);
   position: relative;
 }
 
 .app-sidebar {
-  background: #0f172a;
-  color: white;
+  background: var(--app-sidebar-bg);
+  color: var(--app-sidebar-text);
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -859,6 +884,8 @@ onBeforeUnmount(() => {
 
 .menu-preferencias {
   width: 100%;
+  display: grid;
+  gap: 12px;
 }
 
 .marca-simbolo {
@@ -866,9 +893,11 @@ onBeforeUnmount(() => {
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  background: #2563eb;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--app-primary) 0%, var(--app-brand-end) 100%);
   font-weight: 800;
+  color: white;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
 }
 
 .marca strong,
@@ -882,7 +911,7 @@ onBeforeUnmount(() => {
 }
 
 .marca small {
-  color: #cbd5e1;
+  color: var(--app-sidebar-muted);
   font-size: 13px;
 }
 
@@ -894,16 +923,20 @@ onBeforeUnmount(() => {
 }
 
 .menu-principal a {
-  color: #e2e8f0;
+  color: var(--app-sidebar-link);
   text-decoration: none;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 11px 12px;
   font-weight: 700;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .menu-principal a.router-link-active {
-  background: rgba(37, 99, 235, 0.22);
-  color: white;
+  background: var(--app-sidebar-item-active);
+  color: var(--app-sidebar-link-active);
 }
 
 .grupo-menu {
@@ -911,7 +944,7 @@ onBeforeUnmount(() => {
   gap: 8px;
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px solid rgba(226, 232, 240, 0.16);
+  border-top: 1px solid var(--app-sidebar-border);
 }
 
 .grupo-menu-botao {
@@ -920,10 +953,10 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  background: rgba(15, 23, 42, 0.3);
-  color: #cbd5e1;
+  background: var(--app-sidebar-chip);
+  color: var(--app-sidebar-muted);
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   font: inherit;
   font-size: 13px;
@@ -936,7 +969,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 6px;
   padding-left: 12px;
-  border-left: 2px solid rgba(37, 99, 235, 0.45);
+  border-left: 2px solid var(--app-primary);
 }
 
 .submenu a {
@@ -947,8 +980,8 @@ onBeforeUnmount(() => {
 .rodape-versao-menu {
   margin-top: auto;
   padding-top: 10px;
-  border-top: 1px solid rgba(226, 232, 240, 0.16);
-  color: #94a3b8;
+  border-top: 1px solid var(--app-sidebar-border);
+  color: var(--app-sidebar-muted);
 }
 
 .link-versao-menu {
@@ -966,7 +999,7 @@ onBeforeUnmount(() => {
 }
 
 .link-versao-menu:hover {
-  color: #cbd5e1;
+  color: var(--app-sidebar-link-active);
 }
 
 .app-main {
@@ -982,11 +1015,11 @@ onBeforeUnmount(() => {
 
 .selo-homologacao {
   width: fit-content;
-  border: 1px solid #f59e0b;
+  border: 1px solid var(--app-warning);
   border-radius: 999px;
   padding: 7px 12px;
-  background: #fffbeb;
-  color: #b45309;
+  background: color-mix(in srgb, var(--app-warning) 12%, white);
+  color: color-mix(in srgb, var(--app-warning) 82%, black);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -996,11 +1029,11 @@ onBeforeUnmount(() => {
 
 .botao-fechar-menu {
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   width: 34px;
   height: 34px;
-  background: rgba(148, 163, 184, 0.16);
-  color: #e2e8f0;
+  background: var(--app-sidebar-chip);
+  color: var(--app-sidebar-link);
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
@@ -1008,9 +1041,12 @@ onBeforeUnmount(() => {
 
 .mensagem-global {
   margin: 0;
-  border-radius: 8px;
+  border-radius: var(--app-radius);
   padding: 14px 16px;
   font-weight: 700;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .mensagem-global p {
@@ -1018,15 +1054,15 @@ onBeforeUnmount(() => {
 }
 
 .mensagem-global.erro {
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+  border-color: color-mix(in srgb, var(--app-danger) 28%, var(--app-border));
+  background: color-mix(in srgb, var(--app-danger) 8%, var(--app-surface));
+  color: var(--app-danger);
 }
 
 .mensagem-global.sucesso {
-  border: 1px solid #bbf7d0;
-  background: #f0fdf4;
-  color: #15803d;
+  border-color: color-mix(in srgb, var(--app-success) 28%, var(--app-border));
+  background: color-mix(in srgb, var(--app-success) 8%, var(--app-surface));
+  color: var(--app-success);
 }
 
 .conteudo-rota {
@@ -1046,7 +1082,7 @@ onBeforeUnmount(() => {
     position: fixed;
     inset: 0;
     border: none;
-    background: rgba(15, 23, 42, 0.55);
+    background: var(--app-overlay);
     z-index: 35;
     display: block;
   }
@@ -1062,6 +1098,7 @@ onBeforeUnmount(() => {
     transform: translateX(-100%);
     transition: transform 0.22s ease;
     overflow-y: auto;
+    box-shadow: 28px 0 50px rgba(15, 23, 42, 0.22);
   }
 
   .app-sidebar.aberta {
@@ -1072,7 +1109,7 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    color: #cbd5e1;
+    color: var(--app-sidebar-muted);
     font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;

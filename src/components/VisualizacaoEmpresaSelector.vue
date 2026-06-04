@@ -114,11 +114,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
   padding: 12px 14px;
-  background: #eff6ff;
-  color: #1e3a8a;
+  background: linear-gradient(180deg, var(--app-surface) 0%, var(--app-surface-soft) 100%);
+  color: var(--app-text);
+  box-shadow: var(--app-shadow);
 }
 
 .visualizacao-empresa strong,
@@ -128,7 +129,7 @@ onBeforeUnmount(() => {
 
 .visualizacao-empresa p {
   margin-top: 4px;
-  color: #31517e;
+  color: var(--app-text-muted);
   font-size: 14px;
   font-weight: 700;
 }
@@ -142,19 +143,19 @@ onBeforeUnmount(() => {
 
 .visualizacao-controles select {
   min-width: min(100vw - 48px, 280px);
-  border: 1px solid #93c5fd;
-  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
   padding: 9px 10px;
-  background: white;
-  color: #0f172a;
+  background: var(--app-surface);
+  color: var(--app-text);
   font: inherit;
 }
 
 .botao-sair-visualizacao {
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 12px;
-  background: #1e3a8a;
+  background: var(--app-primary);
   color: white;
   font-weight: 800;
   cursor: pointer;
