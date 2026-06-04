@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
 
@@ -11,6 +11,9 @@ const topicoAtivoId = ref('comecando')
 const abaAtiva = ref('tutoriais')
 const modoDetalhe = ref('resumo')
 const secaoNovidadesRef = ref(null)
+const mostrarListaTopicos = ref(true)
+const isViewportMobile = ref(false)
+let mediaQueryTopicos = null
 
 const ABA_TUTORIAIS = 'tutoriais'
 const ABA_NOVIDADES = 'novidades-versao'
@@ -686,6 +689,9 @@ const conteudoTopicoExibido = computed(() => {
 
   return topicoExibido.value.pontos || []
 })
+const conteudoTopicoExibidoFormatado = computed(() =>
+  conteudoTopicoExibido.value.map((passo) => removerNumeracaoInicial(passo)),
+)
 
 function normalizarHash(valor) {
   return String(valor || '').trim().replace(/^#/, '')
@@ -716,6 +722,31 @@ function rolarParaTopicoAtivo() {
   elemento?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 }
 
+function removerNumeracaoInicial(valor) {
+  return String(valor || '').replace(/^\s*\d+[\.\)]\s+/, '')
+}
+
+function atualizarEstadoViewport(evento) {
+  const ehMobile = typeof evento?.matches === 'boolean' ? evento.matches : mediaQueryTopicos?.matches || false
+  isViewportMobile.value = ehMobile
+
+  if (!ehMobile) {
+    mostrarListaTopicos.value = true
+  } else if (resolverTopicoPorQuery(route.query.topico)) {
+    mostrarListaTopicos.value = false
+  }
+}
+
+function recolherListaTopicosMobile() {
+  if (isViewportMobile.value) {
+    mostrarListaTopicos.value = false
+  }
+}
+
+function abrirListaTopicos() {
+  mostrarListaTopicos.value = true
+}
+
 async function sincronizarEstadoPelaRota() {
   const hashNormalizado = normalizarHash(route.hash)
 
@@ -729,6 +760,10 @@ async function sincronizarEstadoPelaRota() {
   const topicoPorQuery = resolverTopicoPorQuery(route.query.topico)
   if (topicoPorQuery && topicoPorQuery !== topicoAtivoId.value) {
     topicoAtivoId.value = topicoPorQuery
+  }
+
+  if (topicoPorQuery && isViewportMobile.value) {
+    mostrarListaTopicos.value = false
   }
 
   await nextTick()
@@ -780,6 +815,7 @@ async function alternarModoAjuda(novoModo) {
 
 async function selecionarTopico(topicoId) {
   topicoAtivoId.value = topicoId
+  recolherListaTopicosMobile()
   await router.replace({
     path: route.path,
     query: {
@@ -815,6 +851,12 @@ const topicosFiltrados = computed(() => {
 })
 
 const topicoAtivo = computed(() => topicosFiltrados.value.find((topico) => topico.id === topicoAtivoId.value) || null)
+
+watch(busca, (termo) => {
+  if (isViewportMobile.value && termo.trim()) {
+    mostrarListaTopicos.value = true
+  }
+})
 
 watch(
   topicosFiltrados,
@@ -868,7 +910,30 @@ watch(
 )
 
 onMounted(() => {
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    mediaQueryTopicos = window.matchMedia('(max-width: 900px)')
+    atualizarEstadoViewport(mediaQueryTopicos)
+
+    if (typeof mediaQueryTopicos.addEventListener === 'function') {
+      mediaQueryTopicos.addEventListener('change', atualizarEstadoViewport)
+    } else if (typeof mediaQueryTopicos.addListener === 'function') {
+      mediaQueryTopicos.addListener(atualizarEstadoViewport)
+    }
+  }
+
   void sincronizarAbaPelaHash(route.hash, false)
+})
+
+onBeforeUnmount(() => {
+  if (!mediaQueryTopicos) {
+    return
+  }
+
+  if (typeof mediaQueryTopicos.removeEventListener === 'function') {
+    mediaQueryTopicos.removeEventListener('change', atualizarEstadoViewport)
+  } else if (typeof mediaQueryTopicos.removeListener === 'function') {
+    mediaQueryTopicos.removeListener(atualizarEstadoViewport)
+  }
 })
 </script>
 
@@ -942,7 +1007,7 @@ onMounted(() => {
       </section>
 
       <section class="layout-ajuda">
-        <aside class="lista-topicos" aria-label="Tópicos da central de ajuda">
+        <aside v-show="!isViewportMobile || mostrarListaTopicos" id="lista-topicos-ajuda" class="lista-topicos" aria-label="Tópicos da central de ajuda">
           <div class="lista-topicos-conteudo">
             <button
               v-for="topico in topicosFiltrados"
@@ -970,6 +1035,15 @@ onMounted(() => {
                 <h2>{{ topicoAtivo.titulo }}</h2>
               </div>
               <div class="acoes-topico">
+                <button
+                  v-if="isViewportMobile && !mostrarListaTopicos"
+                  type="button"
+                  class="botao-voltar-topicos"
+                  aria-controls="lista-topicos-ajuda"
+                  @click="abrirListaTopicos"
+                >
+                  Voltar aos tópicos
+                </button>
                 <RouterLink v-if="topicoAtivo.rota" class="botao-tela" :to="topicoAtivo.rota">
                   Ir para esta tela
                 </RouterLink>
@@ -1017,7 +1091,7 @@ onMounted(() => {
                 {{ modoDetalhe === MODO_PASSO_A_PASSO ? 'Siga na ordem para não se perder.' : 'Leia primeiro o resumo e use o passo a passo quando precisar de mais ajuda.' }}
               </p>
               <ol v-if="modoDetalhe === MODO_PASSO_A_PASSO" class="lista-passos">
-                <li v-for="passo in conteudoTopicoExibido" :key="passo">{{ passo }}</li>
+                <li v-for="passo in conteudoTopicoExibidoFormatado" :key="passo">{{ passo }}</li>
               </ol>
               <ul v-else class="lista-resumo">
                 <li v-for="ponto in conteudoTopicoExibido" :key="ponto">{{ ponto }}</li>
@@ -1048,6 +1122,15 @@ onMounted(() => {
           <article v-else class="topico-vazio">
             <h2>Nenhum tópico selecionado</h2>
             <p>Use a busca ou escolha um tópico na lista para visualizar as orientações.</p>
+            <button
+              v-if="isViewportMobile && !mostrarListaTopicos"
+              type="button"
+              class="botao-voltar-topicos botao-voltar-topicos-vazio"
+              aria-controls="lista-topicos-ajuda"
+              @click="abrirListaTopicos"
+            >
+              Ver outros tópicos
+            </button>
           </article>
         </section>
       </section>
@@ -1461,6 +1544,33 @@ onMounted(() => {
   background: var(--app-primary-soft);
 }
 
+.botao-voltar-topicos {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--app-surface) 92%, var(--app-primary-soft) 8%);
+  color: var(--app-text);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.botao-voltar-topicos:hover {
+  transform: translateY(-1px);
+  border-color: var(--app-primary);
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+}
+
 .texto-principal {
   font-size: 16px;
 }
@@ -1764,6 +1874,16 @@ onMounted(() => {
 
   .acoes-topico {
     width: 100%;
+  }
+
+  .botao-voltar-topicos {
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .botao-voltar-topicos-vazio {
+    justify-self: start;
+    width: auto;
   }
 }
 </style>
