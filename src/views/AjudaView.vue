@@ -1,9 +1,19 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
+
+const route = useRoute()
+const router = useRouter()
 
 const busca = ref('')
 const topicoAtivoId = ref('comecando')
+const abaAtiva = ref('tutoriais')
+const secaoNovidadesRef = ref(null)
+
+const ABA_TUTORIAIS = 'tutoriais'
+const ABA_NOVIDADES = 'novidades-versao'
+const HASH_VERSAO_NOVIDADES = 'versao-novidades'
 
 const roteiroRecomendado = [
   'Cadastre os serviços oferecidos.',
@@ -490,6 +500,45 @@ const estatisticas = computed(() => [
   { rotulo: 'Busca rápida', valor: 'Disponível' },
 ])
 
+function normalizarHash(valor) {
+  return String(valor || '').trim().replace(/^#/, '')
+}
+
+async function sincronizarAbaPelaHash(hash, rolar = false) {
+  const hashNormalizado = normalizarHash(hash)
+  const deveAbrirNovidades = hashNormalizado === HASH_VERSAO_NOVIDADES
+  abaAtiva.value = deveAbrirNovidades ? ABA_NOVIDADES : ABA_TUTORIAIS
+
+  if (deveAbrirNovidades && rolar) {
+    await nextTick()
+    secaoNovidadesRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+async function selecionarAba(aba) {
+  if (abaAtiva.value === aba) {
+    return
+  }
+
+  abaAtiva.value = aba
+
+  const hashDesejado = aba === ABA_NOVIDADES ? `#${HASH_VERSAO_NOVIDADES}` : ''
+  const hashAtual = route.hash || ''
+
+  if (hashAtual !== hashDesejado) {
+    await router.replace({
+      path: route.path,
+      query: route.query,
+      hash: hashDesejado,
+    })
+  }
+
+  if (aba === ABA_NOVIDADES) {
+    await nextTick()
+    secaoNovidadesRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
+}
+
 const topicosFiltrados = computed(() => {
   const termo = busca.value.trim().toLowerCase()
 
@@ -552,6 +601,18 @@ function formatarDataAtualizacao(valor) {
     year: 'numeric',
   })
 }
+
+watch(
+  () => route.hash,
+  (hash) => {
+    void sincronizarAbaPelaHash(hash, true)
+  },
+  { immediate: true },
+)
+
+onMounted(() => {
+  void sincronizarAbaPelaHash(route.hash, false)
+})
 </script>
 
 <template>
@@ -564,121 +625,188 @@ function formatarDataAtualizacao(valor) {
       </div>
     </header>
 
-    <section class="resumo-ajuda" aria-label="Resumo da central de ajuda">
-      <article v-for="item in estatisticas" :key="item.rotulo" class="resumo-item">
-        <span>{{ item.rotulo }}</span>
-        <strong>{{ item.valor }}</strong>
-      </article>
+    <nav class="abas-ajuda" role="tablist" aria-label="Navegação interna da Ajuda">
+      <button
+      type="button"
+      id="ajuda-tutoriais-tab"
+      class="aba-ajuda"
+      role="tab"
+      aria-controls="ajuda-tutoriais"
+      :aria-selected="abaAtiva === ABA_TUTORIAIS"
+        :tabindex="abaAtiva === ABA_TUTORIAIS ? 0 : -1"
+        :class="{ ativa: abaAtiva === ABA_TUTORIAIS }"
+        @click="selecionarAba(ABA_TUTORIAIS)"
+      >
+        Tutoriais
+      </button>
+      <button
+      type="button"
+      id="ajuda-novidades-tab"
+      class="aba-ajuda"
+      role="tab"
+      aria-controls="versao-novidades"
+      :aria-selected="abaAtiva === ABA_NOVIDADES"
+        :tabindex="abaAtiva === ABA_NOVIDADES ? 0 : -1"
+        :class="{ ativa: abaAtiva === ABA_NOVIDADES }"
+        @click="selecionarAba(ABA_NOVIDADES)"
+      >
+        Novidades / Versão
+      </button>
+    </nav>
+
+    <section
+      v-show="abaAtiva === ABA_TUTORIAIS"
+      id="ajuda-tutoriais"
+      class="painel-ajuda"
+      role="tabpanel"
+      :aria-hidden="abaAtiva !== ABA_TUTORIAIS"
+      aria-labelledby="ajuda-tutoriais-tab"
+    >
+      <section class="resumo-ajuda" aria-label="Resumo da central de ajuda">
+        <article v-for="item in estatisticas" :key="item.rotulo" class="resumo-item">
+          <span>{{ item.rotulo }}</span>
+          <strong>{{ item.valor }}</strong>
+        </article>
+      </section>
+
+      <section class="ferramentas-ajuda" aria-label="Busca de ajuda">
+        <label class="campo-busca">
+          <span>Buscar tópico</span>
+          <input
+            v-model="busca"
+            type="search"
+            placeholder="Ex: agenda, clientes, senha, link público"
+          />
+        </label>
+
+        <p class="resultado-busca">
+          {{ topicosFiltrados.length }} tópico(s) encontrado(s)
+        </p>
+      </section>
+
+      <section class="layout-ajuda">
+        <aside class="lista-topicos" aria-label="Tópicos da central de ajuda">
+          <div class="lista-topicos-conteudo">
+            <button
+              v-for="topico in topicosFiltrados"
+              :key="topico.id"
+              type="button"
+              class="topico-item"
+              :class="{ ativo: topico.id === topicoAtivoId }"
+              @click="selecionarTopico(topico.id)"
+            >
+              <strong>{{ topico.titulo }}</strong>
+              <span>{{ topico.resumo }}</span>
+            </button>
+
+            <p v-if="!topicosFiltrados.length" class="estado-vazio">
+              Nenhum tópico encontrado. Tente buscar por outro termo.
+            </p>
+          </div>
+        </aside>
+
+        <section class="conteudo-topico" aria-live="polite">
+          <article v-if="topicoAtivo" class="topico-detalhe">
+            <header class="topico-cabecalho">
+              <div>
+                <p class="subtitulo">Tópico selecionado</p>
+                <h2>{{ topicoAtivo.titulo }}</h2>
+              </div>
+              <div class="acoes-topico">
+                <RouterLink v-if="topicoAtivo.rota" class="botao-tela" :to="topicoAtivo.rota">
+                  Ir para esta tela
+                </RouterLink>
+                <span class="selo-topico">Ajuda</span>
+              </div>
+            </header>
+
+            <p class="texto-principal">{{ topicoAtivo.introducao }}</p>
+            <p class="texto-destaque">{{ topicoAtivo.destaque }}</p>
+
+            <section v-if="topicoAtivo.roteiro?.length" class="roteiro-recomendado">
+              <h3>Roteiro recomendado</h3>
+              <ol>
+                <li v-for="passo in topicoAtivo.roteiro" :key="passo">{{ passo }}</li>
+              </ol>
+            </section>
+
+            <section class="secao-texto">
+              <h3>O que você encontra nessa área</h3>
+              <ul>
+                <li v-for="ponto in topicoAtivo.pontos" :key="ponto">{{ ponto }}</li>
+              </ul>
+            </section>
+
+            <figure
+              v-if="topicoAtivo.imagem?.src && topicoAtivo.id !== 'perguntas-frequentes'"
+              class="imagem-topico"
+            >
+              <img
+                :src="topicoAtivo.imagem.src"
+                :alt="topicoAtivo.imagem.alt || `Imagem da tela ${topicoAtivo.titulo}`"
+              />
+              <figcaption v-if="topicoAtivo.imagem.legenda">{{ topicoAtivo.imagem.legenda }}</figcaption>
+            </figure>
+
+            <section v-if="topicoAtivo.perguntas?.length" class="secao-texto faq-secao">
+              <h3>Perguntas frequentes</h3>
+
+              <details v-for="item in topicoAtivo.perguntas" :key="item.pergunta" class="faq-item">
+                <summary>{{ item.pergunta }}</summary>
+                <p>{{ item.resposta }}</p>
+              </details>
+            </section>
+          </article>
+
+          <article v-else class="topico-vazio">
+            <h2>Nenhum tópico selecionado</h2>
+            <p>Use a busca ou escolha um tópico na lista para visualizar as orientações.</p>
+          </article>
+        </section>
+      </section>
     </section>
 
-    <section class="ferramentas-ajuda" aria-label="Busca de ajuda">
-      <label class="campo-busca">
-        <span>Buscar tópico</span>
-        <input
-          v-model="busca"
-          type="search"
-          placeholder="Ex: agenda, clientes, senha, link público"
-        />
-      </label>
-
-      <p class="resultado-busca">
-        {{ topicosFiltrados.length }} tópico(s) encontrado(s)
-      </p>
-    </section>
-
-    <section id="versao-novidades">
-      <SystemVersionPanel titulo="Versão do sistema" discreto :novidades-padrao="[]" :mostrar-novidades="false" />
-    </section>
-
-    <section class="historico-atualizacoes" aria-label="Histórico de atualizações">
-      <header class="historico-cabecalho">
-        <h2>Histórico de atualizações</h2>
-        <p>Novas versões podem ser adicionadas aqui sem remover o histórico anterior.</p>
-      </header>
-
-      <article v-for="versao in historicoAtualizacoes" :key="versao.versao" class="historico-item">
-        <div class="historico-topo">
-          <strong>{{ versao.versao }}</strong>
-          <span v-if="versao.dataPublicacao">{{ formatarDataAtualizacao(versao.dataPublicacao) }}</span>
-        </div>
-
-        <ul>
-          <li v-for="item in versao.itens" :key="item">{{ item }}</li>
-        </ul>
-      </article>
-    </section>
-
-    <section class="layout-ajuda">
-      <aside class="lista-topicos" aria-label="Tópicos da central de ajuda">
-        <div class="lista-topicos-conteudo">
-          <button
-            v-for="topico in topicosFiltrados"
-            :key="topico.id"
-            type="button"
-            class="topico-item"
-            :class="{ ativo: topico.id === topicoAtivoId }"
-            @click="selecionarTopico(topico.id)"
-          >
-            <strong>{{ topico.titulo }}</strong>
-            <span>{{ topico.resumo }}</span>
-          </button>
-
-          <p v-if="!topicosFiltrados.length" class="estado-vazio">
-            Nenhum tópico encontrado. Tente buscar por outro termo.
+    <section
+      v-show="abaAtiva === ABA_NOVIDADES"
+      id="versao-novidades"
+      ref="secaoNovidadesRef"
+      class="painel-ajuda painel-novidades"
+      role="tabpanel"
+      :aria-hidden="abaAtiva !== ABA_NOVIDADES"
+      aria-labelledby="ajuda-novidades-tab"
+    >
+      <section class="novidades-cabecalho">
+        <div>
+          <p class="subtitulo">Versão e mudanças</p>
+          <h2>Novidades / Versão</h2>
+          <p class="descricao-secao">
+            Aqui ficam a versão atual, o histórico de atualizações e os principais lançamentos da plataforma.
           </p>
         </div>
-      </aside>
+      </section>
 
-      <section class="conteudo-topico" aria-live="polite">
-        <article v-if="topicoAtivo" class="topico-detalhe">
-          <header class="topico-cabecalho">
-            <div>
-              <p class="subtitulo">Tópico selecionado</p>
-              <h2>{{ topicoAtivo.titulo }}</h2>
-            </div>
-            <div class="acoes-topico">
-              <RouterLink v-if="topicoAtivo.rota" class="botao-tela" :to="topicoAtivo.rota">
-                Ir para esta tela
-              </RouterLink>
-              <span class="selo-topico">Ajuda</span>
-            </div>
-          </header>
+      <SystemVersionPanel
+        titulo="Versão do sistema"
+        discreto
+        :novidades-padrao="[]"
+        :mostrar-novidades="false"
+      />
 
-          <p class="texto-principal">{{ topicoAtivo.introducao }}</p>
-          <p class="texto-destaque">{{ topicoAtivo.destaque }}</p>
+      <section class="historico-atualizacoes" aria-label="Histórico de atualizações">
+        <header class="historico-cabecalho">
+          <h3>Histórico de atualizações</h3>
+          <p>Novas versões podem ser adicionadas aqui sem remover o histórico anterior.</p>
+        </header>
 
-          <section v-if="topicoAtivo.roteiro?.length" class="roteiro-recomendado">
-            <h3>Roteiro recomendado</h3>
-            <ol>
-              <li v-for="passo in topicoAtivo.roteiro" :key="passo">{{ passo }}</li>
-            </ol>
-          </section>
+        <article v-for="versao in historicoAtualizacoes" :key="versao.versao" class="historico-item">
+          <div class="historico-topo">
+            <strong>{{ versao.versao }}</strong>
+            <span v-if="versao.dataPublicacao">{{ formatarDataAtualizacao(versao.dataPublicacao) }}</span>
+          </div>
 
-          <section class="secao-texto">
-            <h3>O que você encontra nessa área</h3>
-            <ul>
-              <li v-for="ponto in topicoAtivo.pontos" :key="ponto">{{ ponto }}</li>
-            </ul>
-          </section>
-
-          <figure v-if="topicoAtivo.imagem?.src && topicoAtivo.id !== 'perguntas-frequentes'" class="imagem-topico">
-            <img :src="topicoAtivo.imagem.src" :alt="topicoAtivo.imagem.alt || `Imagem da tela ${topicoAtivo.titulo}`" />
-            <figcaption v-if="topicoAtivo.imagem.legenda">{{ topicoAtivo.imagem.legenda }}</figcaption>
-          </figure>
-
-          <section v-if="topicoAtivo.perguntas?.length" class="secao-texto faq-secao">
-            <h3>Perguntas frequentes</h3>
-
-            <details v-for="item in topicoAtivo.perguntas" :key="item.pergunta" class="faq-item">
-              <summary>{{ item.pergunta }}</summary>
-              <p>{{ item.resposta }}</p>
-            </details>
-          </section>
-        </article>
-
-        <article v-else class="topico-vazio">
-          <h2>Nenhum tópico selecionado</h2>
-          <p>Use a busca ou escolha um tópico na lista para visualizar as orientações.</p>
+          <ul>
+            <li v-for="item in versao.itens" :key="item">{{ item }}</li>
+          </ul>
         </article>
       </section>
     </section>
@@ -690,6 +818,55 @@ function formatarDataAtualizacao(valor) {
   display: grid;
   gap: 20px;
   color: var(--app-text);
+}
+
+.abas-ajuda {
+  display: flex;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid var(--app-border);
+  border-radius: calc(var(--app-radius) + 4px);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+.aba-ajuda {
+  flex: 1 1 0;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--app-radius) - 2px);
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.aba-ajuda:hover {
+  transform: translateY(-1px);
+  color: var(--app-text);
+}
+
+.aba-ajuda.ativa {
+  border-color: color-mix(in srgb, var(--app-primary) 32%, var(--app-border));
+  background: color-mix(in srgb, var(--app-primary-soft) 44%, var(--app-surface));
+  color: var(--app-text);
+}
+
+.painel-ajuda {
+  display: grid;
+  gap: 20px;
+}
+
+.descricao-secao {
+  margin: 6px 0 0;
+  color: var(--app-text-muted);
 }
 
 .cabecalho-pagina {
@@ -819,6 +996,13 @@ function formatarDataAtualizacao(valor) {
 .historico-cabecalho h2 {
   margin: 0;
   font-size: clamp(20px, 2.4vw, 24px);
+  font-weight: 800;
+  color: var(--app-text);
+}
+
+.historico-cabecalho h3 {
+  margin: 0;
+  font-size: 20px;
   font-weight: 800;
   color: var(--app-text);
 }
@@ -1152,12 +1336,30 @@ function formatarDataAtualizacao(valor) {
     grid-template-columns: 1fr;
   }
 
+  .abas-ajuda {
+    gap: 8px;
+  }
+
   .resultado-busca {
     white-space: normal;
   }
 }
 
 @media (max-width: 480px) {
+  .abas-ajuda {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 5px;
+  }
+
+  .aba-ajuda {
+    min-height: 46px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
   .cabecalho-pagina h1 {
     font-size: 24px;
     line-height: 1.12;
@@ -1170,7 +1372,8 @@ function formatarDataAtualizacao(valor) {
 
   .ferramentas-ajuda,
   .historico-atualizacoes,
-  .topico-detalhe {
+  .topico-detalhe,
+  .novidades-cabecalho {
     padding: 14px;
   }
 
