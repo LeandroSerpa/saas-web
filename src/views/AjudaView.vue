@@ -9,11 +9,14 @@ const router = useRouter()
 const busca = ref('')
 const topicoAtivoId = ref('comecando')
 const abaAtiva = ref('tutoriais')
+const modoDetalhe = ref('resumo')
 const secaoNovidadesRef = ref(null)
 
 const ABA_TUTORIAIS = 'tutoriais'
 const ABA_NOVIDADES = 'novidades-versao'
 const HASH_VERSAO_NOVIDADES = 'versao-novidades'
+const MODO_RESUMO = 'resumo'
+const MODO_PASSO_A_PASSO = 'passo-a-passo'
 
 const roteiroRecomendado = [
   'Cadastre os serviços oferecidos.',
@@ -465,6 +468,174 @@ const topicos = [
   },
 ]
 
+const ALIAS_TOPICO_POR_QUERY = {
+  'faturas-meu-plano': 'faturas-plano',
+}
+
+const conteudoDetalhadoPorTopico = {
+  comecando: [
+    '1. Entre no sistema com seu login e sua senha.',
+    '2. Veja o menu lateral e escolha a tela que quer usar.',
+    '3. Comece cadastrando clientes, serviços e funcionários.',
+    '4. Depois confira a agenda, o estoque e o link público.',
+    '5. Se errar, volte para a Ajuda e leia o tópico de novo com calma.',
+  ],
+  'modo-temas': [
+    '1. Use o seletor de modo no topo da tela.',
+    '2. Escolha Modo Essencial para ver menos opções e ficar mais simples.',
+    '3. Escolha Modo Completo quando quiser ver todas as áreas permitidas.',
+    '4. No mesmo topo, troque o tema entre Claro, Escuro e NuvemMais.',
+    '5. Confira se a tela ficou mais fácil de ler para você.',
+  ],
+  dashboard: [
+    '1. Entre no Dashboard logo ao abrir o sistema.',
+    '2. Olhe os números principais para entender como está o dia.',
+    '3. Veja os agendamentos e avisos mais importantes sem sair da tela.',
+    '4. Use os blocos resumidos para achar o que precisa com rapidez.',
+    '5. Se quiser se aprofundar, abra as telas específicas pela lateral.',
+  ],
+  agenda: [
+    '1. Entre na Agenda para ver os horários marcados.',
+    '2. Clique para criar um novo agendamento.',
+    '3. Preencha cliente, serviço, funcionário, data e hora.',
+    '4. Salve o agendamento e confira se ele apareceu na lista.',
+    '5. Use os filtros para localizar marcações por status ou origem.',
+  ],
+  clientes: [
+    '1. Entre em Clientes para ver o cadastro das pessoas atendidas.',
+    '2. Clique em Novo cliente quando precisar incluir alguém.',
+    '3. Preencha nome, contato e os dados que a empresa usa no dia a dia.',
+    '4. Salve e confira se a pessoa apareceu na lista.',
+    '5. Quando for marcar um horário, procure o cliente já cadastrado.',
+  ],
+  servicos: [
+    '1. Entre em Serviços para cadastrar o que a empresa oferece.',
+    '2. Clique em Novo serviço para abrir o formulário.',
+    '3. Preencha nome, preço, duração e descrição simples.',
+    '4. Marque o serviço como ativo para ele poder ser usado.',
+    '5. Salve e confira se ele apareceu entre os serviços cadastrados.',
+  ],
+  funcionarios: [
+    '1. Entre em Funcionários para organizar quem atende na empresa.',
+    '2. Clique em Novo funcionário para iniciar o cadastro.',
+    '3. Preencha nome, contato e as informações que a sua empresa usa.',
+    '4. Ajuste dias e horários de atendimento quando essa opção estiver disponível.',
+    '5. Salve e confira se o profissional apareceu na lista.',
+  ],
+  disponibilidade: [
+    '1. Entre em Disponibilidade para bloquear horários que não podem ser usados.',
+    '2. Clique em Novo bloqueio ou em uma ação parecida da tela.',
+    '3. Escolha quem ou o que não poderá atender naquele período.',
+    '4. Informe a data e o horário com cuidado.',
+    '5. Salve e confira se o bloqueio apareceu na lista.',
+  ],
+  estoque: [
+    '1. Entre em Estoque para ver seus produtos.',
+    '2. Clique em Novo produto quando quiser cadastrar um item.',
+    '3. Preencha nome, categoria, unidade, preço e quantidade inicial.',
+    '4. Use Entrada, Saída ou Ajuste para mudar o saldo.',
+    '5. Confira o alerta de baixo estoque para não faltar produto.',
+  ],
+  'estoque-do-dia': [
+    '1. Entre na área de Estoque do dia quando quiser atualizar a quantidade disponível para hoje.',
+    '2. Escolha os produtos que vão participar da venda do dia.',
+    '3. Informe quantas unidades estão prontas para vender.',
+    '4. Diminua o saldo quando os itens forem saindo.',
+    '5. Confira se o catálogo público está mostrando o que ainda existe.',
+  ],
+  'catalogo-publico': [
+    '1. Entre na área de catálogo ou vitrine da empresa.',
+    '2. Marque os produtos que devem aparecer para o cliente.',
+    '3. Ajuste imagem, descrição, preço e texto do botão, se quiser.',
+    '4. Atualize o Estoque do dia para mostrar o que está disponível.',
+    '5. Copie o link público e veja a tela como o cliente verá.',
+  ],
+  'dashboard-nuvemmais': [
+    '1. Entre no Dashboard NuvemMais com perfil de administração.',
+    '2. Escolha uma empresa para acompanhar os dados dela.',
+    '3. Veja os números principais sem trocar de login.',
+    '4. Use a visão geral para orientar suporte e conferência.',
+    '5. Volte para a empresa seguinte quando terminar a análise.',
+  ],
+  'link-publico': [
+    '1. Copie o link público de agendamento da empresa.',
+    '2. Envie esse link para o cliente por mensagem, site ou rede social.',
+    '3. Peça para a pessoa escolher o serviço e o horário livre.',
+    '4. Confira se o agendamento entrou na agenda da empresa.',
+    '5. Use o link sempre que quiser facilitar o autoatendimento.',
+  ],
+  notificacoes: [
+    '1. Toque no sino no topo da tela quando aparecer um aviso.',
+    '2. Abra a tela de Notificações para ler com calma.',
+    '3. Veja os lembretes e os avisos de agendamentos novos.',
+    '4. Marque como lido ou revise depois, conforme a tela permitir.',
+    '5. Volte sempre que quiser conferir o que mudou no sistema.',
+  ],
+  relatorios: [
+    '1. Entre em Relatórios para ver os resultados da empresa.',
+    '2. Escolha o período que quer analisar.',
+    '3. Confira os números de agendamentos, serviços e funcionários.',
+    '4. Use os gráficos e as listas para entender melhor o movimento.',
+    '5. Baixe ou copie os dados quando precisar mostrar para outra pessoa.',
+  ],
+  'minha-empresa': [
+    '1. Entre em Minha empresa para rever os dados principais do negócio.',
+    '2. Confira nome, contato, endereço e horário de funcionamento.',
+    '3. Ajuste as informações que o cliente precisa enxergar com clareza.',
+    '4. Salve as mudanças e confira se o link público continua correto.',
+    '5. Volte aqui sempre que algum dado da empresa mudar.',
+  ],
+  personalizacao: [
+    '1. Entre em Personalização para cuidar da página pública.',
+    '2. Escolha cores, textos e orientações simples para o cliente.',
+    '3. Preencha as mensagens importantes com palavras fáceis de entender.',
+    '4. Salve e confira a prévia da página pública.',
+    '5. Ajuste de novo se quiser deixar a apresentação mais bonita.',
+  ],
+  usuarios: [
+    '1. Entre em Usuários para ver quem pode acessar o sistema.',
+    '2. Clique em Novo usuário quando precisar liberar um acesso.',
+    '3. Preencha nome, login e os dados pedidos pela tela.',
+    '4. Salve e confira se a pessoa apareceu na lista de usuários.',
+    '5. Revise os acessos quando alguém entrar ou sair da empresa.',
+  ],
+  'lixeira-global': [
+    '1. Entre na Lixeira Global quando precisar recuperar um registro.',
+    '2. Procure o item que foi enviado para a lixeira.',
+    '3. Escolha Restaurar se o cadastro ainda for útil.',
+    '4. Use exclusão definitiva só quando tiver certeza de que não precisa mais do dado.',
+    '5. Confira a auditoria quando quiser saber o que foi feito.',
+  ],
+  'minha-conta': [
+    '1. Entre em Minha conta para atualizar seus dados pessoais.',
+    '2. Confira nome, e-mail e login.',
+    '3. Ajuste o que estiver desatualizado com cuidado.',
+    '4. Salve e teste o acesso novamente, se necessário.',
+    '5. Volte aqui sempre que mudar seu contato ou seu nome de uso.',
+  ],
+  'alterar-senha': [
+    '1. Entre em Alterar senha quando quiser trocar seu acesso.',
+    '2. Digite a senha atual no primeiro campo.',
+    '3. Escreva a nova senha nos campos seguintes.',
+    '4. Confirme a troca e aguarde a mensagem de sucesso.',
+    '5. Use a nova senha no próximo login.',
+  ],
+  'faturas-plano': [
+    '1. Entre em Meu plano ou Faturas para ver a situação da assinatura.',
+    '2. Confira o nome do plano e o que ele libera para a empresa.',
+    '3. Veja se existe alguma fatura em aberto ou vencida.',
+    '4. Faça a conferência antes de pedir ajuda para o financeiro.',
+    '5. Use essa área para manter a assinatura em dia.',
+  ],
+  'perguntas-frequentes': [
+    '1. Leia a pergunta que mais parece com a sua dúvida.',
+    '2. Abra a resposta para ver a orientação completa.',
+    '3. Use a busca da Ajuda se quiser achar um tema mais rápido.',
+    '4. Volte para os tópicos quando precisar ver uma tela específica.',
+    '5. Se ainda ficar em dúvida, siga o passo a passo do tópico relacionado.',
+  ],
+}
+
 const historicoAtualizacoes = [
   {
     versao: '1.2.0-hml',
@@ -473,6 +644,8 @@ const historicoAtualizacoes = [
       'Modo Essencial para navegação simplificada.',
       'Modo Completo para acesso a todos os recursos.',
       'Temas Claro, Escuro e NuvemMais.',
+      'Central de Ajuda com modo Resumo e passo a passo.',
+      'Links "Ajuda desta tela" nas principais telas do sistema.',
       'Dashboard Essencial com ações rápidas.',
       'Catálogo público/Cardápio com vitrine de produtos.',
       'Estoque do dia integrado ao catálogo.',
@@ -500,8 +673,69 @@ const estatisticas = computed(() => [
   { rotulo: 'Busca rápida', valor: 'Disponível' },
 ])
 
+const topicoExibido = computed(() => topicosFiltrados.value.find((topico) => topico.id === topicoAtivoId.value) || null)
+const modoAjudaAtual = computed(() => (modoDetalhe.value === MODO_PASSO_A_PASSO ? 'Passo a passo' : 'Resumo'))
+const conteudoTopicoExibido = computed(() => {
+  if (!topicoExibido.value) {
+    return []
+  }
+
+  if (modoDetalhe.value === MODO_PASSO_A_PASSO) {
+    return conteudoDetalhadoPorTopico[topicoExibido.value.id] || topicoExibido.value.pontos || []
+  }
+
+  return topicoExibido.value.pontos || []
+})
+
 function normalizarHash(valor) {
   return String(valor || '').trim().replace(/^#/, '')
+}
+
+function normalizarTopico(valor) {
+  return String(Array.isArray(valor) ? valor[0] : valor || '')
+    .trim()
+    .toLowerCase()
+}
+
+function resolverTopicoPorQuery(valor) {
+  const topicoNormalizado = normalizarTopico(valor)
+  if (!topicoNormalizado) {
+    return ''
+  }
+
+  const topicoFinal = ALIAS_TOPICO_POR_QUERY[topicoNormalizado] || topicoNormalizado
+  return topicos.some((topico) => topico.id === topicoFinal) ? topicoFinal : ''
+}
+
+function rolarParaTopicoAtivo() {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const elemento = document.getElementById(`topico-${topicoAtivoId.value}`)
+  elemento?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+}
+
+async function sincronizarEstadoPelaRota() {
+  const hashNormalizado = normalizarHash(route.hash)
+
+  if (hashNormalizado === HASH_VERSAO_NOVIDADES) {
+    abaAtiva.value = ABA_NOVIDADES
+    return
+  }
+
+  abaAtiva.value = ABA_TUTORIAIS
+
+  const topicoPorQuery = resolverTopicoPorQuery(route.query.topico)
+  if (topicoPorQuery && topicoPorQuery !== topicoAtivoId.value) {
+    topicoAtivoId.value = topicoPorQuery
+  }
+
+  await nextTick()
+
+  if (topicoPorQuery) {
+    rolarParaTopicoAtivo()
+  }
 }
 
 async function sincronizarAbaPelaHash(hash, rolar = false) {
@@ -539,6 +773,25 @@ async function selecionarAba(aba) {
   }
 }
 
+async function alternarModoAjuda(novoModo) {
+  modoDetalhe.value = novoModo
+  await nextTick()
+}
+
+async function selecionarTopico(topicoId) {
+  topicoAtivoId.value = topicoId
+  await router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      topico: topicoId,
+    },
+    hash: route.hash || '',
+  })
+  await nextTick()
+  rolarParaTopicoAtivo()
+}
+
 const topicosFiltrados = computed(() => {
   const termo = busca.value.trim().toLowerCase()
 
@@ -557,7 +810,7 @@ const topicosFiltrados = computed(() => {
       ...((topico.perguntas || []).flatMap((item) => [item.pergunta, item.resposta])),
     ]
 
-    return campos.some((campo) => String(campo || '').toLowerCase().includes(termo))
+  return campos.some((campo) => String(campo || '').toLowerCase().includes(termo))
   })
 })
 
@@ -580,9 +833,13 @@ watch(
   { immediate: true },
 )
 
-function selecionarTopico(topicoId) {
-  topicoAtivoId.value = topicoId
-}
+watch(
+  () => [route.hash, route.query.topico],
+  async () => {
+    await sincronizarEstadoPelaRota()
+  },
+  { immediate: true },
+)
 
 function formatarDataAtualizacao(valor) {
   if (!valor) {
@@ -706,7 +963,7 @@ onMounted(() => {
         </aside>
 
         <section class="conteudo-topico" aria-live="polite">
-          <article v-if="topicoAtivo" class="topico-detalhe">
+          <article v-if="topicoAtivo" :id="`topico-${topicoAtivo.id}`" class="topico-detalhe">
             <header class="topico-cabecalho">
               <div>
                 <p class="subtitulo">Tópico selecionado</p>
@@ -723,7 +980,31 @@ onMounted(() => {
             <p class="texto-principal">{{ topicoAtivo.introducao }}</p>
             <p class="texto-destaque">{{ topicoAtivo.destaque }}</p>
 
-            <section v-if="topicoAtivo.roteiro?.length" class="roteiro-recomendado">
+            <section class="modo-detalhe">
+              <span>Modo de ajuda</span>
+              <div class="modo-detalhe-botoes" role="tablist" aria-label="Nível de detalhe da ajuda">
+                <button
+                  type="button"
+                  class="modo-detalhe-botao"
+                  :class="{ ativa: modoDetalhe === MODO_RESUMO }"
+                  :aria-pressed="modoDetalhe === MODO_RESUMO"
+                  @click="alternarModoAjuda(MODO_RESUMO)"
+                >
+                  Resumo
+                </button>
+                <button
+                  type="button"
+                  class="modo-detalhe-botao"
+                  :class="{ ativa: modoDetalhe === MODO_PASSO_A_PASSO }"
+                  :aria-pressed="modoDetalhe === MODO_PASSO_A_PASSO"
+                  @click="alternarModoAjuda(MODO_PASSO_A_PASSO)"
+                >
+                  Passo a passo
+                </button>
+              </div>
+            </section>
+
+            <section v-if="modoDetalhe === MODO_RESUMO && topicoAtivo.roteiro?.length" class="roteiro-recomendado">
               <h3>Roteiro recomendado</h3>
               <ol>
                 <li v-for="passo in topicoAtivo.roteiro" :key="passo">{{ passo }}</li>
@@ -731,9 +1012,15 @@ onMounted(() => {
             </section>
 
             <section class="secao-texto">
-              <h3>O que você encontra nessa área</h3>
-              <ul>
-                <li v-for="ponto in topicoAtivo.pontos" :key="ponto">{{ ponto }}</li>
+              <h3>{{ modoAjudaAtual }}</h3>
+              <p class="texto-ajuda-secundario">
+                {{ modoDetalhe === MODO_PASSO_A_PASSO ? 'Siga na ordem para não se perder.' : 'Leia primeiro o resumo e use o passo a passo quando precisar de mais ajuda.' }}
+              </p>
+              <ol v-if="modoDetalhe === MODO_PASSO_A_PASSO" class="lista-passos">
+                <li v-for="passo in conteudoTopicoExibido" :key="passo">{{ passo }}</li>
+              </ol>
+              <ul v-else class="lista-resumo">
+                <li v-for="ponto in conteudoTopicoExibido" :key="ponto">{{ ponto }}</li>
               </ul>
             </section>
 
@@ -1183,6 +1470,63 @@ onMounted(() => {
   font-weight: 700;
 }
 
+.modo-detalhe {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface-soft);
+}
+
+.modo-detalhe > span {
+  color: var(--app-text-muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.modo-detalhe-botoes {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.modo-detalhe-botao {
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: var(--app-surface);
+  color: var(--app-text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.modo-detalhe-botao:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--app-primary) 30%, var(--app-border));
+}
+
+.modo-detalhe-botao.ativa {
+  border-color: var(--app-primary);
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+}
+
+.texto-ajuda-secundario {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 13px;
+}
+
 .secao-texto {
   display: grid;
   gap: 12px;
@@ -1197,12 +1541,27 @@ onMounted(() => {
   font-weight: 800;
 }
 
-.secao-texto ul {
+.secao-texto ul,
+.secao-texto ol {
   margin: 0;
   padding-left: 20px;
   color: var(--app-text);
   display: grid;
   gap: 10px;
+}
+
+.secao-texto ul {
+  list-style: disc;
+}
+
+.secao-texto ol {
+  list-style: decimal;
+}
+
+.lista-resumo li::marker,
+.lista-passos li::marker {
+  color: var(--app-primary);
+  font-weight: 800;
 }
 
 .roteiro-recomendado {

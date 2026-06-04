@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
+import AjudaContextualLink from '@/components/AjudaContextualLink.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import ModoNavegacaoSelector from '@/components/ModoNavegacaoSelector.vue'
 import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
@@ -216,6 +217,29 @@ const CABECALHOS_PADRAO = {
 }
 
 const routeName = computed(() => (typeof route.name === 'string' ? route.name : ''))
+const AJUDA_CONTEXTUAL_POR_ROTA = {
+  dashboard: 'dashboard',
+  agenda: 'agenda',
+  clientes: 'clientes',
+  servicos: 'servicos',
+  funcionarios: 'funcionarios',
+  disponibilidade: 'disponibilidade',
+  relatorios: 'relatorios',
+  'minha-conta': 'minha-conta',
+  'alterar-senha': 'alterar-senha',
+  usuarios: 'usuarios',
+  estoque: 'estoque',
+  'catalogo-publico-interno': 'catalogo-publico',
+  'minha-empresa': 'minha-empresa',
+  personalizacao: 'personalizacao',
+  'meu-plano': 'faturas-meu-plano',
+  faturas: 'faturas-meu-plano',
+  notificacoes: 'notificacoes',
+  'configuracoes-notificacoes': 'notificacoes',
+  lixeira: 'lixeira-global',
+  'admin-lixeira': 'lixeira-global',
+}
+const topicoAjudaContextual = computed(() => AJUDA_CONTEXTUAL_POR_ROTA[routeName.value] || '')
 const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
 const rotaCatalogoPublico = computed(() => route.path.startsWith('/catalogo/') || route.path.startsWith('/cardapio/'))
@@ -769,6 +793,10 @@ onBeforeUnmount(() => {
         <template #preferencias>
           <ModoNavegacaoSelector :modo="modoNavegacaoAtual" @update:modo="alterarModoNavegacao" />
           <TemaAparenciaSelector :tema="temaAparenciaAtual" @update:tema="alterarTemaAparencia" />
+        </template>
+
+        <template #acoes-secundarias>
+          <AjudaContextualLink v-if="topicoAjudaContextual" :topico="topicoAjudaContextual" />
         </template>
 
         <template #visualizacao>

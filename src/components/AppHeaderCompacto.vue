@@ -64,6 +64,8 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
           <small>{{ identificacaoConta }}</small>
         </div>
 
+        <slot name="acoes-secundarias"></slot>
+
         <button
           v-if="acaoDisponivel"
           class="app-action-button primaria"
