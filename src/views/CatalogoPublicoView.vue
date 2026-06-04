@@ -22,6 +22,9 @@ const categoriaAtiva = ref('')
 const categoriasRef = ref(null)
 const produtoSelecionado = ref(null)
 const imagensComErro = ref({})
+let overflowBodyAnterior = ''
+let overflowHtmlAnterior = ''
+let scrollBloqueadoModal = false
 
 const produtosPublicados = computed(() =>
   [...produtos.value]
@@ -477,14 +480,41 @@ watch(
       return
     }
 
-    document.body.style.overflow = produto ? 'hidden' : ''
+    if (produto) {
+      if (!scrollBloqueadoModal) {
+        overflowBodyAnterior = document.body.style.overflow
+        overflowHtmlAnterior = document.documentElement.style.overflow
+        scrollBloqueadoModal = true
+      }
+
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      return
+    }
+
+    if (scrollBloqueadoModal) {
+      document.body.style.overflow = overflowBodyAnterior
+      document.documentElement.style.overflow = overflowHtmlAnterior
+      overflowBodyAnterior = ''
+      overflowHtmlAnterior = ''
+      scrollBloqueadoModal = false
+    }
   },
   { immediate: true },
 )
 
 onBeforeUnmount(() => {
   if (typeof document !== 'undefined') {
-    document.body.style.overflow = ''
+    if (scrollBloqueadoModal) {
+      document.body.style.overflow = overflowBodyAnterior
+      document.documentElement.style.overflow = overflowHtmlAnterior
+      overflowBodyAnterior = ''
+      overflowHtmlAnterior = ''
+      scrollBloqueadoModal = false
+    } else {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    }
   }
 })
 </script>
@@ -1521,23 +1551,27 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 80;
-  padding: 14px;
-  background: rgba(15, 23, 42, 0.68);
-  backdrop-filter: blur(10px);
+  padding: clamp(10px, 2vw, 22px);
+  background: rgba(15, 23, 42, 0.76);
+  backdrop-filter: blur(14px);
   display: grid;
   place-items: center;
+  overflow: auto;
 }
 
 .produto-modal-conteudo {
   position: relative;
-  width: min(100%, 920px);
-  max-height: min(100%, calc(100vh - 28px));
-  overflow: auto;
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.28);
+  width: min(100%, 1240px);
+  max-height: min(calc(100dvh - 32px), 940px);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.99);
+  border-radius: 30px;
+  border: 0;
+  outline: 0;
+  box-shadow: 0 34px 80px rgba(15, 23, 42, 0.3);
   display: grid;
+  align-items: stretch;
+  background-clip: padding-box;
 }
 
 .produto-modal-fechar {
@@ -1557,18 +1591,29 @@ onBeforeUnmount(() => {
 }
 
 .produto-modal-midia {
-  background: linear-gradient(180deg, #fff7ed, #fff);
+  position: relative;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), transparent 34%),
+    linear-gradient(180deg, #fff7ed, #fff);
 }
 
 .produto-modal-imagem,
 .produto-modal-placeholder {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 100%;
+  min-height: 340px;
   display: block;
+  border-radius: 22px;
 }
 
 .produto-modal-imagem {
-  object-fit: cover;
+  object-fit: contain;
+  background: linear-gradient(180deg, rgba(255, 247, 237, 0.45), rgba(255, 255, 255, 0.98));
 }
 
 .produto-modal-placeholder {
@@ -1581,25 +1626,26 @@ onBeforeUnmount(() => {
     radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.16), transparent 30%),
     linear-gradient(135deg, #fff7ed, #fde68a);
   color: #9a3412;
-  padding: 22px;
+  padding: 28px;
 }
 
 .produto-modal-placeholder .produto-placeholder-iniciais {
-  width: 86px;
-  height: 86px;
-  font-size: 36px;
+  width: 104px;
+  height: 104px;
+  font-size: 40px;
 }
 
 .produto-modal-corpo {
   display: grid;
-  gap: 16px;
-  padding: 22px;
+  gap: 18px;
+  padding: 28px;
+  min-height: 0;
 }
 
 .produto-modal-cabecalho {
   display: grid;
   gap: 8px;
-  padding-right: 42px;
+  padding-right: 56px;
 }
 
 .produto-modal-cabecalho h2 {
@@ -1690,15 +1736,22 @@ onBeforeUnmount(() => {
   }
 
   .produto-modal-conteudo {
-    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.9fr);
   }
 
   .produto-modal-midia {
     min-height: 100%;
+    border-right: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .produto-modal-imagem,
+  .produto-modal-placeholder {
+    min-height: clamp(420px, 58vh, 760px);
   }
 
   .produto-modal-corpo {
     align-content: start;
+    overflow: auto;
   }
 }
 
@@ -1764,16 +1817,25 @@ onBeforeUnmount(() => {
 
 @media (max-width: 719px) {
   .produto-modal {
-    padding: 10px;
+    padding: 8px;
   }
 
   .produto-modal-conteudo {
-    width: 100%;
-    max-height: calc(100vh - 20px);
+    width: min(100%, calc(100vw - 16px));
+    max-height: calc(100dvh - 16px);
+  }
+
+  .produto-modal-midia {
+    padding: 14px 14px 0;
+  }
+
+  .produto-modal-imagem,
+  .produto-modal-placeholder {
+    min-height: min(52vh, 420px);
   }
 
   .produto-modal-corpo {
-    padding: 18px;
+    padding: 18px 18px 20px;
   }
 
   .produto-midia-acoes {
