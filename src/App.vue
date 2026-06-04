@@ -649,11 +649,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="menu-preferencias">
-        <ModoNavegacaoSelector :modo="modoNavegacaoAtual" @update:modo="alterarModoNavegacao" />
-        <TemaAparenciaSelector :tema="temaAparenciaAtual" @update:tema="alterarTemaAparencia" />
-      </div>
-
       <nav class="menu-principal" aria-label="Navegação principal">
         <section class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('principal')">
@@ -771,6 +766,11 @@ onBeforeUnmount(() => {
         @executar-acao="executarAcaoPagina"
         @sair="sair"
       >
+        <template #preferencias>
+          <ModoNavegacaoSelector :modo="modoNavegacaoAtual" @update:modo="alterarModoNavegacao" />
+          <TemaAparenciaSelector :tema="temaAparenciaAtual" @update:tema="alterarTemaAparencia" />
+        </template>
+
         <template #visualizacao>
           <VisualizacaoEmpresaSelector v-if="superAdmin" />
         </template>
@@ -879,12 +879,6 @@ onBeforeUnmount(() => {
 .marca {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.menu-preferencias {
-  width: 100%;
-  display: grid;
   gap: 12px;
 }
 

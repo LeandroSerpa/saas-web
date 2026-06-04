@@ -77,22 +77,22 @@ body[data-app-theme='escuro'] {
   --app-bg-overlay:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 32%),
     linear-gradient(180deg, #101a2f 0%, #0b1220 100%);
-  --app-surface: rgba(15, 23, 42, 0.92);
+  --app-surface: rgba(15, 23, 42, 0.96);
   --app-surface-soft: #111827;
   --app-surface-strong: #0f172a;
   --app-text: #e5e7eb;
-  --app-text-muted: #9aa7b8;
+  --app-text-muted: #cbd5e1;
   --app-primary: #60a5fa;
   --app-primary-strong: #3b82f6;
-  --app-primary-soft: rgba(59, 130, 246, 0.16);
-  --app-border: #253244;
+  --app-primary-soft: rgba(59, 130, 246, 0.18);
+  --app-border: #334155;
   --app-danger: #f87171;
   --app-danger-soft: rgba(248, 113, 113, 0.14);
   --app-success: #4ade80;
   --app-success-soft: rgba(74, 222, 128, 0.14);
   --app-warning: #fbbf24;
   --app-warning-soft: rgba(251, 191, 36, 0.14);
-  --app-focus-ring: rgba(96, 165, 250, 0.2);
+  --app-focus-ring: rgba(96, 165, 250, 0.24);
   --app-overlay: rgba(2, 6, 23, 0.7);
   --app-sidebar-bg: #050816;
   --app-sidebar-text: #f8fafc;

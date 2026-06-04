@@ -51,6 +51,10 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
         </div>
       </div>
 
+      <div class="app-topbar-preferencias">
+        <slot name="preferencias"></slot>
+      </div>
+
       <div class="app-user-actions">
         <NotificacoesBell />
 
@@ -103,16 +107,17 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-topbar {
-  min-height: 50px;
-  display: flex;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 8px 12px;
   border-radius: 12px;
 }
 
 .app-topbar-identidade,
+.app-topbar-preferencias,
 .app-user-actions {
   min-width: 0;
   display: flex;
@@ -121,11 +126,16 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-topbar-identidade {
-  flex: 1 1 auto;
+  justify-self: start;
+}
+
+.app-topbar-preferencias {
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .app-user-actions {
-  flex: 0 1 auto;
+  justify-self: end;
   justify-content: flex-end;
 }
 
@@ -179,8 +189,8 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-account-card {
-  min-width: 190px;
-  max-width: 320px;
+  min-width: 160px;
+  max-width: 280px;
   display: grid;
   gap: 1px;
   padding: 6px 10px;
@@ -301,12 +311,24 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   .app-menu-button {
     display: grid;
   }
+
+  .app-topbar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .app-topbar-preferencias {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .app-user-actions {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
 }
 
 @media (max-width: 720px) {
   .app-topbar {
-    align-items: stretch;
-    flex-direction: column;
     padding: 8px;
   }
 
@@ -319,6 +341,10 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   .app-account-card {
     min-width: 0;
     max-width: none;
+  }
+
+  .app-topbar-preferencias {
+    gap: 8px;
   }
 
   .app-action-button.primaria {
@@ -340,8 +366,17 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
     display: none;
   }
 
+  .app-topbar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
   .app-user-actions {
     grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .app-topbar-preferencias {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid;
   }
 
   .app-action-button.sair {
