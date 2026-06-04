@@ -130,7 +130,8 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-topbar-preferencias {
-  justify-content: center;
+  flex: 1 1 auto;
+  justify-content: flex-end;
   flex-wrap: wrap;
 }
 
@@ -316,7 +317,16 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
     grid-template-columns: auto minmax(0, 1fr);
   }
 
+  .app-topbar-identidade {
+    order: 0;
+  }
+
+  .app-user-actions {
+    order: 1;
+  }
+
   .app-topbar-preferencias {
+    order: 2;
     grid-column: 1 / -1;
     justify-content: flex-start;
   }

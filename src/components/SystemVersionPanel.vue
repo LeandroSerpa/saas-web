@@ -286,8 +286,38 @@ onMounted(carregarVersao)
 }
 
 @media (max-width: 640px) {
+  .version-panel {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .version-panel.discreto {
+    padding: 12px;
+  }
+
   .topo {
     flex-direction: column;
+    gap: 8px;
+  }
+
+  .topo h2 {
+    font-size: 18px;
+  }
+
+  .metadados {
+    grid-template-columns: 1fr;
+  }
+
+  .metadados div {
+    padding: 10px 12px;
+  }
+
+  .novidades strong {
+    font-size: 13px;
+  }
+
+  .novidades ul {
+    padding-left: 16px;
   }
 }
 </style>

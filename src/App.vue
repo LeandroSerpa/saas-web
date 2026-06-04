@@ -309,7 +309,7 @@ const descricaoSeloAmbienteTopo = computed(() =>
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.1.1'
+  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.2.0-hml'
   return `v${versaoBase}`
 })
 
@@ -704,7 +704,6 @@ onBeforeUnmount(() => {
             <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa" @click="fecharMenuMobile">Minha empresa</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
             <RouterLink
               v-if="modoNavegacaoCompleto && podeGerenciarUsuarios"
               to="/minha-empresa/notificacoes"
@@ -714,6 +713,7 @@ onBeforeUnmount(() => {
             </RouterLink>
             <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
             <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
           </div>
         </section>
 

@@ -22,7 +22,7 @@ const opcoes = [
 
 <template>
   <label class="seletor-compacto seletor-modo" for="modo-navegacao">
-    <span>Modo</span>
+    <span class="seletor-rotulo">Modo:</span>
     <select id="modo-navegacao" :value="props.modo" @change="emit('update:modo', $event.target.value)">
       <option v-for="opcao in opcoes" :key="opcao.valor" :value="opcao.valor">
         {{ opcao.titulo }}
@@ -34,52 +34,64 @@ const opcoes = [
 <style scoped>
 .seletor-compacto {
   min-width: 0;
-  display: grid;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  box-shadow: none;
 }
 
-.seletor-compacto span {
-  color: var(--app-sidebar-muted, var(--app-text-muted));
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.seletor-rotulo {
+  flex: 0 0 auto;
+  color: var(--app-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .seletor-compacto select {
-  min-width: 136px;
-  padding: 8px 34px 8px 12px;
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 94%, white) 0%, var(--app-surface-soft) 100%);
+  min-width: 118px;
+  padding: 0 22px 0 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: var(--app-text);
   font-size: 13px;
   font-weight: 800;
   line-height: 1.1;
   cursor: pointer;
   appearance: none;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .seletor-compacto select:hover {
-  border-color: var(--app-primary);
+  color: var(--app-primary);
 }
 
 .seletor-compacto select:focus {
   outline: none;
-  border-color: var(--app-primary);
-  box-shadow: 0 0 0 3px var(--app-focus-ring);
+  color: var(--app-primary);
+  box-shadow: none;
 }
 
 .seletor-modo select {
-  min-width: 148px;
+  min-width: 128px;
 }
 
 @media (max-width: 480px) {
+  .seletor-compacto {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .seletor-compacto select {
     min-width: 0;
-    width: 100%;
+    width: auto;
   }
 }
 </style>

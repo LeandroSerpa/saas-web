@@ -46,6 +46,16 @@ const perguntasFrequentes = [
       'Clique no sino no topo do sistema ou entre na tela de Notificações para ver avisos recentes e acompanhar novidades importantes.',
   },
   {
+    pergunta: 'Como alterno entre Modo Essencial e Modo Completo?',
+    resposta:
+      'Use o seletor de modo no topo da tela. O Modo Essencial deixa o menu mais simples. O Modo Completo libera todas as áreas permitidas para o seu perfil.',
+  },
+  {
+    pergunta: 'Como troco o tema da tela?',
+    resposta:
+      'Use o seletor de tema no topo da tela e escolha Claro, Escuro ou NuvemMais. A mudança é rápida e ajuda a leitura no dia a dia.',
+  },
+  {
     pergunta: 'Como altero minha senha?',
     resposta:
       'Entre em Alterar senha, informe a senha atual e a nova senha. Depois confirme para atualizar o acesso.',
@@ -58,12 +68,12 @@ const perguntasFrequentes = [
   {
     pergunta: 'Como funciona o catalogo publico?',
     resposta:
-      'O catalogo publico e a Fase 1 da vitrine de produtos. O cliente visualiza itens disponiveis ou esgotados, e fala com sua empresa pelo botao de WhatsApp, sem carrinho, pedido ou pagamento.',
+      'O catálogo público e o cardápio funcionam como uma vitrine simples dos produtos da empresa. O cliente vê o que está disponível e fala com você pelo botão de WhatsApp, sem carrinho, pedido, checkout ou pagamento.',
   },
   {
     pergunta: 'Como funciona o estoque do dia?',
     resposta:
-      'O estoque do dia foi pensado para doces, lanches, cupcakes, marmitas e produtos artesanais. A empresa prepara uma quantidade para o dia, atualiza esse saldo no Estoque do dia e o cliente acompanha a disponibilidade no catalogo publico. Nesta fase, a venda continua pelo WhatsApp, sem pedido, carrinho ou pagamento online.',
+      'O estoque do dia foi pensado para doces, lanches, cupcakes, marmitas e produtos artesanais. A empresa prepara a quantidade do dia, atualiza esse saldo no Estoque do dia e o cliente acompanha a disponibilidade no catálogo público ou cardápio. Nesta fase, a venda continua pelo WhatsApp, sem pedido, carrinho ou pagamento online.',
   },
   {
     pergunta: 'Qual a diferença entre Desativar e Excluir?',
@@ -107,6 +117,21 @@ const topicos = [
     ],
     destaque: 'Bom ponto de partida para quem está começando a usar o sistema.',
     roteiro: roteiroRecomendado,
+  },
+  {
+    id: 'modo-temas',
+    titulo: 'Modo Essencial e aparência',
+    resumo: 'Como simplificar o menu e mudar o visual da tela.',
+    palavrasChave: ['modo essencial', 'modo completo', 'tema', 'aparência', 'claro', 'escuro', 'nuvemmais'],
+    introducao:
+      'O Modo Essencial deixa a navegação mais simples, ideal para o uso do dia a dia. O Modo Completo libera todas as áreas permitidas para o seu perfil. No topo da tela, você também pode trocar o tema para deixar a leitura mais confortável.',
+    pontos: [
+      'Use o Modo Essencial quando quiser focar só no que é mais importante.',
+      'Use o Modo Completo quando precisar acessar todos os recursos permitidos.',
+      'Troque o tema entre Claro, Escuro e NuvemMais conforme a sua preferência.',
+      'O visual muda sem alterar seus dados, permissões ou rotas públicas.',
+    ],
+    destaque: 'Bom para deixar o sistema mais leve para quem prefere poucos atalhos e leitura simples.',
   },
   {
     id: 'dashboard',
@@ -432,6 +457,19 @@ const topicos = [
 
 const historicoAtualizacoes = [
   {
+    versao: '1.2.0-hml',
+    dataPublicacao: '2026-06-04',
+    itens: [
+      'Modo Essencial para navegação simplificada.',
+      'Modo Completo para acesso a todos os recursos.',
+      'Temas Claro, Escuro e NuvemMais.',
+      'Dashboard Essencial com ações rápidas.',
+      'Catálogo público/Cardápio com vitrine de produtos.',
+      'Estoque do dia integrado ao catálogo.',
+      'Melhorias visuais no menu, topo, cards, botões e formulários.',
+    ],
+  },
+  {
     versao: '1.1.1',
     dataPublicacao: '2026-05-31',
     itens: [
@@ -549,7 +587,7 @@ function formatarDataAtualizacao(valor) {
     </section>
 
     <section id="versao-novidades">
-      <SystemVersionPanel titulo="Versão do sistema" :novidades-padrao="[]" :mostrar-novidades="false" />
+      <SystemVersionPanel titulo="Versão do sistema" discreto :novidades-padrao="[]" :mostrar-novidades="false" />
     </section>
 
     <section class="historico-atualizacoes" aria-label="Histórico de atualizações">
@@ -651,7 +689,7 @@ function formatarDataAtualizacao(valor) {
 .ajuda-view {
   display: grid;
   gap: 20px;
-  color: #111827;
+  color: var(--app-text);
 }
 
 .cabecalho-pagina {
@@ -663,7 +701,7 @@ function formatarDataAtualizacao(valor) {
 
 .subtitulo {
   margin: 0 0 4px;
-  color: #2563eb;
+  color: var(--app-primary);
   font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
@@ -677,12 +715,12 @@ function formatarDataAtualizacao(valor) {
 }
 
 .cabecalho-pagina h1 {
-  font-size: 32px;
+  font-size: clamp(26px, 3vw, 32px);
 }
 
 .descricao {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--app-text-muted);
 }
 
 .resumo-ajuda {
@@ -695,28 +733,29 @@ function formatarDataAtualizacao(valor) {
 .ferramentas-ajuda,
 .lista-topicos,
 .conteudo-topico {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow);
 }
 
 .resumo-item {
   display: grid;
   gap: 8px;
-  padding: 18px;
-  border-left: 4px solid #2563eb;
+  padding: 16px;
+  border-left: 4px solid var(--app-primary);
+  background: color-mix(in srgb, var(--app-primary-soft) 32%, var(--app-surface));
 }
 
 .resumo-item span {
-  color: #64748b;
+  color: var(--app-text-muted);
   font-size: 13px;
   font-weight: 700;
 }
 
 .resumo-item strong {
-  color: #111827;
-  font-size: 28px;
+  color: var(--app-text);
+  font-size: clamp(22px, 3vw, 28px);
   font-weight: 800;
 }
 
@@ -725,14 +764,14 @@ function formatarDataAtualizacao(valor) {
   justify-content: space-between;
   align-items: end;
   gap: 16px;
-  padding: 18px;
+  padding: 16px;
 }
 
 .campo-busca {
   flex: 1 1 auto;
   display: grid;
   gap: 8px;
-  color: #334155;
+  color: var(--app-text);
   font-size: 14px;
   font-weight: 700;
 }
@@ -740,23 +779,24 @@ function formatarDataAtualizacao(valor) {
 .campo-busca input {
   width: 100%;
   min-width: 0;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
   padding: 12px 14px;
-  background: white;
-  color: #111827;
+  background: var(--app-surface);
+  color: var(--app-text);
   font: inherit;
+  box-sizing: border-box;
 }
 
 .campo-busca input:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 3px var(--app-focus-ring);
 }
 
 .resultado-busca {
   margin: 0;
-  color: #475569;
+  color: var(--app-text-muted);
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
@@ -769,30 +809,30 @@ function formatarDataAtualizacao(valor) {
 }
 
 .historico-atualizacoes {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-  padding: 18px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow);
+  padding: 16px;
 }
 
 .historico-cabecalho h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: clamp(20px, 2.4vw, 24px);
   font-weight: 800;
-  color: #111827;
+  color: var(--app-text);
 }
 
 .historico-cabecalho p {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--app-text-muted);
 }
 
 .historico-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
   padding: 14px;
-  background: #f8fafc;
+  background: var(--app-surface-soft);
 }
 
 .historico-topo {
@@ -804,12 +844,13 @@ function formatarDataAtualizacao(valor) {
 }
 
 .historico-topo strong {
-  color: #0f172a;
+  color: var(--app-text);
   font-size: 16px;
+  overflow-wrap: anywhere;
 }
 
 .historico-topo span {
-  color: #1d4ed8;
+  color: var(--app-primary);
   font-size: 13px;
   font-weight: 700;
 }
@@ -817,7 +858,7 @@ function formatarDataAtualizacao(valor) {
 .historico-item ul {
   margin: 0;
   padding-left: 18px;
-  color: #334155;
+  color: var(--app-text);
   display: grid;
   gap: 8px;
 }
@@ -851,11 +892,11 @@ function formatarDataAtualizacao(valor) {
   width: 100%;
   display: grid;
   gap: 6px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
   padding: 14px;
-  background: #f8fafc;
-  color: #111827;
+  background: var(--app-surface-soft);
+  color: var(--app-text);
   text-align: left;
   cursor: pointer;
   transition:
@@ -866,12 +907,12 @@ function formatarDataAtualizacao(valor) {
 
 .topico-item:hover {
   transform: translateY(-1px);
-  border-color: #93c5fd;
+  border-color: color-mix(in srgb, var(--app-primary) 40%, var(--app-border));
 }
 
 .topico-item.ativo {
-  border-color: #2563eb;
-  background: #eff6ff;
+  border-color: var(--app-primary);
+  background: color-mix(in srgb, var(--app-primary-soft) 40%, var(--app-surface));
 }
 
 .topico-item strong {
@@ -887,7 +928,7 @@ function formatarDataAtualizacao(valor) {
 .faq-item p,
 .topico-vazio p {
   margin: 0;
-  color: #475569;
+  color: var(--app-text-muted);
   line-height: 1.6;
 }
 
@@ -899,7 +940,7 @@ function formatarDataAtualizacao(valor) {
 }
 
 .topico-cabecalho h2 {
-  font-size: 28px;
+  font-size: clamp(22px, 2.6vw, 28px);
 }
 
 .selo-topico {
@@ -909,8 +950,8 @@ function formatarDataAtualizacao(valor) {
   justify-content: center;
   border-radius: 999px;
   padding: 6px 10px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -929,11 +970,11 @@ function formatarDataAtualizacao(valor) {
   align-items: center;
   justify-content: center;
   min-height: 32px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--app-border);
   border-radius: 999px;
   padding: 6px 12px;
-  background: #ffffff;
-  color: #1d4ed8;
+  background: var(--app-surface);
+  color: var(--app-primary);
   font-size: 13px;
   font-weight: 800;
   text-decoration: none;
@@ -945,8 +986,8 @@ function formatarDataAtualizacao(valor) {
 
 .botao-tela:hover {
   transform: translateY(-1px);
-  border-color: #60a5fa;
-  background: #eff6ff;
+  border-color: var(--app-primary);
+  background: var(--app-primary-soft);
 }
 
 .texto-principal {
@@ -954,7 +995,7 @@ function formatarDataAtualizacao(valor) {
 }
 
 .texto-destaque {
-  color: #1e293b;
+  color: var(--app-text);
   font-weight: 700;
 }
 
@@ -962,12 +1003,12 @@ function formatarDataAtualizacao(valor) {
   display: grid;
   gap: 12px;
   padding-top: 8px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--app-border);
 }
 
 .secao-texto h3 {
   margin: 0;
-  color: #111827;
+  color: var(--app-text);
   font-size: 20px;
   font-weight: 800;
 }
@@ -975,7 +1016,7 @@ function formatarDataAtualizacao(valor) {
 .secao-texto ul {
   margin: 0;
   padding-left: 20px;
-  color: #374151;
+  color: var(--app-text);
   display: grid;
   gap: 10px;
 }
@@ -983,15 +1024,19 @@ function formatarDataAtualizacao(valor) {
 .roteiro-recomendado {
   display: grid;
   gap: 12px;
-  padding: 18px;
-  border: 1px solid #bfdbfe;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--app-primary) 30%, var(--app-border));
   border-radius: 12px;
-  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--app-primary-soft) 70%, var(--app-surface)) 0%,
+    var(--app-surface) 100%
+  );
 }
 
 .roteiro-recomendado h3 {
   margin: 0;
-  color: #0f172a;
+  color: var(--app-text);
   font-size: 20px;
   font-weight: 800;
 }
@@ -999,13 +1044,13 @@ function formatarDataAtualizacao(valor) {
 .roteiro-recomendado ol {
   margin: 0;
   padding-left: 22px;
-  color: #334155;
+  color: var(--app-text);
   display: grid;
   gap: 9px;
 }
 
 .roteiro-recomendado li::marker {
-  color: #2563eb;
+  color: var(--app-primary);
   font-weight: 800;
 }
 
@@ -1019,27 +1064,27 @@ function formatarDataAtualizacao(valor) {
   width: 100%;
   max-height: 460px;
   object-fit: contain;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--app-border);
   border-radius: 12px;
-  background: #f8fafc;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  background: var(--app-surface-soft);
+  box-shadow: var(--app-shadow);
 }
 
 .faq-item {
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--app-border);
   border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .faq-item:first-of-type {
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--app-border);
 }
 
 .faq-item summary {
   cursor: pointer;
-  color: #111827;
+  color: var(--app-text);
   font-weight: 800;
   list-style: none;
   padding: 14px 16px;
@@ -1048,13 +1093,13 @@ function formatarDataAtualizacao(valor) {
 .faq-item summary::after {
   content: '+';
   float: right;
-  color: #2563eb;
+  color: var(--app-primary);
   font-size: 18px;
   line-height: 1;
 }
 
 .faq-item[open] summary {
-  background: #f8fafc;
+  background: var(--app-surface-soft);
 }
 
 .faq-item[open] summary::after {
@@ -1078,6 +1123,7 @@ function formatarDataAtualizacao(valor) {
   margin: 0;
   font-size: 26px;
   font-weight: 800;
+  color: var(--app-text);
 }
 
 @media (max-width: 1024px) {
@@ -1113,15 +1159,48 @@ function formatarDataAtualizacao(valor) {
 
 @media (max-width: 480px) {
   .cabecalho-pagina h1 {
-    font-size: 28px;
+    font-size: 24px;
+    line-height: 1.12;
   }
 
   .topico-cabecalho h2 {
+    font-size: 21px;
+    line-height: 1.15;
+  }
+
+  .ferramentas-ajuda,
+  .historico-atualizacoes,
+  .topico-detalhe {
+    padding: 14px;
+  }
+
+  .resumo-item {
+    padding: 14px;
+  }
+
+  .resumo-item strong {
     font-size: 24px;
+  }
+
+  .topico-item {
+    padding: 12px;
+  }
+
+  .topico-item strong {
+    font-size: 14px;
   }
 
   .botao-tela,
   .selo-topico {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .topico-cabecalho {
+    gap: 10px;
+  }
+
+  .acoes-topico {
     width: 100%;
   }
 }

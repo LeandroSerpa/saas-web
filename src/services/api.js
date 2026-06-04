@@ -47,15 +47,17 @@ export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
 const VERSAO_PRODUCAO_PADRAO = '1.1.1'
-const VERSAO_HML_MINIMA = '1.1.1-hml'
+const VERSAO_HML_MINIMA = '1.2.0-hml'
 const DATA_PUBLICACAO_VERSAO_PADRAO =
-  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-05-31').trim() || '2026-05-31'
+  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-04').trim() || '2026-06-04'
 const NOVIDADES_VERSAO_PADRAO = Object.freeze([
-  'Lixeira Global integrada aos cadastros principais.',
-  'Restauracao de registros da lixeira com atualizacao automatica da listagem e dos contadores.',
-  'Exclusao definitiva disponivel na Lixeira Global para remocao irreversivel.',
-  'Produtos de estoque participam do fluxo completo da lixeira.',
-  'Acoes de exclusao, restauracao e exclusao definitiva registradas em auditoria/log.',
+  'Modo Essencial para navegação simplificada.',
+  'Modo Completo para acesso a todos os recursos.',
+  'Temas Claro, Escuro e NuvemMais.',
+  'Dashboard Essencial com ações rápidas.',
+  'Catálogo público/Cardápio com vitrine de produtos.',
+  'Estoque do dia integrado ao catálogo.',
+  'Melhorias visuais no menu, topo, cards, botões e formulários.',
 ])
 
 export function obterUrlPublicaFrontend() {
