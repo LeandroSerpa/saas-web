@@ -851,6 +851,7 @@ const topicosFiltrados = computed(() => {
 })
 
 const topicoAtivo = computed(() => topicosFiltrados.value.find((topico) => topico.id === topicoAtivoId.value) || null)
+const mostrarTopoResumo = computed(() => !isViewportMobile.value || mostrarListaTopicos.value || !topicoAtivo.value)
 
 watch(busca, (termo) => {
   if (isViewportMobile.value && termo.trim()) {
@@ -984,7 +985,7 @@ onBeforeUnmount(() => {
       :aria-hidden="abaAtiva !== ABA_TUTORIAIS"
       aria-labelledby="ajuda-tutoriais-tab"
     >
-      <section class="resumo-ajuda" aria-label="Resumo da central de ajuda">
+      <section v-if="mostrarTopoResumo" class="resumo-ajuda" aria-label="Resumo da central de ajuda">
         <article v-for="item in estatisticas" :key="item.rotulo" class="resumo-item">
           <span>{{ item.rotulo }}</span>
           <strong>{{ item.valor }}</strong>

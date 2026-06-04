@@ -341,18 +341,21 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 
 @media (max-width: 720px) {
   .app-topbar {
-    padding: 8px;
+    min-height: 50px;
+    padding: 7px 8px;
   }
 
   .app-user-actions {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
+    gap: 8px;
   }
 
   .app-account-card {
     min-width: 0;
     max-width: none;
+    padding: 5px 8px;
   }
 
   .app-topbar-preferencias {
@@ -369,7 +372,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   }
 
   .app-page-heading {
-    padding: 12px 14px;
+    padding: 10px 12px;
   }
 }
 
@@ -379,16 +382,33 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   }
 
   .app-topbar {
+    min-height: 46px;
     grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
   }
 
   .app-user-actions {
     grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px;
   }
 
   .app-topbar-preferencias {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     display: grid;
+    gap: 6px;
+  }
+
+  .app-account-card {
+    padding: 4px 7px;
+  }
+
+  .app-account-card small {
+    display: none;
+  }
+
+  .app-action-button {
+    padding: 7px 10px;
+    font-size: 11px;
   }
 
   .app-action-button.sair {
@@ -396,8 +416,18 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
     width: 100%;
   }
 
+  .app-page-heading {
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
   .app-page-title h1 {
-    font-size: 23px;
+    font-size: 22px;
+  }
+
+  .app-page-title p {
+    font-size: 12px;
+    -webkit-line-clamp: 1;
   }
 }
 </style>

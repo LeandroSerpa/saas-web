@@ -2958,6 +2958,22 @@ small { color: #64748b; }
 .filtros-campos { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
 .campo-grande { grid-column: 1 / -1; }
 label { display: grid; gap: 7px; color: #334155; font-weight: 800; }
+
+.campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  padding: 12px 14px;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.campo-checkbox input {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+}
 input, select, textarea {
   width: 100%;
   min-width: 0;
@@ -2975,15 +2991,10 @@ input:focus, select:focus, textarea:focus {
 }
 input[readonly] { background: #f8fafc; color: #64748b; }
 .destaque-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
   border: 1px solid #dbe4f0;
   border-radius: 8px;
   background: #f8fafc;
 }
-.destaque-checkbox input { width: auto; }
 .grade-produtos { display: grid; grid-template-columns: repeat(2, minmax(340px, 1fr)); gap: 18px; }
 .lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
 .produto-card,
@@ -3127,6 +3138,9 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .badges-topo { justify-content: flex-start; }
   .botao,
   .botao-fechar { width: auto; }
+  .campo-checkbox {
+    align-items: flex-start;
+  }
 }
 @media (max-width: 560px) {
   .card,

@@ -28,7 +28,8 @@ const rotuloAria = computed(() => props.ariaLabel || `Abrir ajuda da tela ${prop
 <template>
   <RouterLink class="ajuda-contextual" :to="destino" :aria-label="rotuloAria">
     <span class="ajuda-contextual-icone" aria-hidden="true">?</span>
-    <span class="ajuda-contextual-texto">{{ rotulo }}</span>
+    <span class="ajuda-contextual-texto ajuda-contextual-texto-completo">{{ rotulo }}</span>
+    <span class="ajuda-contextual-texto ajuda-contextual-texto-curto" aria-hidden="true">Ajuda</span>
   </RouterLink>
 </template>
 
@@ -81,10 +82,25 @@ const rotuloAria = computed(() => props.ariaLabel || `Abrir ajuda da tela ${prop
   display: inline-block;
 }
 
+.ajuda-contextual-texto-curto {
+  display: none;
+}
+
 @media (max-width: 720px) {
   .ajuda-contextual {
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     justify-content: center;
+    padding-inline: 10px;
+    gap: 6px;
+  }
+
+  .ajuda-contextual-texto-completo {
+    display: none;
+  }
+
+  .ajuda-contextual-texto-curto {
+    display: inline-block;
   }
 }
 </style>
