@@ -51,6 +51,10 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
         </div>
       </div>
 
+      <div class="app-topbar-preferencias">
+        <slot name="preferencias"></slot>
+      </div>
+
       <div class="app-user-actions">
         <NotificacoesBell />
 
@@ -59,6 +63,8 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
           <span>Usuário: {{ nomeUsuario }}</span>
           <small>{{ identificacaoConta }}</small>
         </div>
+
+        <slot name="acoes-secundarias"></slot>
 
         <button
           v-if="acaoDisponivel"
@@ -97,22 +103,23 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 .app-page-heading {
   min-height: 0;
   height: auto;
-  border: 1px solid #e2e8f0;
-  background: white;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .app-topbar {
-  min-height: 50px;
-  display: flex;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 8px 12px;
   border-radius: 12px;
 }
 
 .app-topbar-identidade,
+.app-topbar-preferencias,
 .app-user-actions {
   min-width: 0;
   display: flex;
@@ -121,11 +128,17 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-topbar-identidade {
+  justify-self: start;
+}
+
+.app-topbar-preferencias {
   flex: 1 1 auto;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .app-user-actions {
-  flex: 0 1 auto;
+  justify-self: end;
   justify-content: flex-end;
 }
 
@@ -136,7 +149,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   height: 38px;
   border: none;
   border-radius: 9px;
-  background: #0f172a;
+  background: var(--app-sidebar-bg);
   color: white;
   place-content: center;
   gap: 4px;
@@ -167,49 +180,49 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-topbar-titulo strong {
-  color: #0f172a;
+  color: var(--app-text);
   font-size: 13px;
   font-weight: 900;
 }
 
 .app-topbar-titulo small {
-  color: #64748b;
+  color: var(--app-text-muted);
   font-size: 11px;
   font-weight: 700;
 }
 
 .app-account-card {
-  min-width: 190px;
-  max-width: 320px;
+  min-width: 160px;
+  max-width: 280px;
   display: grid;
   gap: 1px;
   padding: 6px 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #f8fafc;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface-soft);
 }
 
 .app-account-card strong {
-  color: #0f172a;
+  color: var(--app-text);
   font-size: 12px;
   font-weight: 900;
 }
 
 .app-account-card span {
-  color: #334155;
+  color: var(--app-text);
   font-size: 11px;
   font-weight: 800;
 }
 
 .app-account-card small {
-  color: #64748b;
+  color: var(--app-text-muted);
   font-size: 11px;
 }
 
 .app-action-button {
   flex: 0 0 auto;
   border: none;
-  border-radius: 9px;
+  border-radius: 12px;
   padding: 8px 12px;
   color: white;
   cursor: pointer;
@@ -233,19 +246,19 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-action-button.primaria {
-  background: #2563eb;
+  background: var(--app-primary);
 }
 
 .app-action-button.primaria:hover {
-  background: #1d4ed8;
+  background: var(--app-primary-strong);
 }
 
 .app-action-button.sair {
-  background: #0f172a;
+  background: var(--app-sidebar-bg);
 }
 
 .app-action-button.sair:hover {
-  background: #1e293b;
+  background: color-mix(in srgb, var(--app-sidebar-bg) 88%, white);
 }
 
 .app-page-heading {
@@ -262,8 +275,8 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   align-items: center;
   border-radius: 999px;
   padding: 4px 8px;
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -279,7 +292,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 
 .app-page-title h1 {
   margin: 0;
-  color: #0f172a;
+  color: var(--app-text);
   font-size: clamp(22px, 2.1vw, 28px);
   font-weight: 900;
   line-height: 1.08;
@@ -288,7 +301,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 .app-page-title p {
   max-width: 74ch;
   margin: 0;
-  color: #475569;
+  color: var(--app-text-muted);
   display: -webkit-box;
   overflow: hidden;
   font-size: 13px;
@@ -301,24 +314,52 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   .app-menu-button {
     display: grid;
   }
+
+  .app-topbar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .app-topbar-identidade {
+    order: 0;
+  }
+
+  .app-user-actions {
+    order: 1;
+  }
+
+  .app-topbar-preferencias {
+    order: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .app-user-actions {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
 }
 
 @media (max-width: 720px) {
   .app-topbar {
-    align-items: stretch;
-    flex-direction: column;
-    padding: 8px;
+    min-height: 50px;
+    padding: 7px 8px;
   }
 
   .app-user-actions {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
+    gap: 8px;
   }
 
   .app-account-card {
     min-width: 0;
     max-width: none;
+    padding: 5px 8px;
+  }
+
+  .app-topbar-preferencias {
+    gap: 8px;
   }
 
   .app-action-button.primaria {
@@ -331,7 +372,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   }
 
   .app-page-heading {
-    padding: 12px 14px;
+    padding: 10px 12px;
   }
 }
 
@@ -340,8 +381,34 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
     display: none;
   }
 
+  .app-topbar {
+    min-height: 46px;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+  }
+
   .app-user-actions {
     grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .app-topbar-preferencias {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid;
+    gap: 6px;
+  }
+
+  .app-account-card {
+    padding: 4px 7px;
+  }
+
+  .app-account-card small {
+    display: none;
+  }
+
+  .app-action-button {
+    padding: 7px 10px;
+    font-size: 11px;
   }
 
   .app-action-button.sair {
@@ -349,8 +416,18 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
     width: 100%;
   }
 
+  .app-page-heading {
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
   .app-page-title h1 {
-    font-size: 23px;
+    font-size: 22px;
+  }
+
+  .app-page-title p {
+    font-size: 12px;
+    -webkit-line-clamp: 1;
   }
 }
 </style>

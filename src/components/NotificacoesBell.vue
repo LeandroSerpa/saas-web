@@ -378,10 +378,10 @@ watch(
 .botao-sino {
   position: relative;
   min-height: 40px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #0f172a;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface);
+  color: var(--app-text);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -394,7 +394,7 @@ watch(
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: #2563eb;
+  background: var(--app-primary);
   color: white;
   display: grid;
   place-items: center;
@@ -411,7 +411,7 @@ watch(
   min-width: 22px;
   height: 22px;
   border-radius: 999px;
-  background: #dc2626;
+  background: var(--app-danger);
   color: white;
   display: grid;
   place-items: center;
@@ -425,10 +425,10 @@ watch(
   right: 0;
   z-index: 30;
   width: min(360px, calc(100vw - 36px));
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  box-shadow: var(--app-shadow);
   overflow: hidden;
   text-align: left;
 }
@@ -455,7 +455,7 @@ watch(
 .painel-topo span,
 .item small,
 .item p {
-  color: #64748b;
+  color: var(--app-text-muted);
 }
 
 .link-botao,
@@ -463,7 +463,7 @@ watch(
 .ver-todas {
   border: none;
   background: transparent;
-  color: #2563eb;
+  color: var(--app-primary);
   cursor: pointer;
   font: inherit;
   font-weight: 800;
@@ -483,7 +483,7 @@ watch(
 }
 
 .erro {
-  color: #991b1b;
+  color: var(--app-danger);
 }
 
 .lista {
@@ -493,18 +493,18 @@ watch(
 
 .item {
   padding: 14px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--app-border);
   display: grid;
   gap: 8px;
 }
 
 .item.naoLida {
-  background: #f8fbff;
-  border-left: 4px solid #2563eb;
+  background: var(--app-primary-soft);
+  border-left: 4px solid var(--app-primary);
 }
 
 .item strong {
-  color: #111827;
+  color: var(--app-text);
   font-size: 14px;
 }
 
@@ -531,46 +531,46 @@ watch(
 }
 
 .status.criada {
-  background: #fef3c7;
-  color: #92400e;
+  background: color-mix(in srgb, var(--app-warning) 18%, var(--app-surface));
+  color: color-mix(in srgb, var(--app-warning) 74%, black);
 }
 
 .status.lida,
 .status.enviada {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
 }
 
 .status.arquivada {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
 }
 
 .status.falha,
 .status.cancelada,
 .status.excluida {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--app-danger) 14%, var(--app-surface));
+  color: var(--app-danger);
 }
 
 .prioridade.critica {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--app-danger) 14%, var(--app-surface));
+  color: var(--app-danger);
 }
 
 .prioridade.alta {
-  background: #ffedd5;
-  color: #c2410c;
+  background: color-mix(in srgb, var(--app-warning) 18%, var(--app-surface));
+  color: color-mix(in srgb, var(--app-warning) 74%, black);
 }
 
 .prioridade.normal {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
 }
 
 .prioridade.baixa {
-  background: #e5e7eb;
-  color: #4b5563;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
 }
 
 .acoes {
@@ -581,7 +581,7 @@ watch(
 .ver-todas {
   display: block;
   padding: 14px 16px;
-  background: #f8fafc;
+  background: var(--app-surface-soft);
   text-align: center;
 }
 

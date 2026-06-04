@@ -2,7 +2,10 @@
 import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
+import AjudaContextualLink from '@/components/AjudaContextualLink.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
+import ModoNavegacaoSelector from '@/components/ModoNavegacaoSelector.vue'
+import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
   buscarStatusFinanceiroMinhaEmpresa,
@@ -13,6 +16,18 @@ import {
   obterInfoVersaoSistemaPadrao,
   obterTipoSeloAmbiente,
 } from '@/services/api'
+import {
+  aplicarTemaAparenciaNoDocumento,
+  salvarTemaAparencia,
+  sincronizarTemaAparencia,
+  temaAparencia,
+} from '@/utils/aparencia'
+import {
+  MODO_NAVEGACAO_COMPLETO,
+  modoNavegacao,
+  salvarModoNavegacao,
+  sincronizarModoNavegacao,
+} from '@/utils/modoNavegacao'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const route = useRoute()
@@ -68,6 +83,11 @@ const CABECALHOS_PADRAO = {
     subtitulo: 'Operacao',
     titulo: 'Estoque',
     descricao: 'Controle produtos, quantidades e alertas de baixo estoque.',
+  },
+  'catalogo-publico-interno': {
+    subtitulo: 'Operacao',
+    titulo: 'Catalogo publico',
+    descricao: 'Configure a vitrine publica de produtos e compartilhe o link com seus clientes.',
   },
   'minha-empresa': {
     subtitulo: 'Configuração empresarial',
@@ -197,8 +217,32 @@ const CABECALHOS_PADRAO = {
 }
 
 const routeName = computed(() => (typeof route.name === 'string' ? route.name : ''))
+const AJUDA_CONTEXTUAL_POR_ROTA = {
+  dashboard: 'dashboard',
+  agenda: 'agenda',
+  clientes: 'clientes',
+  servicos: 'servicos',
+  funcionarios: 'funcionarios',
+  disponibilidade: 'disponibilidade',
+  relatorios: 'relatorios',
+  'minha-conta': 'minha-conta',
+  'alterar-senha': 'alterar-senha',
+  usuarios: 'usuarios',
+  estoque: 'estoque',
+  'catalogo-publico-interno': 'catalogo-publico',
+  'minha-empresa': 'minha-empresa',
+  personalizacao: 'personalizacao',
+  'meu-plano': 'faturas-meu-plano',
+  faturas: 'faturas-meu-plano',
+  notificacoes: 'notificacoes',
+  'configuracoes-notificacoes': 'notificacoes',
+  lixeira: 'lixeira-global',
+  'admin-lixeira': 'lixeira-global',
+}
+const topicoAjudaContextual = computed(() => AJUDA_CONTEXTUAL_POR_ROTA[routeName.value] || '')
 const rotaLogin = computed(() => route.path === '/login')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
+const rotaCatalogoPublico = computed(() => route.path.startsWith('/catalogo/') || route.path.startsWith('/cardapio/'))
 const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(route.path))
 const rotaInstitucionalPublica = computed(() => ['/termos', '/privacidade', '/sobre'].includes(route.path))
 const rotaCadastroPendente = computed(() => route.path === '/cadastro-pendente')
@@ -207,6 +251,7 @@ const trocaSenhaObrigatoria = computed(() => usuario.value?.trocaSenhaObrigatori
 const rotaSemLayout = computed(() =>
   rotaLogin.value ||
   rotaAgendamentoPublico.value ||
+  rotaCatalogoPublico.value ||
   rotaCadastroPublico.value ||
   rotaInstitucionalPublica.value ||
   rotaCadastroPendente.value ||
@@ -245,7 +290,16 @@ const nomeUsuario = computed(() => usuario.value?.nome || 'Usuário')
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
-const menuAdminAberto = ref(true)
+const modoNavegacaoAtual = computed(() => modoNavegacao.value)
+const temaAparenciaAtual = computed(() => temaAparencia.value)
+const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
+const gruposMenuAbertos = ref({
+  principal: true,
+  operacao: true,
+  financeiro: true,
+  configuracoes: true,
+  administracaoSaas: true,
+})
 const menuMobileAberto = ref(false)
 const statusFinanceiro = ref(null)
 const carregandoStatusFinanceiro = ref(false)
@@ -279,7 +333,7 @@ const descricaoSeloAmbienteTopo = computed(() =>
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.1.1'
+  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.2.0-hml'
   return `v${versaoBase}`
 })
 
@@ -329,6 +383,22 @@ function sair() {
   router.push('/login')
 }
 
+function alterarModoNavegacao(novoModo) {
+  if (!usuario.value) {
+    return
+  }
+
+  const modoSalvo = salvarModoNavegacao(usuario.value, novoModo)
+
+  if (!modoSalvo) {
+    return
+  }
+}
+
+function alterarTemaAparencia(novoTema) {
+  salvarTemaAparencia(novoTema)
+}
+
 function atualizarUsuarioLogado() {
   if (rotaAgendamentoPublico.value) {
     usuario.value = null
@@ -337,6 +407,11 @@ function atualizarUsuarioLogado() {
   }
 
   usuario.value = carregarUsuarioSessao()
+
+  if (usuario.value) {
+    sincronizarModoNavegacao(usuario.value)
+  }
+
   carregarStatusFinanceiro()
 }
 
@@ -412,6 +487,14 @@ function abrirMenuMobile() {
 
 function fecharMenuMobile() {
   menuMobileAberto.value = false
+}
+
+function grupoMenuAberto(chave) {
+  return gruposMenuAbertos.value?.[chave] !== false
+}
+
+function alternarGrupoMenu(chave) {
+  gruposMenuAbertos.value[chave] = !grupoMenuAberto(chave)
 }
 
 function irParaAjudaVersao() {
@@ -497,6 +580,14 @@ watch(
   { immediate: true },
 )
 
+watch(
+  temaAparencia,
+  (tema) => {
+    aplicarTemaAparenciaNoDocumento(tema)
+  },
+  { immediate: true },
+)
+
 watch(menuMobileAberto, (aberto) => {
   if (typeof document !== 'undefined') {
     document.body.classList.toggle('menu-mobile-aberto', aberto)
@@ -517,6 +608,7 @@ onMounted(() => {
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.addEventListener('mensagem-global', exibirMensagemGlobal)
   carregarAmbienteAplicacao()
+  sincronizarTemaAparencia()
   observarCabecalhoPagina()
   sincronizarCabecalhoPagina()
 })
@@ -582,50 +674,96 @@ onBeforeUnmount(() => {
       </div>
 
       <nav class="menu-principal" aria-label="Navegação principal">
-        <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
-        <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
-        <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
-        <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
-        <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">Disponibilidade</RouterLink>
-        <RouterLink v-if="adminEmpresa" to="/onboarding" @click="fecharMenuMobile">Primeiros passos</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">Relatórios</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa" @click="fecharMenuMobile">Minha empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">Notificações da empresa</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/meu-plano" @click="fecharMenuMobile">Meu plano</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/faturas" @click="fecharMenuMobile">Faturas</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
-        <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
-
-        <section v-if="superAdmin" class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="menuAdminAberto = !menuAdminAberto">
-            <span>Administração NuvemMais</span>
-            <span>{{ menuAdminAberto ? '−' : '+' }}</span>
+        <section class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('principal')">
+            <span>Principal</span>
+            <span>{{ grupoMenuAberto('principal') ? '−' : '+' }}</span>
           </button>
+          <div v-if="grupoMenuAberto('principal')" class="submenu">
+            <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
+            <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
+            <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
+          </div>
+        </section>
 
-          <div v-if="menuAdminAberto" class="submenu">
+        <section class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('operacao')">
+            <span>Operação</span>
+            <span>{{ grupoMenuAberto('operacao') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('operacao')" class="submenu">
+            <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
+            <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/catalogo-publico" @click="fecharMenuMobile">Catálogo público</RouterLink>
+            <RouterLink v-if="modoNavegacaoCompleto && podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">
+              Disponibilidade
+            </RouterLink>
+            <RouterLink v-if="modoNavegacaoCompleto && podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">
+              Relatórios
+            </RouterLink>
+            <RouterLink v-if="modoNavegacaoCompleto && adminEmpresa" to="/onboarding" @click="fecharMenuMobile">
+              Primeiros passos
+            </RouterLink>
+          </div>
+        </section>
+
+        <section v-if="podeGerenciarUsuarios" class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('financeiro')">
+            <span>Financeiro</span>
+            <span>{{ grupoMenuAberto('financeiro') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('financeiro')" class="submenu">
+            <RouterLink to="/faturas" @click="fecharMenuMobile">Faturas</RouterLink>
+            <RouterLink to="/meu-plano" @click="fecharMenuMobile">Meu plano</RouterLink>
+          </div>
+        </section>
+
+        <section class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('configuracoes')">
+            <span>Configurações</span>
+            <span>{{ grupoMenuAberto('configuracoes') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('configuracoes')" class="submenu">
+            <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa" @click="fecharMenuMobile">Minha empresa</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
+            <RouterLink
+              v-if="modoNavegacaoCompleto && podeGerenciarUsuarios"
+              to="/minha-empresa/notificacoes"
+              @click="fecharMenuMobile"
+            >
+              Notificações da empresa
+            </RouterLink>
+            <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
+            <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
+          </div>
+        </section>
+
+        <section v-if="superAdmin && modoNavegacaoCompleto" class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('administracaoSaas')">
+            <span>Administração SaaS</span>
+            <span>{{ grupoMenuAberto('administracaoSaas') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('administracaoSaas')" class="submenu">
             <RouterLink to="/admin-dashboard" @click="fecharMenuMobile">Dashboard NuvemMais</RouterLink>
             <RouterLink to="/empresas" @click="fecharMenuMobile">Empresas</RouterLink>
-            <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
             <RouterLink to="/planos" @click="fecharMenuMobile">Planos</RouterLink>
             <RouterLink to="/assinaturas" @click="fecharMenuMobile">Assinaturas</RouterLink>
+            <RouterLink to="/solicitacoes" @click="fecharMenuMobile">Solicitações</RouterLink>
+            <RouterLink to="/auditoria" @click="fecharMenuMobile">Auditoria</RouterLink>
+            <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
+            <RouterLink to="/admin/estoque" @click="fecharMenuMobile">Administração de Estoque</RouterLink>
             <RouterLink to="/admin/notificacoes" @click="fecharMenuMobile">Notificações NuvemMais</RouterLink>
             <RouterLink to="/admin/automacoes" @click="fecharMenuMobile">Automações</RouterLink>
-            <RouterLink to="/admin/estoque" @click="fecharMenuMobile">Administração de Estoque</RouterLink>
             <RouterLink to="/admin/financeiro" @click="fecharMenuMobile">Inadimplência</RouterLink>
             <RouterLink to="/faturas-recorrentes" @click="fecharMenuMobile">Faturas recorrentes</RouterLink>
             <RouterLink to="/configuracoes-pagamento" @click="fecharMenuMobile">Configuração de pagamento</RouterLink>
             <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/Módulos</RouterLink>
-            <RouterLink to="/solicitacoes" @click="fecharMenuMobile">Solicitações</RouterLink>
-            <RouterLink to="/auditoria" @click="fecharMenuMobile">Auditoria</RouterLink>
-            <RouterLink to="/lixeira" @click="fecharMenuMobile">Lixeira</RouterLink>
+            <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
           </div>
         </section>
-
-        <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
-        <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
       </nav>
 
       <footer class="rodape-versao-menu" aria-label="Versão do sistema">
@@ -652,6 +790,15 @@ onBeforeUnmount(() => {
         @executar-acao="executarAcaoPagina"
         @sair="sair"
       >
+        <template #preferencias>
+          <ModoNavegacaoSelector :modo="modoNavegacaoAtual" @update:modo="alterarModoNavegacao" />
+          <TemaAparenciaSelector :tema="temaAparenciaAtual" @update:tema="alterarTemaAparencia" />
+        </template>
+
+        <template #acoes-secundarias>
+          <AjudaContextualLink v-if="topicoAjudaContextual" :topico="topicoAjudaContextual" />
+        </template>
+
         <template #visualizacao>
           <VisualizacaoEmpresaSelector v-if="superAdmin" />
         </template>
@@ -675,23 +822,23 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: #eef2f7;
-  color: #111827;
+  background: var(--app-bg);
+  color: var(--app-text);
 }
 
 .card-erro-interno {
   width: min(100%, 620px);
   display: grid;
   gap: 14px;
-  background: white;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
+  background: var(--app-surface);
+  border: 1px solid color-mix(in srgb, var(--app-danger) 24%, var(--app-border));
+  border-radius: var(--app-radius);
   padding: 28px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--app-shadow);
 }
 
 .selo-erro {
-  color: #b91c1c;
+  color: var(--app-danger);
   font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
@@ -708,7 +855,7 @@ onBeforeUnmount(() => {
 }
 
 .card-erro-interno p {
-  color: #475569;
+  color: var(--app-text-muted);
   line-height: 1.5;
 }
 
@@ -719,30 +866,33 @@ onBeforeUnmount(() => {
 
 .botao-erro-interno {
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 11px 16px;
   color: white;
-  background: #2563eb;
+  background: var(--app-primary);
   font-weight: 800;
   cursor: pointer;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
 }
 
 .botao-erro-interno:hover {
-  background: #1d4ed8;
+  background: var(--app-primary-strong);
 }
 
 .app-shell {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
-  background: #eef2f7;
-  color: #111827;
+  background:
+    var(--app-bg-overlay, none),
+    var(--app-bg);
+  color: var(--app-text);
   position: relative;
 }
 
 .app-sidebar {
-  background: #0f172a;
-  color: white;
+  background: var(--app-sidebar-bg);
+  color: var(--app-sidebar-text);
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -765,9 +915,11 @@ onBeforeUnmount(() => {
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  background: #2563eb;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--app-primary) 0%, var(--app-brand-end) 100%);
   font-weight: 800;
+  color: white;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
 }
 
 .marca strong,
@@ -781,7 +933,7 @@ onBeforeUnmount(() => {
 }
 
 .marca small {
-  color: #cbd5e1;
+  color: var(--app-sidebar-muted);
   font-size: 13px;
 }
 
@@ -793,16 +945,20 @@ onBeforeUnmount(() => {
 }
 
 .menu-principal a {
-  color: #e2e8f0;
+  color: var(--app-sidebar-link);
   text-decoration: none;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 11px 12px;
   font-weight: 700;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .menu-principal a.router-link-active {
-  background: rgba(37, 99, 235, 0.22);
-  color: white;
+  background: var(--app-sidebar-item-active);
+  color: var(--app-sidebar-link-active);
 }
 
 .grupo-menu {
@@ -810,7 +966,7 @@ onBeforeUnmount(() => {
   gap: 8px;
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px solid rgba(226, 232, 240, 0.16);
+  border-top: 1px solid var(--app-sidebar-border);
 }
 
 .grupo-menu-botao {
@@ -819,10 +975,10 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  background: rgba(15, 23, 42, 0.3);
-  color: #cbd5e1;
+  background: var(--app-sidebar-chip);
+  color: var(--app-sidebar-muted);
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   font: inherit;
   font-size: 13px;
@@ -835,7 +991,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 6px;
   padding-left: 12px;
-  border-left: 2px solid rgba(37, 99, 235, 0.45);
+  border-left: 2px solid var(--app-primary);
 }
 
 .submenu a {
@@ -846,8 +1002,8 @@ onBeforeUnmount(() => {
 .rodape-versao-menu {
   margin-top: auto;
   padding-top: 10px;
-  border-top: 1px solid rgba(226, 232, 240, 0.16);
-  color: #94a3b8;
+  border-top: 1px solid var(--app-sidebar-border);
+  color: var(--app-sidebar-muted);
 }
 
 .link-versao-menu {
@@ -865,7 +1021,7 @@ onBeforeUnmount(() => {
 }
 
 .link-versao-menu:hover {
-  color: #cbd5e1;
+  color: var(--app-sidebar-link-active);
 }
 
 .app-main {
@@ -881,11 +1037,11 @@ onBeforeUnmount(() => {
 
 .selo-homologacao {
   width: fit-content;
-  border: 1px solid #f59e0b;
+  border: 1px solid var(--app-warning);
   border-radius: 999px;
   padding: 7px 12px;
-  background: #fffbeb;
-  color: #b45309;
+  background: color-mix(in srgb, var(--app-warning) 12%, white);
+  color: color-mix(in srgb, var(--app-warning) 82%, black);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -895,11 +1051,11 @@ onBeforeUnmount(() => {
 
 .botao-fechar-menu {
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   width: 34px;
   height: 34px;
-  background: rgba(148, 163, 184, 0.16);
-  color: #e2e8f0;
+  background: var(--app-sidebar-chip);
+  color: var(--app-sidebar-link);
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
@@ -907,9 +1063,12 @@ onBeforeUnmount(() => {
 
 .mensagem-global {
   margin: 0;
-  border-radius: 8px;
+  border-radius: var(--app-radius);
   padding: 14px 16px;
   font-weight: 700;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .mensagem-global p {
@@ -917,15 +1076,15 @@ onBeforeUnmount(() => {
 }
 
 .mensagem-global.erro {
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+  border-color: color-mix(in srgb, var(--app-danger) 28%, var(--app-border));
+  background: color-mix(in srgb, var(--app-danger) 8%, var(--app-surface));
+  color: var(--app-danger);
 }
 
 .mensagem-global.sucesso {
-  border: 1px solid #bbf7d0;
-  background: #f0fdf4;
-  color: #15803d;
+  border-color: color-mix(in srgb, var(--app-success) 28%, var(--app-border));
+  background: color-mix(in srgb, var(--app-success) 8%, var(--app-surface));
+  color: var(--app-success);
 }
 
 .conteudo-rota {
@@ -945,7 +1104,7 @@ onBeforeUnmount(() => {
     position: fixed;
     inset: 0;
     border: none;
-    background: rgba(15, 23, 42, 0.55);
+    background: var(--app-overlay);
     z-index: 35;
     display: block;
   }
@@ -961,6 +1120,7 @@ onBeforeUnmount(() => {
     transform: translateX(-100%);
     transition: transform 0.22s ease;
     overflow-y: auto;
+    box-shadow: 28px 0 50px rgba(15, 23, 42, 0.22);
   }
 
   .app-sidebar.aberta {
@@ -971,7 +1131,7 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    color: #cbd5e1;
+    color: var(--app-sidebar-muted);
     font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;

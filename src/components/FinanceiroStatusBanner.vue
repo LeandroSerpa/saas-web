@@ -75,21 +75,21 @@ function formatarNumero(valor) {
   gap: 16px;
   margin-bottom: 24px;
   border: 1px solid;
-  border-radius: 8px;
+  border-radius: var(--app-radius);
   padding: 18px 20px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--app-shadow);
 }
 
 .banner-financeiro.atraso {
-  border-color: #fde68a;
-  background: #fffbeb;
-  color: #92400e;
+  border-color: color-mix(in srgb, var(--app-warning) 30%, var(--app-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-warning) 12%, var(--app-surface)) 0%, var(--app-surface) 100%);
+  color: color-mix(in srgb, var(--app-warning) 78%, black);
 }
 
 .banner-financeiro.bloqueado {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+  border-color: color-mix(in srgb, var(--app-danger) 30%, var(--app-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--app-danger) 10%, var(--app-surface)) 0%, var(--app-surface) 100%);
+  color: var(--app-danger);
 }
 
 .banner-financeiro strong {
@@ -114,18 +114,20 @@ dt {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+  color: var(--app-text-muted);
 }
 
 dd {
   margin-top: 2px;
+  color: var(--app-text);
   font-weight: 800;
 }
 
 .botao-banner {
   flex: 0 0 auto;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 16px;
-  background: #0f172a;
+  background: var(--app-sidebar-bg);
   color: white;
   font-weight: 800;
   text-decoration: none;

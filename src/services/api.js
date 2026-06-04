@@ -1,7 +1,11 @@
 import { debugLog } from '@/utils/devDebug'
 
+const PUBLIC_APP_URL_HOMOLOGACAO = 'https://gestao-hml.nuvemmais.com.br'
+const PUBLIC_APP_URL_PRODUCAO = 'https://gestao.nuvemmais.com.br'
+export const TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO = 'Pedir pelo WhatsApp'
+
 const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
-const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : 'https://gestao.nuvemmais.com.br'
+const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : PUBLIC_APP_URL_PRODUCAO
 export const APP_NAME = String(import.meta.env.VITE_APP_NAME || 'NuvemMais Gestão').trim() || 'NuvemMais Gestão'
 export const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || '').trim()
 const MENSAGENS_PADRAO = {
@@ -43,29 +47,60 @@ export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
 const VERSAO_PRODUCAO_PADRAO = '1.1.1'
-const VERSAO_HML_MINIMA = '1.1.1-hml'
+const VERSAO_HML_MINIMA = '1.2.0-hml'
 const DATA_PUBLICACAO_VERSAO_PADRAO =
-  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-05-31').trim() || '2026-05-31'
+  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-04').trim() || '2026-06-04'
 const NOVIDADES_VERSAO_PADRAO = Object.freeze([
-  'Lixeira Global integrada aos cadastros principais.',
-  'Restauracao de registros da lixeira com atualizacao automatica da listagem e dos contadores.',
-  'Exclusao definitiva disponivel na Lixeira Global para remocao irreversivel.',
-  'Produtos de estoque participam do fluxo completo da lixeira.',
-  'Acoes de exclusao, restauracao e exclusao definitiva registradas em auditoria/log.',
+  'Modo Essencial para navegação simplificada.',
+  'Modo Completo para acesso a todos os recursos.',
+  'Temas Claro, Escuro e NuvemMais.',
+  'Dashboard Essencial com ações rápidas.',
+  'Catálogo público/Cardápio com vitrine de produtos.',
+  'Estoque do dia integrado ao catálogo.',
+  'Melhorias visuais no menu, topo, cards, botões e formulários.',
 ])
 
 export function obterUrlPublicaFrontend() {
+  const origemAtual =
+    typeof window !== 'undefined' && window.location?.origin ? normalizarUrlBase(window.location.origin) : ''
+  const hostnameAtual = obterHostnameAtual()
+  const ambienteAtual = resolverAmbienteSeguroPorHostname(hostnameAtual) || APP_ENVIRONMENT
+
+  if (origemAtual && hostnameEhLocal(hostnameAtual)) {
+    return origemAtual
+  }
+
+  if (hostnameIndicaHomologacao(hostnameAtual) || ambienteAtual === 'homologacao') {
+    return PUBLIC_APP_URL_HOMOLOGACAO
+  }
+
+  if (hostnameEhProducaoOficial(hostnameAtual) || ambienteAtual === 'production') {
+    return PUBLIC_APP_URL_PRODUCAO
+  }
+
   if (PUBLIC_APP_URL) {
     return PUBLIC_APP_URL
   }
 
-  return normalizarUrlBase(window.location.origin)
+  return origemAtual || PUBLIC_APP_URL_FALLBACK
 }
 
 export function montarLinkPublicoAgendamento(slug) {
   const slugNormalizado = String(slug || '').trim()
 
   return slugNormalizado ? `${obterUrlPublicaFrontend()}/agendar/${slugNormalizado}` : ''
+}
+
+export function montarLinkPublicoCatalogo(slug) {
+  const slugNormalizado = String(slug || '').trim()
+
+  return slugNormalizado ? `${obterUrlPublicaFrontend()}/catalogo/${slugNormalizado}` : ''
+}
+
+export function montarLinkPublicoCardapio(slug) {
+  const slugNormalizado = String(slug || '').trim()
+
+  return slugNormalizado ? `${obterUrlPublicaFrontend()}/cardapio/${slugNormalizado}` : ''
 }
 
 function normalizarBooleano(valor) {
@@ -873,22 +908,23 @@ async function extrairMensagemResposta(response) {
   return mensagemPadrao
 }
 
-async function tratarResposta(response, opcoes = {}) {
+async function tratarRespostaCustomizada(response, opcoes = {}) {
   const {
     encerrarSessao401 = true,
     emitir403 = true,
     mensagem401 = '',
     mensagem403 = '',
+    mensagensPorStatus = {},
   } = opcoes
 
   if (!response.ok) {
     const mensagem = await extrairMensagemErro(response)
     const mensagemTratada =
       response.status === 401
-        ? mensagem401 || mensagemPadraoPorStatus(response.status)
+        ? mensagem401 || mensagensPorStatus[401] || mensagemPadraoPorStatus(response.status)
         : response.status === 403
-          ? mensagem403 || mensagemPadraoPorStatus(response.status)
-          : mensagem
+          ? mensagem403 || mensagensPorStatus[403] || mensagemPadraoPorStatus(response.status)
+          : mensagensPorStatus[response.status] || mensagem
     const erro = new Error(mensagemTratada)
     erro.status = response.status
 
@@ -914,6 +950,10 @@ async function tratarResposta(response, opcoes = {}) {
   }
 
   return response.text()
+}
+
+async function tratarResposta(response, opcoes = {}) {
+  return tratarRespostaCustomizada(response, opcoes)
 }
 
 async function tratarRespostaPublica(response) {
@@ -989,6 +1029,15 @@ export async function buscarServicosPublicos(slug) {
   })
 
   return tratarRespostaPublica(response)
+}
+
+export async function buscarCatalogoPublico(slug) {
+  const slugNormalizado = encodeURIComponent(String(slug || '').trim())
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/catalogo`, {
+    headers: montarHeadersPublicos(),
+  })
+
+  return normalizarRespostaCatalogoPublico(await tratarRespostaPublica(response))
 }
 
 export async function buscarSegmentosPublicos() {
@@ -2297,6 +2346,289 @@ function registrarDiagnosticoEstoque(error) {
   })
 }
 
+function normalizarBooleanoFlexivelEstoque(valor, padrao = false) {
+  if (typeof valor === 'boolean') {
+    return valor
+  }
+
+  if (typeof valor === 'number') {
+    return valor !== 0
+  }
+
+  if (typeof valor === 'string') {
+    const texto = valor.trim().toLowerCase()
+
+    if (['true', '1', 'sim', 'yes'].includes(texto)) {
+      return true
+    }
+
+    if (['false', '0', 'nao', 'não', 'no'].includes(texto)) {
+      return false
+    }
+  }
+
+  return padrao
+}
+
+function normalizarNumeroEstoque(valor, padrao = 0) {
+  const numero = Number(valor)
+
+  return Number.isFinite(numero) ? numero : padrao
+}
+
+function normalizarProdutoEstoqueResposta(produto) {
+  if (!produto || typeof produto !== 'object' || Array.isArray(produto)) {
+    return produto
+  }
+
+  const codigoSku = primeiroValorPreenchido(produto.codigoSku, produto.sku, produto.codigo) || ''
+  const quantidadeAtual = normalizarNumeroEstoque(
+    primeiroValorPreenchido(
+      produto.quantidadeAtual,
+      produto.quantidadeDisponivel,
+      produto.saldoAtual,
+      produto.quantidade,
+      produto.estoqueAtual,
+    ),
+    0,
+  )
+  const estoqueMinimo = normalizarNumeroEstoque(
+    primeiroValorPreenchido(produto.estoqueMinimo, produto.quantidadeMinima, produto.minimo),
+    0,
+  )
+  const precoCusto = normalizarNumeroEstoque(primeiroValorPreenchido(produto.precoCusto, produto.valorCusto, produto.custo), 0)
+  const precoVenda = normalizarNumeroEstoque(primeiroValorPreenchido(produto.precoVenda, produto.valorVenda, produto.preco), 0)
+  const ordemCatalogo = normalizarNumeroEstoque(primeiroValorPreenchido(produto.ordemCatalogo, produto.ordem), 0)
+  const ativo =
+    produto.ativo === false || String(produto.status || '').trim().toUpperCase() === 'INATIVO'
+      ? false
+      : normalizarBooleanoFlexivelEstoque(primeiroValorPreenchido(produto.ativo, produto.status), true)
+  const exibirCatalogoPublico = normalizarBooleanoFlexivelEstoque(
+    primeiroValorPreenchido(produto.exibirCatalogoPublico, produto.catalogoPublicoAtivo),
+    false,
+  )
+  const mostrarQuantidadePublica = normalizarBooleanoFlexivelEstoque(produto.mostrarQuantidadePublica, false)
+  const mostrarPrecoPublico = normalizarBooleanoFlexivelEstoque(produto.mostrarPrecoPublico, true)
+  const quantidadeInicialDia = normalizarNumeroEstoque(
+    primeiroValorPreenchido(
+      produto.quantidadeInicialDia,
+      produto.quantidadeInicialEstoqueDia,
+      produto.quantidadeInicialDoDia,
+      produto.quantidadeInicial,
+      produto.estoqueDiaQuantidadeInicial,
+    ),
+    0,
+  )
+  const dataEstoqueDia = String(
+    primeiroValorPreenchido(
+      produto.dataEstoqueDia,
+      produto.dataReferenciaEstoqueDia,
+      produto.dataDoEstoqueDia,
+      produto.dataReferencia,
+    ) || '',
+  ).trim()
+  const atualizadoEstoqueDiaEm = String(
+    primeiroValorPreenchido(
+      produto.atualizadoEstoqueDiaEm,
+      produto.estoqueDiaAtualizadoEm,
+      produto.dataAtualizacaoEstoqueDia,
+      produto.dataHoraAtualizacaoEstoqueDia,
+    ) || '',
+  ).trim()
+
+  return {
+    ...produto,
+    nome: String(primeiroValorPreenchido(produto.nome, produto.produtoNome, produto.titulo) || '').trim(),
+    descricao: String(primeiroValorPreenchido(produto.descricao, produto.detalhes, produto.observacao) || '').trim(),
+    codigoSku: String(codigoSku).trim(),
+    sku: String(codigoSku).trim(),
+    categoria: String(primeiroValorPreenchido(produto.categoria, produto.categoriaNome) || '').trim(),
+    unidade: String(primeiroValorPreenchido(produto.unidade, produto.unidadeMedida) || 'UN').trim().toUpperCase(),
+    precoCusto,
+    precoVenda,
+    quantidadeAtual,
+    quantidadeInicialDia,
+    estoqueMinimo,
+    ativo,
+    exibirCatalogoPublico,
+    dataEstoqueDia,
+    atualizadoEstoqueDiaEm,
+    imagemUrl: String(primeiroValorPreenchido(produto.imagemUrl, produto.fotoUrl, produto.imagem) || '').trim(),
+    descricaoPublica: String(primeiroValorPreenchido(produto.descricaoPublica, produto.descricaoCatalogoPublico, produto.descricao) || '').trim(),
+    categoriaPublica: String(primeiroValorPreenchido(produto.categoriaPublica, produto.categoriaCatalogoPublico, produto.categoria) || '').trim(),
+    destaqueCatalogo: normalizarBooleanoFlexivelEstoque(produto.destaqueCatalogo, false),
+    mostrarQuantidadePublica,
+    mostrarPrecoPublico,
+    ordemCatalogo,
+    textoBotaoPublico:
+      String(primeiroValorPreenchido(produto.textoBotaoPublico, produto.textoBotaoCatalogo, produto.textoBotaoWhatsapp) || '').trim() ||
+      TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+  }
+}
+
+export function normalizarProdutoCatalogoPublico(produto) {
+  const produtoBase = normalizarProdutoEstoqueResposta(produto)
+
+  if (!produtoBase || typeof produtoBase !== 'object' || Array.isArray(produtoBase)) {
+    return produtoBase
+  }
+
+  const esgotado = normalizarBooleanoFlexivelEstoque(
+    primeiroValorPreenchido(produtoBase.esgotado, produtoBase.indisponivel, produtoBase.semEstoque),
+    false,
+  )
+  const disponibilidadeExplicita = primeiroValorPreenchido(
+    produtoBase.disponivel,
+    produtoBase.disponibilidade,
+    produtoBase.estoqueDisponivel,
+  )
+  const disponibilidadeNormalizada =
+    disponibilidadeExplicita === '' || disponibilidadeExplicita === null || disponibilidadeExplicita === undefined
+      ? null
+      : normalizarBooleanoFlexivelEstoque(disponibilidadeExplicita, false)
+  const disponivel =
+    disponibilidadeNormalizada !== null
+      ? disponibilidadeNormalizada
+      : !esgotado &&
+        Number(primeiroValorPreenchido(produtoBase.quantidadeDisponivel, produtoBase.quantidadeAtual, 0)) > 0
+
+  return {
+    ...produtoBase,
+    imagemUrl: String(
+      primeiroValorPreenchido(
+        produtoBase.imagemUrl,
+        produtoBase.fotoUrl,
+        produtoBase.imagem,
+        produtoBase.imagemCatalogoPublico,
+      ) || '',
+    ).trim(),
+    descricaoPublica: String(
+      primeiroValorPreenchido(
+        produtoBase.descricaoPublica,
+        produtoBase.descricaoCatalogoPublico,
+        produtoBase.descricaoResumida,
+        produtoBase.descricao,
+      ) || '',
+    ).trim(),
+    categoriaPublica: String(
+      primeiroValorPreenchido(
+        produtoBase.categoriaPublica,
+        produtoBase.categoriaCatalogoPublico,
+        produtoBase.sabor,
+        produtoBase.categoria,
+      ) || '',
+    ).trim(),
+    destaque: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.destaque, produtoBase.destaqueCatalogo, produtoBase.destacarNoCatalogo),
+      false,
+    ),
+    destaqueCatalogo: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.destaque, produtoBase.destaqueCatalogo, produtoBase.destacarNoCatalogo),
+      false,
+    ),
+    mostrarQuantidadePublica: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.mostrarQuantidadePublica, produtoBase.exibirQuantidadePublica),
+      false,
+    ),
+    mostrarPrecoPublico: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.mostrarPrecoPublico, produtoBase.exibirPrecoPublico),
+      true,
+    ),
+    ordemCatalogo: normalizarNumeroEstoque(
+      primeiroValorPreenchido(produtoBase.ordemCatalogo, produtoBase.ordemExibicaoCatalogo, produtoBase.ordem),
+      0,
+    ),
+    textoBotaoPublico:
+      String(
+        primeiroValorPreenchido(
+          produtoBase.textoBotaoPublico,
+          produtoBase.textoBotaoCatalogo,
+          produtoBase.textoBotaoWhatsapp,
+        ) || '',
+      ).trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    quantidadeDisponivel: normalizarNumeroEstoque(
+      primeiroValorPreenchido(
+        produtoBase.quantidadeDisponivel,
+        produtoBase.quantidadeAtual,
+        produtoBase.quantidade,
+        produtoBase.saldoAtual,
+      ),
+      0,
+    ),
+    exibirCatalogoPublico: normalizarBooleanoFlexivelEstoque(
+      primeiroValorPreenchido(produtoBase.exibirCatalogoPublico, produtoBase.catalogoPublicoAtivo),
+      true,
+    ),
+    esgotado,
+    disponivel,
+  }
+}
+
+function normalizarRespostaProdutosEstoque(dados) {
+  if (Array.isArray(dados)) {
+    return dados.map(normalizarProdutoEstoqueResposta)
+  }
+
+  if (!dados || typeof dados !== 'object') {
+    return dados
+  }
+
+  const colecoes = ['value', 'Value', 'content', 'items', 'itens', 'resultado', 'produtos']
+  const colecoesAninhadas = ['value', 'Value', 'content', 'items', 'itens', 'resultado', 'produtos']
+  const resposta = { ...dados }
+
+  for (const chave of colecoes) {
+    if (Array.isArray(resposta[chave])) {
+      resposta[chave] = resposta[chave].map(normalizarProdutoEstoqueResposta)
+    }
+  }
+
+  if (resposta.data && typeof resposta.data === 'object' && !Array.isArray(resposta.data)) {
+    resposta.data = { ...resposta.data }
+
+    for (const chave of colecoesAninhadas) {
+      if (Array.isArray(resposta.data[chave])) {
+        resposta.data[chave] = resposta.data[chave].map(normalizarProdutoEstoqueResposta)
+      }
+    }
+  }
+
+  return resposta
+}
+
+function normalizarRespostaCatalogoPublico(dados) {
+  const dadosNormalizados = normalizarRespostaProdutosEstoque(dados)
+
+  if (Array.isArray(dadosNormalizados)) {
+    return dadosNormalizados.map(normalizarProdutoCatalogoPublico)
+  }
+
+  if (!dadosNormalizados || typeof dadosNormalizados !== 'object') {
+    return dadosNormalizados
+  }
+
+  const resposta = { ...dadosNormalizados }
+  const colecoes = ['value', 'Value', 'content', 'items', 'itens', 'resultado', 'produtos']
+
+  for (const chave of colecoes) {
+    if (Array.isArray(resposta[chave])) {
+      resposta[chave] = resposta[chave].map(normalizarProdutoCatalogoPublico)
+    }
+  }
+
+  if (resposta.data && typeof resposta.data === 'object' && !Array.isArray(resposta.data)) {
+    resposta.data = { ...resposta.data }
+
+    for (const chave of colecoes) {
+      if (Array.isArray(resposta.data[chave])) {
+        resposta.data[chave] = resposta.data[chave].map(normalizarProdutoCatalogoPublico)
+      }
+    }
+  }
+
+  return resposta
+}
+
 export async function buscarResumoEstoque(filtros = {}) {
   return buscarRecursoEstoque('/estoque/resumo', filtros)
 }
@@ -2411,13 +2743,96 @@ export async function desativarUnidadeEstoqueAdmin(id) {
 }
 
 export async function buscarProdutosEstoque(filtros = {}) {
-  const dados = await buscarRecursoEstoque('/estoque/produtos', filtros)
+  const dados = normalizarRespostaProdutosEstoque(await buscarRecursoEstoque('/estoque/produtos', filtros))
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
+export async function listarEstoqueDia(filtros = {}) {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
+  const response = await executarFetch(`${API_URL}/estoque/produtos/estoque-dia${montarQueryString(filtrosConsulta)}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = normalizarRespostaProdutosEstoque(
+    await tratarRespostaCustomizada(response, {
+      emitir403: false,
+      mensagensPorStatus: {
+        400: 'Nao foi possivel listar o estoque do dia com os filtros informados.',
+        403: 'Voce nao tem permissao para visualizar o estoque do dia desta empresa.',
+        404: 'O estoque do dia ainda nao esta disponivel para esta empresa.',
+      },
+    }),
+  )
+
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function atualizarQuantidadeRapidaProduto(produtoId, quantidadeAtual) {
+  const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/quantidade-rapida`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify({
+      quantidadeAtual,
+      quantidade: quantidadeAtual,
+      saldoAtual: quantidadeAtual,
+    }),
+  })
+
+  return normalizarProdutoEstoqueResposta(
+    await tratarRespostaCustomizada(response, {
+      emitir403: false,
+      mensagensPorStatus: {
+        400: 'Informe uma quantidade valida para atualizar o estoque do dia.',
+        403: 'Voce nao tem permissao para atualizar rapidamente este produto.',
+        404: 'Produto nao encontrado para atualizar o estoque do dia.',
+      },
+    }),
+  )
+}
+
+export async function configurarEstoqueDiaProduto(produtoId, payload) {
+  const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/estoque-dia`, {
+    method: 'PATCH',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return normalizarProdutoEstoqueResposta(
+    await tratarRespostaCustomizada(response, {
+      emitir403: false,
+      mensagensPorStatus: {
+        400: 'Revise os dados do estoque do dia informados para este produto.',
+        403: 'Voce nao tem permissao para configurar o estoque do dia deste produto.',
+        404: 'Produto nao encontrado para configurar o estoque do dia.',
+      },
+    }),
+  )
+}
+
+export async function reiniciarEstoqueDia(payload) {
+  const response = await executarFetch(`${API_URL}/estoque/estoque-dia/reiniciar`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return normalizarRespostaProdutosEstoque(
+    await tratarRespostaCustomizada(response, {
+      emitir403: false,
+      mensagensPorStatus: {
+        400: 'Revise a data e as quantidades informadas antes de reiniciar o estoque do dia.',
+        403: 'Voce nao tem permissao para reiniciar o estoque do dia desta empresa.',
+        404: 'Nao foi possivel localizar o recurso de reinicio do estoque do dia.',
+      },
+    }),
+  )
+}
+
 export async function buscarProdutoEstoque(id) {
-  return tentarRotas(
+  return normalizarProdutoEstoqueResposta(
+    await tentarRotas(
     [
       `${API_URL}/estoque/produtos/${id}`,
       `${API_URL}/produtos/${id}`,
@@ -2426,10 +2841,12 @@ export async function buscarProdutoEstoque(id) {
       headers: montarHeaders(),
     },
   )
+  )
 }
 
 export async function criarProdutoEstoque(dados) {
-  return tentarRotas(
+  return normalizarProdutoEstoqueResposta(
+    await tentarRotas(
     [
       `${API_URL}/estoque/produtos`,
       `${API_URL}/produtos`,
@@ -2440,10 +2857,12 @@ export async function criarProdutoEstoque(dados) {
       body: JSON.stringify(dados),
     },
   )
+  )
 }
 
 export async function atualizarProdutoEstoque(id, dados) {
-  return tentarRotas(
+  return normalizarProdutoEstoqueResposta(
+    await tentarRotas(
     [
       `${API_URL}/estoque/produtos/${id}`,
       `${API_URL}/produtos/${id}`,
@@ -2453,6 +2872,7 @@ export async function atualizarProdutoEstoque(id, dados) {
       headers: montarHeaders(true),
       body: JSON.stringify(dados),
     },
+  )
   )
 }
 
@@ -2483,7 +2903,7 @@ export async function desativarProdutoEstoque(id) {
 }
 
 export async function buscarProdutosBaixoEstoque(filtros = {}) {
-  const dados = await buscarRecursoEstoque('/estoque/produtos/baixo-estoque', filtros)
+  const dados = normalizarRespostaProdutosEstoque(await buscarRecursoEstoque('/estoque/produtos/baixo-estoque', filtros))
 
   return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }

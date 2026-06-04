@@ -1,8 +1,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   ativarProdutoEstoque,
+  atualizarQuantidadeRapidaProduto,
   buscarEmpresas,
+  buscarMinhaEmpresa,
   buscarMovimentacoesProdutoEstoque,
   buscarProdutoEstoque,
   buscarProdutosBaixoEstoque,
@@ -10,15 +13,21 @@ import {
   buscarResumoEstoque,
   buscarUnidadesEstoque,
   carregarUsuarioSessao,
+  configurarEstoqueDiaProduto,
   criarMovimentacaoEstoque,
   criarProdutoEstoque,
   desativarProdutoEstoque,
   excluirProdutoEstoque,
   EVENTO_EMPRESA_VISUALIZACAO,
   EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS,
+  listarEstoqueDia,
   mensagemIndicaBloqueioPlanoEstoque,
+  montarLinkPublicoCardapio,
+  montarLinkPublicoCatalogo,
   obterEmpresaVisualizacao,
   obterMensagemAmigavelErro,
+  reiniciarEstoqueDia,
+  TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   atualizarProdutoEstoque,
 } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
@@ -38,6 +47,8 @@ const UNIDADES_FALLBACK = Object.freeze([
 ])
 const OPCOES_TAMANHO_PAGINA = Object.freeze([5, 10, 20, 50])
 
+const route = useRoute()
+
 const usuario = ref(carregarUsuarioSessao())
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminOperacional = computed(() => ehAdmin(usuario.value))
@@ -52,7 +63,7 @@ const empresaVisualizacaoEhPropria = computed(() =>
 )
 const modoVisualizacaoSuperAdmin = computed(() => superAdmin.value && !superAdminComEmpresaSelecionada.value)
 const podeExcluirProduto = computed(() => adminOperacional.value && !modoVisualizacaoSuperAdmin.value)
-const abaAtiva = ref('produtos')
+const abaAtiva = ref(obterAbaInicial())
 const empresas = ref([])
 const produtos = ref([])
 const movimentacoes = ref([])
@@ -70,6 +81,7 @@ const erroProdutos = ref('')
 const erroBaixoEstoque = ref('')
 const erroMovimentacoes = ref('')
 const sucesso = ref('')
+const mensagemLinkCatalogo = ref('')
 const bloqueioPlano = ref(false)
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
@@ -80,10 +92,23 @@ const filtrosHistorico = ref(criarFiltrosHistoricoIniciais())
 const paginacaoProdutos = ref(criarPaginacaoLocal(10))
 const paginacaoMovimentacoes = ref(criarPaginacaoLocal(10))
 const saldoPrevistoMovimentacao = computed(() => calcularSaldoPrevistoMovimentacao())
+const minhaEmpresa = ref({ slug: '' })
+const estoqueDia = ref([])
+const carregandoEstoqueDia = ref(false)
+const erroEstoqueDia = ref('')
+const salvandoQuantidadeRapidaIds = ref({})
+const configurandoEstoqueDiaIds = ref({})
+const quantidadesRapidas = ref({})
+const formularioReinicioEstoqueDia = ref(criarFormularioReinicioEstoqueDia())
+const reinicioSelecionados = ref({})
+const reinicioQuantidades = ref({})
+const reiniciandoEstoqueDia = ref(false)
 
 const abasDisponiveis = computed(() => {
   const abas = [
     { id: 'produtos', rotulo: 'Produtos' },
+    { id: 'estoque-dia', rotulo: 'Estoque do dia' },
+    { id: 'catalogo', rotulo: 'Catálogo público' },
     { id: 'movimentacoes', rotulo: 'Movimentações' },
   ]
 
@@ -219,6 +244,115 @@ const mensagemModoEstoque = computed(() => {
   return 'Visão global: você está vendo dados consolidados da plataforma. Alterações estão bloqueadas.'
 })
 
+const slugCatalogo = computed(() => String(minhaEmpresa.value?.slug || '').trim())
+const linkCatalogoPublico = computed(() => montarLinkPublicoCatalogo(slugCatalogo.value))
+const linkCardapioPublico = computed(() => montarLinkPublicoCardapio(slugCatalogo.value))
+const temLinkCatalogoPublico = computed(() => Boolean(linkCatalogoPublico.value))
+const produtosCatalogoOrdenados = computed(() =>
+  [...produtos.value].sort((a, b) => {
+    const prioridadeExibicao = Number(obterExibirCatalogoPublico(b)) - Number(obterExibirCatalogoPublico(a))
+    if (prioridadeExibicao) return prioridadeExibicao
+
+    const prioridadeDisponibilidade = Number(produtoDisponivelNoCatalogo(b)) - Number(produtoDisponivelNoCatalogo(a))
+    if (prioridadeDisponibilidade) return prioridadeDisponibilidade
+
+    const prioridadeDestaque = Number(obterDestaqueCatalogo(b)) - Number(obterDestaqueCatalogo(a))
+    if (prioridadeDestaque) return prioridadeDestaque
+
+    return obterOrdemCatalogo(a) - obterOrdemCatalogo(b) || obterNomeProduto(a).localeCompare(obterNomeProduto(b), 'pt-BR')
+  }),
+)
+const cardsResumoCatalogo = computed(() => [
+  {
+    rotulo: 'Na vitrine',
+    valor: formatarNumero(produtos.value.filter((item) => statusCatalogoProduto(item) === 'Na vitrine').length),
+    destaque: 'Produtos visiveis e com saldo disponivel.',
+  },
+  {
+    rotulo: 'Ocultos',
+    valor: formatarNumero(produtos.value.filter((item) => statusCatalogoProduto(item) === 'Oculto').length),
+    destaque: 'Produtos que nao aparecem no link publico.',
+  },
+  {
+    rotulo: 'Esgotados',
+    valor: formatarNumero(produtos.value.filter((item) => statusCatalogoProduto(item) === 'Esgotado').length),
+    destaque: 'Itens exibidos, mas sem saldo disponivel no momento.',
+  },
+  {
+    rotulo: 'Destaques',
+    valor: formatarNumero(produtos.value.filter((item) => obterDestaqueCatalogo(item)).length),
+    destaque: 'Produtos marcados para ganhar prioridade na vitrine.',
+  },
+])
+const produtosEstoqueDiaOrdenados = computed(() =>
+  [...estoqueDia.value].sort((a, b) => {
+    const prioridadeExibicao = Number(obterExibirCatalogoPublico(b)) - Number(obterExibirCatalogoPublico(a))
+    if (prioridadeExibicao) return prioridadeExibicao
+
+    const prioridadeDisponibilidade = Number(estoqueDiaDisponivel(b)) - Number(estoqueDiaDisponivel(a))
+    if (prioridadeDisponibilidade) return prioridadeDisponibilidade
+
+    return obterNomeProduto(a).localeCompare(obterNomeProduto(b), 'pt-BR')
+  }),
+)
+const cardsResumoEstoqueDia = computed(() => [
+  {
+    rotulo: 'Produtos do dia',
+    valor: formatarNumero(produtosEstoqueDiaOrdenados.value.length),
+    destaque: 'Itens listados para atualizacao rapida no celular.',
+  },
+  {
+    rotulo: 'Disponiveis agora',
+    valor: formatarNumero(produtosEstoqueDiaOrdenados.value.filter((item) => estoqueDiaDisponivel(item)).length),
+    destaque: 'Produtos com quantidade maior que zero.',
+  },
+  {
+    rotulo: 'Esgotados',
+    valor: formatarNumero(produtosEstoqueDiaOrdenados.value.filter((item) => !estoqueDiaDisponivel(item)).length),
+    destaque: 'Itens que ja encerraram o estoque de hoje.',
+  },
+  {
+    rotulo: 'Na vitrine',
+    valor: formatarNumero(produtosEstoqueDiaOrdenados.value.filter((item) => obterExibirCatalogoPublico(item)).length),
+    destaque: 'Produtos visiveis em /catalogo e /cardapio.',
+  },
+])
+const produtosReinicioEstoqueDia = computed(() =>
+  [...produtos.value]
+    .filter((item) => produtoAtivo(item))
+    .sort((a, b) => {
+      const prioridadeExibicao = Number(obterExibirCatalogoPublico(b)) - Number(obterExibirCatalogoPublico(a))
+      if (prioridadeExibicao) return prioridadeExibicao
+
+      return obterNomeProduto(a).localeCompare(obterNomeProduto(b), 'pt-BR')
+    }),
+)
+const totalSelecionadosReinicioEstoqueDia = computed(
+  () => Object.values(reinicioSelecionados.value).filter((valor) => valor === true).length,
+)
+
+function obterAbaInicial() {
+  const abaQuery = String(route.query?.aba || '').trim()
+
+  if (route.name === 'catalogo-publico-interno' || abaQuery === 'catalogo') {
+    return 'catalogo'
+  }
+
+  if (abaQuery === 'estoque-dia') {
+    return 'estoque-dia'
+  }
+
+  return 'produtos'
+}
+
+function selecionarAba(aba) {
+  abaAtiva.value = aba
+}
+
+function normalizarCategoriaEnvio(valor) {
+  return valor === 'Sem categoria' ? '' : String(valor || '').trim()
+}
+
 const cardsResumo = computed(() => [
   {
     rotulo: 'Total de produtos',
@@ -248,6 +382,14 @@ watch(modoVisualizacaoSuperAdmin, (ativo) => {
   }
 })
 
+watch(
+  [produtosReinicioEstoqueDia, estoqueDia],
+  () => {
+    sincronizarFormularioReinicioEstoqueDia()
+  },
+  { deep: true },
+)
+
 async function carregarTela() {
   try {
     carregando.value = true
@@ -255,7 +397,9 @@ async function carregarTela() {
     erroProdutos.value = ''
     erroBaixoEstoque.value = ''
     erroMovimentacoes.value = ''
+    erroEstoqueDia.value = ''
     sucesso.value = ''
+    mensagemLinkCatalogo.value = ''
     bloqueioPlano.value = false
     sincronizarEmpresaVisualizacaoEstoque()
 
@@ -264,14 +408,17 @@ async function carregarTela() {
       consultarEstoque(() => buscarProdutosEstoque(montarFiltrosProdutosApi()), 'Não foi possível carregar os produtos do estoque.'),
       consultarEstoque(() => buscarMovimentacoesProdutoEstoque(montarFiltrosHistoricoApi()), 'Não foi possível carregar o histórico de movimentações.'),
       consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosProdutosApi(false)), 'Não foi possível carregar os alertas de baixo estoque.'),
+      consultarEstoque(() => listarEstoqueDia(), 'Nao foi possivel carregar o estoque do dia.'),
       carregarUnidadesEstoque(),
+      carregarMinhaEmpresaContexto(),
     ]
 
     if (superAdmin.value) {
       promessas.push(buscarEmpresas().catch(() => []))
     }
 
-    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, , empresasApi] = await Promise.all(promessas)
+    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, estoqueDiaResultado, , , empresasApi] =
+      await Promise.all(promessas)
 
     const produtosApi = dadosConsulta(produtosResultado)
     const baixoEstoqueApi = dadosConsulta(baixoEstoqueResultado)
@@ -288,9 +435,15 @@ async function carregarTela() {
       movimentacoes.value = normalizarLista(dadosConsulta(movimentacoesResultado))
     }
 
+    if (estoqueDiaResultado.sucesso) {
+      estoqueDia.value = normalizarLista(dadosConsulta(estoqueDiaResultado))
+      sincronizarQuantidadesRapidas()
+    }
+
     erroProdutos.value = mensagemConsulta(produtosResultado)
     erroBaixoEstoque.value = mensagemConsulta(baixoEstoqueResultado)
     erroMovimentacoes.value = mensagemConsulta(movimentacoesResultado)
+    erroEstoqueDia.value = mensagemConsulta(estoqueDiaResultado)
 
     if (mensagemConsulta(resumoResultado) && !produtosResultado.sucesso && !movimentacoesResultado.sucesso) {
       erro.value = mensagemConsulta(resumoResultado)
@@ -312,10 +465,12 @@ async function carregarProdutos() {
     erro.value = ''
     erroProdutos.value = ''
     erroBaixoEstoque.value = ''
-    const [resumoResultado, produtosResultado, baixoEstoqueResultado] = await Promise.all([
+    erroEstoqueDia.value = ''
+    const [resumoResultado, produtosResultado, baixoEstoqueResultado, estoqueDiaResultado] = await Promise.all([
       consultarEstoque(() => buscarResumoEstoque(montarFiltrosProdutosApi(false)), 'Não foi possível carregar o resumo do estoque.'),
       consultarEstoque(() => buscarProdutosEstoque(montarFiltrosProdutosApi()), 'Não foi possível atualizar os produtos.'),
       consultarEstoque(() => buscarProdutosBaixoEstoque(montarFiltrosProdutosApi(false)), 'Não foi possível carregar os alertas de baixo estoque.'),
+      consultarEstoque(() => listarEstoqueDia(), 'Nao foi possivel atualizar o estoque do dia.'),
     ])
 
     if (resumoResultado.sucesso || produtosResultado.sucesso || baixoEstoqueResultado.sucesso) {
@@ -326,8 +481,14 @@ async function carregarProdutos() {
       produtos.value = normalizarLista(dadosConsulta(produtosResultado))
     }
 
+    if (estoqueDiaResultado.sucesso) {
+      estoqueDia.value = normalizarLista(dadosConsulta(estoqueDiaResultado))
+      sincronizarQuantidadesRapidas()
+    }
+
     erroProdutos.value = mensagemConsulta(produtosResultado)
     erroBaixoEstoque.value = mensagemConsulta(baixoEstoqueResultado)
+    erroEstoqueDia.value = mensagemConsulta(estoqueDiaResultado)
 
     if (mensagemConsulta(resumoResultado) && !erroProdutos.value && !erroBaixoEstoque.value) {
       erroProdutos.value = mensagemConsulta(resumoResultado)
@@ -445,6 +606,15 @@ function criarProdutoInicial() {
     quantidadeAtual: '',
     estoqueMinimo: '',
     ativo: true,
+    exibirCatalogoPublico: false,
+    imagemUrl: '',
+    descricaoPublica: '',
+    categoriaPublica: '',
+    destaqueCatalogo: false,
+    mostrarQuantidadePublica: false,
+    mostrarPrecoPublico: true,
+    ordemCatalogo: '',
+    textoBotaoPublico: TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   }
 }
 
@@ -453,6 +623,12 @@ function criarMovimentacaoInicial() {
     tipo: 'ENTRADA',
     quantidade: '',
     observacao: '',
+  }
+}
+
+function criarFormularioReinicioEstoqueDia() {
+  return {
+    dataEstoqueDia: obterDataHojeInput(),
   }
 }
 
@@ -481,6 +657,15 @@ function criarPaginacaoLocal(size = 10) {
     page: 1,
     size,
   }
+}
+
+function obterDataHojeInput() {
+  const agora = new Date()
+  const ano = agora.getFullYear()
+  const mes = String(agora.getMonth() + 1).padStart(2, '0')
+  const dia = String(agora.getDate()).padStart(2, '0')
+
+  return `${ano}-${mes}-${dia}`
 }
 
 function obterMensagemErroEstoque(errorAtual, fallback) {
@@ -545,6 +730,34 @@ function dadosConsulta(resultado) {
 
 function mensagemConsulta(resultado) {
   return resultado?.sucesso ? '' : resultado?.mensagem || ''
+}
+
+async function carregarMinhaEmpresaContexto() {
+  try {
+    const empresaAtual = await buscarMinhaEmpresa()
+    minhaEmpresa.value = empresaAtual && typeof empresaAtual === 'object' ? empresaAtual : { slug: '' }
+  } catch {
+    minhaEmpresa.value = { slug: '' }
+  }
+}
+
+async function carregarSomenteEstoqueDia() {
+  try {
+    carregandoEstoqueDia.value = true
+    erroEstoqueDia.value = ''
+    const resultado = await consultarEstoque(() => listarEstoqueDia(), 'Nao foi possivel carregar o estoque do dia.')
+
+    if (resultado.sucesso) {
+      estoqueDia.value = normalizarLista(dadosConsulta(resultado))
+      sincronizarQuantidadesRapidas()
+    }
+
+    erroEstoqueDia.value = mensagemConsulta(resultado)
+  } catch (errorAtual) {
+    erroEstoqueDia.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel carregar o estoque do dia.')
+  } finally {
+    carregandoEstoqueDia.value = false
+  }
 }
 
 function normalizarResumo(resumoApi, baixoEstoqueApi, produtosApi) {
@@ -662,12 +875,43 @@ function obterCampo(item, ...campos) {
   return ''
 }
 
+function obterBooleanoCampo(item, campos = [], padrao = false) {
+  for (const campo of campos) {
+    const valor = item?.[campo]
+    const booleano = normalizarBooleanoFlex(valor)
+
+    if (booleano !== null) {
+      return booleano
+    }
+  }
+
+  return padrao
+}
+
+function normalizarBooleanoFlex(valor) {
+  if (typeof valor === 'boolean') return valor
+  if (typeof valor === 'number') return valor !== 0
+
+  if (typeof valor === 'string') {
+    const texto = valor.trim().toLowerCase()
+
+    if (['true', '1', 'sim', 'yes'].includes(texto)) return true
+    if (['false', '0', 'nao', 'não', 'no'].includes(texto)) return false
+  }
+
+  return null
+}
+
 function obterNomeProduto(item) {
   return obterCampo(item, 'nome', 'produtoNome', 'titulo') || 'Produto sem nome'
 }
 
 function obterDescricaoProduto(item) {
   return obterCampo(item, 'descricao', 'detalhes', 'observacao')
+}
+
+function obterDescricaoPublicaProduto(item) {
+  return obterCampo(item, 'descricaoPublica', 'descricaoCatalogoPublico', 'descricao')
 }
 
 function obterCodigoProduto(item) {
@@ -680,6 +924,10 @@ function obterCodigoProdutoCard(item) {
 
 function obterCategoriaProduto(item) {
   return obterCampo(item, 'categoria', 'categoriaNome') || 'Sem categoria'
+}
+
+function obterCategoriaPublicaProduto(item) {
+  return obterCampo(item, 'categoriaPublica', 'categoriaCatalogoPublico', 'categoria')
 }
 
 function obterUnidadeProduto(item) {
@@ -712,6 +960,281 @@ function obterPrecoCusto(item) {
 
 function obterPrecoVenda(item) {
   return Number(obterCampo(item, 'precoVenda', 'valorVenda', 'preco') || 0)
+}
+
+function obterExibirCatalogoPublico(item) {
+  return obterBooleanoCampo(item, ['exibirCatalogoPublico', 'catalogoPublicoAtivo'], false)
+}
+
+function obterImagemUrlProduto(item) {
+  return String(obterCampo(item, 'imagemUrl', 'fotoUrl', 'imagem') || '').trim()
+}
+
+function obterDestaqueCatalogo(item) {
+  return obterBooleanoCampo(item, ['destaqueCatalogo'], false)
+}
+
+function obterMostrarQuantidadePublica(item) {
+  return obterBooleanoCampo(item, ['mostrarQuantidadePublica'], false)
+}
+
+function obterMostrarPrecoPublico(item) {
+  return obterBooleanoCampo(item, ['mostrarPrecoPublico'], true)
+}
+
+function obterOrdemCatalogo(item) {
+  const valor = Number(obterCampo(item, 'ordemCatalogo', 'ordem'))
+  return Number.isFinite(valor) ? valor : 0
+}
+
+function obterTextoBotaoPublico(item) {
+  const valor = String(obterCampo(item, 'textoBotaoPublico') || '').trim()
+  return valor || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
+}
+
+function extrairIniciaisCatalogo(texto) {
+  const palavras = String(texto || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+
+  if (!palavras.length) {
+    return 'NM'
+  }
+
+  return palavras.map((parte) => parte.charAt(0).toUpperCase()).join('')
+}
+
+function formatarQuantidadeCatalogo(item) {
+  return `${formatarNumero(obterQuantidadeAtual(item))} ${obterUnidadeProduto(item)}`
+}
+
+function produtoDisponivelNoCatalogo(item) {
+  return produtoAtivo(item) && obterQuantidadeAtual(item) > 0
+}
+
+function statusCatalogoProduto(item) {
+  if (!obterExibirCatalogoPublico(item)) {
+    return 'Oculto'
+  }
+
+  if (!produtoDisponivelNoCatalogo(item)) {
+    return 'Esgotado'
+  }
+
+  return 'Na vitrine'
+}
+
+function classeStatusCatalogo(item) {
+  const status = statusCatalogoProduto(item)
+
+  if (status === 'Na vitrine') return 'catalogo-vitrine'
+  if (status === 'Esgotado') return 'catalogo-esgotado'
+  return 'catalogo-oculto'
+}
+
+function obterQuantidadeInicialDia(item) {
+  return Number(
+    obterCampo(
+      item,
+      'quantidadeInicialDia',
+      'quantidadeInicialEstoqueDia',
+      'quantidadeInicialDoDia',
+      'quantidadeInicial',
+    ) || 0,
+  )
+}
+
+function obterDataEstoqueDia(item) {
+  return String(
+    obterCampo(item, 'dataEstoqueDia', 'dataReferenciaEstoqueDia', 'dataDoEstoqueDia', 'dataReferencia') || '',
+  ).trim()
+}
+
+function obterAtualizadoEstoqueDiaEm(item) {
+  return String(
+    obterCampo(item, 'atualizadoEstoqueDiaEm', 'estoqueDiaAtualizadoEm', 'dataAtualizacaoEstoqueDia') || '',
+  ).trim()
+}
+
+function obterChaveProduto(item) {
+  return String(item?.id ?? '')
+}
+
+function obterQuantidadeRascunho(item) {
+  const chave = obterChaveProduto(item)
+  const valorRascunho = quantidadesRapidas.value[chave]
+  const numero = Number(valorRascunho)
+
+  if (valorRascunho === '' || valorRascunho === null || valorRascunho === undefined || !Number.isFinite(numero)) {
+    return obterQuantidadeAtual(item)
+  }
+
+  return Math.max(numero, 0)
+}
+
+function estoqueDiaDisponivel(item) {
+  return produtoAtivo(item) && obterQuantidadeRascunho(item) > 0
+}
+
+function statusEstoqueDia(item) {
+  return estoqueDiaDisponivel(item) ? 'Disponivel' : 'Esgotado'
+}
+
+function possuiAlteracaoQuantidadeRapida(item) {
+  return Number(obterQuantidadeRascunho(item)) !== Number(obterQuantidadeAtual(item))
+}
+
+function carregandoQuantidadeRapida(item) {
+  return salvandoQuantidadeRapidaIds.value[obterChaveProduto(item)] === true
+}
+
+function carregandoConfiguracaoEstoqueDia(item) {
+  return configurandoEstoqueDiaIds.value[obterChaveProduto(item)] === true
+}
+
+function atualizarControlePorId(controle, chave, ativo) {
+  controle.value = {
+    ...controle.value,
+    [chave]: ativo === true,
+  }
+}
+
+function definirQuantidadeRapida(item, valor) {
+  const chave = obterChaveProduto(item)
+
+  quantidadesRapidas.value = {
+    ...quantidadesRapidas.value,
+    [chave]: valor,
+  }
+}
+
+function ajustarQuantidadeRapida(item, delta) {
+  const proximoValor = Math.max(Number(obterQuantidadeRascunho(item)) + delta, 0)
+  definirQuantidadeRapida(item, String(proximoValor))
+}
+
+function sincronizarQuantidadesRapidas() {
+  const proximoEstado = { ...quantidadesRapidas.value }
+
+  for (const item of estoqueDia.value) {
+    const chave = obterChaveProduto(item)
+
+    if (!chave) {
+      continue
+    }
+
+    if (proximoEstado[chave] === undefined || proximoEstado[chave] === null || proximoEstado[chave] === '') {
+      proximoEstado[chave] = String(obterQuantidadeAtual(item))
+    }
+  }
+
+  quantidadesRapidas.value = proximoEstado
+}
+
+function atualizarListasProduto(produtoAtualizado) {
+  if (!produtoAtualizado?.id) {
+    return
+  }
+
+  produtos.value = produtos.value.map((item) =>
+    String(item.id) === String(produtoAtualizado.id)
+      ? {
+          ...item,
+          ...produtoAtualizado,
+        }
+      : item,
+  )
+
+  estoqueDia.value = estoqueDia.value.map((item) =>
+    String(item.id) === String(produtoAtualizado.id)
+      ? {
+          ...item,
+          ...produtoAtualizado,
+        }
+      : item,
+  )
+
+  const chave = obterChaveProduto(produtoAtualizado)
+  if (chave) {
+    quantidadesRapidas.value = {
+      ...quantidadesRapidas.value,
+      [chave]: String(obterQuantidadeAtual(produtoAtualizado)),
+    }
+  }
+}
+
+function sincronizarFormularioReinicioEstoqueDia() {
+  const proximosSelecionados = { ...reinicioSelecionados.value }
+  const proximasQuantidades = { ...reinicioQuantidades.value }
+
+  for (const produto of produtosReinicioEstoqueDia.value) {
+    const chave = obterChaveProduto(produto)
+
+    if (!chave) {
+      continue
+    }
+
+    if (proximosSelecionados[chave] === undefined) {
+      proximosSelecionados[chave] = obterExibirCatalogoPublico(produto)
+    }
+
+    if (proximasQuantidades[chave] === undefined || proximasQuantidades[chave] === '') {
+      const produtoEstoqueDia = estoqueDia.value.find((item) => String(item.id) === chave)
+      const quantidadeBase = produtoEstoqueDia ? obterQuantidadeInicialDia(produtoEstoqueDia) : obterQuantidadeAtual(produto)
+      proximasQuantidades[chave] = String(Math.max(quantidadeBase, 0))
+    }
+  }
+
+  reinicioSelecionados.value = proximosSelecionados
+  reinicioQuantidades.value = proximasQuantidades
+}
+
+function selecionarProdutosPublicadosReinicio() {
+  const proximoEstado = {}
+
+  for (const produto of produtosReinicioEstoqueDia.value) {
+    proximoEstado[obterChaveProduto(produto)] = obterExibirCatalogoPublico(produto)
+  }
+
+  reinicioSelecionados.value = proximoEstado
+}
+
+function limparSelecaoReinicio() {
+  const proximoEstado = {}
+
+  for (const produto of produtosReinicioEstoqueDia.value) {
+    proximoEstado[obterChaveProduto(produto)] = false
+  }
+
+  reinicioSelecionados.value = proximoEstado
+}
+
+function montarPayloadReinicioEstoqueDia() {
+  const itensSelecionados = produtosReinicioEstoqueDia.value
+    .filter((produto) => reinicioSelecionados.value[obterChaveProduto(produto)] === true)
+    .map((produto) => {
+      const chave = obterChaveProduto(produto)
+      const quantidadeInicialDia = Math.max(Number(reinicioQuantidades.value[chave]) || 0, 0)
+
+      return {
+        produtoId: produto.id,
+        idProduto: produto.id,
+        quantidadeInicialDia,
+        quantidadeInicial: quantidadeInicialDia,
+        quantidadeAtual: quantidadeInicialDia,
+      }
+    })
+
+  return {
+    dataEstoqueDia: formularioReinicioEstoqueDia.value.dataEstoqueDia || obterDataHojeInput(),
+    dataReferencia: formularioReinicioEstoqueDia.value.dataEstoqueDia || obterDataHojeInput(),
+    produtos: itensSelecionados,
+    itens: itensSelecionados,
+    selecoes: itensSelecionados,
+    produtoIds: itensSelecionados.map((item) => item.produtoId),
+  }
 }
 
 function obterEmpresaProdutoId(item) {
@@ -764,6 +1287,36 @@ function formatarDataHora(valor) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function formatarData(valor) {
+  if (!valor) return '-'
+
+  const data = /^\d{4}-\d{2}-\d{2}$/.test(String(valor))
+    ? new Date(`${valor}T00:00:00`)
+    : new Date(valor)
+
+  if (Number.isNaN(data.getTime())) return '-'
+
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatarAtualizacaoEstoqueDia(item) {
+  const atualizadoEm = obterAtualizadoEstoqueDiaEm(item)
+  if (atualizadoEm) {
+    return `Atualizado em ${formatarDataHora(atualizadoEm)}`
+  }
+
+  const dataEstoque = obterDataEstoqueDia(item)
+  if (dataEstoque) {
+    return `Data do estoque: ${formatarData(dataEstoque)}`
+  }
+
+  return 'Sem atualizacao do dia registrada'
 }
 
 function normalizarTexto(valor) {
@@ -868,6 +1421,10 @@ async function salvarProduto() {
       return
     }
 
+    if (!validarNumeroNaoNegativo(formularioProduto.value.ordemCatalogo || 0, 'Informe uma ordem válida para o catálogo público.')) {
+      return
+    }
+
     salvandoProduto.value = true
     const payload = montarPayloadProduto()
 
@@ -901,6 +1458,15 @@ function montarPayloadProduto() {
     precoVenda: numeroOuZero(formularioProduto.value.precoVenda),
     estoqueMinimo: numeroOuZero(formularioProduto.value.estoqueMinimo),
     ativo: formularioProduto.value.ativo !== false,
+    exibirCatalogoPublico: formularioProduto.value.exibirCatalogoPublico === true,
+    imagemUrl: formularioProduto.value.imagemUrl.trim(),
+    descricaoPublica: formularioProduto.value.descricaoPublica.trim(),
+    categoriaPublica: formularioProduto.value.categoriaPublica.trim(),
+    destaqueCatalogo: formularioProduto.value.destaqueCatalogo === true,
+    mostrarQuantidadePublica: formularioProduto.value.mostrarQuantidadePublica === true,
+    mostrarPrecoPublico: formularioProduto.value.mostrarPrecoPublico !== false,
+    ordemCatalogo: numeroOuZero(formularioProduto.value.ordemCatalogo),
+    textoBotaoPublico: formularioProduto.value.textoBotaoPublico.trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   }
 
   if (!produtoEditandoId.value) {
@@ -914,6 +1480,266 @@ function montarPayloadProduto() {
 function numeroOuZero(valor) {
   const numero = Number(valor)
   return Number.isFinite(numero) ? numero : 0
+}
+
+function montarPayloadProdutoExistente(produtoOrigem, sobrescritas = {}) {
+  const payloadBase = {
+    nome: obterNomeProduto(produtoOrigem),
+    descricao: obterDescricaoProduto(produtoOrigem),
+    codigoSku: obterCodigoProduto(produtoOrigem),
+    sku: obterCodigoProduto(produtoOrigem),
+    categoria: normalizarCategoriaEnvio(obterCategoriaProduto(produtoOrigem)),
+    unidade: obterUnidadeProduto(produtoOrigem),
+    precoCusto: numeroOuZero(obterPrecoCusto(produtoOrigem)),
+    precoVenda: numeroOuZero(obterPrecoVenda(produtoOrigem)),
+    estoqueMinimo: numeroOuZero(obterEstoqueMinimo(produtoOrigem)),
+    ativo: produtoAtivo(produtoOrigem),
+    exibirCatalogoPublico: obterExibirCatalogoPublico(produtoOrigem),
+    imagemUrl: obterImagemUrlProduto(produtoOrigem),
+    descricaoPublica: obterDescricaoPublicaProduto(produtoOrigem),
+    categoriaPublica: normalizarCategoriaEnvio(obterCategoriaPublicaProduto(produtoOrigem)),
+    destaqueCatalogo: obterDestaqueCatalogo(produtoOrigem),
+    mostrarQuantidadePublica: obterMostrarQuantidadePublica(produtoOrigem),
+    mostrarPrecoPublico: obterMostrarPrecoPublico(produtoOrigem),
+    ordemCatalogo: numeroOuZero(obterOrdemCatalogo(produtoOrigem)),
+    textoBotaoPublico: obterTextoBotaoPublico(produtoOrigem),
+  }
+
+  return {
+    ...payloadBase,
+    ...sobrescritas,
+    nome: String((sobrescritas.nome ?? payloadBase.nome) || '').trim(),
+    descricao: String((sobrescritas.descricao ?? payloadBase.descricao) || '').trim(),
+    codigoSku: String((sobrescritas.codigoSku ?? payloadBase.codigoSku) || '').trim(),
+    sku: String((sobrescritas.sku ?? sobrescritas.codigoSku ?? payloadBase.sku) || '').trim(),
+    categoria: normalizarCategoriaEnvio(sobrescritas.categoria ?? payloadBase.categoria),
+    imagemUrl: String((sobrescritas.imagemUrl ?? payloadBase.imagemUrl) || '').trim(),
+    descricaoPublica: String((sobrescritas.descricaoPublica ?? payloadBase.descricaoPublica) || '').trim(),
+    categoriaPublica: normalizarCategoriaEnvio(sobrescritas.categoriaPublica ?? payloadBase.categoriaPublica),
+    ordemCatalogo: numeroOuZero(sobrescritas.ordemCatalogo ?? payloadBase.ordemCatalogo),
+    textoBotaoPublico:
+      String((sobrescritas.textoBotaoPublico ?? payloadBase.textoBotaoPublico) || '').trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+  }
+}
+
+async function alternarVisibilidadeCatalogo(item, exibir) {
+  if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
+    return
+  }
+
+  try {
+    erro.value = ''
+    sucesso.value = ''
+
+    const produtoDetalhado = await buscarProdutoEstoque(item.id).catch(() => item)
+    const payload = montarPayloadProdutoExistente(produtoDetalhado, {
+      exibirCatalogoPublico: exibir === true,
+    })
+
+    const produtoAtualizado = await atualizarProdutoEstoque(item.id, payload)
+    atualizarListasProduto({
+      ...produtoDetalhado,
+      ...produtoAtualizado,
+    })
+    sucesso.value = exibir ? 'Produto exibido na vitrine com sucesso.' : 'Produto ocultado da vitrine com sucesso.'
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel atualizar a vitrine deste produto.')
+  }
+}
+
+async function copiarTexto(texto) {
+  if (!texto) {
+    return false
+  }
+
+  if (navigator?.clipboard?.writeText) {
+    await navigator.clipboard.writeText(texto)
+    return true
+  }
+
+  const campo = document.createElement('textarea')
+  campo.value = texto
+  campo.setAttribute('readonly', 'true')
+  campo.style.position = 'fixed'
+  campo.style.opacity = '0'
+  document.body.appendChild(campo)
+  campo.select()
+
+  let copiado = false
+
+  try {
+    copiado = document.execCommand('copy')
+  } finally {
+    document.body.removeChild(campo)
+  }
+
+  return copiado
+}
+
+async function copiarLinkCatalogo() {
+  if (!linkCatalogoPublico.value) {
+    mensagemLinkCatalogo.value = 'Defina o slug da empresa para gerar o link publico do catalogo.'
+    return
+  }
+
+  try {
+    const copiado = await copiarTexto(linkCatalogoPublico.value)
+    mensagemLinkCatalogo.value = copiado
+      ? 'Link do catalogo copiado com sucesso.'
+      : 'Nao foi possivel copiar automaticamente. O link continua disponivel abaixo.'
+  } catch {
+    mensagemLinkCatalogo.value = 'Nao foi possivel copiar automaticamente. O link continua disponivel abaixo.'
+  }
+}
+
+function abrirCatalogoPublico() {
+  if (!linkCatalogoPublico.value) {
+    mensagemLinkCatalogo.value = 'Defina o slug da empresa para abrir o catalogo publico.'
+    return
+  }
+
+  window.open(linkCatalogoPublico.value, '_blank', 'noopener,noreferrer')
+}
+
+async function copiarLinkCatalogoProduto() {
+  await copiarLinkCatalogo()
+}
+
+async function salvarQuantidadeRapida(item) {
+  if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
+    return
+  }
+
+  try {
+    const chave = obterChaveProduto(item)
+    const quantidadeAtual = Math.max(Number(obterQuantidadeRascunho(item)) || 0, 0)
+
+    erro.value = ''
+    sucesso.value = ''
+    atualizarControlePorId(salvandoQuantidadeRapidaIds, chave, true)
+
+    const produtoAtualizado = await atualizarQuantidadeRapidaProduto(item.id, quantidadeAtual)
+    atualizarListasProduto({
+      ...item,
+      ...produtoAtualizado,
+    })
+    sucesso.value =
+      quantidadeAtual > 0
+        ? `Quantidade do produto ${obterNomeProduto(item)} atualizada para ${formatarNumero(quantidadeAtual)}.`
+        : `Produto ${obterNomeProduto(item)} marcado como esgotado no estoque do dia.`
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel salvar a quantidade deste produto.')
+  } finally {
+    atualizarControlePorId(salvandoQuantidadeRapidaIds, obterChaveProduto(item), false)
+  }
+}
+
+async function alternarVitrineEstoqueDia(item) {
+  if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
+    return
+  }
+
+  const chave = obterChaveProduto(item)
+
+  try {
+    erro.value = ''
+    sucesso.value = ''
+    atualizarControlePorId(configurandoEstoqueDiaIds, chave, true)
+
+    const produtoDetalhado = await buscarProdutoEstoque(item.id).catch(() => item)
+    const payload = montarPayloadProdutoExistente(produtoDetalhado, {
+      exibirCatalogoPublico: !obterExibirCatalogoPublico(item),
+    })
+    const produtoAtualizado = await atualizarProdutoEstoque(item.id, payload)
+
+    atualizarListasProduto({
+      ...produtoDetalhado,
+      ...produtoAtualizado,
+    })
+    sucesso.value = obterExibirCatalogoPublico(item)
+      ? `Produto ${obterNomeProduto(item)} ocultado da vitrine.`
+      : `Produto ${obterNomeProduto(item)} exibido na vitrine.`
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel atualizar a vitrine deste produto.')
+  } finally {
+    atualizarControlePorId(configurandoEstoqueDiaIds, chave, false)
+  }
+}
+
+async function prepararEstoqueDiaProduto(item) {
+  if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
+    return
+  }
+
+  const chave = obterChaveProduto(item)
+  const quantidadeInicialDia = Math.max(Number(reinicioQuantidades.value[chave]) || 0, 0)
+
+  try {
+    erro.value = ''
+    sucesso.value = ''
+    atualizarControlePorId(configurandoEstoqueDiaIds, chave, true)
+
+    const produtoAtualizado = await configurarEstoqueDiaProduto(item.id, {
+      dataEstoqueDia: formularioReinicioEstoqueDia.value.dataEstoqueDia || obterDataHojeInput(),
+      quantidadeInicialDia,
+      quantidadeInicial: quantidadeInicialDia,
+      quantidadeAtual: quantidadeInicialDia,
+    })
+
+    atualizarListasProduto({
+      ...item,
+      ...produtoAtualizado,
+    })
+    sucesso.value = `Estoque do dia configurado para ${obterNomeProduto(item)}.`
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel preparar o estoque do dia deste produto.')
+  } finally {
+    atualizarControlePorId(configurandoEstoqueDiaIds, chave, false)
+  }
+}
+
+async function executarReinicioEstoqueDia() {
+  if (modoVisualizacaoSuperAdmin.value) {
+    bloquearAcaoOperacional()
+    return
+  }
+
+  const payload = montarPayloadReinicioEstoqueDia()
+
+  if (!payload.produtos.length) {
+    erro.value = 'Selecione ao menos um produto para preparar o estoque de hoje.'
+    return
+  }
+
+  const confirmou = window.confirm(
+    'Isso vai atualizar as quantidades disponiveis dos produtos selecionados para o dia atual.',
+  )
+
+  if (!confirmou) {
+    return
+  }
+
+  try {
+    reiniciandoEstoqueDia.value = true
+    erro.value = ''
+    sucesso.value = ''
+
+    await reiniciarEstoqueDia(payload)
+    formularioReinicioEstoqueDia.value = {
+      ...formularioReinicioEstoqueDia.value,
+      dataEstoqueDia: payload.dataEstoqueDia,
+    }
+    sucesso.value = 'Estoque do dia reiniciado com sucesso para os produtos selecionados.'
+    await Promise.all([carregarProdutos(), carregarSomenteEstoqueDia()])
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel reiniciar o estoque do dia.')
+  } finally {
+    reiniciandoEstoqueDia.value = false
+  }
 }
 
 async function editarProduto(item) {
@@ -949,6 +1775,15 @@ async function editarProduto(item) {
       quantidadeAtual: obterQuantidadeAtual(produtoDetalhado),
       estoqueMinimo: obterEstoqueMinimo(produtoDetalhado),
       ativo: produtoAtivo(produtoDetalhado),
+      exibirCatalogoPublico: obterExibirCatalogoPublico(produtoDetalhado),
+      imagemUrl: obterImagemUrlProduto(produtoDetalhado),
+      descricaoPublica: obterDescricaoPublicaProduto(produtoDetalhado),
+      categoriaPublica: obterCategoriaPublicaProduto(produtoDetalhado),
+      destaqueCatalogo: obterDestaqueCatalogo(produtoDetalhado),
+      mostrarQuantidadePublica: obterMostrarQuantidadePublica(produtoDetalhado),
+      mostrarPrecoPublico: obterMostrarPrecoPublico(produtoDetalhado),
+      ordemCatalogo: obterOrdemCatalogo(produtoDetalhado),
+      textoBotaoPublico: obterTextoBotaoPublico(produtoDetalhado),
     }
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar os dados do produto.')
@@ -1168,6 +2003,7 @@ function usuarioMovimentacao(item) {
 
 function atualizarContextoEstoque() {
   usuario.value = carregarUsuarioSessao()
+  abaAtiva.value = obterAbaInicial()
   paginacaoProdutos.value.page = 1
   paginacaoMovimentacoes.value.page = 1
   carregarTela()
@@ -1326,6 +2162,8 @@ onBeforeUnmount(() => {
               <div class="badges-topo">
                 <span :class="['status', produtoAtivo(produto) ? 'ativo' : 'inativo']">{{ produtoAtivo(produto) ? 'Ativo' : 'Inativo' }}</span>
                 <span v-if="produtoBaixoEstoque(produto)" class="status alerta">Baixo estoque</span>
+                <span :class="['status', classeStatusCatalogo(produto)]">{{ statusCatalogoProduto(produto) }}</span>
+                <span v-if="obterDestaqueCatalogo(produto)" class="status catalogo-destaque">Destaque</span>
               </div>
             </div>
 
@@ -1342,6 +2180,9 @@ onBeforeUnmount(() => {
 
             <div v-if="!modoVisualizacaoSuperAdmin" class="acoes acoes-produto-card">
               <button class="botao secundario" @click="editarProduto(produto)">Editar</button>
+              <button class="botao secundario" @click="alternarVisibilidadeCatalogo(produto, !obterExibirCatalogoPublico(produto))">
+                {{ obterExibirCatalogoPublico(produto) ? 'Ocultar da vitrine' : 'Mostrar na vitrine' }}
+              </button>
               <button class="botao secundario" @click="abrirMovimentacao(produto, 'ENTRADA')">Entrada</button>
               <button class="botao secundario" @click="abrirMovimentacao(produto, 'SAIDA')">Saída</button>
               <button class="botao secundario" @click="abrirMovimentacao(produto, 'AJUSTE')">Ajuste</button>
@@ -1365,6 +2206,323 @@ onBeforeUnmount(() => {
             <button class="botao secundario" :disabled="!podePaginaAnterior(paginacaoProdutos)" @click="irPaginaAnterior(paginacaoProdutos)">Anterior</button>
             <button class="botao secundario" :disabled="!podeProximaPagina(produtosVisiveis.length, paginacaoProdutos)" @click="irProximaPagina(produtosVisiveis.length, paginacaoProdutos)">Próxima</button>
           </div>
+        </section>
+      </section>
+
+      <section v-if="abaAtiva === 'estoque-dia'" class="secao-lista">
+        <section class="card estoque-dia-hero">
+          <div class="titulo-card">
+            <h2>Estoque do dia</h2>
+            <p>Atualize rapidamente as quantidades disponiveis para doces, lanches, marmitas e produtos artesanais.</p>
+          </div>
+
+          <div class="acoes">
+            <button class="botao secundario" type="button" :disabled="carregandoEstoqueDia" @click="carregarSomenteEstoqueDia">
+              {{ carregandoEstoqueDia ? 'Atualizando...' : 'Atualizar estoque do dia' }}
+            </button>
+          </div>
+        </section>
+
+        <section class="cards-resumo">
+          <article v-for="card in cardsResumoEstoqueDia" :key="card.rotulo" class="card resumo-card">
+            <span>{{ card.rotulo }}</span>
+            <strong>{{ card.valor }}</strong>
+            <p>{{ card.destaque }}</p>
+          </article>
+        </section>
+
+        <section class="card preparo-estoque-dia">
+          <div class="titulo-card">
+            <h2>Preparar estoque de hoje</h2>
+            <p>Escolha a data, marque os produtos e defina a quantidade inicial do dia para aplicar em lote.</p>
+          </div>
+
+          <div class="preparo-topo">
+            <label>
+              Data do estoque do dia
+              <input v-model="formularioReinicioEstoqueDia.dataEstoqueDia" type="date" />
+            </label>
+
+            <div class="acoes">
+              <button class="botao secundario" type="button" @click="selecionarProdutosPublicadosReinicio">
+                Selecionar publicados
+              </button>
+              <button class="botao secundario" type="button" @click="limparSelecaoReinicio">
+                Limpar selecao
+              </button>
+              <button class="botao principal" type="button" :disabled="reiniciandoEstoqueDia" @click="executarReinicioEstoqueDia">
+                {{ reiniciandoEstoqueDia ? 'Reiniciando...' : 'Reiniciar estoque do dia' }}
+              </button>
+            </div>
+          </div>
+
+          <p class="ajuda-inline">
+            Isso vai atualizar as quantidades disponiveis dos produtos selecionados para o dia atual.
+          </p>
+          <span class="contador">{{ pluralizar(totalSelecionadosReinicioEstoqueDia, 'produto selecionado', 'produtos selecionados') }}</span>
+
+          <section v-if="!produtosReinicioEstoqueDia.length" class="estado-inline">
+            Cadastre e ative produtos para preparar o estoque do dia.
+          </section>
+
+          <section v-else class="lista-preparo-estoque-dia">
+            <article v-for="produto in produtosReinicioEstoqueDia" :key="`preparo-${produto.id}`" class="card preparo-item-card">
+              <label class="seletor-produto-dia">
+                <input v-model="reinicioSelecionados[obterChaveProduto(produto)]" type="checkbox" />
+                <div>
+                  <strong>{{ obterNomeProduto(produto) }}</strong>
+                  <p>{{ obterCategoriaPublicaProduto(produto) || obterCategoriaProduto(produto) }}</p>
+                </div>
+              </label>
+
+              <label>
+                Quantidade inicial do dia
+                <input
+                  v-model="reinicioQuantidades[obterChaveProduto(produto)]"
+                  type="number"
+                  min="0"
+                  step="1"
+                />
+              </label>
+
+              <div class="acoes acoes-preparo-item">
+                <button
+                  class="botao secundario"
+                  type="button"
+                  :disabled="carregandoConfiguracaoEstoqueDia(produto)"
+                  @click="prepararEstoqueDiaProduto(produto)"
+                >
+                  {{ carregandoConfiguracaoEstoqueDia(produto) ? 'Salvando...' : 'Salvar este produto' }}
+                </button>
+              </div>
+            </article>
+          </section>
+        </section>
+
+        <div class="cabecalho-secao">
+          <div>
+            <h2>Atualizacao rapida diaria</h2>
+            <p>Ajuste a disponibilidade em poucos toques e reflita no catalogo publico apos salvar.</p>
+          </div>
+          <span class="contador">{{ pluralizar(produtosEstoqueDiaOrdenados.length, 'produto', 'produtos') }}</span>
+        </div>
+
+        <section v-if="erroEstoqueDia" class="card feedback erro">
+          <p>{{ erroEstoqueDia }}</p>
+        </section>
+
+        <section v-if="carregandoEstoqueDia" class="card estado">
+          <p>Carregando estoque do dia...</p>
+        </section>
+
+        <section v-else-if="!produtosEstoqueDiaOrdenados.length" class="card estado">
+          <p>Nenhum produto do dia foi retornado ainda. Publique produtos ou prepare o estoque de hoje para comecar.</p>
+        </section>
+
+        <section v-else class="grade-estoque-dia">
+          <article v-for="produto in produtosEstoqueDiaOrdenados" :key="`estoque-dia-${produto.id}`" class="card estoque-dia-card">
+            <div class="estoque-dia-midia">
+              <img
+                v-if="obterImagemUrlProduto(produto)"
+                :src="obterImagemUrlProduto(produto)"
+                :alt="`Imagem de ${obterNomeProduto(produto)}`"
+                class="catalogo-imagem"
+              />
+              <div v-else class="catalogo-imagem catalogo-imagem-placeholder">
+                <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
+                <span>Sem imagem</span>
+              </div>
+            </div>
+
+            <div class="topo-card">
+              <div>
+                <h3>{{ obterNomeProduto(produto) }}</h3>
+                <p>{{ obterCategoriaPublicaProduto(produto) || obterCategoriaProduto(produto) }}</p>
+              </div>
+              <div class="badges-topo">
+                <span :class="['status', estoqueDiaDisponivel(produto) ? 'ativo' : 'inativo']">{{ statusEstoqueDia(produto) }}</span>
+                <span :class="['status', obterExibirCatalogoPublico(produto) ? 'catalogo-vitrine' : 'catalogo-oculto']">
+                  {{ obterExibirCatalogoPublico(produto) ? 'Na vitrine' : 'Oculto' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="detalhes-produto">
+              <p><strong>Preco:</strong> {{ formatarMoeda(obterPrecoVenda(produto)) }}</p>
+              <p><strong>Quantidade atual:</strong> {{ formatarNumero(obterQuantidadeAtual(produto)) }}</p>
+              <p><strong>Quantidade inicial do dia:</strong> {{ formatarNumero(obterQuantidadeInicialDia(produto)) }}</p>
+              <p><strong>Link publico:</strong> {{ temLinkCatalogoPublico ? '/catalogo/' + slugCatalogo : 'Slug nao configurado' }}</p>
+              <p><strong>Atualizacao:</strong> {{ formatarAtualizacaoEstoqueDia(produto) }}</p>
+            </div>
+
+            <div class="controle-quantidade-dia">
+              <button class="botao secundario botao-ajuste-dia" type="button" @click="ajustarQuantidadeRapida(produto, -1)">-1</button>
+              <label class="campo-quantidade-dia">
+                Quantidade atual
+                <input
+                  :value="quantidadesRapidas[obterChaveProduto(produto)]"
+                  type="number"
+                  min="0"
+                  step="1"
+                  @input="definirQuantidadeRapida(produto, $event.target.value)"
+                />
+              </label>
+              <button class="botao secundario botao-ajuste-dia" type="button" @click="ajustarQuantidadeRapida(produto, 1)">+1</button>
+            </div>
+
+            <div class="acoes acoes-estoque-dia">
+              <button
+                class="botao principal"
+                type="button"
+                :disabled="carregandoQuantidadeRapida(produto) || !possuiAlteracaoQuantidadeRapida(produto)"
+                @click="salvarQuantidadeRapida(produto)"
+              >
+                {{ carregandoQuantidadeRapida(produto) ? 'Salvando...' : 'Salvar quantidade' }}
+              </button>
+              <button
+                class="botao secundario"
+                type="button"
+                :disabled="carregandoConfiguracaoEstoqueDia(produto)"
+                @click="alternarVitrineEstoqueDia(produto)"
+              >
+                {{ obterExibirCatalogoPublico(produto) ? 'Ocultar na vitrine' : 'Mostrar na vitrine' }}
+              </button>
+              <button class="botao secundario" type="button" :disabled="!temLinkCatalogoPublico" @click="abrirCatalogoPublico">
+                Abrir no catalogo
+              </button>
+              <button class="botao secundario" type="button" :disabled="!temLinkCatalogoPublico" @click="copiarLinkCatalogoProduto">
+                Copiar link
+              </button>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section v-if="abaAtiva === 'catalogo'" class="secao-lista">
+        <section class="card catalogo-link-card">
+          <div class="titulo-card">
+            <h2>Link publico do catalogo</h2>
+            <p>O cliente ve estes produtos em /catalogo/{slug}. Atualize a quantidade no Estoque do dia para refletir em tempo real no catalogo.</p>
+          </div>
+
+          <div class="catalogo-link-conteudo">
+            <div class="catalogo-link-bloco">
+              <span class="link-rotulo">Endereco principal</span>
+              <strong class="link-publico">
+                {{ linkCatalogoPublico || 'Configure o slug da empresa em Minha empresa para liberar o link.' }}
+              </strong>
+              <p class="ajuda-inline">
+                {{
+                  slugCatalogo
+                    ? 'O host acompanha automaticamente o ambiente atual: localhost no local, gestao-hml.nuvemmais.com.br em HML e gestao.nuvemmais.com.br em producao.'
+                    : 'Sem slug nao e possivel gerar o link publico.'
+                }}
+              </p>
+
+              <div v-if="temLinkCatalogoPublico" class="catalogo-link-alternativo">
+                <span class="link-rotulo">Alias amigavel</span>
+                <strong class="link-publico">{{ linkCardapioPublico }}</strong>
+                <p class="ajuda-inline">A rota /cardapio/:slug tambem funciona e abre a mesma vitrine publica.</p>
+              </div>
+            </div>
+
+            <div class="acoes">
+              <button class="botao principal" type="button" :disabled="!temLinkCatalogoPublico" @click="copiarLinkCatalogo">
+                Copiar link do catalogo
+              </button>
+              <button class="botao secundario" type="button" :disabled="!temLinkCatalogoPublico" @click="abrirCatalogoPublico">
+                Abrir catalogo
+              </button>
+            </div>
+          </div>
+
+          <p v-if="mensagemLinkCatalogo" class="ajuda-inline">{{ mensagemLinkCatalogo }}</p>
+        </section>
+
+        <section class="cards-resumo">
+          <article v-for="card in cardsResumoCatalogo" :key="card.rotulo" class="card resumo-card">
+            <span>{{ card.rotulo }}</span>
+            <strong>{{ card.valor }}</strong>
+            <p>{{ card.destaque }}</p>
+          </article>
+        </section>
+
+        <div class="cabecalho-secao">
+          <div>
+            <h2>Produtos na vitrine</h2>
+            <p>Revise o que esta visivel no catalogo publico, veja os indicadores e ajuste rapidamente sem sair do estoque.</p>
+          </div>
+          <span class="contador">{{ pluralizar(produtosCatalogoOrdenados.length, 'produto', 'produtos') }}</span>
+        </div>
+
+        <section v-if="!produtosCatalogoOrdenados.length" class="card estado">
+          <p>Cadastre um produto para comecar a montar o catalogo publico.</p>
+        </section>
+
+        <section v-else class="grade-produtos">
+          <article v-for="produto in produtosCatalogoOrdenados" :key="`catalogo-${produto.id}`" class="card produto-card">
+            <img
+              v-if="obterImagemUrlProduto(produto)"
+              :src="obterImagemUrlProduto(produto)"
+              :alt="`Imagem de ${obterNomeProduto(produto)}`"
+              class="catalogo-imagem"
+            />
+            <div v-else class="catalogo-imagem catalogo-imagem-placeholder">
+              <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
+              <span>Sem imagem</span>
+            </div>
+
+            <div class="topo-card">
+              <div>
+                <h3>{{ obterNomeProduto(produto) }}</h3>
+                <p>{{ obterCategoriaPublicaProduto(produto) || obterCategoriaProduto(produto) }}</p>
+              </div>
+              <div class="badges-topo">
+                <span :class="['status', classeStatusCatalogo(produto)]">{{ statusCatalogoProduto(produto) }}</span>
+                <span v-if="obterDestaqueCatalogo(produto)" class="status catalogo-destaque">Destaque</span>
+                <span v-if="produtoBaixoEstoque(produto)" class="status alerta">Baixo estoque</span>
+              </div>
+            </div>
+
+            <p v-if="obterDescricaoPublicaProduto(produto)" class="descricao-produto">{{ obterDescricaoPublicaProduto(produto) }}</p>
+
+            <div class="detalhes-produto">
+              <p><strong>Categoria publica:</strong> {{ obterCategoriaPublicaProduto(produto) || 'Nao informada' }}</p>
+              <p><strong>Ordem no catalogo:</strong> {{ formatarNumero(obterOrdemCatalogo(produto)) }}</p>
+              <p><strong>Preco publico:</strong> {{ obterMostrarPrecoPublico(produto) ? formatarMoeda(obterPrecoVenda(produto)) : 'Oculto' }}</p>
+              <p><strong>Quantidade publica:</strong> {{ obterMostrarQuantidadePublica(produto) ? formatarQuantidadeCatalogo(produto) : 'Oculta' }}</p>
+              <p><strong>Botao:</strong> {{ obterTextoBotaoPublico(produto) }}</p>
+            </div>
+
+            <div class="chips-apoio-catalogo">
+              <span class="chip-catalogo" :class="obterExibirCatalogoPublico(produto) ? 'ativo' : 'inativo'">
+                {{ obterExibirCatalogoPublico(produto) ? 'Na vitrine' : 'Oculto' }}
+              </span>
+              <span class="chip-catalogo" :class="obterMostrarPrecoPublico(produto) ? 'ativo' : 'inativo'">
+                {{ obterMostrarPrecoPublico(produto) ? 'Mostra preco' : 'Preco oculto' }}
+              </span>
+              <span class="chip-catalogo" :class="obterMostrarQuantidadePublica(produto) ? 'ativo' : 'inativo'">
+                {{ obterMostrarQuantidadePublica(produto) ? 'Mostra quantidade' : 'Quantidade oculta' }}
+              </span>
+              <span class="chip-catalogo" :class="produtoDisponivelNoCatalogo(produto) ? 'ativo' : 'inativo'">
+                {{ produtoDisponivelNoCatalogo(produto) ? 'Disponivel' : 'Esgotado' }}
+              </span>
+            </div>
+
+            <div v-if="!modoVisualizacaoSuperAdmin" class="acoes acoes-produto-card">
+              <button class="botao secundario" type="button" @click="editarProduto(produto)">Editar vitrine</button>
+              <button
+                class="botao secundario"
+                type="button"
+                @click="alternarVisibilidadeCatalogo(produto, !obterExibirCatalogoPublico(produto))"
+              >
+                {{ obterExibirCatalogoPublico(produto) ? 'Ocultar da vitrine' : 'Mostrar na vitrine' }}
+              </button>
+              <button class="botao principal" type="button" :disabled="!temLinkCatalogoPublico" @click="abrirCatalogoPublico">
+                Abrir catalogo
+              </button>
+            </div>
+          </article>
         </section>
       </section>
 
@@ -1427,6 +2585,57 @@ onBeforeUnmount(() => {
               Produto ativo
             </label>
           </div>
+
+          <section class="secao-formulario-publico">
+            <div class="titulo-card">
+              <h2>Catalogo publico</h2>
+              <p>Defina como este produto aparece na vitrine publica e no botao de WhatsApp.</p>
+            </div>
+
+            <div class="campos">
+              <label class="campo-checkbox destaque-checkbox">
+                <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
+                Exibir no catalogo publico
+              </label>
+              <label class="campo-checkbox destaque-checkbox">
+                <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
+                Produto em destaque
+              </label>
+              <label>
+                Imagem do produto por URL
+                <input v-model="formularioProduto.imagemUrl" type="url" placeholder="https://..." />
+                <small>O upload de imagem fica para uma proxima fase. Por enquanto, use um link direto.</small>
+              </label>
+              <label>
+                Categoria publica
+                <input v-model="formularioProduto.categoriaPublica" type="text" placeholder="Ex: Doces do dia" />
+              </label>
+              <label class="campo-grande">
+                Descricao para o cliente
+                <textarea
+                  v-model="formularioProduto.descricaoPublica"
+                  rows="3"
+                  placeholder="Explique sabor, tamanho, recheio ou observacoes importantes."
+                ></textarea>
+              </label>
+              <label>
+                Ordem no catalogo
+                <input v-model="formularioProduto.ordemCatalogo" type="number" min="0" step="1" />
+              </label>
+              <label>
+                Texto do botao
+                <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
+              </label>
+              <label class="campo-checkbox destaque-checkbox">
+                <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
+                Mostrar quantidade ao cliente
+              </label>
+              <label class="campo-checkbox destaque-checkbox">
+                <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
+                Mostrar preco ao cliente
+              </label>
+            </div>
+          </section>
 
           <div class="acoes">
             <button class="botao principal" :disabled="salvandoProduto">
@@ -1656,6 +2865,70 @@ small { color: #64748b; }
 .aviso-plano h2 { font-size: 22px; }
 .estado,
 .estado-inline { color: #64748b; font-weight: 700; }
+.catalogo-link-card,
+.catalogo-link-conteudo,
+.catalogo-link-bloco,
+.estoque-dia-hero,
+.preparo-estoque-dia,
+.lista-preparo-estoque-dia,
+.secao-formulario-publico { display: grid; gap: 14px; }
+.catalogo-link-conteudo { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.preparo-topo {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+.lista-preparo-estoque-dia,
+.grade-estoque-dia { display: grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap: 18px; }
+.preparo-item-card,
+.estoque-dia-card { display: grid; gap: 14px; }
+.seletor-produto-dia {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.seletor-produto-dia input { width: auto; margin-top: 2px; }
+.seletor-produto-dia strong { color: #0f172a; }
+.seletor-produto-dia p { color: #64748b; }
+.acoes-preparo-item,
+.acoes-estoque-dia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.controle-quantidade-dia {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 92px;
+  gap: 10px;
+  align-items: end;
+}
+.campo-quantidade-dia { min-width: 0; }
+.botao-ajuste-dia {
+  min-height: 52px;
+  font-size: 18px;
+}
+.estoque-dia-midia { display: grid; }
+.catalogo-link-alternativo {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.link-rotulo {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.link-publico {
+  word-break: break-word;
+  color: #0f172a;
+  font-size: 15px;
+}
 .cards-resumo { grid-template-columns: repeat(4, minmax(180px, 1fr)); }
 .resumo-card { display: grid; gap: 10px; border-left: 4px solid #2563eb; }
 .resumo-card span { color: #64748b; font-size: 13px; font-weight: 800; text-transform: uppercase; }
@@ -1685,6 +2958,22 @@ small { color: #64748b; }
 .filtros-campos { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
 .campo-grande { grid-column: 1 / -1; }
 label { display: grid; gap: 7px; color: #334155; font-weight: 800; }
+
+.campo-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  padding: 12px 14px;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.campo-checkbox input {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+}
 input, select, textarea {
   width: 100%;
   min-width: 0;
@@ -1702,19 +2991,40 @@ input:focus, select:focus, textarea:focus {
 }
 input[readonly] { background: #f8fafc; color: #64748b; }
 .destaque-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
   border: 1px solid #dbe4f0;
   border-radius: 8px;
   background: #f8fafc;
 }
-.destaque-checkbox input { width: auto; }
 .grade-produtos { display: grid; grid-template-columns: repeat(2, minmax(340px, 1fr)); gap: 18px; }
 .lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
 .produto-card,
 .historico-card { display: grid; gap: 14px; }
+.catalogo-imagem {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #dbe4f0;
+}
+.catalogo-imagem-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #eff6ff, #f8fafc);
+  color: #1d4ed8;
+}
+.catalogo-imagem-placeholder strong {
+  font-size: 30px;
+  font-weight: 900;
+}
+.catalogo-imagem-placeholder span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .badges-topo { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .status {
   display: inline-flex;
@@ -1729,6 +3039,10 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 .status.ativo, .status.entrada { background: #dcfce7; color: #166534; }
 .status.inativo, .status.saida { background: #fee2e2; color: #b91c1c; }
 .status.alerta, .status.ajuste { background: #fef3c7; color: #92400e; }
+.status.catalogo-vitrine { background: #dbeafe; color: #1d4ed8; }
+.status.catalogo-esgotado { background: #fee2e2; color: #b91c1c; }
+.status.catalogo-oculto { background: #e2e8f0; color: #334155; }
+.status.catalogo-destaque { background: #fde68a; color: #92400e; }
 .detalhes-produto { display: grid; gap: 8px; }
 .detalhes-produto p { color: #374151; }
 .detalhes-produto strong { font-weight: 800; }
@@ -1741,11 +3055,36 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 .sucesso-botao { background: #15803d; }
 .acoes-produto-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .acoes-produto-card .botao { width: 100%; }
+.chips-apoio-catalogo {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip-catalogo {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.chip-catalogo.ativo {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.chip-catalogo.inativo {
+  background: #e2e8f0;
+  color: #334155;
+}
 .filtro-historico { border-style: dashed; border-width: 1px; border-color: #bfdbfe; background: #f8fbff; }
 .paginacao p { color: #475569; font-weight: 800; }
 .paginacao label { display: flex; align-items: center; gap: 8px; }
 .paginacao select { width: auto; }
 .botoes-paginacao { display: flex; gap: 8px; flex-wrap: wrap; }
+.secao-formulario-publico {
+  padding-top: 18px;
+  border-top: 1px solid #dbe4f0;
+}
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1776,7 +3115,11 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .cards-resumo { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
   .filtros-campos,
   .grade-produtos,
-  .lista-historico { grid-template-columns: 1fr; }
+  .grade-estoque-dia,
+  .lista-preparo-estoque-dia,
+  .lista-historico,
+  .catalogo-link-conteudo,
+  .preparo-topo { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
   .cabecalho-pagina,
@@ -1788,19 +3131,28 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .campos,
   .historico-detalhes,
   .cards-resumo,
-  .acoes-produto-card { grid-template-columns: 1fr; }
+  .acoes-produto-card,
+  .acoes-preparo-item,
+  .acoes-estoque-dia,
+  .controle-quantidade-dia { grid-template-columns: 1fr; }
   .badges-topo { justify-content: flex-start; }
   .botao,
   .botao-fechar { width: auto; }
+  .campo-checkbox {
+    align-items: flex-start;
+  }
 }
 @media (max-width: 560px) {
   .card,
   .modal { padding: 18px; }
   .modal-overlay { padding: 10px; }
   .acoes,
-  .botoes-paginacao { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .botoes-paginacao,
+  .acoes-preparo-item,
+  .acoes-estoque-dia { display: grid; grid-template-columns: 1fr; width: 100%; }
   .botao,
   .paginacao label,
   .paginacao select { width: 100%; }
+  .seletor-produto-dia { align-items: center; }
 }
 </style>
