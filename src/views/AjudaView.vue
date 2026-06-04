@@ -992,7 +992,7 @@ onBeforeUnmount(() => {
         </article>
       </section>
 
-      <section class="ferramentas-ajuda" aria-label="Busca de ajuda">
+      <section v-if="mostrarTopoResumo" class="ferramentas-ajuda" aria-label="Busca de ajuda">
         <label class="campo-busca">
           <span>Buscar tópico</span>
           <input
