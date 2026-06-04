@@ -37,7 +37,7 @@ const usuarioLogado = ref(obterUsuarioLogado())
 const carregando = ref(true)
 const erro = ref('')
 const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
-const mostrarAtalhosRapidos = computed(() => modoNavegacao.value === MODO_NAVEGACAO_ESSENCIAL)
+const modoEssencial = computed(() => modoNavegacao.value === MODO_NAVEGACAO_ESSENCIAL)
 const onboardingPercentual = computed(() => {
   const valor = Number(obterCampo(onboarding.value, 'percentualConclusao', 'percentualConcluido', 'percentual', 'progresso'))
   return Number.isFinite(valor) ? Math.max(0, Math.min(100, Math.round(valor))) : 0
@@ -80,6 +80,24 @@ const empresaSemDados = computed(
 const notificacoesNaoLidas = computed(() =>
   Number(obterCampo(resumoNotificacoes.value, 'naoLidas', 'totalNaoLidas', 'totalNaoLida') || 0),
 )
+const agendamentosHojeOrdenados = computed(() =>
+  [...agendamentosHoje.value].sort((a, b) => new Date(a.dataHoraInicio) - new Date(b.dataHoraInicio)),
+)
+const proximosAgendamentosEssenciais = computed(() => proximosAgendamentos.value.slice(0, 3))
+const receitaDoDia = computed(() => receitaPorStatus('concluido', agendamentosHoje.value))
+const mostrarReceitaDoDia = computed(
+  () => agendamentosHoje.value.some((agendamento) => agendamento.status === 'concluido') || receitaDoDia.value > 0,
+)
+const totalRecebidosLinkPublicoHoje = computed(() => contarPublicos(agendamentosHoje.value))
+const existeLinkCatalogo = computed(() => Boolean(linkPublicoCatalogo.value))
+const existeLinkAgendaPublica = computed(() => Boolean(linkPublicoAgendamento.value))
+const acoesRapidasEssenciais = computed(() => [
+  { rotulo: 'Novo agendamento', to: '/agenda' },
+  { rotulo: 'Ver agenda', to: '/agenda' },
+  { rotulo: 'Cadastrar cliente', to: '/clientes' },
+  { rotulo: 'Cadastrar serviço', to: '/servicos' },
+  { rotulo: 'Estoque do dia', to: '/estoque?aba=estoque-dia' },
+])
 
 const cardsResumo = computed(() => [
   {
@@ -482,6 +500,19 @@ function obterTextoAgendamento(agendamento, ...campos) {
   return ''
 }
 
+function agendamentoResumoHorario(agendamento) {
+  const data = criarData(agendamento.dataHoraInicio)
+
+  if (!data) {
+    return '-'
+  }
+
+  return data.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function normalizarAgendamentosDashboard(lista) {
   const origem = Array.isArray(lista)
     ? lista
@@ -629,187 +660,271 @@ onBeforeUnmount(() => {
       <button class="botao secundario" @click="atualizarDashboard">Atualizar dados</button>
     </header>
 
-    <section v-if="mostrarAtalhosRapidos" class="card atalhos-rapidos">
-      <div class="cabecalho-atalhos">
-        <div>
-          <p class="subtitulo">Modo Essencial</p>
-          <h2>Atalhos rápidos</h2>
-          <p>Use o Modo Essencial para ver só o que você usa no dia a dia.</p>
-        </div>
-      </div>
-
-      <div class="grade-atalhos">
-        <RouterLink class="atalho-rapido" to="/agenda">Novo agendamento</RouterLink>
-        <RouterLink class="atalho-rapido" to="/agenda">Ver agenda</RouterLink>
-        <RouterLink class="atalho-rapido" to="/clientes">Cadastrar cliente</RouterLink>
-        <RouterLink class="atalho-rapido" to="/servicos">Cadastrar serviço</RouterLink>
-        <RouterLink class="atalho-rapido" to="/estoque?aba=estoque-dia">Estoque do dia</RouterLink>
-        <button
-          class="atalho-rapido"
-          type="button"
-          :disabled="!linkPublicoCatalogo"
-          @click="abrirCatalogoPublico"
-        >
-          Abrir catálogo/cardápio
-        </button>
-        <button
-          class="atalho-rapido destaque"
-          type="button"
-          :disabled="!linkPublicoAgendamento"
-          @click="copiarLinkPublico"
-        >
-          Copiar link público
-        </button>
-      </div>
-    </section>
-
     <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
     </section>
 
-    <section v-if="cardFinanceiro" :class="['card', 'financeiro-card', cardFinanceiro.classe]">
-      <div>
-        <p class="subtitulo">Status financeiro</p>
-        <h2>{{ cardFinanceiro.titulo }}</h2>
-        <p>{{ cardFinanceiro.texto }}</p>
-        <dl v-if="statusFinanceiroNormalizado !== 'ADIMPLENTE'">
+    <section v-if="modoEssencial" class="dashboard-essencial">
+      <section class="card painel-essencial">
+        <div class="cabecalho-essencial">
           <div>
-            <dt>Valor vencido</dt>
-            <dd>{{ formatarMoeda(obterCampo(statusFinanceiro, 'valorVencido', 'valorTotalVencido')) }}</dd>
+            <p class="subtitulo">Seu dia</p>
+            <h2>Ações rápidas</h2>
+            <p>Use o Modo Essencial para ver só o que você usa no dia a dia.</p>
           </div>
-          <div>
-            <dt>Maior atraso</dt>
-            <dd>{{ obterCampo(statusFinanceiro, 'diasMaiorAtraso', 'maiorAtrasoDias', 'diasAtraso') || 0 }} dia(s)</dd>
-          </div>
-        </dl>
-      </div>
-      <RouterLink v-if="statusFinanceiroNormalizado !== 'ADIMPLENTE'" class="botao principal link-botao" to="/faturas">
-        Ver faturas
-      </RouterLink>
-    </section>
-
-    <section v-if="mostrarCardOnboarding" class="card onboarding-card">
-      <div>
-        <p class="subtitulo">Configure sua empresa</p>
-        <h2>Seu onboarding está {{ onboardingPercentual }}% concluído.</h2>
-        <p>Finalize os primeiros passos para começar a receber agendamentos com mais segurança.</p>
-      </div>
-      <RouterLink class="botao principal link-botao" to="/onboarding">Continuar configuração</RouterLink>
-    </section>
-
-    <section v-if="empresaSemDados" class="card estado-vazio">
-      <p>Sua empresa ainda não possui dados cadastrados. Comece configurando seus serviços e funcionários.</p>
-    </section>
-
-    <section v-if="resumoNotificacoes" class="card notificacoes-card">
-      <div>
-        <p class="subtitulo">Notificações</p>
-        <h2>{{ notificacoesNaoLidas }} notificação(ões) não lida(s)</h2>
-      </div>
-      <RouterLink class="botao principal link-botao" to="/notificacoes">Ver notificações</RouterLink>
-    </section>
-
-    <section class="grade-resumo">
-      <article
-        v-for="card in cardsResumo"
-        :key="card.titulo"
-        :class="['card', 'resumo-card', card.destaque]"
-      >
-        <p>{{ card.titulo }}</p>
-        <strong>{{ card.valor }}</strong>
-      </article>
-    </section>
-
-    <section class="grade-base">
-      <article v-for="card in cardsBase" :key="card.titulo" class="card base-card">
-        <p>{{ card.titulo }}</p>
-        <strong>{{ card.valor }}</strong>
-      </article>
-    </section>
-
-    <section class="secao-proximos">
-      <div class="cabecalho-lista">
-        <div>
-          <h2>Próximos agendamentos</h2>
-          <p>Os 5 próximos horários ordenados por data e hora.</p>
+          <span class="selo-essencial">Modo Essencial ativo</span>
         </div>
-      </div>
 
-      <section v-if="carregando" class="card">
-        <p>Carregando dashboard...</p>
+        <div class="grade-atalhos">
+          <RouterLink
+            v-for="acao in acoesRapidasEssenciais"
+            :key="acao.rotulo"
+            class="atalho-rapido"
+            :to="acao.to"
+          >
+            {{ acao.rotulo }}
+          </RouterLink>
+          <button
+            class="atalho-rapido"
+            type="button"
+            :disabled="!existeLinkCatalogo"
+            @click="abrirCatalogoPublico"
+          >
+            Abrir cardápio
+          </button>
+          <button
+            class="atalho-rapido destaque"
+            type="button"
+            :disabled="!existeLinkAgendaPublica"
+            @click="copiarLinkPublico"
+          >
+            Copiar link público
+          </button>
+        </div>
       </section>
 
-      <section v-else-if="proximosAgendamentos.length === 0" class="card">
-        <p>Nenhum próximo agendamento em aberto. A agenda está tranquila por enquanto.</p>
+      <section class="grade-essencial-metricas">
+        <article class="card resumo-essencial">
+          <p>Agenda de hoje</p>
+          <strong>{{ agendamentosHojeOrdenados.length }}</strong>
+          <small>Compromissos marcados para hoje.</small>
+        </article>
+
+        <article class="card resumo-essencial">
+          <p>Próximos agendamentos</p>
+          <strong>{{ proximosAgendamentosEssenciais.length }}</strong>
+          <small>Próximos horários que ainda vão acontecer.</small>
+        </article>
+
+        <article class="card resumo-essencial">
+          <p>Recebidos pelo link público hoje</p>
+          <strong>{{ totalRecebidosLinkPublicoHoje }}</strong>
+          <small>Agendamentos que vieram do link público.</small>
+        </article>
+
+        <article v-if="mostrarReceitaDoDia" class="card resumo-essencial destaque-financeiro">
+          <p>Receita do dia</p>
+          <strong>{{ formatarMoeda(receitaDoDia) }}</strong>
+          <small>Receita concluída hoje.</small>
+        </article>
       </section>
 
-      <section v-else class="lista-proximos">
-        <article
-          v-for="agendamento in proximosAgendamentos"
-          :key="agendamento.id"
-          class="card agendamento-card"
-        >
-          <div class="topo-card">
+      <section class="grade-essencial-listas">
+        <article class="card lista-essencial">
+          <div class="cabecalho-lista">
             <div>
-              <h3>{{ exibirValor(agendamento.cliente) }}</h3>
-              <p class="servico">{{ exibirValor(agendamento.servico) }}</p>
+              <h2>Agenda de hoje</h2>
+              <p>Compromissos do dia em ordem de horário.</p>
             </div>
-
-            <span :class="statusClasse(agendamento.status)">
-              {{ agendamento.status }}
-            </span>
           </div>
 
-          <div class="detalhes">
-            <p><strong>Funcionário:</strong> {{ exibirValor(agendamento.funcionario) }}</p>
-            <p><strong>Data:</strong> {{ formatarData(agendamento.dataHoraInicio) }}</p>
-            <p><strong>Horário:</strong> {{ formatarPeriodo(agendamento) }}</p>
-            <p><strong>Preço:</strong> {{ formatarMoeda(agendamento.preco) }}</p>
-            <p><strong>Status:</strong> {{ statusTexto(agendamento.status) }}</p>
+          <section v-if="carregando" class="card estado-interno">
+            <p>Carregando agenda...</p>
+          </section>
+          <section v-else-if="agendamentosHojeOrdenados.length === 0" class="card estado-interno">
+            <p>Nenhum agendamento para hoje.</p>
+          </section>
+          <div v-else class="lista-compacta">
+            <article v-for="agendamento in agendamentosHojeOrdenados.slice(0, 5)" :key="agendamento.id" class="item-compacto">
+              <strong>{{ exibirValor(agendamento.cliente) }}</strong>
+              <span>{{ agendamentoResumoHorario(agendamento) }} · {{ exibirValor(agendamento.servico) }}</span>
+            </article>
+          </div>
+        </article>
+
+        <article class="card lista-essencial">
+          <div class="cabecalho-lista">
+            <div>
+              <h2>Próximos agendamentos</h2>
+              <p>O que vem a seguir na agenda.</p>
+            </div>
+          </div>
+
+          <section v-if="carregando" class="card estado-interno">
+            <p>Carregando próximos horários...</p>
+          </section>
+          <section v-else-if="proximosAgendamentosEssenciais.length === 0" class="card estado-interno">
+            <p>Nenhum próximo agendamento em aberto.</p>
+          </section>
+          <div v-else class="lista-compacta">
+            <article
+              v-for="agendamento in proximosAgendamentosEssenciais"
+              :key="agendamento.id"
+              class="item-compacto"
+            >
+              <strong>{{ exibirValor(agendamento.cliente) }}</strong>
+              <span>{{ formatarData(agendamento.dataHoraInicio) }} · {{ agendamentoResumoHorario(agendamento) }}</span>
+            </article>
           </div>
         </article>
       </section>
     </section>
 
-    <section class="secao-resumo-funcionarios">
-      <div class="cabecalho-lista">
+    <template v-else>
+      <section v-if="cardFinanceiro" :class="['card', 'financeiro-card', cardFinanceiro.classe]">
         <div>
-          <h2>Resumo por funcionário</h2>
-          <p>Quantidade de agendamentos, concluídos e receita concluída por profissional.</p>
+          <p class="subtitulo">Status financeiro</p>
+          <h2>{{ cardFinanceiro.titulo }}</h2>
+          <p>{{ cardFinanceiro.texto }}</p>
+          <dl v-if="statusFinanceiroNormalizado !== 'ADIMPLENTE'">
+            <div>
+              <dt>Valor vencido</dt>
+              <dd>{{ formatarMoeda(obterCampo(statusFinanceiro, 'valorVencido', 'valorTotalVencido')) }}</dd>
+            </div>
+            <div>
+              <dt>Maior atraso</dt>
+              <dd>{{ obterCampo(statusFinanceiro, 'diasMaiorAtraso', 'maiorAtrasoDias', 'diasAtraso') || 0 }} dia(s)</dd>
+            </div>
+          </dl>
         </div>
-      </div>
-
-      <section v-if="carregando" class="card">
-        <p>Carregando resumo por funcionário...</p>
+        <RouterLink v-if="statusFinanceiroNormalizado !== 'ADIMPLENTE'" class="botao principal link-botao" to="/faturas">
+          Ver faturas
+        </RouterLink>
       </section>
 
-      <section v-else-if="resumoPorFuncionario.length === 0" class="card">
-        <p>Nenhum agendamento encontrado para montar o resumo por funcionário.</p>
-      </section>
-
-      <section v-else class="card tabela-card">
-        <div class="tabela-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Funcionário</th>
-                <th>Agendamentos</th>
-                <th>Concluídos</th>
-                <th>Receita concluída</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in resumoPorFuncionario" :key="item.funcionario">
-                <td>{{ item.funcionario }}</td>
-                <td>{{ item.quantidade }}</td>
-                <td>{{ item.concluidos }}</td>
-                <td>{{ formatarMoeda(item.receitaConcluida) }}</td>
-              </tr>
-            </tbody>
-          </table>
+      <section v-if="mostrarCardOnboarding" class="card onboarding-card">
+        <div>
+          <p class="subtitulo">Configure sua empresa</p>
+          <h2>Seu onboarding está {{ onboardingPercentual }}% concluído.</h2>
+          <p>Finalize os primeiros passos para começar a receber agendamentos com mais segurança.</p>
         </div>
+        <RouterLink class="botao principal link-botao" to="/onboarding">Continuar configuração</RouterLink>
       </section>
-    </section>
+
+      <section v-if="empresaSemDados" class="card estado-vazio">
+        <p>Sua empresa ainda não possui dados cadastrados. Comece configurando seus serviços e funcionários.</p>
+      </section>
+
+      <section v-if="resumoNotificacoes" class="card notificacoes-card">
+        <div>
+          <p class="subtitulo">Notificações</p>
+          <h2>{{ notificacoesNaoLidas }} notificação(ões) não lida(s)</h2>
+        </div>
+        <RouterLink class="botao principal link-botao" to="/notificacoes">Ver notificações</RouterLink>
+      </section>
+
+      <section class="grade-resumo">
+        <article
+          v-for="card in cardsResumo"
+          :key="card.titulo"
+          :class="['card', 'resumo-card', card.destaque]"
+        >
+          <p>{{ card.titulo }}</p>
+          <strong>{{ card.valor }}</strong>
+        </article>
+      </section>
+
+      <section class="grade-base">
+        <article v-for="card in cardsBase" :key="card.titulo" class="card base-card">
+          <p>{{ card.titulo }}</p>
+          <strong>{{ card.valor }}</strong>
+        </article>
+      </section>
+
+      <section class="secao-proximos">
+        <div class="cabecalho-lista">
+          <div>
+            <h2>Próximos agendamentos</h2>
+            <p>Os 5 próximos horários ordenados por data e hora.</p>
+          </div>
+        </div>
+
+        <section v-if="carregando" class="card">
+          <p>Carregando dashboard...</p>
+        </section>
+
+        <section v-else-if="proximosAgendamentos.length === 0" class="card">
+          <p>Nenhum próximo agendamento em aberto. A agenda está tranquila por enquanto.</p>
+        </section>
+
+        <section v-else class="lista-proximos">
+          <article
+            v-for="agendamento in proximosAgendamentos"
+            :key="agendamento.id"
+            class="card agendamento-card"
+          >
+            <div class="topo-card">
+              <div>
+                <h3>{{ exibirValor(agendamento.cliente) }}</h3>
+                <p class="servico">{{ exibirValor(agendamento.servico) }}</p>
+              </div>
+
+              <span :class="statusClasse(agendamento.status)">
+                {{ agendamento.status }}
+              </span>
+            </div>
+
+            <div class="detalhes">
+              <p><strong>Funcionário:</strong> {{ exibirValor(agendamento.funcionario) }}</p>
+              <p><strong>Data:</strong> {{ formatarData(agendamento.dataHoraInicio) }}</p>
+              <p><strong>Horário:</strong> {{ formatarPeriodo(agendamento) }}</p>
+              <p><strong>Preço:</strong> {{ formatarMoeda(agendamento.preco) }}</p>
+              <p><strong>Status:</strong> {{ statusTexto(agendamento.status) }}</p>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section class="secao-resumo-funcionarios">
+        <div class="cabecalho-lista">
+          <div>
+            <h2>Resumo por funcionário</h2>
+            <p>Quantidade de agendamentos, concluídos e receita concluída por profissional.</p>
+          </div>
+        </div>
+
+        <section v-if="carregando" class="card">
+          <p>Carregando resumo por funcionário...</p>
+        </section>
+
+        <section v-else-if="resumoPorFuncionario.length === 0" class="card">
+          <p>Nenhum agendamento encontrado para montar o resumo por funcionário.</p>
+        </section>
+
+        <section v-else class="card tabela-card">
+          <div class="tabela-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Funcionário</th>
+                  <th>Agendamentos</th>
+                  <th>Concluídos</th>
+                  <th>Receita concluída</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in resumoPorFuncionario" :key="item.funcionario">
+                  <td>{{ item.funcionario }}</td>
+                  <td>{{ item.quantidade }}</td>
+                  <td>{{ item.concluidos }}</td>
+                  <td>{{ formatarMoeda(item.receitaConcluida) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </template>
   </main>
 </template>
 
@@ -1160,37 +1275,136 @@ tbody tr:last-child td {
   text-decoration: none;
 }
 
-.atalhos-rapidos {
+.dashboard-essencial {
+  display: grid;
+  gap: 16px;
+}
+
+.painel-essencial {
   display: grid;
   gap: 16px;
   border-color: #bfdbfe;
   background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
 }
 
-.cabecalho-atalhos {
+.cabecalho-essencial {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
 }
 
-.cabecalho-atalhos h2 {
+.cabecalho-essencial h2 {
   margin: 0;
   color: #0f172a;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
 }
 
-.cabecalho-atalhos p {
+.cabecalho-essencial p {
   margin: 6px 0 0;
   color: #475569;
   line-height: 1.45;
 }
 
+.selo-essencial {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .grade-atalhos {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.grade-essencial-metricas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.resumo-essencial {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+}
+
+.resumo-essencial p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.resumo-essencial strong {
+  color: #0f172a;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.resumo-essencial small {
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.destaque-financeiro {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.grade-essencial-listas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lista-essencial {
+  display: grid;
+  gap: 14px;
+}
+
+.estado-interno {
+  padding: 14px;
+  background: #f8fafc;
+}
+
+.lista-compacta {
+  display: grid;
+  gap: 10px;
+}
+
+.item-compacto {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.item-compacto strong {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.item-compacto span {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .atalho-rapido {
@@ -1247,6 +1461,11 @@ tbody tr:last-child td {
   .grade-base {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
+
+  .grade-essencial-metricas,
+  .grade-essencial-listas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -1269,8 +1488,17 @@ tbody tr:last-child td {
     grid-template-columns: 1fr;
   }
 
-  .cabecalho-atalhos {
+  .grade-essencial-metricas,
+  .grade-essencial-listas {
+    grid-template-columns: 1fr;
+  }
+
+  .cabecalho-essencial {
     flex-direction: column;
+  }
+
+  .selo-essencial {
+    width: fit-content;
   }
 }
 </style>

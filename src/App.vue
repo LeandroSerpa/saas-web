@@ -16,7 +16,6 @@ import {
 } from '@/services/api'
 import {
   MODO_NAVEGACAO_COMPLETO,
-  MODO_NAVEGACAO_ESSENCIAL,
   modoNavegacao,
   salvarModoNavegacao,
   sincronizarModoNavegacao,
@@ -261,7 +260,6 @@ const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
 const modoNavegacaoAtual = computed(() => modoNavegacao.value)
-const modoNavegacaoEssencial = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_ESSENCIAL)
 const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
 const gruposMenuAbertos = ref({
   principal: true,

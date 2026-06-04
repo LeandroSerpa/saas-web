@@ -1,23 +1,23 @@
 <script setup>
-defineProps({
+const props = defineProps({
   modo: {
     type: String,
     required: true,
   },
 })
 
-defineEmits(['update:modo'])
+const emit = defineEmits(['update:modo'])
 
 const opcoes = [
   {
     valor: 'essencial',
     titulo: 'Modo Essencial',
-    apoio: 'Mostra apenas as funções principais',
+    apoio: 'Mais simples',
   },
   {
     valor: 'completo',
     titulo: 'Modo Completo',
-    apoio: 'Mostra todos os recursos',
+    apoio: 'Mais recursos',
   },
 ]
 </script>
@@ -26,7 +26,7 @@ const opcoes = [
   <section class="modo-navegacao" aria-label="Preferência de navegação">
     <div class="modo-navegacao-texto">
       <strong>Modo de navegação</strong>
-      <p>Use o Modo Essencial para ver só o que você usa no dia a dia.</p>
+      <p>Mostra só o que você usa no dia a dia.</p>
     </div>
 
     <div class="modo-navegacao-opcoes" role="group" aria-label="Alternar modo de navegação">
@@ -34,13 +34,13 @@ const opcoes = [
         v-for="opcao in opcoes"
         :key="opcao.valor"
         class="modo-navegacao-botao"
-        :class="{ ativo: modo === opcao.valor }"
+        :class="{ ativo: props.modo === opcao.valor }"
         type="button"
-        :aria-pressed="modo === opcao.valor"
-        @click="$emit('update:modo', opcao.valor)"
+        :aria-pressed="props.modo === opcao.valor"
+        @click="emit('update:modo', opcao.valor)"
       >
         <span>{{ opcao.titulo }}</span>
-        <small>{{ opcao.apoio }}</small>
+        <small>{{ props.modo === opcao.valor ? 'Ativo' : opcao.apoio }}</small>
       </button>
     </div>
   </section>
@@ -49,10 +49,10 @@ const opcoes = [
 <style scoped>
 .modo-navegacao {
   display: grid;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 10px 12px;
   border: 1px solid #dbeafe;
-  border-radius: 12px;
+  border-radius: 10px;
   background: linear-gradient(180deg, #f8fbff 0%, #eff6ff 100%);
   color: #1e3a8a;
 }
@@ -63,7 +63,7 @@ const opcoes = [
 }
 
 .modo-navegacao-texto strong {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -72,27 +72,28 @@ const opcoes = [
 .modo-navegacao-texto p {
   margin: 0;
   color: #31517e;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .modo-navegacao-opcoes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .modo-navegacao-botao {
+  flex: 1 1 0;
   border: 1px solid #bfdbfe;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 999px;
+  padding: 8px 10px;
   background: white;
   color: #1e3a8a;
   cursor: pointer;
   display: grid;
-  gap: 3px;
-  text-align: left;
+  gap: 1px;
+  text-align: center;
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
@@ -111,20 +112,20 @@ const opcoes = [
 }
 
 .modo-navegacao-botao span {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
 }
 
 .modo-navegacao-botao small {
   color: #516b8f;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 @media (max-width: 720px) {
-  .modo-navegacao-opcoes {
-    grid-template-columns: 1fr;
+  .modo-navegacao-botao {
+    flex-basis: 100%;
   }
 }
 </style>
