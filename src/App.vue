@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, ref, w
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
+import ModoNavegacaoSelector from '@/components/ModoNavegacaoSelector.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
   buscarStatusFinanceiroMinhaEmpresa,
@@ -13,6 +14,13 @@ import {
   obterInfoVersaoSistemaPadrao,
   obterTipoSeloAmbiente,
 } from '@/services/api'
+import {
+  MODO_NAVEGACAO_COMPLETO,
+  MODO_NAVEGACAO_ESSENCIAL,
+  modoNavegacao,
+  salvarModoNavegacao,
+  sincronizarModoNavegacao,
+} from '@/utils/modoNavegacao'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const route = useRoute()
@@ -252,6 +260,9 @@ const nomeUsuario = computed(() => usuario.value?.nome || 'Usuário')
 const podeGerenciarUsuarios = computed(() => ehAdmin(usuario.value))
 const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
+const modoNavegacaoAtual = computed(() => modoNavegacao.value)
+const modoNavegacaoEssencial = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_ESSENCIAL)
+const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
 const gruposMenuAbertos = ref({
   principal: true,
   operacao: true,
@@ -342,6 +353,18 @@ function sair() {
   router.push('/login')
 }
 
+function alterarModoNavegacao(novoModo) {
+  if (!usuario.value) {
+    return
+  }
+
+  const modoSalvo = salvarModoNavegacao(usuario.value, novoModo)
+
+  if (!modoSalvo) {
+    return
+  }
+}
+
 function atualizarUsuarioLogado() {
   if (rotaAgendamentoPublico.value) {
     usuario.value = null
@@ -350,6 +373,11 @@ function atualizarUsuarioLogado() {
   }
 
   usuario.value = carregarUsuarioSessao()
+
+  if (usuario.value) {
+    sincronizarModoNavegacao(usuario.value)
+  }
+
   carregarStatusFinanceiro()
 }
 
@@ -602,6 +630,10 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div class="menu-preferencias">
+        <ModoNavegacaoSelector :modo="modoNavegacaoAtual" @update:modo="alterarModoNavegacao" />
+      </div>
+
       <nav class="menu-principal" aria-label="Navegação principal">
         <section class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('principal')">
@@ -625,9 +657,15 @@ onBeforeUnmount(() => {
             <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/catalogo-publico" @click="fecharMenuMobile">Catálogo público</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">Disponibilidade</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">Relatórios</RouterLink>
-            <RouterLink v-if="adminEmpresa" to="/onboarding" @click="fecharMenuMobile">Primeiros passos</RouterLink>
+            <RouterLink v-if="modoNavegacaoCompleto && podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">
+              Disponibilidade
+            </RouterLink>
+            <RouterLink v-if="modoNavegacaoCompleto && podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">
+              Relatórios
+            </RouterLink>
+            <RouterLink v-if="modoNavegacaoCompleto && adminEmpresa" to="/onboarding" @click="fecharMenuMobile">
+              Primeiros passos
+            </RouterLink>
           </div>
         </section>
 
@@ -652,13 +690,19 @@ onBeforeUnmount(() => {
             <RouterLink v-if="podeGerenciarUsuarios" to="/personalizacao" @click="fecharMenuMobile">Personalização</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/usuarios" @click="fecharMenuMobile">Usuários</RouterLink>
             <RouterLink v-if="podeGerenciarUsuarios" to="/ajuda" @click="fecharMenuMobile">Ajuda</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/minha-empresa/notificacoes" @click="fecharMenuMobile">Notificações da empresa</RouterLink>
+            <RouterLink
+              v-if="modoNavegacaoCompleto && podeGerenciarUsuarios"
+              to="/minha-empresa/notificacoes"
+              @click="fecharMenuMobile"
+            >
+              Notificações da empresa
+            </RouterLink>
             <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
             <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
           </div>
         </section>
 
-        <section v-if="superAdmin" class="grupo-menu">
+        <section v-if="superAdmin && modoNavegacaoCompleto" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('administracaoSaas')">
             <span>Administração SaaS</span>
             <span>{{ grupoMenuAberto('administracaoSaas') ? '−' : '+' }}</span>
@@ -813,6 +857,10 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.menu-preferencias {
+  width: 100%;
 }
 
 .marca-simbolo {

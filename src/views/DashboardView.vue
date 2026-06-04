@@ -5,10 +5,13 @@ import {
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
+  buscarMinhaEmpresa,
   buscarResumoNotificacoes,
   buscarOnboarding,
   buscarServicos,
   buscarStatusFinanceiroMinhaEmpresa,
+  montarLinkPublicoAgendamento,
+  montarLinkPublicoCatalogo,
 } from '@/services/api'
 import {
   atualizarEscopoSolicitado,
@@ -18,6 +21,7 @@ import {
 } from '@/utils/atualizacoesEmpresa'
 import { debugLog } from '@/utils/devDebug'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
+import { MODO_NAVEGACAO_ESSENCIAL, modoNavegacao } from '@/utils/modoNavegacao'
 
 const agendamentos = ref([])
 const clientes = ref([])
@@ -26,11 +30,14 @@ const funcionarios = ref([])
 const onboarding = ref(null)
 const resumoNotificacoes = ref(null)
 const statusFinanceiro = ref(null)
+const linkPublicoAgendamento = ref('')
+const linkPublicoCatalogo = ref('')
 const usuarioLogado = ref(obterUsuarioLogado())
 
 const carregando = ref(true)
 const erro = ref('')
 const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
+const mostrarAtalhosRapidos = computed(() => modoNavegacao.value === MODO_NAVEGACAO_ESSENCIAL)
 const onboardingPercentual = computed(() => {
   const valor = Number(obterCampo(onboarding.value, 'percentualConclusao', 'percentualConcluido', 'percentual', 'progresso'))
   return Number.isFinite(valor) ? Math.max(0, Math.min(100, Math.round(valor))) : 0
@@ -276,6 +283,20 @@ async function carregarResumoNotificacoesDashboard() {
   }
 }
 
+async function carregarLinksPublicos() {
+  try {
+    const empresa = await buscarMinhaEmpresa()
+    const slug = String(empresa?.slug || '').trim()
+
+    linkPublicoAgendamento.value = montarLinkPublicoAgendamento(slug)
+    linkPublicoCatalogo.value = montarLinkPublicoCatalogo(slug)
+  } catch (error) {
+    linkPublicoAgendamento.value = ''
+    linkPublicoCatalogo.value = ''
+    console.error(error)
+  }
+}
+
 function contarPorStatus(status, lista = agendamentos.value) {
   return lista.filter((agendamento) => agendamento.status === status).length
 }
@@ -507,12 +528,49 @@ async function atualizarDashboard() {
     carregarOnboardingDashboard(),
     carregarStatusFinanceiroDashboard(),
     carregarResumoNotificacoesDashboard(),
+    carregarLinksPublicos(),
   ])
 
   emitirAtualizacaoEmpresa({
     origem: 'dashboard-atualizar-dados',
     escopos: ['notificacoes'],
   })
+}
+
+async function copiarLinkPublico() {
+  if (!linkPublicoAgendamento.value) {
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(linkPublicoAgendamento.value)
+    window.dispatchEvent(
+      new CustomEvent('mensagem-global', {
+        detail: {
+          mensagem: 'Link público copiado com sucesso.',
+          tipo: 'sucesso',
+        },
+      }),
+    )
+  } catch (error) {
+    console.error(error)
+    window.dispatchEvent(
+      new CustomEvent('mensagem-global', {
+        detail: {
+          mensagem: 'Não foi possível copiar o link público.',
+          tipo: 'erro',
+        },
+      }),
+    )
+  }
+}
+
+function abrirCatalogoPublico() {
+  if (!linkPublicoCatalogo.value) {
+    return
+  }
+
+  window.open(linkPublicoCatalogo.value, '_blank', 'noopener,noreferrer')
 }
 
 async function processarAtualizacaoCompartilhada(detalhe) {
@@ -548,6 +606,7 @@ onMounted(() => {
   carregarOnboardingDashboard()
   carregarStatusFinanceiroDashboard()
   carregarResumoNotificacoesDashboard()
+  carregarLinksPublicos()
   window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
   window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
@@ -569,6 +628,40 @@ onBeforeUnmount(() => {
 
       <button class="botao secundario" @click="atualizarDashboard">Atualizar dados</button>
     </header>
+
+    <section v-if="mostrarAtalhosRapidos" class="card atalhos-rapidos">
+      <div class="cabecalho-atalhos">
+        <div>
+          <p class="subtitulo">Modo Essencial</p>
+          <h2>Atalhos rápidos</h2>
+          <p>Use o Modo Essencial para ver só o que você usa no dia a dia.</p>
+        </div>
+      </div>
+
+      <div class="grade-atalhos">
+        <RouterLink class="atalho-rapido" to="/agenda">Novo agendamento</RouterLink>
+        <RouterLink class="atalho-rapido" to="/agenda">Ver agenda</RouterLink>
+        <RouterLink class="atalho-rapido" to="/clientes">Cadastrar cliente</RouterLink>
+        <RouterLink class="atalho-rapido" to="/servicos">Cadastrar serviço</RouterLink>
+        <RouterLink class="atalho-rapido" to="/estoque?aba=estoque-dia">Estoque do dia</RouterLink>
+        <button
+          class="atalho-rapido"
+          type="button"
+          :disabled="!linkPublicoCatalogo"
+          @click="abrirCatalogoPublico"
+        >
+          Abrir catálogo/cardápio
+        </button>
+        <button
+          class="atalho-rapido destaque"
+          type="button"
+          :disabled="!linkPublicoAgendamento"
+          @click="copiarLinkPublico"
+        >
+          Copiar link público
+        </button>
+      </div>
+    </section>
 
     <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
@@ -1067,6 +1160,78 @@ tbody tr:last-child td {
   text-decoration: none;
 }
 
+.atalhos-rapidos {
+  display: grid;
+  gap: 16px;
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+}
+
+.cabecalho-atalhos {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cabecalho-atalhos h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.cabecalho-atalhos p {
+  margin: 6px 0 0;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.grade-atalhos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.atalho-rapido {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: white;
+  color: #1e3a8a;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.atalho-rapido:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.atalho-rapido:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.atalho-rapido.destaque {
+  border-color: #2563eb;
+  background: #dbeafe;
+}
+
 .secundario:hover {
   background: #1e293b;
 }
@@ -1098,6 +1263,14 @@ tbody tr:last-child td {
   .grade-base,
   .lista-proximos {
     grid-template-columns: 1fr;
+  }
+
+  .grade-atalhos {
+    grid-template-columns: 1fr;
+  }
+
+  .cabecalho-atalhos {
+    flex-direction: column;
   }
 }
 </style>
