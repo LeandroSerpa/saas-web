@@ -5,9 +5,9 @@ import { RouterLink } from 'vue-router'
 const CHAVE_ASSISTENTE_RECOLHIDO = 'primeiroUsoAssistenteRecolhido'
 const STATUS_ROTULOS = {
   concluido: 'Concluído',
-  pendente: 'Fazer agora',
+  pendente: 'Pendente',
   recomendado: 'Recomendado',
-  opcional: 'Opcional',
+  opcional: 'Recomendado',
 }
 
 const props = defineProps({
@@ -69,15 +69,19 @@ const passosBase = [
     id: 'empresa',
     aliases: ['empresa', 'minha empresa', 'dados da empresa'],
     titulo: 'Configure sua empresa',
-    descricao: 'Confira nome, horários, telefone e os dados principais do seu negócio.',
+    descricao: 'Confira nome, telefone, horários, endereço e link público.',
+    importancia:
+      'Essas informações aparecem para você e ajudam seus clientes a entenderem sua empresa.',
     rotuloAcao: 'Fazer agora',
     to: '/minha-empresa',
+    topicoAjuda: 'minha-empresa',
   },
   {
     id: 'servicos',
     aliases: ['servicos', 'serviços', 'servico', 'serviço'],
-    titulo: 'Cadastre seus serviços',
-    descricao: 'Cadastre o que você oferece para agilizar os atendimentos.',
+    titulo: 'Cadastre serviços',
+    descricao: 'Informe os serviços que sua empresa oferece.',
+    importancia: 'Os serviços são usados na agenda, no link público e nos atendimentos.',
     rotuloAcao: 'Fazer agora',
     to: '/servicos',
     topicoAjuda: 'servicos',
@@ -85,50 +89,59 @@ const passosBase = [
   {
     id: 'clientes',
     aliases: ['clientes', 'cliente'],
-    titulo: 'Cadastre seus clientes',
-    descricao: 'Salve os clientes para agendar mais rápido e organizar o histórico.',
+    titulo: 'Cadastre clientes',
+    descricao: 'Registre os clientes que você já atende.',
+    importancia: 'Com clientes cadastrados, fica mais fácil criar agendamentos e consultar contatos.',
     rotuloAcao: 'Fazer agora',
     to: '/clientes',
+    topicoAjuda: 'clientes',
   },
   {
     id: 'funcionarios',
     aliases: ['funcionarios', 'funcionários', 'equipe'],
-    titulo: 'Cadastre seus profissionais',
-    descricao: 'Se mais pessoas atendem com você, cadastre cada uma.',
+    titulo: 'Cadastre funcionários',
+    descricao: 'Adicione as pessoas que fazem os atendimentos.',
+    importancia: 'Mesmo que a empresa tenha só uma pessoa, isso ajuda a organizar a agenda.',
     rotuloAcao: 'Fazer agora',
     to: '/funcionarios',
-    opcional: true,
+    topicoAjuda: 'funcionarios',
   },
   {
     id: 'agenda',
     aliases: ['agenda', 'agendamentos', 'agendamento'],
-    titulo: 'Teste sua agenda',
-    descricao: 'Veja os atendimentos do dia e crie um agendamento de teste.',
+    titulo: 'Use a agenda',
+    descricao: 'Crie um agendamento de teste ou cadastre um atendimento real.',
+    importancia: 'A agenda é a rotina principal do sistema.',
     rotuloAcao: 'Fazer agora',
     to: '/agenda',
+    topicoAjuda: 'agenda',
   },
   {
     id: 'link-publico',
     aliases: ['link publico', 'link público', 'agendamento publico', 'agendamento público', 'slug'],
     titulo: 'Ative seu link público',
-    descricao: 'Permita que seus clientes agendem pelo seu link.',
+    descricao: 'Confira o link que seus clientes podem usar para agendar.',
+    importancia: 'Com o link público, o cliente pode escolher horário sem chamar você primeiro.',
     rotuloAcao: 'Fazer agora',
-    to: '/personalizacao',
+    to: '/minha-empresa',
     topicoAjuda: 'link-publico',
   },
   {
     id: 'personalizacao',
     aliases: ['personalizacao', 'personalização', 'pagina publica', 'página pública'],
     titulo: 'Personalize sua página',
-    descricao: 'Adicione informações, mensagem e o visual da página pública.',
+    descricao: 'Ajuste textos, cores, WhatsApp e informações que aparecem para o cliente.',
+    importancia: 'Uma página bem apresentada passa mais confiança.',
     rotuloAcao: 'Fazer agora',
     to: '/personalizacao',
+    topicoAjuda: 'personalizacao',
   },
   {
     id: 'catalogo',
     aliases: ['catalogo', 'catálogo', 'cardapio', 'cardápio', 'produtos'],
     titulo: 'Publique seu catálogo',
-    descricao: 'Se você vende produtos, mostre preços, fotos e disponibilidade.',
+    descricao: 'Mostre produtos ou itens disponíveis no cardápio público.',
+    importancia: 'O cliente consegue ver o que você vende antes de chamar no WhatsApp.',
     rotuloAcao: 'Fazer agora',
     to: '/estoque',
     topicoAjuda: 'catalogo-publico',
@@ -136,20 +149,23 @@ const passosBase = [
   {
     id: 'estoque-dia',
     aliases: ['estoque do dia', 'estoque-dia', 'estoque dia'],
-    titulo: 'Use o Estoque do dia',
+    titulo: 'Use o estoque do dia',
     descricao: 'Atualize rapidamente o que tem disponível hoje.',
+    importancia:
+      'Ajuda negócios com produtos do dia, como petshop, doces, lanches, marmitas e itens limitados.',
     rotuloAcao: 'Fazer agora',
-    to: '/estoque?aba=estoque-dia',
-    topicoAjuda: 'estoque',
+    to: '/estoque',
+    topicoAjuda: 'estoque-dia',
   },
   {
     id: 'compartilhar-link',
     aliases: ['compartilhar link', 'copiar link', 'link compartilhado'],
     titulo: 'Compartilhe seu link',
-    descricao: 'Copie o link público e envie para seus clientes no WhatsApp.',
+    descricao: 'Copie o link público e envie para clientes, redes sociais ou WhatsApp.',
+    importancia: 'Esse é o caminho para seus clientes acessarem sua página.',
     rotuloAcao: 'Copiar link',
     acao: 'copiar-link',
-    topicoAjuda: 'comecando',
+    topicoAjuda: 'link-publico',
   },
 ]
 
@@ -162,6 +178,21 @@ const passosConcluidosApi = computed(() => extrairPassosConcluidosApi())
 const percentualApi = computed(() => extrairPercentualApi())
 const statusGeralApi = computed(() => normalizarStatus(obterCampoPrimeiroUso(obterStatusPrimeiroUsoNormalizado(), 'status', 'situacao', 'estado')))
 const passoProximoApi = computed(() => localizarPassoApiPorChave(obterCampoPrimeiroUso(obterStatusPrimeiroUsoNormalizado(), 'proximoPassoChave', 'proximo_passo_chave')))
+const passoDestaque = computed(() => {
+  const proximoApi = passoProximoApi.value
+
+  if (proximoApi && proximoApi.status !== 'concluido') {
+    return proximoApi
+  }
+
+  return (
+    passosComStatus.value.find((passo) => {
+      const statusExibido = normalizarStatusExibicao(passo.status)
+
+      return statusExibido === 'recomendado' || statusExibido === 'pendente'
+    }) || null
+  )
+})
 const passosComStatus = computed(() =>
   usaPassosApi.value
     ? passosApi.value
@@ -172,7 +203,8 @@ const passosComStatus = computed(() =>
           ...passo,
           indice: indice + 1,
           status,
-          rotuloStatus: STATUS_ROTULOS[status] || STATUS_ROTULOS.recomendado,
+          statusExibido: normalizarStatusExibicao(status),
+          rotuloStatus: STATUS_ROTULOS[normalizarStatusExibicao(status)] || STATUS_ROTULOS.recomendado,
         }
       }),
 )
@@ -224,15 +256,29 @@ const percentualExibido = computed(() => {
   return percentualApiNormalizado.value
 })
 const progressoTexto = computed(() => `${totalPassosConcluidos.value} de ${totalPassosPrincipais.value} passos concluídos`)
+const tituloAssistente = computed(() =>
+  totalPassosPrincipais.value > 0 && totalPassosConcluidos.value >= totalPassosPrincipais.value
+    ? 'Sistema básico configurado'
+    : 'Configure seu sistema em poucos minutos',
+)
+const subtituloAssistente = computed(() =>
+  totalPassosPrincipais.value > 0 && totalPassosConcluidos.value >= totalPassosPrincipais.value
+    ? 'Você já concluiu os principais passos para começar a usar.'
+    : 'Faça o básico primeiro. Depois você pode usar os recursos avançados com calma.',
+)
 const resumoColapsado = computed(() => `Primeiros passos: ${totalPassosConcluidos.value} de ${totalPassosPrincipais.value} concluídos`)
 const descricaoPainel = computed(() =>
-  props.usandoFallback
-    ? 'Veja os passos recomendados para começar.'
-    : passoProximoApi.value?.titulo
-      ? `Próximo passo: ${passoProximoApi.value.titulo}.`
-      : statusGeralApi.value === 'concluido'
-        ? 'Os principais passos do primeiro uso já foram finalizados.'
-        : 'Seu progresso foi atualizado com base nas configurações atuais.',
+  totalPassosPrincipais.value > 0 && totalPassosConcluidos.value >= totalPassosPrincipais.value
+    ? 'Você já concluiu os principais passos para começar a usar.'
+    : recolhido.value
+      ? 'Quando quiser, abra novamente para continuar a configuração.'
+      : passoDestaque.value?.titulo
+        ? `Próximo passo recomendado: ${passoDestaque.value.titulo}. Faça agora para continuar.`
+        : props.usandoFallback
+          ? 'Veja os passos recomendados para começar.'
+          : statusGeralApi.value === 'concluido'
+            ? 'Os principais passos do primeiro uso já foram finalizados.'
+            : 'Seu progresso foi atualizado com base nas configurações atuais.',
 )
 const passosVisiveis = computed(() => {
   if (!viewportMobile.value || mostrarTodosPassos.value) {
@@ -322,6 +368,16 @@ function obterCampoPrimeiroUso(origem, ...campos) {
   return ''
 }
 
+function normalizarStatusExibicao(valor) {
+  const status = normalizarStatus(valor)
+
+  if (status === 'opcional') {
+    return 'recomendado'
+  }
+
+  return status || 'recomendado'
+}
+
 function extrairValorNumeroPrimeiroUso(...valores) {
   for (const valor of valores) {
     const numero = Number(valor)
@@ -399,7 +455,8 @@ function normalizarPassosApi(passos) {
     .map((passo, indice) => ({
       ...passo,
       indice: indice + 1,
-      rotuloStatus: STATUS_ROTULOS[passo.status] || STATUS_ROTULOS.recomendado,
+      statusExibido: normalizarStatusExibicao(passo.status),
+      rotuloStatus: STATUS_ROTULOS[normalizarStatusExibicao(passo.status)] || STATUS_ROTULOS.recomendado,
     }))
 }
 
@@ -415,10 +472,14 @@ function normalizarPassoApi(item, indice) {
   const descricao = String(
     obterCampoPrimeiroUso(dados, 'descricao', 'detalhe', 'texto', 'observacao') || base?.descricao || '',
   ).trim()
+  const importancia = String(
+    obterCampoPrimeiroUso(dados, 'importancia', 'porqueImporta', 'porQueImporta', 'motivo', 'justificativa') || base?.importancia || '',
+  ).trim()
   const rota = String(obterCampoPrimeiroUso(dados, 'rota', 'to', 'url', 'link') || base?.to || '').trim()
   const rotuloAcao = String(
     obterCampoPrimeiroUso(dados, 'rotuloAcao', 'acaoRotulo', 'textoAcao') || base?.rotuloAcao || 'Fazer agora',
   ).trim()
+  const topicoAjuda = String(obterCampoPrimeiroUso(dados, 'topicoAjuda', 'topico_ajuda') || base?.topicoAjuda || '').trim()
   const opcional = dados.opcional === true || base?.opcional === true || status === 'opcional'
   const proximoPassoChave = normalizarIdentificador(obterCampoPrimeiroUso(obterStatusPrimeiroUsoNormalizado(), 'proximoPassoChave', 'proximo_passo_chave'))
 
@@ -430,10 +491,14 @@ function normalizarPassoApi(item, indice) {
     chaveNormalizada,
     titulo,
     descricao,
+    importancia,
     to: rota || base?.to || '',
     rotuloAcao,
+    topicoAjuda,
     opcional,
     status,
+    statusExibido: normalizarStatusExibicao(status),
+    rotuloStatus: STATUS_ROTULOS[normalizarStatusExibicao(status)] || STATUS_ROTULOS.recomendado,
     prioridade: Number.isFinite(prioridade) ? prioridade : indice + 1,
     indiceOriginal: indice + 1,
     ehProximo: Boolean(proximoPassoChave && proximoPassoChave === chaveNormalizada),
@@ -710,7 +775,7 @@ function resolverStatusFallbackPasso(passo) {
   }
 
   if (passo.id === 'funcionarios') {
-    return props.totalFuncionarios > 0 ? 'concluido' : 'opcional'
+    return props.totalFuncionarios > 0 ? 'concluido' : 'recomendado'
   }
 
   if (passo.id === 'agenda') {
@@ -755,7 +820,8 @@ function empresaTemDadosPrincipais() {
     textoPreenchido(empresa.nome) &&
       textoPreenchido(empresa.telefone) &&
       textoPreenchido(empresa.horaAbertura) &&
-      textoPreenchido(empresa.horaFechamento),
+      textoPreenchido(empresa.horaFechamento) &&
+      textoPreenchido(empresa.endereco),
   )
 }
 
@@ -794,6 +860,32 @@ function normalizarIdentificador(valor) {
     .toLowerCase()
 }
 
+function rotuloBotaoPasso(passo) {
+  if (passo.acao === 'copiar-link') {
+    return 'Copiar link'
+  }
+
+  if (passo.status === 'concluido') {
+    return passoTemDestino(passo) ? 'Abrir' : 'Ver'
+  }
+
+  return passo.rotuloAcao || 'Fazer agora'
+}
+
+function textoEstadoPasso(passo) {
+  const status = normalizarStatusExibicao(passo.status)
+
+  if (status === 'concluido') {
+    return 'Passo já resolvido.'
+  }
+
+  if (status === 'pendente') {
+    return 'Este passo ainda precisa de atenção.'
+  }
+
+  return 'Vale fazer agora para continuar.'
+}
+
 onMounted(() => {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return
@@ -827,9 +919,9 @@ onBeforeUnmount(() => {
   <section class="card assistente-primeiro-uso" :class="{ recolhido }">
     <div class="topo-assistente">
       <div class="topo-textos">
-        <p class="subtitulo">Primeiros passos</p>
-        <h2>Configure seu sistema em poucos minutos</h2>
-        <p class="descricao-assistente">Organize o básico para começar sem se perder.</p>
+        <p class="subtitulo">{{ totalPassosConcluidos >= totalPassosPrincipais && totalPassosPrincipais > 0 ? 'Sistema básico' : 'Primeiros passos' }}</p>
+        <h2>{{ tituloAssistente }}</h2>
+        <p class="descricao-assistente">{{ subtituloAssistente }}</p>
       </div>
 
       <div class="topo-acoes">
@@ -881,17 +973,62 @@ onBeforeUnmount(() => {
       </section>
 
       <template v-else>
+        <section v-if="passoDestaque" class="passo-destaque">
+          <div class="passo-destaque-topo">
+            <div>
+              <p class="subtitulo">Próximo passo recomendado</p>
+              <h3>{{ passoDestaque.titulo }}</h3>
+              <p>Faça agora para continuar.</p>
+            </div>
+          <span class="selo-prioridade" :class="`selo-${passoDestaque.statusExibido || passoDestaque.status}`">
+            {{ passoDestaque.rotuloStatus }}
+          </span>
+        </div>
+
+          <p class="passo-destaque-descricao">{{ passoDestaque.descricao }}</p>
+          <p v-if="passoDestaque.importancia" class="passo-destaque-importancia">
+            {{ passoDestaque.importancia }}
+          </p>
+
+          <div class="passo-destaque-acoes">
+            <button
+              v-if="passoDestaque.acao === 'copiar-link'"
+              class="botao principal compacto"
+              type="button"
+              :disabled="!podeCopiarLink"
+              @click="emitirCopiaLink"
+            >
+              {{ rotuloBotaoPasso(passoDestaque) }}
+            </button>
+
+            <RouterLink v-else-if="passoTemDestino(passoDestaque)" class="botao principal compacto link-acao" :to="passoDestaque.to">
+              {{ rotuloBotaoPasso(passoDestaque) }}
+            </RouterLink>
+
+            <button v-else class="botao principal compacto link-acao" type="button" disabled>
+              {{ rotuloBotaoPasso(passoDestaque) }}
+            </button>
+
+            <RouterLink v-if="passoDestaque.topicoAjuda" class="link-ajuda" :to="obterAjudaPasso(passoDestaque.topicoAjuda)">
+              Ajuda
+            </RouterLink>
+          </div>
+        </section>
+
         <section class="grade-passos">
-          <article v-for="passo in passosVisiveis" :key="passo.id" class="passo-card" :class="`status-${passo.status}`">
+          <article v-for="passo in passosVisiveis" :key="passo.id" class="passo-card" :class="`status-${passo.statusExibido || passo.status}`">
             <div class="passo-topo">
               <span class="numero-passo">{{ passo.indice }}</span>
-              <span class="selo-status" :class="`selo-${passo.status}`">{{ passo.rotuloStatus }}</span>
+              <span class="selo-status" :class="`selo-${passo.statusExibido || passo.status}`">{{ passo.rotuloStatus }}</span>
             </div>
 
             <div class="passo-conteudo">
               <h3>{{ passo.titulo }}</h3>
               <p>{{ passo.descricao }}</p>
-              <p class="status-passo">{{ passo.status === 'concluido' ? 'Passo já resolvido.' : passo.status === 'pendente' ? 'Este passo ainda é necessário.' : passo.status === 'recomendado' ? 'Vale fazer para deixar tudo pronto.' : 'Opcional, se fizer sentido para sua operação.' }}</p>
+              <p v-if="passo.importancia" class="importancia-passo">
+                {{ passo.importancia }}
+              </p>
+              <p class="status-passo">{{ textoEstadoPasso(passo) }}</p>
               <p v-if="passo.id === 'compartilhar-link' && !podeCopiarLink" class="observacao-passo">
                 Antes disso, configure o link público da empresa.
               </p>
@@ -905,15 +1042,15 @@ onBeforeUnmount(() => {
                 :disabled="!podeCopiarLink"
                 @click="emitirCopiaLink"
               >
-                {{ passo.rotuloAcao }}
+                {{ rotuloBotaoPasso(passo) }}
               </button>
 
               <RouterLink v-else-if="passoTemDestino(passo)" class="botao secundario compacto link-acao" :to="passo.to">
-                {{ passo.rotuloAcao }}
+                {{ rotuloBotaoPasso(passo) }}
               </RouterLink>
 
               <button v-else class="botao secundario compacto link-acao" type="button" disabled>
-                {{ passo.rotuloAcao }}
+                {{ rotuloBotaoPasso(passo) }}
               </button>
 
               <RouterLink v-if="passo.topicoAjuda" class="link-ajuda" :to="obterAjudaPasso(passo.topicoAjuda)">
@@ -1017,6 +1154,55 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--app-surface) 82%, var(--app-primary-soft));
 }
 
+.passo-destaque {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--app-primary) 32%, var(--app-border));
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--app-primary-soft) 38%, var(--app-surface)) 0%, var(--app-surface) 100%);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--app-primary) 12%, transparent);
+}
+
+.passo-destaque-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.passo-destaque-topo h3 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.passo-destaque-topo p,
+.passo-destaque-descricao,
+.passo-destaque-importancia {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+.passo-destaque-descricao {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.passo-destaque-importancia {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.passo-destaque-acoes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .resumo-linha strong {
   color: var(--app-text);
   font-size: 16px;
@@ -1082,6 +1268,7 @@ onBeforeUnmount(() => {
 .passo-card.status-concluido {
   border-color: color-mix(in srgb, var(--app-success) 55%, var(--app-border));
   background: color-mix(in srgb, var(--app-success-soft) 18%, var(--app-surface));
+  opacity: 0.92;
 }
 
 .passo-card.status-pendente {
@@ -1154,10 +1341,29 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
+.importancia-passo {
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .status-passo {
   color: var(--app-text);
   font-size: 13px;
   font-weight: 700;
+}
+
+.selo-prioridade {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
 .observacao-passo {
@@ -1200,11 +1406,17 @@ onBeforeUnmount(() => {
   .grade-passos {
     grid-template-columns: 1fr;
   }
+
+  .passo-destaque-topo {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 520px) {
   .assistente-primeiro-uso,
   .resumo-assistente,
+  .passo-destaque,
   .passo-card,
   .estado-assistente,
   .painel-recolhido {
@@ -1221,7 +1433,9 @@ onBeforeUnmount(() => {
   .botao-recolher,
   .botao-lista,
   .botao-expandir,
+  .passo-destaque-acoes .botao,
   .passo-acoes .botao,
+  .passo-destaque-acoes .link-acao,
   .passo-acoes .link-acao {
     width: 100%;
     justify-content: center;
