@@ -1,4 +1,5 @@
 import { debugLog } from '@/utils/devDebug'
+import { normalizarUrlImagemPublica } from '@/utils/imagens'
 
 const PUBLIC_APP_URL_HOMOLOGACAO = 'https://gestao-hml.nuvemmais.com.br'
 const PUBLIC_APP_URL_PRODUCAO = 'https://gestao.nuvemmais.com.br'
@@ -24,6 +25,7 @@ export const MENSAGEM_CADASTRO_PENDENTE =
 const CHAVE_EMPRESA_VISUALIZACAO = 'empresaVisualizacao'
 export const EVENTO_EMPRESA_VISUALIZACAO = 'empresa-visualizacao-atualizada'
 export const EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS = 'unidades-estoque-atualizadas'
+const CAMINHOS_PUBLICOS_FRONTEND = ['/cadastro', '/cadastro-empresa', '/comece-agora', '/termos', '/privacidade', '/sobre']
 
 function normalizarUrlBase(url, fallback = '') {
   const valor = String(url || '').trim()
@@ -101,6 +103,33 @@ export function montarLinkPublicoCardapio(slug) {
   const slugNormalizado = String(slug || '').trim()
 
   return slugNormalizado ? `${obterUrlPublicaFrontend()}/cardapio/${slugNormalizado}` : ''
+}
+
+function normalizarSlugPublico(slug) {
+  return encodeURIComponent(String(slug || '').trim())
+}
+
+export function caminhoEhRotaPublicaFrontend(caminho) {
+  const caminhoNormalizado = String(caminho || '').trim()
+
+  if (!caminhoNormalizado) {
+    return false
+  }
+
+  return (
+    caminhoNormalizado.startsWith('/agendar/') ||
+    caminhoNormalizado.startsWith('/catalogo/') ||
+    caminhoNormalizado.startsWith('/cardapio/') ||
+    CAMINHOS_PUBLICOS_FRONTEND.includes(caminhoNormalizado)
+  )
+}
+
+function rotaAtualEhPublicaFrontend() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return caminhoEhRotaPublicaFrontend(window.location?.pathname || '')
 }
 
 function normalizarBooleano(valor) {
@@ -727,6 +756,11 @@ function emitirMensagemGlobal(mensagem, tipo = 'erro') {
 
 function encerrarSessao(mensagem = MENSAGENS_PADRAO.sessaoExpirada) {
   limparSessaoAutenticacao()
+
+  if (rotaAtualEhPublicaFrontend()) {
+    return
+  }
+
   sessionStorage.setItem('mensagem-login', mensagem)
 
   if (window.location.pathname !== '/login') {
@@ -959,8 +993,9 @@ async function tratarResposta(response, opcoes = {}) {
 async function tratarRespostaPublica(response) {
   if (!response.ok) {
     const mensagem = await extrairMensagemErro(response)
-
-    throw new Error(mensagem)
+    const erro = new Error(mensagem)
+    erro.status = response.status
+    throw erro
   }
 
   if (response.status === 204) {
@@ -1016,7 +1051,8 @@ export async function buscarAgendamentos(filtros = {}) {
 }
 
 export async function buscarEmpresaPublica(slug) {
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}`, {
+  const slugNormalizado = normalizarSlugPublico(slug)
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -1024,7 +1060,8 @@ export async function buscarEmpresaPublica(slug) {
 }
 
 export async function buscarServicosPublicos(slug) {
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/servicos`, {
+  const slugNormalizado = normalizarSlugPublico(slug)
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/servicos`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -1032,12 +1069,16 @@ export async function buscarServicosPublicos(slug) {
 }
 
 export async function buscarCatalogoPublico(slug) {
-  const slugNormalizado = encodeURIComponent(String(slug || '').trim())
+  const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/catalogo`, {
     headers: montarHeadersPublicos(),
   })
 
   return normalizarRespostaCatalogoPublico(await tratarRespostaPublica(response))
+}
+
+export async function buscarCardapioPublico(slug) {
+  return buscarCatalogoPublico(slug)
 }
 
 export async function buscarSegmentosPublicos() {
@@ -1106,7 +1147,8 @@ export async function cadastrarEmpresaInteressadaPublico(dados) {
 }
 
 export async function buscarFuncionariosPublicos(slug, filtros = {}) {
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/funcionarios${montarQueryString(filtros)}`, {
+  const slugNormalizado = normalizarSlugPublico(slug)
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/funcionarios${montarQueryString(filtros)}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -1114,13 +1156,14 @@ export async function buscarFuncionariosPublicos(slug, filtros = {}) {
 }
 
 export async function buscarDisponibilidadePublica(slug, servicoId, funcionarioId, data) {
+  const slugNormalizado = normalizarSlugPublico(slug)
   const params = new URLSearchParams({
     servicoId,
     funcionarioId,
     data,
   })
 
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/disponibilidade?${params}`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/disponibilidade?${params}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -1128,8 +1171,9 @@ export async function buscarDisponibilidadePublica(slug, servicoId, funcionarioI
 }
 
 export async function buscarDisponibilidadeDataPublica(slug, data) {
+  const slugNormalizado = normalizarSlugPublico(slug)
   const params = new URLSearchParams({ data })
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/disponibilidade-data?${params}`, {
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/disponibilidade-data?${params}`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -1137,7 +1181,8 @@ export async function buscarDisponibilidadeDataPublica(slug, data) {
 }
 
 export async function criarAgendamentoPublico(slug, dados) {
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/agendamentos`, {
+  const slugNormalizado = normalizarSlugPublico(slug)
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/agendamentos`, {
     method: 'POST',
     headers: montarHeadersPublicos(true),
     body: JSON.stringify(dados),
@@ -1645,7 +1690,8 @@ export async function salvarMinhaPersonalizacao(dados) {
 }
 
 export async function buscarPersonalizacaoPublica(slug) {
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slug}/personalizacao`, {
+  const slugNormalizado = normalizarSlugPublico(slug)
+  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/personalizacao`, {
     headers: montarHeadersPublicos(),
   })
 
@@ -2471,7 +2517,9 @@ function normalizarProdutoEstoqueResposta(produto) {
     exibirCatalogoPublico,
     dataEstoqueDia,
     atualizadoEstoqueDiaEm,
-    imagemUrl: String(primeiroValorPreenchido(produto.imagemUrl, produto.fotoUrl, produto.imagem) || '').trim(),
+    imagemUrl: normalizarUrlImagemPublica(
+      String(primeiroValorPreenchido(produto.imagemUrl, produto.fotoUrl, produto.imagem) || '').trim(),
+    ),
     descricaoPublica: String(primeiroValorPreenchido(produto.descricaoPublica, produto.descricaoCatalogoPublico, produto.descricao) || '').trim(),
     categoriaPublica: String(primeiroValorPreenchido(produto.categoriaPublica, produto.categoriaCatalogoPublico, produto.categoria) || '').trim(),
     destaqueCatalogo: normalizarBooleanoFlexivelEstoque(produto.destaqueCatalogo, false),
@@ -2512,14 +2560,16 @@ export function normalizarProdutoCatalogoPublico(produto) {
 
   return {
     ...produtoBase,
-    imagemUrl: String(
-      primeiroValorPreenchido(
-        produtoBase.imagemUrl,
-        produtoBase.fotoUrl,
-        produtoBase.imagem,
-        produtoBase.imagemCatalogoPublico,
-      ) || '',
-    ).trim(),
+    imagemUrl: normalizarUrlImagemPublica(
+      String(
+        primeiroValorPreenchido(
+          produtoBase.imagemUrl,
+          produtoBase.fotoUrl,
+          produtoBase.imagem,
+          produtoBase.imagemCatalogoPublico,
+        ) || '',
+      ).trim(),
+    ),
     descricaoPublica: String(
       primeiroValorPreenchido(
         produtoBase.descricaoPublica,

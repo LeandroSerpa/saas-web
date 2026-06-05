@@ -3,13 +3,16 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+  buscarCardapioPublico,
   buscarCatalogoPublico,
   buscarEmpresaPublica,
   buscarPersonalizacaoPublica,
 } from '@/services/api'
+import { normalizarUrlImagemPublica } from '@/utils/imagens'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
+const acessandoViaCardapio = computed(() => String(route.path || '').startsWith('/cardapio/'))
 
 const carregando = ref(true)
 const indisponivel = ref(false)
@@ -243,7 +246,7 @@ function normalizarProdutoCatalogo(produto) {
     nome: String(item.nome || '').trim(),
     descricaoPublica: String(item.descricaoPublica || item.descricao || '').trim(),
     categoriaPublica,
-    imagemUrl: String(item.imagemUrl || item.fotoUrl || item.imagem || '').trim(),
+    imagemUrl: normalizarUrlImagemPublica(String(item.imagemUrl || item.fotoUrl || item.imagem || '').trim()),
     precoVenda: Number(item.precoVenda ?? item.preco ?? 0),
     quantidadeDisponivel: Number.isFinite(quantidadeDisponivel) ? quantidadeDisponivel : 0,
     unidade: String(item.unidade || item.unidadeMedida || 'UN').trim().toUpperCase(),
@@ -312,11 +315,15 @@ function chaveImagemProduto(produto) {
 function imagemProdutoDisponivel(produto) {
   const chave = chaveImagemProduto(produto)
 
-  if (!produto?.imagemUrl) {
+  if (!imagemProdutoUrl(produto)) {
     return false
   }
 
   return !imagensComErro.value[chave]
+}
+
+function imagemProdutoUrl(produto) {
+  return normalizarUrlImagemPublica(String(produto?.imagemUrl || '').trim())
 }
 
 function normalizarData(valor) {
@@ -431,11 +438,25 @@ function aoFalharImagemProduto(produto) {
   }
 }
 
+function mensagemIndisponibilidadeCatalogo(errorAtual) {
+  const status = Number(errorAtual?.status || 0)
+
+  if ([401, 403, 404].includes(status)) {
+    return 'Este catalogo publico nao foi encontrado ou nao esta disponivel no momento.'
+  }
+
+  if (status === 0) {
+    return 'Nao foi possivel conectar ao catalogo agora. Verifique sua internet e tente novamente.'
+  }
+
+  return 'Nao foi possivel carregar o catalogo desta empresa agora.'
+}
+
 async function carregarCatalogo() {
   if (!slug.value) {
     carregando.value = false
     indisponivel.value = true
-    erro.value = 'Catalogo publico invalido.'
+    erro.value = 'Link publico invalido. Confira o endereco e tente novamente.'
     return
   }
 
@@ -448,10 +469,11 @@ async function carregarCatalogo() {
     produtoSelecionado.value = null
     imagensComErro.value = {}
 
+    const buscarVitrinePublica = acessandoViaCardapio.value ? buscarCardapioPublico : buscarCatalogoPublico
     const [empresaApi, personalizacaoApi, catalogoApi] = await Promise.all([
       buscarEmpresaPublica(slug.value),
       buscarPersonalizacaoPublica(slug.value).catch(() => null),
-      buscarCatalogoPublico(slug.value),
+      buscarVitrinePublica(slug.value),
     ])
 
     empresa.value = {
@@ -466,7 +488,7 @@ async function carregarCatalogo() {
     categoriasResposta.value = normalizarLista(catalogoApi?.categorias)
   } catch (errorAtual) {
     indisponivel.value = true
-    erro.value = 'Nao foi possivel carregar o catalogo desta empresa agora.'
+    erro.value = mensagemIndisponibilidadeCatalogo(errorAtual)
     console.error(errorAtual)
   } finally {
     carregando.value = false
@@ -725,7 +747,7 @@ onBeforeUnmount(() => {
             >
               <img
                 v-if="imagemProdutoDisponivel(produto)"
-                :src="produto.imagemUrl"
+                :src="imagemProdutoUrl(produto)"
                 :alt="`Imagem de ${produto.nome}`"
                 class="produto-imagem"
                 @error="aoFalharImagemProduto(produto)"
@@ -794,7 +816,7 @@ onBeforeUnmount(() => {
               <div class="produto-modal-midia">
                 <img
                   v-if="imagemProdutoDisponivel(produtoSelecionado)"
-                  :src="produtoSelecionado.imagemUrl"
+                  :src="imagemProdutoUrl(produtoSelecionado)"
                   :alt="`Imagem ampliada de ${produtoSelecionado.nome}`"
                   class="produto-modal-imagem"
                   @error="aoFalharImagemProduto(produtoSelecionado)"

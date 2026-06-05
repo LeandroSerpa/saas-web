@@ -30,6 +30,7 @@ import {
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   atualizarProdutoEstoque,
 } from '@/services/api'
+import { normalizarUrlImagemPublica } from '@/utils/imagens'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const UNIDADES_FALLBACK = Object.freeze([
@@ -83,6 +84,7 @@ const erroMovimentacoes = ref('')
 const sucesso = ref('')
 const mensagemLinkCatalogo = ref('')
 const bloqueioPlano = ref(false)
+const erroPreviewImagemProduto = ref(false)
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
 const formularioProduto = ref(criarProdutoInicial())
@@ -103,6 +105,16 @@ const formularioReinicioEstoqueDia = ref(criarFormularioReinicioEstoqueDia())
 const reinicioSelecionados = ref({})
 const reinicioQuantidades = ref({})
 const reiniciandoEstoqueDia = ref(false)
+const imagemUrlFormularioNormalizada = computed(() =>
+  normalizarUrlImagemPublica(formularioProduto.value.imagemUrl),
+)
+
+watch(
+  () => formularioProduto.value.imagemUrl,
+  () => {
+    erroPreviewImagemProduto.value = false
+  },
+)
 
 const abasDisponiveis = computed(() => {
   const abas = [
@@ -967,7 +979,19 @@ function obterExibirCatalogoPublico(item) {
 }
 
 function obterImagemUrlProduto(item) {
-  return String(obterCampo(item, 'imagemUrl', 'fotoUrl', 'imagem') || '').trim()
+  return normalizarUrlImagemPublica(String(obterCampo(item, 'imagemUrl', 'fotoUrl', 'imagem') || '').trim())
+}
+
+function normalizarImagemUrlFormulario() {
+  formularioProduto.value.imagemUrl = imagemUrlFormularioNormalizada.value
+}
+
+function aoCarregarImagemFormulario() {
+  erroPreviewImagemProduto.value = false
+}
+
+function aoFalharImagemFormulario() {
+  erroPreviewImagemProduto.value = true
 }
 
 function obterDestaqueCatalogo(item) {
@@ -1425,6 +1449,7 @@ async function salvarProduto() {
       return
     }
 
+    normalizarImagemUrlFormulario()
     salvandoProduto.value = true
     const payload = montarPayloadProduto()
 
@@ -1447,6 +1472,8 @@ async function salvarProduto() {
 }
 
 function montarPayloadProduto() {
+  const imagemUrl = imagemUrlFormularioNormalizada.value
+
   const payload = {
     nome: formularioProduto.value.nome.trim(),
     descricao: formularioProduto.value.descricao.trim(),
@@ -1459,7 +1486,7 @@ function montarPayloadProduto() {
     estoqueMinimo: numeroOuZero(formularioProduto.value.estoqueMinimo),
     ativo: formularioProduto.value.ativo !== false,
     exibirCatalogoPublico: formularioProduto.value.exibirCatalogoPublico === true,
-    imagemUrl: formularioProduto.value.imagemUrl.trim(),
+    imagemUrl,
     descricaoPublica: formularioProduto.value.descricaoPublica.trim(),
     categoriaPublica: formularioProduto.value.categoriaPublica.trim(),
     destaqueCatalogo: formularioProduto.value.destaqueCatalogo === true,
@@ -1513,7 +1540,7 @@ function montarPayloadProdutoExistente(produtoOrigem, sobrescritas = {}) {
     codigoSku: String((sobrescritas.codigoSku ?? payloadBase.codigoSku) || '').trim(),
     sku: String((sobrescritas.sku ?? sobrescritas.codigoSku ?? payloadBase.sku) || '').trim(),
     categoria: normalizarCategoriaEnvio(sobrescritas.categoria ?? payloadBase.categoria),
-    imagemUrl: String((sobrescritas.imagemUrl ?? payloadBase.imagemUrl) || '').trim(),
+    imagemUrl: normalizarUrlImagemPublica(String((sobrescritas.imagemUrl ?? payloadBase.imagemUrl) || '').trim()),
     descricaoPublica: String((sobrescritas.descricaoPublica ?? payloadBase.descricaoPublica) || '').trim(),
     categoriaPublica: normalizarCategoriaEnvio(sobrescritas.categoriaPublica ?? payloadBase.categoriaPublica),
     ordemCatalogo: numeroOuZero(sobrescritas.ordemCatalogo ?? payloadBase.ordemCatalogo),
@@ -1785,6 +1812,7 @@ async function editarProduto(item) {
       ordemCatalogo: obterOrdemCatalogo(produtoDetalhado),
       textoBotaoPublico: obterTextoBotaoPublico(produtoDetalhado),
     }
+    erroPreviewImagemProduto.value = false
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar os dados do produto.')
   } finally {
@@ -1795,6 +1823,7 @@ async function editarProduto(item) {
 function cancelarEdicaoProduto(limparMensagens = true) {
   produtoEditandoId.value = null
   formularioProduto.value = criarProdutoInicial()
+  erroPreviewImagemProduto.value = false
 
   if (limparMensagens) {
     sucesso.value = ''
@@ -2580,7 +2609,7 @@ onBeforeUnmount(() => {
               Estoque mínimo
               <input v-model="formularioProduto.estoqueMinimo" type="number" min="0" step="0.01" />
             </label>
-            <label class="campo-checkbox destaque-checkbox">
+            <label class="campo-checkbox destaque-checkbox opcao-booleana">
               <input v-model="formularioProduto.ativo" type="checkbox" />
               Produto ativo
             </label>
@@ -2593,18 +2622,37 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="campos">
-              <label class="campo-checkbox destaque-checkbox">
+              <label class="campo-checkbox destaque-checkbox opcao-booleana">
                 <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
                 Exibir no catalogo publico
               </label>
-              <label class="campo-checkbox destaque-checkbox">
+              <label class="campo-checkbox destaque-checkbox opcao-booleana">
                 <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
                 Produto em destaque
               </label>
               <label>
                 Imagem do produto por URL
-                <input v-model="formularioProduto.imagemUrl" type="url" placeholder="https://..." />
-                <small>O upload de imagem fica para uma proxima fase. Por enquanto, use um link direto.</small>
+                <input
+                  v-model="formularioProduto.imagemUrl"
+                  type="url"
+                  placeholder="https://..."
+                  @blur="normalizarImagemUrlFormulario"
+                />
+                <small>Voce pode colar um link direto de imagem ou um link publico do Google Drive. No Google Drive, deixe o arquivo como "Qualquer pessoa com o link pode ver".</small>
+                <div v-if="imagemUrlFormularioNormalizada" class="preview-imagem-produto">
+                  <img
+                    v-if="!erroPreviewImagemProduto"
+                    :src="imagemUrlFormularioNormalizada"
+                    alt="Previa da imagem do produto"
+                    class="preview-imagem"
+                    @error="aoFalharImagemFormulario"
+                    @load="aoCarregarImagemFormulario"
+                  />
+                  <div v-else class="preview-imagem-erro">
+                    <strong>Previa indisponivel</strong>
+                    <small>A imagem nao carregou, mas o link pode continuar salvo para o catalogo publico.</small>
+                  </div>
+                </div>
               </label>
               <label>
                 Categoria publica
@@ -2626,11 +2674,11 @@ onBeforeUnmount(() => {
                 Texto do botao
                 <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
               </label>
-              <label class="campo-checkbox destaque-checkbox">
+              <label class="campo-checkbox destaque-checkbox opcao-booleana">
                 <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
                 Mostrar quantidade ao cliente
               </label>
-              <label class="campo-checkbox destaque-checkbox">
+              <label class="campo-checkbox destaque-checkbox opcao-booleana">
                 <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
                 Mostrar preco ao cliente
               </label>
@@ -2814,6 +2862,9 @@ onBeforeUnmount(() => {
   gap: 18px;
   color: #111827;
 }
+.estoque-view {
+  overflow-x: hidden;
+}
 .cabecalho-pagina,
 .cabecalho-secao,
 .topo-card,
@@ -2954,26 +3005,36 @@ small { color: #64748b; }
   border-bottom-color: #2563eb;
   color: #1d4ed8;
 }
-.campos { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 14px; }
+.campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .filtros-campos { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
 .campo-grande { grid-column: 1 / -1; }
-label { display: grid; gap: 7px; color: #334155; font-weight: 800; }
+label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #334155;
+  font-weight: 800;
+}
 
 .campo-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 10px;
   padding: 12px 14px;
   line-height: 1.25;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
   cursor: pointer;
 }
 
 .campo-checkbox input {
-  flex: 0 0 auto;
   width: auto;
-  margin: 0;
+  min-width: 18px;
+  margin: 2px 0 0;
 }
+.opcao-booleana { min-width: 0; }
 input, select, textarea {
   width: 100%;
   min-width: 0;
@@ -2994,6 +3055,33 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   border: 1px solid #dbe4f0;
   border-radius: 8px;
   background: #f8fafc;
+}
+.preview-imagem-produto {
+  display: grid;
+  gap: 10px;
+  max-width: 100%;
+  padding: 12px;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.preview-imagem {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+.preview-imagem-erro {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+.preview-imagem-erro strong {
+  font-size: 14px;
 }
 .grade-produtos { display: grid; grid-template-columns: repeat(2, minmax(340px, 1fr)); gap: 18px; }
 .lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
@@ -3139,6 +3227,7 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .botao,
   .botao-fechar { width: auto; }
   .campo-checkbox {
+    grid-template-columns: 18px minmax(0, 1fr);
     align-items: flex-start;
   }
 }

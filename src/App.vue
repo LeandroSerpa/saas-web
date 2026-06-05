@@ -400,7 +400,12 @@ function alterarTemaAparencia(novoTema) {
 }
 
 function atualizarUsuarioLogado() {
-  if (rotaAgendamentoPublico.value) {
+  if (
+    rotaAgendamentoPublico.value ||
+    rotaCatalogoPublico.value ||
+    rotaCadastroPublico.value ||
+    rotaInstitucionalPublica.value
+  ) {
     usuario.value = null
     statusFinanceiro.value = null
     return

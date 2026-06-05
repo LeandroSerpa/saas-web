@@ -17,11 +17,15 @@ const route = useRoute()
 const router = useRouter()
 
 const estilosPreview = computed(() => ({
-  '--cor-principal': personalizacao.value.corPrincipal || '#2563eb',
-  '--cor-secundaria': personalizacao.value.corSecundaria || '#0f172a',
+  '--cor-principal': corPrincipalPreview.value,
+  '--cor-secundaria': corSecundariaPreview.value,
 }))
 
 const classeTemaPreview = computed(() => `tema-${normalizarTema(personalizacao.value.tema).toLowerCase()}`)
+const corPrincipalPreview = computed(() => normalizarCorHex(personalizacao.value.corPrincipal, '#2563eb'))
+const corSecundariaPreview = computed(() => normalizarCorHex(personalizacao.value.corSecundaria, '#0f172a'))
+const corPrincipalInvalida = computed(() => corHexDigitadaInvalida(personalizacao.value.corPrincipal))
+const corSecundariaInvalida = computed(() => corHexDigitadaInvalida(personalizacao.value.corSecundaria))
 
 onMounted(() => {
   carregarPersonalizacao()
@@ -71,13 +75,22 @@ async function salvarPersonalizacao() {
     erro.value = ''
     mensagemSucesso.value = ''
 
-    if (!corHexValida(personalizacao.value.corPrincipal) || !corHexValida(personalizacao.value.corSecundaria)) {
+    const corPrincipal = normalizarCorHex(personalizacao.value.corPrincipal, '')
+    const corSecundaria = normalizarCorHex(personalizacao.value.corSecundaria, '')
+
+    if (!corPrincipal || !corSecundaria) {
       erro.value = 'A cor deve estar no formato hexadecimal, exemplo #2563eb.'
       return
     }
 
     salvando.value = true
-    await salvarMinhaPersonalizacao({ ...personalizacao.value })
+    personalizacao.value.corPrincipal = corPrincipal
+    personalizacao.value.corSecundaria = corSecundaria
+    await salvarMinhaPersonalizacao({
+      ...personalizacao.value,
+      corPrincipal,
+      corSecundaria,
+    })
     await retornarParaOnboardingSeNecessario('PERSONALIZACAO')
     mensagemSucesso.value = 'Personalização salva com sucesso.'
   } catch (error) {
@@ -95,8 +108,8 @@ function normalizarPersonalizacao(dados) {
   return {
     ...padrao,
     ...origem,
-    corPrincipal: origem.corPrincipal || padrao.corPrincipal,
-    corSecundaria: origem.corSecundaria || padrao.corSecundaria,
+    corPrincipal: normalizarCorHex(origem.corPrincipal, padrao.corPrincipal),
+    corSecundaria: normalizarCorHex(origem.corSecundaria, padrao.corSecundaria),
     tema: temas.includes(origem.tema) ? origem.tema : padrao.tema,
     mostrarPreco: origem.mostrarPreco !== false,
     mostrarFuncionario: origem.mostrarFuncionario !== false,
@@ -124,6 +137,34 @@ function limparOrigemOnboarding() {
 
 function corHexValida(cor) {
   return /^#[0-9a-fA-F]{6}$/.test(String(cor || '').trim())
+}
+
+function corHexDigitadaInvalida(cor) {
+  const texto = String(cor || '').trim()
+
+  if (!texto) {
+    return false
+  }
+
+  return !/^#?[0-9a-fA-F]{6}$/.test(texto)
+}
+
+function normalizarCorHex(cor, fallback = '') {
+  const texto = String(cor || '').trim().toLowerCase()
+
+  if (!texto) {
+    return fallback
+  }
+
+  if (/^#[0-9a-f]{6}$/.test(texto)) {
+    return texto
+  }
+
+  if (/^[0-9a-f]{6}$/.test(texto)) {
+    return `#${texto}`
+  }
+
+  return fallback
 }
 
 function normalizarTema(tema) {
@@ -192,13 +233,53 @@ function obterMensagemErro(error, fallback) {
               URL do banner
               <input v-model="personalizacao.bannerUrl" type="text" placeholder="https://..." />
             </label>
-            <label>
-              Cor principal
-              <input v-model="personalizacao.corPrincipal" type="text" placeholder="#2563eb" />
+            <label class="campo-cor">
+              <span>Cor principal</span>
+              <div class="campo-cor-controles">
+                <input
+                  :value="corPrincipalPreview"
+                  class="seletor-cor"
+                  type="color"
+                  aria-label="Selecionar cor principal"
+                  @input="personalizacao.corPrincipal = normalizarCorHex($event.target.value, '#2563eb')"
+                />
+                <span class="amostra-cor" :style="{ backgroundColor: corPrincipalPreview }" aria-hidden="true"></span>
+                <input
+                  v-model="personalizacao.corPrincipal"
+                  :class="{ invalido: corPrincipalInvalida }"
+                  class="campo-cor-texto"
+                  type="text"
+                  placeholder="#2563eb"
+                  @blur="personalizacao.corPrincipal = normalizarCorHex(personalizacao.corPrincipal, '#2563eb')"
+                />
+              </div>
+              <small class="ajuda-campo">Clique no quadrado para escolher uma cor. O código hexadecimal será preenchido automaticamente.</small>
+              <small v-if="corPrincipalInvalida" class="ajuda-campo aviso">Use o formato #000000.</small>
+              <small class="ajuda-campo neutro">Use a cor principal para botões e destaques. Ela também afeta a página pública, o catálogo e o cardápio.</small>
             </label>
-            <label>
-              Cor secundária
-              <input v-model="personalizacao.corSecundaria" type="text" placeholder="#0f172a" />
+            <label class="campo-cor">
+              <span>Cor secundária</span>
+              <div class="campo-cor-controles">
+                <input
+                  :value="corSecundariaPreview"
+                  class="seletor-cor"
+                  type="color"
+                  aria-label="Selecionar cor secundária"
+                  @input="personalizacao.corSecundaria = normalizarCorHex($event.target.value, '#0f172a')"
+                />
+                <span class="amostra-cor" :style="{ backgroundColor: corSecundariaPreview }" aria-hidden="true"></span>
+                <input
+                  v-model="personalizacao.corSecundaria"
+                  :class="{ invalido: corSecundariaInvalida }"
+                  class="campo-cor-texto"
+                  type="text"
+                  placeholder="#0f172a"
+                  @blur="personalizacao.corSecundaria = normalizarCorHex(personalizacao.corSecundaria, '#0f172a')"
+                />
+              </div>
+              <small class="ajuda-campo">Clique no quadrado para escolher uma cor. O código hexadecimal será preenchido automaticamente.</small>
+              <small v-if="corSecundariaInvalida" class="ajuda-campo aviso">Use o formato #000000.</small>
+              <small class="ajuda-campo neutro">Use a cor secundária para textos, detalhes ou contraste.</small>
             </label>
             <label>
               Tema
@@ -401,6 +482,17 @@ h1 {
   gap: 16px;
 }
 
+.campo-cor {
+  align-content: start;
+}
+
+.campo-cor-controles {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -419,6 +511,61 @@ textarea {
   padding: 11px 12px;
   font-size: 15px;
   box-sizing: border-box;
+}
+
+input[type='color'] {
+  width: 48px;
+  height: 48px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type='color']::-webkit-color-swatch {
+  border: 0;
+  border-radius: 10px;
+}
+
+.seletor-cor {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: white;
+}
+
+.amostra-cor {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.campo-cor-texto {
+  min-width: 0;
+}
+
+.ajuda-campo {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ajuda-campo.aviso {
+  color: #b45309;
+}
+
+.ajuda-campo.neutro {
+  color: #475569;
+}
+
+.invalido {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
 }
 
 textarea {
