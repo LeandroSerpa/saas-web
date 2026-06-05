@@ -3076,9 +3076,8 @@ label {
   padding: 12px 14px;
   line-height: 1.35;
   white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: normal;
-  hyphens: manual;
+  word-break: normal;
+  overflow-wrap: break-word;
   cursor: pointer;
 }
 
@@ -3093,14 +3092,13 @@ label {
   min-width: 0;
   flex: 1 1 auto;
   white-space: normal;
-  overflow-wrap: normal;
-  word-break: keep-all;
-  hyphens: manual;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .estoque-opcoes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   width: 100%;
   min-width: 0;
@@ -3111,7 +3109,7 @@ label {
 }
 
 .estoque-opcao-card {
-  min-width: 0;
+  min-width: 220px;
   min-height: 64px;
   align-items: center;
 }
@@ -3120,8 +3118,6 @@ label {
   display: block;
   line-height: 1.4;
   white-space: normal;
-  overflow-wrap: normal;
-  word-break: keep-all;
 }
 
 .opcao-booleana {

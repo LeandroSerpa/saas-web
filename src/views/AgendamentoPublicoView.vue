@@ -1315,19 +1315,17 @@ onMounted(() => {
 .pagina-publica { min-height: 100vh; padding: 30px 16px 24px; background: radial-gradient(circle at 8% -5%, color-mix(in srgb, var(--publico-cor-principal), transparent 82%), transparent 32%), linear-gradient(180deg, color-mix(in srgb, var(--publico-cor-hero), white 34%) 0%, var(--publico-cor-fundo) 52%, color-mix(in srgb, var(--publico-cor-fundo), #e2e8f0 18%) 100%); color: var(--publico-cor-texto); }
 .pagina-publica.tema-moderno { background: radial-gradient(circle at top left, color-mix(in srgb, var(--publico-cor-principal), transparent 84%), transparent 34%), linear-gradient(135deg, var(--publico-cor-fundo) 0%, color-mix(in srgb, var(--publico-cor-principal), white 88%) 48%, color-mix(in srgb, var(--publico-cor-secundaria), white 90%) 100%); }
 .pagina-publica.tema-escuro,
-.pagina-publica.tema-preto_elegante,
 .pagina-publica.tema-preto_dourado { background: var(--publico-cor-fundo); color: var(--publico-cor-texto); }
 .pagina-publica.tema-suave { background: var(--publico-cor-fundo); color: var(--publico-cor-texto); }
 .conteudo-publico { width: 100%; max-width: 1160px; margin: 0 auto; display: grid; gap: 20px; }
 .card { background: var(--publico-cor-card); border: 1px solid var(--publico-cor-borda); border-radius: 18px; padding: 22px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
 .tema-moderno .card { border-radius: 18px; border-color: rgba(37, 99, 235, 0.16); box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14); }
 .tema-escuro .card,
-.tema-preto_elegante .card,
 .tema-preto_dourado .card { background: #111827; border-color: rgba(148, 163, 184, 0.22); color: #e5e7eb; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32); }
 .tema-suave .card { background: #ffffff; border-color: #dbeafe; box-shadow: 0 10px 26px rgba(37, 99, 235, 0.07); }
 .hero-publico { display: grid; gap: 18px; }
-.banner-publico { min-height: 150px; height: clamp(150px, 24vw, 280px); max-height: 280px; overflow: hidden; border-radius: 14px; background: color-mix(in srgb, var(--publico-cor-fundo-secundario), white 72%); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
-.banner-publico img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; background: #ffffff; }
+.banner-publico { min-height: 150px; height: clamp(150px, 24vw, 280px); max-height: 280px; overflow: hidden; border-radius: 14px; background: var(--publico-cor-fundo-secundario); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
+.banner-publico img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; }
 .banner-publico-placeholder {
   display: grid;
   place-items: center;
@@ -1349,7 +1347,6 @@ onMounted(() => {
 .estado h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; }
 .estado p { margin: 0; color: #64748b; }
 .tema-escuro .estado p, .tema-escuro .mensagem-publica, .tema-escuro .dados-empresa p, .tema-escuro .titulo-card p, .tema-escuro .titulo-horarios p, .tema-escuro .aviso-horario, .tema-escuro .previa, .tema-escuro .bloco-publico p, .tema-escuro .politica-publica p,
-.tema-preto_elegante .estado p, .tema-preto_elegante .mensagem-publica, .tema-preto_elegante .dados-empresa p, .tema-preto_elegante .titulo-card p, .tema-preto_elegante .titulo-horarios p, .tema-preto_elegante .aviso-horario, .tema-preto_elegante .previa, .tema-preto_elegante .bloco-publico p, .tema-preto_elegante .politica-publica p,
 .tema-preto_dourado .estado p, .tema-preto_dourado .mensagem-publica, .tema-preto_dourado .dados-empresa p, .tema-preto_dourado .titulo-card p, .tema-preto_dourado .titulo-horarios p, .tema-preto_dourado .aviso-horario, .tema-preto_dourado .previa, .tema-preto_dourado .bloco-publico p, .tema-preto_dourado .politica-publica p { color: #cbd5e1; }
 .cabecalho-publico { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 22px; align-items: flex-start; }
 .identidade-empresa { display: flex; align-items: flex-start; gap: 20px; }
@@ -1374,7 +1371,6 @@ onMounted(() => {
 .links-institucionais a { color: #64748b; font-size: 13px; font-weight: 700; text-decoration: none; }
 .links-institucionais a:hover { color: var(--cor-principal-publica, #2563eb); text-decoration: underline; }
 .tema-escuro .links-institucionais a,
-.tema-preto_elegante .links-institucionais a,
 .tema-preto_dourado .links-institucionais a { color: #cbd5e1; }
 .confirmacao-card { display: grid; gap: 18px; border-color: #bbf7d0; background: #fbfffd; }
 .confirmacao-topo { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; padding-bottom: 16px; border-bottom: 1px solid #dcfce7; }
@@ -1395,7 +1391,6 @@ onMounted(() => {
 .formulario { display: grid; gap: 16px; }
 .titulo-card h2 { margin: 0; font-size: 22px; color: #111827; font-weight: 800; }
 .tema-escuro .titulo-card h2, .tema-escuro .titulo-horarios h3, .tema-escuro .estado-horarios strong, .tema-escuro .politica-publica h2,
-.tema-preto_elegante .titulo-card h2, .tema-preto_elegante .titulo-horarios h3, .tema-preto_elegante .estado-horarios strong, .tema-preto_elegante .politica-publica h2,
 .tema-preto_dourado .titulo-card h2, .tema-preto_dourado .titulo-horarios h3, .tema-preto_dourado .estado-horarios strong, .tema-preto_dourado .politica-publica h2 { color: #f8fafc; }
 .titulo-card p { margin: 6px 0 0; color: #64748b; font-size: 14px; }
 .campos { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 16px; }
@@ -1404,7 +1399,6 @@ onMounted(() => {
 label { display: grid; gap: 6px; color: #374151; font-weight: 700; font-size: 14px; }
 input, select, textarea { width: 100%; min-width: 0; border: 1px solid #d1d5db; border-radius: 10px; padding: 11px 12px; font-size: 15px; background: white; box-sizing: border-box; }
 .tema-escuro input, .tema-escuro select, .tema-escuro textarea,
-.tema-preto_elegante input, .tema-preto_elegante select, .tema-preto_elegante textarea,
 .tema-preto_dourado input, .tema-preto_dourado select, .tema-preto_dourado textarea { background: #0f172a; border-color: #334155; color: #f8fafc; }
 .tema-moderno input, .tema-moderno select, .tema-moderno textarea, .tema-moderno .horarios, .tema-moderno .previa { border-radius: 14px; }
 .tema-suave input, .tema-suave select, .tema-suave textarea { border-color: #bfdbfe; background: #fbfdff; }
@@ -1413,7 +1407,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .campo-grande { grid-column: 1 / -1; }
 .horarios { display: grid; gap: 14px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc; }
 .tema-escuro .horarios, .tema-escuro .estado-horarios, .tema-escuro .previa, .tema-escuro .resumo-confirmacao div, .tema-escuro .lista-ocupados span,
-.tema-preto_elegante .horarios, .tema-preto_elegante .estado-horarios, .tema-preto_elegante .previa, .tema-preto_elegante .resumo-confirmacao div, .tema-preto_elegante .lista-ocupados span,
 .tema-preto_dourado .horarios, .tema-preto_dourado .estado-horarios, .tema-preto_dourado .previa, .tema-preto_dourado .resumo-confirmacao div, .tema-preto_dourado .lista-ocupados span { background: #0f172a; border-color: #334155; }
 .tema-suave .horarios, .tema-suave .previa { background: #f1f8ff; border-color: #dbeafe; }
 .titulo-horarios h3, .titulo-horarios p { margin: 0; }
@@ -1423,7 +1416,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .horario { min-height: 56px; border: 1px solid #bfdbfe; border-radius: 10px; background: white; color: var(--cor-principal-publica, #1d4ed8); cursor: pointer; font-size: 16px; font-weight: 800; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease; }
 .tema-moderno .horario { min-height: 62px; border-radius: 14px; box-shadow: 0 10px 22px rgba(37, 99, 235, 0.1); }
 .tema-escuro .horario,
-.tema-preto_elegante .horario,
 .tema-preto_dourado .horario { background: #1f2937; border-color: #334155; }
 .tema-suave .horario { background: #ffffff; border-color: #dbeafe; }
 .horario:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--cor-principal-publica, #2563eb); background: #eff6ff; }
@@ -1447,7 +1439,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .tema-moderno .botao { border-radius: 999px; padding: 12px 18px; box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18); }
 .tema-suave .botao { color: var(--cor-secundaria-publica, #0f172a); background: #dbeafe; }
 .tema-escuro .secundario,
-.tema-preto_elegante .secundario,
 .tema-preto_dourado .secundario { background: #334155; color: #f8fafc; }
 .botao:hover:not(:disabled) { transform: translateY(-1px); }
 .botao:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -1473,8 +1464,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 @media (max-width: 520px) {
   .pagina-publica { padding: 20px 12px 18px; }
   .card { padding: 16px; border-radius: 14px; }
-  .banner-publico { min-height: 118px; height: clamp(118px, 44vw, 188px); max-height: 188px; padding: 8px; background: color-mix(in srgb, var(--publico-cor-fundo-secundario), white 86%); }
-  .banner-publico img { object-fit: contain; border-radius: 12px; }
+  .banner-publico { min-height: 130px; }
   .logo-publico, .logo-fallback { width: 68px; height: 68px; border-radius: 14px; }
   .grade-horarios { grid-template-columns: 1fr; }
 }

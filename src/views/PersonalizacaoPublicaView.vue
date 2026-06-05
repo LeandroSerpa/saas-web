@@ -731,7 +731,6 @@ input[type='checkbox'] {
   background: var(--preview-cor-card);
   border-color: var(--preview-cor-borda);
   color: var(--preview-cor-texto);
-  overflow: hidden;
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
@@ -750,8 +749,7 @@ input[type='checkbox'] {
   box-shadow: 0 22px 52px rgba(15, 23, 42, 0.18);
 }
 
-.preview.tema-escuro,
-.preview.tema-preto_elegante {
+.preview.tema-escuro {
   border-color: rgba(148, 163, 184, 0.24);
   background: var(--preview-cor-card);
   color: var(--preview-cor-texto);
@@ -788,8 +786,7 @@ input[type='checkbox'] {
   max-height: 210px;
   overflow: hidden;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--preview-cor-fundo-secundario), white 72%);
-  padding: 8px;
+  background: var(--preview-cor-fundo-secundario);
 }
 
 .tema-moderno .preview-banner {
@@ -800,10 +797,8 @@ input[type='checkbox'] {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
-  border-radius: 6px;
-  background: #ffffff;
 }
 
 .preview-banner-placeholder {
@@ -825,17 +820,13 @@ input[type='checkbox'] {
   display: flex;
   gap: 12px;
   align-items: center;
-  min-width: 0;
 }
 
 .preview-topo img {
   width: 58px;
   height: 58px;
-  flex: 0 0 58px;
   border-radius: 8px;
-  object-fit: contain;
-  background: #ffffff;
-  border: 1px solid var(--preview-cor-borda);
+  object-fit: cover;
 }
 
 .preview-logo-fallback {
@@ -859,7 +850,6 @@ input[type='checkbox'] {
 
 .preview-topo h2 {
   color: var(--preview-cor-texto);
-  overflow-wrap: anywhere;
 }
 
 .tema-escuro .preview-topo h2,
@@ -867,13 +857,7 @@ input[type='checkbox'] {
 .tema-escuro .preview-texto,
 .tema-escuro .preview-instrucoes,
 .tema-escuro .preview-servico small,
-.tema-escuro .preview-produto small,
-.tema-preto_elegante .preview-topo h2,
-.tema-preto_elegante .preview-legenda small,
-.tema-preto_elegante .preview-texto,
-.tema-preto_elegante .preview-instrucoes,
-.tema-preto_elegante .preview-servico small,
-.tema-preto_elegante .preview-produto small {
+.tema-escuro .preview-produto small {
   color: #e5e7eb;
 }
 
@@ -881,8 +865,6 @@ input[type='checkbox'] {
 .preview-instrucoes {
   margin: 0;
   color: var(--preview-cor-texto-suave);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
 }
 
 .preview-instrucoes {
@@ -898,8 +880,7 @@ input[type='checkbox'] {
   box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
 }
 
-.tema-escuro .preview-instrucoes,
-.tema-preto_elegante .preview-instrucoes {
+.tema-escuro .preview-instrucoes {
   background: #1f2937;
   border-left-color: var(--cor-principal);
 }
@@ -925,8 +906,7 @@ input[type='checkbox'] {
   box-shadow: 0 14px 34px rgba(37, 99, 235, 0.16);
 }
 
-.tema-escuro .preview-servico,
-.tema-preto_elegante .preview-servico {
+.tema-escuro .preview-servico {
   border-color: rgba(148, 163, 184, 0.22);
   background: #1f2937;
 }
@@ -980,8 +960,7 @@ input[type='checkbox'] {
   border-radius: 999px;
 }
 
-.tema-escuro .preview-links a,
-.tema-preto_elegante .preview-links a {
+.tema-escuro .preview-links a {
   background: #374151;
 }
 
@@ -1014,7 +993,6 @@ input[type='checkbox'] {
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
-  min-width: 0;
 }
 
 .preview-catalogo-topo span {
@@ -1028,7 +1006,6 @@ input[type='checkbox'] {
 .preview-catalogo-topo strong {
   display: block;
   margin-top: 4px;
-  overflow-wrap: anywhere;
 }
 
 .preview-badge {
@@ -1040,7 +1017,6 @@ input[type='checkbox'] {
   color: var(--cor-principal);
   font-size: 11px;
   font-weight: 800;
-  white-space: nowrap;
 }
 
 .preview-produto {
@@ -1065,12 +1041,6 @@ input[type='checkbox'] {
 .preview-produto-corpo {
   display: grid;
   gap: 6px;
-  min-width: 0;
-}
-
-.preview-produto-corpo strong,
-.preview-produto-corpo small {
-  overflow-wrap: anywhere;
 }
 
 .preview-produto-corpo small {
@@ -1097,7 +1067,6 @@ input[type='checkbox'] {
   color: white;
   background: var(--cor-principal);
   font-weight: 800;
-  white-space: nowrap;
 }
 
 .tema-moderno .preview-catalogo {
@@ -1106,16 +1075,13 @@ input[type='checkbox'] {
   box-shadow: 0 16px 34px rgba(37, 99, 235, 0.12);
 }
 
-.tema-escuro .preview-catalogo,
-.tema-preto_elegante .preview-catalogo {
+.tema-escuro .preview-catalogo {
   border-color: rgba(148, 163, 184, 0.22);
   background: #0f172a;
 }
 
 .tema-escuro .preview-catalogo-topo span,
-.tema-escuro .preview-catalogo-topo strong,
-.tema-preto_elegante .preview-catalogo-topo span,
-.tema-preto_elegante .preview-catalogo-topo strong {
+.tema-escuro .preview-catalogo-topo strong {
   color: #f8fafc;
 }
 
@@ -1133,30 +1099,6 @@ input[type='checkbox'] {
 
   .preview {
     position: static;
-  }
-}
-
-@media (max-width: 560px) {
-  .preview-banner {
-    min-height: 118px;
-    height: clamp(118px, 44vw, 176px);
-    max-height: 176px;
-  }
-
-  .preview-produto {
-    grid-template-columns: 64px minmax(0, 1fr);
-  }
-
-  .preview-produto-capa {
-    width: 64px;
-    height: 64px;
-    border-radius: 14px;
-    font-size: 20px;
-  }
-
-  .preview-produto-rodape {
-    align-items: flex-start;
-    flex-direction: column;
   }
 }
 </style>
