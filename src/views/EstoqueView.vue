@@ -85,6 +85,7 @@ const sucesso = ref('')
 const mensagemLinkCatalogo = ref('')
 const bloqueioPlano = ref(false)
 const erroPreviewImagemProduto = ref(false)
+const errosImagemProduto = ref({})
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
 const formularioProduto = ref(criarProdutoInicial())
@@ -441,6 +442,7 @@ async function carregarTela() {
 
     if (produtosResultado.sucesso) {
       produtos.value = normalizarLista(produtosApi)
+      errosImagemProduto.value = {}
     }
 
     if (movimentacoesResultado.sucesso) {
@@ -491,6 +493,7 @@ async function carregarProdutos() {
 
     if (produtosResultado.sucesso) {
       produtos.value = normalizarLista(dadosConsulta(produtosResultado))
+      errosImagemProduto.value = {}
     }
 
     if (estoqueDiaResultado.sucesso) {
@@ -980,6 +983,29 @@ function obterExibirCatalogoPublico(item) {
 
 function obterImagemUrlProduto(item) {
   return normalizarUrlImagemPublica(String(obterCampo(item, 'imagemUrl', 'fotoUrl', 'imagem') || '').trim())
+}
+
+function chaveImagemProduto(item) {
+  return String(obterCampo(item, 'id', 'codigoSku', 'codigo', 'nome') || '').trim()
+}
+
+function imagemProdutoDisponivel(item) {
+  const chave = chaveImagemProduto(item)
+
+  return Boolean(obterImagemUrlProduto(item)) && !errosImagemProduto.value[chave]
+}
+
+function aoFalharImagemProduto(item) {
+  const chave = chaveImagemProduto(item)
+
+  if (!chave) {
+    return
+  }
+
+  errosImagemProduto.value = {
+    ...errosImagemProduto.value,
+    [chave]: true,
+  }
 }
 
 function normalizarImagemUrlFormulario() {
@@ -2145,10 +2171,12 @@ onBeforeUnmount(() => {
               </select>
               <small>Use o seletor de visualização no topo para trocar a empresa.</small>
             </label>
-            <label class="campo-checkbox destaque-checkbox">
-              <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
-              <span class="campo-checkbox-texto">Somente baixo estoque</span>
-            </label>
+            <div class="estoque-opcoes-grid estoque-opcoes-grid--compacta">
+              <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
+                <span class="campo-checkbox-texto estoque-opcao-label">Somente baixo estoque</span>
+              </label>
+            </div>
           </div>
 
           <div class="acoes">
@@ -2183,7 +2211,23 @@ onBeforeUnmount(() => {
 
         <section v-if="!erroProdutos && produtosVisiveis.length" class="grade-produtos">
           <article v-for="produto in produtosPaginados" :key="produto.id" class="card produto-card">
-            <div class="topo-card">
+            <div class="produto-card-topo">
+              <div class="produto-miniatura">
+                <img
+                  v-if="imagemProdutoDisponivel(produto)"
+                  :src="obterImagemUrlProduto(produto)"
+                  :alt="`Miniatura de ${obterNomeProduto(produto)}`"
+                  class="produto-miniatura-imagem"
+                  @error="aoFalharImagemProduto(produto)"
+                />
+                <div v-else class="produto-miniatura-placeholder">
+                  <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
+                  <span>Sem imagem</span>
+                </div>
+              </div>
+
+              <div class="produto-card-topo-conteudo">
+                <div class="topo-card">
               <div>
                 <h3>{{ obterNomeProduto(produto) }}</h3>
                 <p>{{ obterCategoriaProduto(produto) }}</p>
@@ -2205,7 +2249,9 @@ onBeforeUnmount(() => {
               <p><strong>Preço de venda:</strong> {{ formatarMoeda(obterPrecoVenda(produto)) }}</p>
             </div>
 
-            <p v-if="obterDescricaoProduto(produto)" class="descricao-produto">{{ obterDescricaoProduto(produto) }}</p>
+                <p v-if="obterDescricaoProduto(produto)" class="descricao-produto">{{ obterDescricaoProduto(produto) }}</p>
+              </div>
+            </div>
 
             <div v-if="!modoVisualizacaoSuperAdmin" class="acoes acoes-produto-card">
               <button class="botao secundario" @click="editarProduto(produto)">Editar</button>
@@ -2609,10 +2655,12 @@ onBeforeUnmount(() => {
               Estoque mínimo
               <input v-model="formularioProduto.estoqueMinimo" type="number" min="0" step="0.01" />
             </label>
-            <label class="campo-checkbox destaque-checkbox opcao-booleana">
-              <input v-model="formularioProduto.ativo" type="checkbox" />
-              <span class="campo-checkbox-texto">Produto ativo</span>
-            </label>
+            <div class="campo-grande estoque-opcoes-grid">
+              <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                <input v-model="formularioProduto.ativo" type="checkbox" />
+                <span class="campo-checkbox-texto estoque-opcao-label">Produto ativo</span>
+              </label>
+            </div>
           </div>
 
           <section class="secao-formulario-publico">
@@ -2622,14 +2670,6 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="campos">
-              <label class="campo-checkbox destaque-checkbox opcao-booleana">
-                <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
-                <span class="campo-checkbox-texto">Exibir no catalogo publico</span>
-              </label>
-              <label class="campo-checkbox destaque-checkbox opcao-booleana">
-                <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
-                <span class="campo-checkbox-texto">Produto em destaque</span>
-              </label>
               <label>
                 Imagem do produto por URL
                 <input
@@ -2674,14 +2714,24 @@ onBeforeUnmount(() => {
                 Texto do botao
                 <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
               </label>
-              <label class="campo-checkbox destaque-checkbox opcao-booleana">
-                <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
-                <span class="campo-checkbox-texto">Mostrar quantidade ao cliente</span>
-              </label>
-              <label class="campo-checkbox destaque-checkbox opcao-booleana">
-                <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
-                <span class="campo-checkbox-texto">Mostrar preco ao cliente</span>
-              </label>
+              <div class="campo-grande estoque-opcoes-grid">
+                <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                  <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
+                  <span class="campo-checkbox-texto estoque-opcao-label">Exibir no catalogo publico</span>
+                </label>
+                <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                  <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
+                  <span class="campo-checkbox-texto estoque-opcao-label">Produto em destaque</span>
+                </label>
+                <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                  <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
+                  <span class="campo-checkbox-texto estoque-opcao-label">Mostrar quantidade ao cliente</span>
+                </label>
+                <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                  <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
+                  <span class="campo-checkbox-texto estoque-opcao-label">Mostrar preco ao cliente</span>
+                </label>
+              </div>
             </div>
           </section>
 
@@ -3046,6 +3096,30 @@ label {
   word-break: normal;
 }
 
+.estoque-opcoes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.estoque-opcoes-grid--compacta {
+  grid-column: 1 / -1;
+}
+
+.estoque-opcao-card {
+  min-width: 220px;
+  min-height: 64px;
+  align-items: center;
+}
+
+.estoque-opcao-label {
+  display: block;
+  line-height: 1.4;
+  white-space: normal;
+}
+
 .opcao-booleana {
   min-width: 0;
   min-height: 58px;
@@ -3102,6 +3176,56 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 .lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
 .produto-card,
 .historico-card { display: grid; gap: 14px; }
+.produto-card-topo {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.produto-card-topo-conteudo {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.produto-miniatura {
+  width: 96px;
+  min-width: 96px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #dbe4f0;
+  background: #f8fafc;
+}
+.produto-miniatura-imagem,
+.produto-miniatura-placeholder {
+  width: 100%;
+  height: 100%;
+}
+.produto-miniatura-imagem {
+  display: block;
+  object-fit: cover;
+}
+.produto-miniatura-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 8px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #eff6ff, #f8fafc);
+  color: #1d4ed8;
+}
+.produto-miniatura-placeholder strong {
+  font-size: 22px;
+  font-weight: 900;
+}
+.produto-miniatura-placeholder span {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .catalogo-imagem {
   width: 100%;
   aspect-ratio: 4 / 3;
@@ -3238,6 +3362,7 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .acoes-preparo-item,
   .acoes-estoque-dia,
   .controle-quantidade-dia { grid-template-columns: 1fr; }
+  .estoque-opcoes-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .badges-topo { justify-content: flex-start; }
   .botao,
   .botao-fechar { width: auto; }
@@ -3249,6 +3374,12 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .card,
   .modal { padding: 18px; }
   .modal-overlay { padding: 10px; }
+  .produto-card-topo { grid-template-columns: 1fr; }
+  .produto-miniatura {
+    width: 100%;
+    max-width: 120px;
+  }
+  .estoque-opcoes-grid { grid-template-columns: 1fr; }
   .acoes,
   .botoes-paginacao,
   .acoes-preparo-item,

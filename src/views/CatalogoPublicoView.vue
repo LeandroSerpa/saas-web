@@ -109,6 +109,9 @@ const subtituloPagina = computed(() =>
   ).trim(),
 )
 
+const textoSobreCatalogo = computed(() => String(personalizacao.value.textoSobre || '').trim())
+const textoInstrucoesCatalogo = computed(() => String(personalizacao.value.textoInstrucoes || '').trim())
+
 const logoEmpresa = computed(() =>
   normalizarUrlImagemPublica(
     String(personalizacao.value.logoUrl || empresa.value.logoUrl || empresa.value.logo || '').trim(),
@@ -126,6 +129,13 @@ const bannerEmpresaComErro = ref(false)
 const descricaoCatalogo = computed(() =>
   subtituloPagina.value || 'Confira os produtos publicados hoje e fale com a empresa direto pelo WhatsApp.'
 )
+const tituloPrincipalCatalogo = computed(() => tituloPagina.value || empresa.value.nome || 'Catalogo publico')
+const exibirNomeEmpresaNoHero = computed(() => {
+  const nomeEmpresa = normalizarTextoComparacao(empresa.value.nome)
+  const titulo = normalizarTextoComparacao(tituloPrincipalCatalogo.value)
+
+  return Boolean(nomeEmpresa && titulo && nomeEmpresa !== titulo)
+})
 
 const corPrincipalCatalogo = computed(() => normalizarCorHexPublica(personalizacao.value.corPrincipal, '#2563eb'))
 const corSecundariaCatalogo = computed(() => normalizarCorHexPublica(personalizacao.value.corSecundaria, '#0f172a'))
@@ -180,6 +190,7 @@ const linkWhatsappContato = computed(() => {
 
   return `https://wa.me/${whatsappNumero.value}?text=${encodeURIComponent(linhas.join('\n'))}`
 })
+const resumoContatoCatalogo = computed(() => (temWhatsapp.value ? `WhatsApp: ${formatarTelefoneWhatsapp(whatsappNumero.value)}` : ''))
 
 watch(
   slug,
@@ -222,6 +233,8 @@ function criarPersonalizacaoPadrao() {
     subtituloPagina: '',
     tituloCatalogo: '',
     subtituloCatalogo: '',
+    textoSobre: '',
+    textoInstrucoes: '',
     whatsapp: '',
     telefone: '',
   }
@@ -312,6 +325,28 @@ function normalizarTelefoneWhatsappBrasil(valor) {
   }
 
   return ''
+}
+
+function formatarTelefoneWhatsapp(valor) {
+  const numero = String(valor || '').replace(/\D+/g, '')
+
+  if (numero.length === 13 && numero.startsWith('55')) {
+    return `+55 (${numero.slice(2, 4)}) ${numero.slice(4, 9)}-${numero.slice(9)}`
+  }
+
+  if (numero.length === 12 && numero.startsWith('55')) {
+    return `+55 (${numero.slice(2, 4)}) ${numero.slice(4, 8)}-${numero.slice(8)}`
+  }
+
+  return String(valor || '').trim()
+}
+
+function normalizarTextoComparacao(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
 }
 
 function corHexValida(cor) {
@@ -797,9 +832,10 @@ onBeforeUnmount(() => {
 
               <div class="hero-textos">
                 <p class="selo">Catalogo publico</p>
-                <h1>{{ empresa.nome || 'Empresa' }}</h1>
-                <p class="titulo">{{ tituloPagina }}</p>
+                <h1>{{ tituloPrincipalCatalogo }}</h1>
+                <p v-if="exibirNomeEmpresaNoHero" class="titulo">{{ empresa.nome }}</p>
                 <p class="subtitulo">{{ descricaoCatalogo }}</p>
+                <p v-if="resumoContatoCatalogo" class="hero-contato">{{ resumoContatoCatalogo }}</p>
               </div>
             </div>
 
@@ -839,9 +875,7 @@ onBeforeUnmount(() => {
             <div>
               <p class="painel-selo">Como comprar</p>
               <h2>Escolha um produto e finalize o pedido no WhatsApp</h2>
-              <p>
-                Esta vitrine nao possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.
-              </p>
+              <p>{{ textoInstrucoesCatalogo || 'Esta vitrine nao possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.' }}</p>
             </div>
 
             <a v-if="temWhatsapp" class="botao-primario botao-bloco" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
@@ -865,6 +899,19 @@ onBeforeUnmount(() => {
               <strong>Confirme</strong>
               <p>Combine retirada, entrega e detalhes com a empresa.</p>
             </article>
+          </div>
+        </article>
+
+        <article v-if="textoSobreCatalogo || temWhatsapp" class="card painel-aviso painel-contexto">
+          <div v-if="textoSobreCatalogo" class="painel-contexto-bloco">
+            <p class="painel-selo">Sobre a empresa</p>
+            <p>{{ textoSobreCatalogo }}</p>
+          </div>
+
+          <div v-if="temWhatsapp" class="painel-contexto-bloco">
+            <p class="painel-selo">Atendimento</p>
+            <p>{{ resumoContatoCatalogo }}</p>
+            <a class="link-contato" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">Falar agora no WhatsApp</a>
           </div>
         </article>
 
@@ -1064,7 +1111,10 @@ onBeforeUnmount(() => {
                   </p>
                 </div>
 
-                <p v-if="produtoSelecionado.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionado.descricaoPublica }}</p>
+                <div class="produto-modal-textos">
+                  <p v-if="produtoSelecionado.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionado.descricaoPublica }}</p>
+                  <p v-if="textoInstrucoesCatalogo" class="produto-modal-apoio">{{ textoInstrucoesCatalogo }}</p>
+                </div>
 
                 <div class="produto-modal-acoes">
                   <a
@@ -1131,9 +1181,9 @@ onBeforeUnmount(() => {
 
 .hero-banner-shell {
   position: relative;
-  min-height: 150px;
-  height: clamp(150px, 24vw, 280px);
-  max-height: 280px;
+  min-height: 180px;
+  height: clamp(180px, 22vw, 300px);
+  max-height: 300px;
   overflow: hidden;
   background: var(--catalogo-cor-fundo-secundario);
 }
@@ -1278,6 +1328,12 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 
+.hero-contato {
+  color: var(--catalogo-destaque);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .hero-resumo {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1376,6 +1432,22 @@ onBeforeUnmount(() => {
 .estado-shell p:last-child {
   color: var(--catalogo-texto-suave);
   line-height: 1.6;
+}
+
+.painel-contexto {
+  align-content: start;
+}
+
+.painel-contexto-bloco {
+  display: grid;
+  gap: 10px;
+}
+
+.link-contato {
+  width: fit-content;
+  color: var(--catalogo-cor-principal);
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .painel-intro h2,
@@ -1811,8 +1883,8 @@ onBeforeUnmount(() => {
 
 .produto-modal-conteudo {
   position: relative;
-  width: min(100%, 1240px);
-  max-height: min(calc(100dvh - 32px), 940px);
+  width: min(100%, 1080px);
+  max-height: min(calc(100dvh - 24px), 880px);
   overflow: hidden;
   background: #ffffff;
   color: var(--catalogo-cor-modal-texto);
@@ -1848,8 +1920,8 @@ onBeforeUnmount(() => {
   position: relative;
   min-height: 0;
   display: flex;
-  align-items: stretch;
-  justify-content: stretch;
+  align-items: center;
+  justify-content: center;
   padding: 18px;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), transparent 34%),
@@ -1859,8 +1931,9 @@ onBeforeUnmount(() => {
 .produto-modal-imagem,
 .produto-modal-placeholder {
   width: 100%;
-  height: 100%;
-  min-height: 340px;
+  height: auto;
+  min-height: 320px;
+  max-height: min(62vh, 680px);
   display: block;
   border-radius: 22px;
 }
@@ -1894,6 +1967,8 @@ onBeforeUnmount(() => {
   gap: 18px;
   padding: 28px;
   min-height: 0;
+  max-height: min(calc(100dvh - 24px), 880px);
+  overflow-y: auto;
   background: #ffffff;
   color: var(--catalogo-cor-modal-texto);
 }
@@ -1935,6 +2010,20 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--catalogo-cor-modal-texto-suave);
   line-height: 1.6;
+}
+
+.produto-modal-textos {
+  display: grid;
+  gap: 12px;
+}
+
+.produto-modal-apoio {
+  margin: 0;
+  color: var(--catalogo-cor-modal-texto-suave);
+  line-height: 1.6;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 92%);
 }
 
 .produto-modal-esgotado {
@@ -2054,12 +2143,11 @@ onBeforeUnmount(() => {
 
   .produto-modal-imagem,
   .produto-modal-placeholder {
-    min-height: clamp(420px, 58vh, 760px);
+    min-height: clamp(360px, 48vh, 620px);
   }
 
   .produto-modal-corpo {
     align-content: start;
-    overflow: auto;
   }
 }
 
@@ -2087,7 +2175,9 @@ onBeforeUnmount(() => {
 @media (max-width: 560px) {
   .hero-banner-shell,
   .hero-banner {
-    min-height: 130px;
+    min-height: 160px;
+    height: clamp(160px, 42vw, 210px);
+    max-height: 210px;
   }
 
   .hero-conteudo,
@@ -2139,7 +2229,8 @@ onBeforeUnmount(() => {
 
   .produto-modal-imagem,
   .produto-modal-placeholder {
-    min-height: min(52vh, 420px);
+    min-height: min(44vh, 320px);
+    max-height: min(44vh, 320px);
   }
 
   .produto-modal-corpo {
