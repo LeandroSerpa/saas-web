@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import PrimeiroUsoAssistente from '@/components/PrimeiroUsoAssistente.vue'
 import {
@@ -42,6 +42,7 @@ const erro = ref('')
 const onboardingUsandoFallback = ref(true)
 const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
 const modoEssencial = computed(() => modoNavegacao.value === MODO_NAVEGACAO_ESSENCIAL)
+const deveExibirPrimeiroUso = computed(() => Boolean(adminEmpresa.value || empresaDashboard.value))
 const onboardingPercentual = computed(() => {
   const valor = Number(obterCampo(onboarding.value, 'percentualConclusao', 'percentualConcluido', 'percentual', 'progresso'))
   return Number.isFinite(valor) ? Math.max(0, Math.min(100, Math.round(valor))) : 0
@@ -274,7 +275,12 @@ async function carregarDados() {
 }
 
 async function carregarOnboardingDashboard() {
-  if (!adminEmpresa.value) return
+  if (!deveExibirPrimeiroUso.value) {
+    onboarding.value = null
+    onboardingUsandoFallback.value = true
+    carregandoPrimeiroUso.value = false
+    return
+  }
 
   try {
     carregandoPrimeiroUso.value = true
@@ -660,13 +666,27 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
 
 onMounted(() => {
   carregarDados()
-  carregarOnboardingDashboard()
   carregarStatusFinanceiroDashboard()
   carregarResumoNotificacoesDashboard()
   carregarLinksPublicos()
   window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
   window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
+
+watch(
+  deveExibirPrimeiroUso,
+  (podeExibir) => {
+    if (podeExibir) {
+      carregarOnboardingDashboard()
+      return
+    }
+
+    onboarding.value = null
+    onboardingUsandoFallback.value = true
+    carregandoPrimeiroUso.value = false
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
@@ -691,6 +711,22 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-if="modoEssencial" class="dashboard-essencial">
+      <PrimeiroUsoAssistente
+        v-if="deveExibirPrimeiroUso"
+        :carregando="carregandoPrimeiroUso"
+        :usando-fallback="onboardingUsandoFallback"
+        :status-primeiro-uso="onboarding"
+        :empresa="empresaDashboard"
+        :total-clientes="clientes.length"
+        :total-servicos="servicos.length"
+        :total-funcionarios="funcionarios.length"
+        :total-agendamentos="agendamentos.length"
+        :total-recebidos-link-publico-hoje="totalRecebidosLinkPublicoHoje"
+        :link-publico-agendamento="linkPublicoAgendamento"
+        :link-publico-catalogo="linkPublicoCatalogo"
+        @copiar-link="copiarLinkPublico"
+      />
+
       <section class="card painel-essencial">
         <div class="cabecalho-essencial">
           <div>
@@ -728,22 +764,6 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </section>
-
-      <PrimeiroUsoAssistente
-        v-if="adminEmpresa"
-        :carregando="carregandoPrimeiroUso"
-        :usando-fallback="onboardingUsandoFallback"
-        :status-primeiro-uso="onboarding"
-        :empresa="empresaDashboard"
-        :total-clientes="clientes.length"
-        :total-servicos="servicos.length"
-        :total-funcionarios="funcionarios.length"
-        :total-agendamentos="agendamentos.length"
-        :total-recebidos-link-publico-hoje="totalRecebidosLinkPublicoHoje"
-        :link-publico-agendamento="linkPublicoAgendamento"
-        :link-publico-catalogo="linkPublicoCatalogo"
-        @copiar-link="copiarLinkPublico"
-      />
 
       <section class="grade-essencial-metricas">
         <article class="card resumo-essencial">
