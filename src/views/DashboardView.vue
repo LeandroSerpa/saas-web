@@ -43,10 +43,7 @@ const onboardingUsandoFallback = ref(true)
 const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
 const modoEssencial = computed(() => modoNavegacao.value === MODO_NAVEGACAO_ESSENCIAL)
 const deveExibirPrimeiroUso = computed(() => Boolean(adminEmpresa.value || empresaDashboard.value))
-const onboardingPercentual = computed(() => {
-  const valor = Number(obterCampo(onboarding.value, 'percentualConclusao', 'percentualConcluido', 'percentual', 'progresso'))
-  return Number.isFinite(valor) ? Math.max(0, Math.min(100, Math.round(valor))) : 0
-})
+const onboardingPercentual = computed(() => calcularPercentualOnboarding(onboarding.value))
 const onboardingConcluido = computed(() =>
   Boolean(obterCampo(onboarding.value, 'onboardingConcluido', 'concluido', 'finalizado')) || onboardingPercentual.value >= 100,
 )
@@ -568,6 +565,49 @@ function obterCampo(item, ...campos) {
     if (item[campo] !== null && item[campo] !== undefined && item[campo] !== '') return item[campo]
   }
   return ''
+}
+
+function extrairNumeroSeguro(...valores) {
+  for (const valor of valores) {
+    const numero = Number(valor)
+    if (Number.isFinite(numero)) {
+      return numero
+    }
+  }
+  return null
+}
+
+function calcularPercentualOnboarding(dados) {
+  const origem = normalizarObjeto(dados)
+  const percentualApi = extrairNumeroSeguro(
+    obterCampo(origem, 'percentualConclusao', 'percentual_conclusao'),
+    obterCampo(origem, 'percentualConcluido', 'percentual_concluido'),
+    obterCampo(origem, 'percentual', 'progresso'),
+  )
+  const totalPassos = extrairNumeroSeguro(
+    obterCampo(origem, 'totalPassos', 'total_passos'),
+    obterCampo(origem, 'totalPassosPrincipais', 'total_passos_principais'),
+  )
+  const passosConcluidos = extrairNumeroSeguro(
+    obterCampo(origem, 'passosConcluidos', 'passos_concluidos'),
+    obterCampo(origem, 'totalPassosConcluidos', 'total_passos_concluidos'),
+  )
+  const percentualCalculado =
+    Number.isFinite(totalPassos) && totalPassos > 0 && Number.isFinite(passosConcluidos)
+      ? Math.max(0, Math.min(100, Math.round((Math.min(passosConcluidos, totalPassos) / totalPassos) * 100)))
+      : null
+
+  if (Number.isFinite(percentualApi)) {
+    const percentualNormalizado = Math.max(0, Math.min(100, Math.round(percentualApi)))
+
+    if (percentualCalculado !== null && Math.abs(percentualNormalizado - percentualCalculado) > 1) {
+      return percentualCalculado
+    }
+
+    return percentualNormalizado
+  }
+
+  return percentualCalculado ?? 0
 }
 
 async function atualizarDashboard() {

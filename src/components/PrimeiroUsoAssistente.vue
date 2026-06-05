@@ -5,7 +5,7 @@ import { RouterLink } from 'vue-router'
 const CHAVE_ASSISTENTE_RECOLHIDO = 'primeiroUsoAssistenteRecolhido'
 const STATUS_ROTULOS = {
   concluido: 'Concluído',
-  pendente: 'Pendente',
+  pendente: 'Fazer agora',
   recomendado: 'Recomendado',
   opcional: 'Opcional',
 }
@@ -69,16 +69,16 @@ const passosBase = [
     id: 'empresa',
     aliases: ['empresa', 'minha empresa', 'dados da empresa'],
     titulo: 'Configure sua empresa',
-    descricao: 'Confira nome, horários, telefone e dados principais.',
-    rotuloAcao: 'Minha empresa',
+    descricao: 'Confira nome, horários, telefone e os dados principais do seu negócio.',
+    rotuloAcao: 'Fazer agora',
     to: '/minha-empresa',
   },
   {
     id: 'servicos',
     aliases: ['servicos', 'serviços', 'servico', 'serviço'],
     titulo: 'Cadastre seus serviços',
-    descricao: 'Informe os serviços que você oferece, como banho, tosa, corte, consulta ou atendimento.',
-    rotuloAcao: 'Cadastrar serviço',
+    descricao: 'Cadastre o que você oferece para agilizar os atendimentos.',
+    rotuloAcao: 'Fazer agora',
     to: '/servicos',
     topicoAjuda: 'servicos',
   },
@@ -86,33 +86,33 @@ const passosBase = [
     id: 'clientes',
     aliases: ['clientes', 'cliente'],
     titulo: 'Cadastre seus clientes',
-    descricao: 'Salve os clientes para agendar mais rápido e acompanhar atendimentos.',
-    rotuloAcao: 'Cadastrar cliente',
+    descricao: 'Salve os clientes para agendar mais rápido e organizar o histórico.',
+    rotuloAcao: 'Fazer agora',
     to: '/clientes',
   },
   {
     id: 'funcionarios',
     aliases: ['funcionarios', 'funcionários', 'equipe'],
-    titulo: 'Cadastre funcionários, se tiver equipe',
+    titulo: 'Cadastre seus profissionais',
     descricao: 'Se mais pessoas atendem com você, cadastre cada uma.',
-    rotuloAcao: 'Funcionários',
+    rotuloAcao: 'Fazer agora',
     to: '/funcionarios',
     opcional: true,
   },
   {
     id: 'agenda',
     aliases: ['agenda', 'agendamentos', 'agendamento'],
-    titulo: 'Confira sua agenda',
-    descricao: 'Veja os atendimentos do dia e crie novos agendamentos.',
-    rotuloAcao: 'Ver agenda',
+    titulo: 'Teste sua agenda',
+    descricao: 'Veja os atendimentos do dia e crie um agendamento de teste.',
+    rotuloAcao: 'Fazer agora',
     to: '/agenda',
   },
   {
     id: 'link-publico',
     aliases: ['link publico', 'link público', 'agendamento publico', 'agendamento público', 'slug'],
     titulo: 'Ative seu link público',
-    descricao: 'Permita que clientes agendem pelo seu link.',
-    rotuloAcao: 'Configurar link',
+    descricao: 'Permita que seus clientes agendem pelo seu link.',
+    rotuloAcao: 'Fazer agora',
     to: '/personalizacao',
     topicoAjuda: 'link-publico',
   },
@@ -120,16 +120,16 @@ const passosBase = [
     id: 'personalizacao',
     aliases: ['personalizacao', 'personalização', 'pagina publica', 'página pública'],
     titulo: 'Personalize sua página',
-    descricao: 'Adicione informações, mensagem, redes sociais e aparência da página pública.',
-    rotuloAcao: 'Personalizar',
+    descricao: 'Adicione informações, mensagem e o visual da página pública.',
+    rotuloAcao: 'Fazer agora',
     to: '/personalizacao',
   },
   {
     id: 'catalogo',
     aliases: ['catalogo', 'catálogo', 'cardapio', 'cardápio', 'produtos'],
-    titulo: 'Publique produtos no catálogo',
-    descricao: 'Se você vende produtos, mostre preços, fotos e disponibilidade no cardápio.',
-    rotuloAcao: 'Ir para estoque',
+    titulo: 'Publique seu catálogo',
+    descricao: 'Se você vende produtos, mostre preços, fotos e disponibilidade.',
+    rotuloAcao: 'Fazer agora',
     to: '/estoque',
     topicoAjuda: 'catalogo-publico',
   },
@@ -138,7 +138,7 @@ const passosBase = [
     aliases: ['estoque do dia', 'estoque-dia', 'estoque dia'],
     titulo: 'Use o Estoque do dia',
     descricao: 'Atualize rapidamente o que tem disponível hoje.',
-    rotuloAcao: 'Estoque do dia',
+    rotuloAcao: 'Fazer agora',
     to: '/estoque?aba=estoque-dia',
     topicoAjuda: 'estoque',
   },
@@ -185,26 +185,46 @@ const totalPassosPrincipais = computed(() => {
 })
 const totalPassosConcluidos = computed(() => {
   if (usaPassosApi.value) {
-    return passosConcluidosApi.value || passosComStatus.value.filter((passo) => passo.status === 'concluido').length
+    const concluidosApi = Number(passosConcluidosApi.value)
+
+    if (Number.isFinite(concluidosApi) && concluidosApi >= 0) {
+      return Math.min(Math.round(concluidosApi), totalPassosPrincipais.value || Math.round(concluidosApi))
+    }
   }
 
   return passosComStatus.value.filter((passo) => !passo.opcional && passo.status === 'concluido').length
 })
-const percentualFallback = computed(() => {
+const percentualCalculado = computed(() => {
   if (!totalPassosPrincipais.value) {
     return 0
   }
 
-  return Math.round((totalPassosConcluidos.value / totalPassosPrincipais.value) * 100)
+  return Math.max(0, Math.min(100, Math.round((totalPassosConcluidos.value / totalPassosPrincipais.value) * 100)))
 })
-const percentualExibido = computed(() => {
-  if (Number.isFinite(percentualApi.value)) {
-    return percentualApi.value
+const percentualApiNormalizado = computed(() => {
+  const percentual = percentualApi.value
+
+  if (!Number.isFinite(percentual)) {
+    return null
   }
 
-  return percentualFallback.value
+  return Math.max(0, Math.min(100, Math.round(percentual)))
+})
+const percentualExibido = computed(() => {
+  if (percentualApiNormalizado.value === null) {
+    return percentualCalculado.value
+  }
+
+  const percentualCalculadoAtual = percentualCalculado.value
+
+  if (Math.abs(percentualApiNormalizado.value - percentualCalculadoAtual) > 1) {
+    return percentualCalculadoAtual
+  }
+
+  return percentualApiNormalizado.value
 })
 const progressoTexto = computed(() => `${totalPassosConcluidos.value} de ${totalPassosPrincipais.value} passos concluídos`)
+const resumoColapsado = computed(() => `Primeiros passos: ${totalPassosConcluidos.value} de ${totalPassosPrincipais.value} concluídos`)
 const descricaoPainel = computed(() =>
   props.usandoFallback
     ? 'Veja os passos recomendados para começar.'
@@ -253,6 +273,10 @@ function alternarRecolhido() {
 
 function alternarListaPassos() {
   mostrarTodosPassos.value = !mostrarTodosPassos.value
+}
+
+function passoTemDestino(passo) {
+  return String(passo?.to || '').trim().length > 0
 }
 
 function obterAjudaPasso(topico) {
@@ -332,7 +356,7 @@ function extrairPassosConcluidosApi() {
     obterCampoPrimeiroUso(dados, 'totalPassosConcluidos', 'total_passos_concluidos'),
   )
 
-  if (Number.isFinite(totalConcluidos)) {
+  if (Number.isFinite(totalConcluidos) && totalConcluidos > 0) {
     return Math.max(0, Math.round(totalConcluidos))
   }
 
@@ -393,7 +417,7 @@ function normalizarPassoApi(item, indice) {
   ).trim()
   const rota = String(obterCampoPrimeiroUso(dados, 'rota', 'to', 'url', 'link') || base?.to || '').trim()
   const rotuloAcao = String(
-    obterCampoPrimeiroUso(dados, 'rotuloAcao', 'acaoRotulo', 'textoAcao') || base?.rotuloAcao || 'Abrir',
+    obterCampoPrimeiroUso(dados, 'rotuloAcao', 'acaoRotulo', 'textoAcao') || base?.rotuloAcao || 'Fazer agora',
   ).trim()
   const opcional = dados.opcional === true || base?.opcional === true || status === 'opcional'
   const proximoPassoChave = normalizarIdentificador(obterCampoPrimeiroUso(obterStatusPrimeiroUsoNormalizado(), 'proximoPassoChave', 'proximo_passo_chave'))
@@ -812,7 +836,12 @@ onBeforeUnmount(() => {
         <RouterLink class="acao-textual" :to="obterAjudaPasso('comecando')">
           Ver guia passo a passo
         </RouterLink>
-        <button class="botao secundario compacto botao-recolher" type="button" @click="alternarRecolhido">
+        <button
+          class="botao secundario compacto botao-recolher"
+          type="button"
+          :aria-expanded="!recolhido"
+          @click="alternarRecolhido"
+        >
           {{ recolhido ? 'Mostrar passos' : 'Recolher' }}
         </button>
       </div>
@@ -828,14 +857,27 @@ onBeforeUnmount(() => {
           <strong>{{ progressoTexto }}</strong>
           <span>{{ percentualExibido }}%</span>
         </div>
-        <div class="barra-progresso" aria-hidden="true">
+        <div
+          class="barra-progresso"
+          role="progressbar"
+          :aria-valuenow="percentualExibido"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-label="progressoTexto"
+        >
           <span :style="{ width: `${percentualExibido}%` }"></span>
         </div>
         <p class="mensagem-assistente">{{ descricaoPainel }}</p>
       </section>
 
       <section v-if="recolhido" class="painel-recolhido">
-        <p>Quando quiser, abra novamente para continuar a configuração.</p>
+        <div>
+          <p class="resumo-recolhido">{{ resumoColapsado }}</p>
+          <p>Quando quiser, abra novamente para continuar a configuração.</p>
+        </div>
+        <button class="botao secundario compacto botao-expandir" type="button" :aria-expanded="!recolhido" @click="alternarRecolhido">
+          Expandir
+        </button>
       </section>
 
       <template v-else>
@@ -849,6 +891,7 @@ onBeforeUnmount(() => {
             <div class="passo-conteudo">
               <h3>{{ passo.titulo }}</h3>
               <p>{{ passo.descricao }}</p>
+              <p class="status-passo">{{ passo.status === 'concluido' ? 'Passo já resolvido.' : passo.status === 'pendente' ? 'Este passo ainda é necessário.' : passo.status === 'recomendado' ? 'Vale fazer para deixar tudo pronto.' : 'Opcional, se fizer sentido para sua operação.' }}</p>
               <p v-if="passo.id === 'compartilhar-link' && !podeCopiarLink" class="observacao-passo">
                 Antes disso, configure o link público da empresa.
               </p>
@@ -865,9 +908,13 @@ onBeforeUnmount(() => {
                 {{ passo.rotuloAcao }}
               </button>
 
-              <RouterLink v-else class="botao secundario compacto link-acao" :to="passo.to">
+              <RouterLink v-else-if="passoTemDestino(passo)" class="botao secundario compacto link-acao" :to="passo.to">
                 {{ passo.rotuloAcao }}
               </RouterLink>
+
+              <button v-else class="botao secundario compacto link-acao" type="button" disabled>
+                {{ passo.rotuloAcao }}
+              </button>
 
               <RouterLink v-if="passo.topicoAjuda" class="link-ajuda" :to="obterAjudaPasso(passo.topicoAjuda)">
                 Ajuda
@@ -1000,10 +1047,21 @@ onBeforeUnmount(() => {
 
 .estado-assistente,
 .painel-recolhido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   padding: 18px;
   border: 1px dashed color-mix(in srgb, var(--app-primary) 30%, var(--app-border));
   border-radius: 16px;
   background: color-mix(in srgb, var(--app-surface) 88%, var(--app-primary-soft));
+}
+
+.resumo-recolhido {
+  margin: 0 0 4px;
+  color: var(--app-text);
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .grade-passos {
@@ -1023,15 +1081,18 @@ onBeforeUnmount(() => {
 
 .passo-card.status-concluido {
   border-color: color-mix(in srgb, var(--app-success) 55%, var(--app-border));
+  background: color-mix(in srgb, var(--app-success-soft) 18%, var(--app-surface));
 }
 
 .passo-card.status-pendente {
   border-color: color-mix(in srgb, var(--app-warning) 34%, var(--app-border));
+  background: color-mix(in srgb, var(--app-warning-soft) 16%, var(--app-surface));
 }
 
 .passo-card.status-recomendado,
 .passo-card.status-opcional {
   border-color: color-mix(in srgb, var(--app-primary) 22%, var(--app-border));
+  background: color-mix(in srgb, var(--app-primary-soft) 16%, var(--app-surface));
 }
 
 .numero-passo {
@@ -1093,6 +1154,12 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
+.status-passo {
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .observacao-passo {
   color: var(--app-warning);
   font-weight: 700;
@@ -1101,14 +1168,20 @@ onBeforeUnmount(() => {
 .passo-acoes {
   flex-wrap: wrap;
   justify-content: flex-start;
+  margin-top: auto;
 }
 
 .link-acao {
   text-decoration: none;
 }
 
+.link-acao:disabled {
+  cursor: not-allowed;
+}
+
 .botao-recolher,
-.botao-lista {
+.botao-lista,
+.botao-expandir {
   white-space: nowrap;
 }
 
@@ -1147,10 +1220,16 @@ onBeforeUnmount(() => {
 
   .botao-recolher,
   .botao-lista,
+  .botao-expandir,
   .passo-acoes .botao,
   .passo-acoes .link-acao {
     width: 100%;
     justify-content: center;
+  }
+
+  .painel-recolhido {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>
