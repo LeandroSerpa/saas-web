@@ -196,8 +196,8 @@ function obterMensagemErro(error, fallback) {
         <p class="subtitulo">Agendamento público</p>
         <h1>Personalização da página pública</h1>
         <p class="descricao">
-          Configure a aparência e os textos exibidos na página pública de agendamento da sua
-          empresa.
+          Configure a aparência e os textos exibidos no agendamento público e também no
+          catálogo/cardápio da sua empresa.
         </p>
       </div>
 
@@ -221,7 +221,7 @@ function obterMensagemErro(error, fallback) {
         <section class="secao">
           <div class="titulo-card">
             <h2>Identidade visual</h2>
-            <p>Defina imagens, cores e tema da página pública.</p>
+            <p>Defina imagens, cores e tema das páginas públicas da sua empresa.</p>
           </div>
 
           <div class="campos">
@@ -255,7 +255,7 @@ function obterMensagemErro(error, fallback) {
               </div>
               <small class="ajuda-campo">Clique no quadrado para escolher uma cor. O código hexadecimal será preenchido automaticamente.</small>
               <small v-if="corPrincipalInvalida" class="ajuda-campo aviso">Use o formato #000000.</small>
-              <small class="ajuda-campo neutro">Use a cor principal para botões e destaques. Ela também afeta a página pública, o catálogo e o cardápio.</small>
+              <small class="ajuda-campo neutro">Use a cor principal para botões, destaques, agendamento e catálogo.</small>
             </label>
             <label class="campo-cor">
               <span>Cor secundária</span>
@@ -279,13 +279,14 @@ function obterMensagemErro(error, fallback) {
               </div>
               <small class="ajuda-campo">Clique no quadrado para escolher uma cor. O código hexadecimal será preenchido automaticamente.</small>
               <small v-if="corSecundariaInvalida" class="ajuda-campo aviso">Use o formato #000000.</small>
-              <small class="ajuda-campo neutro">Use a cor secundária para textos, detalhes ou contraste.</small>
+              <small class="ajuda-campo neutro">Use a cor secundária para detalhes, contraste e elementos de apoio.</small>
             </label>
             <label>
               Tema
               <select v-model="personalizacao.tema">
                 <option v-for="tema in temas" :key="tema" :value="tema">{{ nomeTema(tema) }}</option>
               </select>
+              <small class="ajuda-campo neutro">O tema afeta a página pública de agendamento e também o catálogo/cardápio.</small>
             </label>
           </div>
         </section>
@@ -379,6 +380,10 @@ function obterMensagemErro(error, fallback) {
       </form>
 
       <aside class="card preview" :class="classeTemaPreview" :style="estilosPreview">
+        <div class="preview-legenda">
+          <span>Preview unificado</span>
+          <small>As mesmas cores aparecem no agendamento e na vitrine pública.</small>
+        </div>
         <div v-if="personalizacao.bannerUrl" class="preview-banner">
           <img :src="personalizacao.bannerUrl" alt="" />
         </div>
@@ -400,6 +405,28 @@ function obterMensagemErro(error, fallback) {
           <small v-if="personalizacao.mostrarFuncionario">Atendimento com profissional selecionado</small>
           <button type="button">Agendar</button>
         </article>
+        <section class="preview-catalogo">
+          <div class="preview-catalogo-topo">
+            <div>
+              <span>Exemplo de catálogo</span>
+              <strong>{{ personalizacao.tituloPagina || 'Sua vitrine pública' }}</strong>
+            </div>
+            <b class="preview-badge">Disponível</b>
+          </div>
+          <article class="preview-produto">
+            <div class="preview-produto-capa">
+              <span>{{ (personalizacao.tituloPagina || 'NM').slice(0, 2).toUpperCase() }}</span>
+            </div>
+            <div class="preview-produto-corpo">
+              <strong>Produto exemplo</strong>
+              <small>{{ personalizacao.subtituloPagina || 'Ideal para destacar a sua marca no catálogo.' }}</small>
+              <div class="preview-produto-rodape">
+                <span>R$ 49,90</span>
+                <button type="button">WhatsApp</button>
+              </div>
+            </div>
+          </article>
+        </section>
         <div class="preview-links">
           <a v-if="personalizacao.whatsapp">WhatsApp</a>
           <a v-if="personalizacao.instagram">Instagram</a>
@@ -660,6 +687,24 @@ input[type='checkbox'] {
   box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
 }
 
+.preview-legenda {
+  display: grid;
+  gap: 4px;
+}
+
+.preview-legenda span {
+  color: var(--cor-principal);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.preview-legenda small {
+  color: #64748b;
+  font-weight: 600;
+}
+
 .preview-banner {
   height: 150px;
   overflow: hidden;
@@ -700,9 +745,11 @@ input[type='checkbox'] {
 }
 
 .tema-escuro .preview-topo h2,
+.tema-escuro .preview-legenda small,
 .tema-escuro .preview-texto,
 .tema-escuro .preview-instrucoes,
-.tema-escuro .preview-servico small {
+.tema-escuro .preview-servico small,
+.tema-escuro .preview-produto small {
   color: #e5e7eb;
 }
 
@@ -820,6 +867,117 @@ input[type='checkbox'] {
   background: #f0fdf4;
   color: #15803d;
   font-weight: 800;
+}
+
+.preview-catalogo {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.95));
+}
+
+.preview-catalogo-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.preview-catalogo-topo span {
+  display: block;
+  color: var(--cor-secundaria);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.preview-catalogo-topo strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.preview-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--cor-principal), white 84%);
+  color: var(--cor-principal);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.preview-produto {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.preview-produto-capa {
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--cor-principal), var(--cor-secundaria));
+  color: white;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.preview-produto-corpo {
+  display: grid;
+  gap: 6px;
+}
+
+.preview-produto-corpo small {
+  color: #475569;
+  line-height: 1.4;
+}
+
+.preview-produto-rodape {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.preview-produto-rodape span {
+  color: var(--cor-principal);
+  font-weight: 800;
+}
+
+.preview-produto-rodape button {
+  border: none;
+  border-radius: 999px;
+  padding: 9px 14px;
+  color: white;
+  background: var(--cor-principal);
+  font-weight: 800;
+}
+
+.tema-moderno .preview-catalogo {
+  border-radius: 20px;
+  border-color: rgba(37, 99, 235, 0.16);
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.12);
+}
+
+.tema-escuro .preview-catalogo {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: #0f172a;
+}
+
+.tema-escuro .preview-catalogo-topo span,
+.tema-escuro .preview-catalogo-topo strong {
+  color: #f8fafc;
+}
+
+.tema-suave .preview-catalogo {
+  border-color: #dbeafe;
+  background: linear-gradient(135deg, #ffffff, #f0f7ff);
 }
 
 @media (max-width: 1050px) {

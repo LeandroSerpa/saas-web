@@ -125,6 +125,40 @@ const descricaoCatalogo = computed(() =>
   subtituloPagina.value || 'Confira os produtos publicados hoje e fale com a empresa direto pelo WhatsApp.'
 )
 
+const corPrincipalCatalogo = computed(() => normalizarCorHex(personalizacao.value.corPrincipal, '#2563eb'))
+const corSecundariaCatalogo = computed(() => normalizarCorHex(personalizacao.value.corSecundaria, '#0f172a'))
+const temaCatalogo = computed(() => normalizarTemaPublico(personalizacao.value.tema))
+const classeTemaCatalogo = computed(() => `tema-${temaCatalogo.value.toLowerCase()}`)
+const estilosCatalogo = computed(() => {
+  const corPrincipal = corPrincipalCatalogo.value
+  const corSecundaria = corSecundariaCatalogo.value
+  const mapa = criarMapaVisualCatalogo(corPrincipal, corSecundaria, temaCatalogo.value)
+
+  return {
+    '--catalogo-cor-principal': corPrincipal,
+    '--catalogo-cor-secundaria': corSecundaria,
+    '--catalogo-cor-destaque': mapa.destaque,
+    '--catalogo-cor-fundo': mapa.fundo,
+    '--catalogo-cor-card': mapa.card,
+    '--catalogo-cor-texto': mapa.texto,
+    '--catalogo-cor-texto-suave': mapa.textoSuave,
+    '--catalogo-cor-borda': mapa.borda,
+    '--catalogo-cor-hero': mapa.hero,
+    '--catalogo-cor-botao': mapa.botao,
+    '--catalogo-cor-botao-texto': mapa.botaoTexto,
+    '--catalogo-cor-fundo-secundario': mapa.fundoSecundario,
+    '--catalogo-cor-chip': mapa.chip,
+    '--catalogo-cor-chip-texto': mapa.chipTexto,
+    '--catalogo-cor-sucesso': mapa.sucesso,
+    '--catalogo-cor-sucesso-suave': mapa.sucessoSuave,
+    '--catalogo-cor-perigo': mapa.perigo,
+    '--catalogo-cor-perigo-suave': mapa.perigoSuave,
+    '--catalogo-cor-overlay': mapa.overlay,
+    '--catalogo-cor-modal': mapa.modal,
+    '--catalogo-cor-modal-midia': mapa.modalMidia,
+  }
+})
+
 const whatsappNumero = computed(() => {
   const candidatos = [
     empresa.value.whatsapp,
@@ -193,6 +227,9 @@ function criarPersonalizacaoPadrao() {
   return {
     logoUrl: '',
     bannerUrl: '',
+    corPrincipal: '#2563eb',
+    corSecundaria: '#0f172a',
+    tema: 'PADRAO',
     tituloPagina: '',
     subtituloPagina: '',
     tituloCatalogo: '',
@@ -287,6 +324,171 @@ function normalizarTelefoneWhatsappBrasil(valor) {
   }
 
   return ''
+}
+
+function corHexValida(cor) {
+  return /^#[0-9a-f]{6}$/.test(String(cor || '').trim().toLowerCase())
+}
+
+function normalizarCorHex(cor, fallback = '') {
+  const texto = String(cor || '').trim().toLowerCase()
+
+  if (!texto) {
+    return fallback
+  }
+
+  if (/^#[0-9a-f]{6}$/.test(texto)) {
+    return texto
+  }
+
+  if (/^[0-9a-f]{6}$/.test(texto)) {
+    return `#${texto}`
+  }
+
+  return fallback
+}
+
+function normalizarTemaPublico(tema) {
+  return ['PADRAO', 'MODERNO', 'ESCURO', 'SUAVE'].includes(tema) ? tema : 'PADRAO'
+}
+
+function converterHexParaRgb(cor) {
+  const corNormalizada = normalizarCorHex(cor, '')
+
+  if (!corHexValida(corNormalizada)) {
+    return null
+  }
+
+  return {
+    r: Number.parseInt(corNormalizada.slice(1, 3), 16),
+    g: Number.parseInt(corNormalizada.slice(3, 5), 16),
+    b: Number.parseInt(corNormalizada.slice(5, 7), 16),
+  }
+}
+
+function formatarRgbComoHex({ r, g, b }) {
+  return `#${[r, g, b]
+    .map((valor) => Math.max(0, Math.min(255, Math.round(valor))).toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+function misturarCores(base, mistura, proporcaoMistura = 0.5) {
+  const rgbBase = converterHexParaRgb(base)
+  const rgbMistura = converterHexParaRgb(mistura)
+
+  if (!rgbBase || !rgbMistura) {
+    return normalizarCorHex(base, mistura)
+  }
+
+  const proporcao = Math.max(0, Math.min(1, Number(proporcaoMistura)))
+  const proporcaoBase = 1 - proporcao
+
+  return formatarRgbComoHex({
+    r: rgbBase.r * proporcaoBase + rgbMistura.r * proporcao,
+    g: rgbBase.g * proporcaoBase + rgbMistura.g * proporcao,
+    b: rgbBase.b * proporcaoBase + rgbMistura.b * proporcao,
+  })
+}
+
+function corComAlpha(cor, alpha) {
+  const rgb = converterHexParaRgb(cor)
+
+  if (!rgb) {
+    return `rgba(15, 23, 42, ${alpha})`
+  }
+
+  const opacidade = Math.max(0, Math.min(1, Number(alpha)))
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacidade})`
+}
+
+function luminancia(cor) {
+  const rgb = converterHexParaRgb(cor)
+
+  if (!rgb) {
+    return 0
+  }
+
+  const canais = [rgb.r, rgb.g, rgb.b].map((canal) => {
+    const valor = canal / 255
+    return valor <= 0.03928 ? valor / 12.92 : ((valor + 0.055) / 1.055) ** 2.4
+  })
+
+  return 0.2126 * canais[0] + 0.7152 * canais[1] + 0.0722 * canais[2]
+}
+
+function escolherTextoContraste(corFundo, claro = '#f8fafc', escuro = '#0f172a') {
+  return luminancia(corFundo) > 0.52 ? escuro : claro
+}
+
+function criarMapaVisualCatalogo(corPrincipal, corSecundaria, tema) {
+  const base = {
+    destaque: misturarCores(corPrincipal, corSecundaria, 0.2),
+    fundo: '#f8fafc',
+    card: 'rgba(255, 255, 255, 0.92)',
+    texto: '#1f2937',
+    textoSuave: '#5b6474',
+    borda: corComAlpha(misturarCores(corSecundaria, '#cbd5e1', 0.72), 0.38),
+    hero: misturarCores(corPrincipal, '#ffffff', 0.88),
+    botao: corPrincipal,
+    botaoTexto: escolherTextoContraste(corPrincipal),
+    fundoSecundario: misturarCores(corSecundaria, '#ffffff', 0.9),
+    chip: misturarCores(corSecundaria, '#ffffff', 0.9),
+    chipTexto: misturarCores(corSecundaria, '#0f172a', 0.25),
+    sucesso: '#166534',
+    sucessoSuave: '#dcfce7',
+    perigo: '#b91c1c',
+    perigoSuave: '#fee2e2',
+    overlay: corComAlpha(corSecundaria, 0.72),
+    modal: 'rgba(255, 255, 255, 0.99)',
+    modalMidia: `linear-gradient(180deg, ${misturarCores(corPrincipal, '#ffffff', 0.78)}, #ffffff)`,
+  }
+
+  if (tema === 'MODERNO') {
+    return {
+      ...base,
+      fundo: misturarCores(corPrincipal, '#f8fafc', 0.9),
+      card: corComAlpha('#ffffff', 0.9),
+      hero: `linear-gradient(135deg, ${corComAlpha(corPrincipal, 0.16)}, ${corComAlpha(corSecundaria, 0.12)})`,
+      fundoSecundario: misturarCores(corPrincipal, '#ffffff', 0.92),
+      chip: misturarCores(corPrincipal, '#ffffff', 0.88),
+    }
+  }
+
+  if (tema === 'ESCURO') {
+    return {
+      ...base,
+      fundo: '#020617',
+      card: 'rgba(15, 23, 42, 0.88)',
+      texto: '#e5e7eb',
+      textoSuave: '#cbd5e1',
+      borda: corComAlpha('#94a3b8', 0.28),
+      hero: `linear-gradient(135deg, ${corComAlpha(corPrincipal, 0.22)}, ${corComAlpha(corSecundaria, 0.4)})`,
+      botaoTexto: escolherTextoContraste(corPrincipal, '#f8fafc', '#020617'),
+      fundoSecundario: 'rgba(15, 23, 42, 0.92)',
+      chip: 'rgba(30, 41, 59, 0.92)',
+      chipTexto: '#e2e8f0',
+      overlay: corComAlpha('#020617', 0.5),
+      modal: 'rgba(15, 23, 42, 0.98)',
+      modalMidia: `linear-gradient(180deg, ${corComAlpha(corPrincipal, 0.18)}, rgba(15, 23, 42, 0.96))`,
+    }
+  }
+
+  if (tema === 'SUAVE') {
+    return {
+      ...base,
+      fundo: misturarCores(corPrincipal, '#f8fafc', 0.95),
+      card: 'rgba(255, 255, 255, 0.96)',
+      texto: '#243041',
+      textoSuave: '#64748b',
+      borda: corComAlpha(misturarCores(corPrincipal, '#cbd5e1', 0.7), 0.28),
+      hero: misturarCores(corPrincipal, '#ffffff', 0.92),
+      fundoSecundario: misturarCores(corPrincipal, '#ffffff', 0.93),
+      chip: misturarCores(corSecundaria, '#ffffff', 0.95),
+      chipTexto: misturarCores(corSecundaria, '#475569', 0.45),
+    }
+  }
+
+  return base
 }
 
 function formatarMoeda(valor) {
@@ -398,7 +600,8 @@ function irParaCategorias() {
 }
 
 function montarMensagemWhatsapp(produto) {
-  const linhas = [`Ola! Vim pelo catalogo da NuvemMais e tenho interesse em: ${produto.nome}.`]
+  const nomeEmpresa = empresa.value.nome || 'empresa'
+  const linhas = [`Ola! Vim pelo catalogo da ${nomeEmpresa} e tenho interesse em: ${produto.nome}.`]
 
   if (produto.mostrarPrecoPublico && Number(produto.precoVenda || 0) > 0) {
     linhas.push(`Preco: ${formatarMoeda(produto.precoVenda)}.`)
@@ -542,7 +745,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="catalogo-publico">
+  <main class="catalogo-publico" :class="classeTemaCatalogo" :style="estilosCatalogo">
     <section v-if="carregando" class="card estado-shell">
       <span class="estado-selo">Carregando</span>
       <h1>Preparando a vitrine publica</h1>
@@ -872,27 +1075,27 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .catalogo-publico {
-  --catalogo-bg: #f8f4ed;
-  --catalogo-card: rgba(255, 255, 255, 0.9);
-  --catalogo-borda: rgba(148, 163, 184, 0.22);
-  --catalogo-texto: #1f2937;
-  --catalogo-texto-suave: #5b6474;
-  --catalogo-destaque: #c2410c;
-  --catalogo-destaque-suave: #ffedd5;
-  --catalogo-sucesso: #166534;
-  --catalogo-sucesso-suave: #dcfce7;
-  --catalogo-perigo: #b91c1c;
-  --catalogo-perigo-suave: #fee2e2;
-  --catalogo-azul: #1d4ed8;
-  --catalogo-azul-suave: #dbeafe;
+  --catalogo-bg: var(--catalogo-cor-fundo);
+  --catalogo-card: var(--catalogo-cor-card);
+  --catalogo-borda: var(--catalogo-cor-borda);
+  --catalogo-texto: var(--catalogo-cor-texto);
+  --catalogo-texto-suave: var(--catalogo-cor-texto-suave);
+  --catalogo-destaque: var(--catalogo-cor-destaque);
+  --catalogo-destaque-suave: var(--catalogo-cor-fundo-secundario);
+  --catalogo-sucesso: var(--catalogo-cor-sucesso);
+  --catalogo-sucesso-suave: var(--catalogo-cor-sucesso-suave);
+  --catalogo-perigo: var(--catalogo-cor-perigo);
+  --catalogo-perigo-suave: var(--catalogo-cor-perigo-suave);
+  --catalogo-azul: var(--catalogo-cor-secundaria);
+  --catalogo-azul-suave: var(--catalogo-cor-chip);
   min-height: 100vh;
   padding: 14px;
   display: grid;
   gap: 14px;
   background:
-    radial-gradient(circle at top left, rgba(251, 191, 36, 0.22), transparent 28%),
-    radial-gradient(circle at top right, rgba(234, 88, 12, 0.18), transparent 24%),
-    linear-gradient(180deg, #fffaf2 0%, var(--catalogo-bg) 55%, #f3f4f6 100%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), transparent 82%), transparent 28%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 84%), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-hero), white 28%) 0%, var(--catalogo-bg) 55%, color-mix(in srgb, var(--catalogo-bg), #e2e8f0 22%) 100%);
   color: var(--catalogo-texto);
 }
 
@@ -906,6 +1109,9 @@ onBeforeUnmount(() => {
 
 .hero {
   overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-hero), transparent 12%), transparent),
+    var(--catalogo-card);
 }
 
 .hero-banner-shell {
@@ -926,7 +1132,7 @@ onBeforeUnmount(() => {
   place-items: center;
   background:
     radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.26), transparent 28%),
-    linear-gradient(135deg, rgba(194, 65, 12, 0.92), rgba(251, 191, 36, 0.88));
+    linear-gradient(135deg, var(--catalogo-cor-principal), var(--catalogo-cor-secundaria));
 }
 
 .hero-banner-texto {
@@ -952,7 +1158,7 @@ onBeforeUnmount(() => {
 .hero-filtro {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(15, 23, 42, 0.18));
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), var(--catalogo-cor-overlay));
   pointer-events: none;
 }
 
@@ -977,8 +1183,8 @@ onBeforeUnmount(() => {
   height: 72px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.42);
-  background: linear-gradient(135deg, #fff7ed, #ffffff);
-  box-shadow: 0 12px 30px rgba(194, 65, 12, 0.12);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), #ffffff);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--catalogo-cor-principal), transparent 82%);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -1022,7 +1228,7 @@ onBeforeUnmount(() => {
   gap: 6px;
   border-radius: 999px;
   padding: 6px 10px;
-  background: rgba(255, 237, 213, 0.95);
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 86%);
   color: var(--catalogo-destaque);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1062,8 +1268,8 @@ onBeforeUnmount(() => {
   gap: 4px;
   padding: 14px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 237, 213, 0.86);
+  background: color-mix(in srgb, var(--catalogo-cor-card), white 18%);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 82%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
@@ -1107,16 +1313,16 @@ onBeforeUnmount(() => {
 }
 
 .botao-primario {
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  color: white;
-  box-shadow: 0 12px 24px rgba(22, 163, 74, 0.2);
+  background: linear-gradient(135deg, var(--catalogo-cor-botao), color-mix(in srgb, var(--catalogo-cor-botao), #000000 18%));
+  color: var(--catalogo-cor-botao-texto);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--catalogo-cor-botao), transparent 78%);
   border: 1px solid rgba(255, 255, 255, 0.16);
 }
 
 .botao-secundario {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(255, 255, 255, 0.88);
-  color: var(--catalogo-texto);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%);
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%);
+  color: color-mix(in srgb, var(--catalogo-cor-secundaria), #0f172a 28%);
 }
 
 .botao-primario:hover,
@@ -1171,8 +1377,8 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 14px;
   border-radius: 18px;
-  background: rgba(255, 247, 237, 0.72);
-  border: 1px solid rgba(251, 146, 60, 0.16);
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 92%);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-principal), white 74%);
 }
 
 .passo-compra span {
@@ -1181,7 +1387,7 @@ onBeforeUnmount(() => {
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ffedd5, #fed7aa);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 80%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%));
   color: var(--catalogo-destaque);
   font-weight: 900;
   font-size: 13px;
@@ -1227,7 +1433,7 @@ onBeforeUnmount(() => {
 .contador-filtros {
   border-radius: 999px;
   padding: 8px 12px;
-  background: rgba(194, 65, 12, 0.08);
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 88%);
   color: var(--catalogo-destaque);
   font-size: 13px;
   font-weight: 800;
@@ -1253,11 +1459,11 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 78%);
   border-radius: 999px;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #475569;
+  background: var(--catalogo-cor-chip);
+  color: var(--catalogo-cor-chip-texto);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -1268,16 +1474,16 @@ onBeforeUnmount(() => {
 .chip span {
   border-radius: 999px;
   padding: 2px 8px;
-  background: rgba(148, 163, 184, 0.14);
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
   font-size: 12px;
 }
 
 .chip.ativo {
-  border-color: rgba(194, 65, 12, 0.42);
-  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border-color: color-mix(in srgb, var(--catalogo-cor-principal), #0f172a 12%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 86%));
   color: var(--catalogo-destaque);
   transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(194, 65, 12, 0.12);
+  box-shadow: 0 12px 22px color-mix(in srgb, var(--catalogo-cor-principal), transparent 86%);
 }
 
 .estado-shell {
@@ -1345,10 +1551,10 @@ onBeforeUnmount(() => {
   place-items: center;
   gap: 6px;
   background:
-    radial-gradient(circle at top left, rgba(251, 191, 36, 0.46), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.18), transparent 28%),
-    linear-gradient(135deg, #fff7ed, #fde68a);
-  color: #9a3412;
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 62%), transparent 28%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 84%), transparent 28%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 84%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 80%));
+  color: var(--catalogo-destaque);
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -1362,7 +1568,7 @@ onBeforeUnmount(() => {
 }
 
 .produto-midia:focus-visible {
-  box-shadow: inset 0 0 0 2px rgba(194, 65, 12, 0.28);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--catalogo-cor-principal), transparent 72%);
 }
 
 .produto-midia-acoes {
@@ -1415,7 +1621,7 @@ onBeforeUnmount(() => {
   place-items: center;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(154, 52, 18, 0.12);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-principal), white 84%);
   font-size: 28px;
   font-weight: 900;
   letter-spacing: 0.04em;
@@ -1472,12 +1678,12 @@ onBeforeUnmount(() => {
 }
 
 .badge.destaque {
-  background: rgba(255, 237, 213, 0.96);
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 84%);
   color: var(--catalogo-destaque);
 }
 
 .badge.atualizacao {
-  background: rgba(219, 234, 254, 0.96);
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), white 82%);
   color: var(--catalogo-azul);
 }
 
@@ -1502,7 +1708,7 @@ onBeforeUnmount(() => {
 
 .categoria {
   margin-top: 6px;
-  color: var(--catalogo-destaque);
+  color: var(--catalogo-cor-principal);
   font-size: 14px;
   font-weight: 800;
 }
@@ -1518,18 +1724,18 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 12px;
   border-radius: 16px;
-  background: rgba(248, 250, 252, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: color-mix(in srgb, var(--catalogo-cor-fundo-secundario), white 20%);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
 }
 
 .preco {
-  color: var(--catalogo-sucesso);
+  color: var(--catalogo-cor-principal);
   font-size: 22px;
   font-weight: 900;
 }
 
 .quantidade {
-  color: #334155;
+  color: color-mix(in srgb, var(--catalogo-cor-secundaria), #334155 48%);
   font-size: 14px;
   font-weight: 700;
 }
@@ -1551,17 +1757,18 @@ onBeforeUnmount(() => {
   min-height: 44px;
   border-radius: 14px;
   padding: 10px 14px;
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  color: white;
+  background: linear-gradient(135deg, var(--catalogo-cor-botao), color-mix(in srgb, var(--catalogo-cor-botao), #000000 18%));
+  color: var(--catalogo-cor-botao-texto);
   text-decoration: none;
   font-weight: 900;
-  box-shadow: 0 12px 24px rgba(22, 163, 74, 0.2);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--catalogo-cor-botao), transparent 78%);
   transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
 .botao-whatsapp.secundario {
-  background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
-  box-shadow: 0 12px 24px rgba(29, 78, 216, 0.18);
+  background: linear-gradient(135deg, var(--catalogo-cor-secundaria), color-mix(in srgb, var(--catalogo-cor-secundaria), #000000 16%));
+  color: var(--catalogo-cor-botao-texto);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 80%);
 }
 
 .aviso-card {
@@ -1586,7 +1793,7 @@ onBeforeUnmount(() => {
   width: min(100%, 1240px);
   max-height: min(calc(100dvh - 32px), 940px);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.99);
+  background: var(--catalogo-cor-modal);
   border-radius: 30px;
   border: 0;
   outline: 0;
@@ -1604,8 +1811,8 @@ onBeforeUnmount(() => {
   height: 42px;
   border: 0;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.86);
-  color: white;
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), #000000 26%);
+  color: var(--catalogo-cor-botao-texto);
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
@@ -1621,7 +1828,7 @@ onBeforeUnmount(() => {
   padding: 18px;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), transparent 34%),
-    linear-gradient(180deg, #fff7ed, #fff);
+    var(--catalogo-cor-modal-midia);
 }
 
 .produto-modal-imagem,
@@ -1635,7 +1842,7 @@ onBeforeUnmount(() => {
 
 .produto-modal-imagem {
   object-fit: contain;
-  background: linear-gradient(180deg, rgba(255, 247, 237, 0.45), rgba(255, 255, 255, 0.98));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-principal), white 88%), rgba(255, 255, 255, 0.98));
 }
 
 .produto-modal-placeholder {
@@ -1645,9 +1852,9 @@ onBeforeUnmount(() => {
   text-align: center;
   background:
     radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.35), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.16), transparent 30%),
-    linear-gradient(135deg, #fff7ed, #fde68a);
-  color: #9a3412;
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 84%), transparent 30%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 84%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 78%));
+  color: var(--catalogo-destaque);
   padding: 28px;
 }
 
@@ -1679,7 +1886,7 @@ onBeforeUnmount(() => {
 
 .produto-modal-categoria {
   margin: 0;
-  color: var(--catalogo-texto-suave);
+  color: var(--catalogo-cor-principal);
   font-weight: 700;
 }
 
@@ -1689,7 +1896,7 @@ onBeforeUnmount(() => {
 }
 
 .produto-modal-preco {
-  color: var(--catalogo-sucesso);
+  color: var(--catalogo-cor-principal);
   font-size: clamp(24px, 5vw, 34px);
   font-weight: 900;
   margin: 0;
@@ -1726,6 +1933,46 @@ onBeforeUnmount(() => {
 .modal-previa-enter-from,
 .modal-previa-leave-to {
   opacity: 0;
+}
+
+.catalogo-publico.tema-moderno .card {
+  border-radius: 28px;
+  box-shadow: 0 24px 52px color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 88%);
+}
+
+.catalogo-publico.tema-moderno .botao-primario,
+.catalogo-publico.tema-moderno .botao-secundario,
+.catalogo-publico.tema-moderno .botao-whatsapp {
+  border-radius: 999px;
+}
+
+.catalogo-publico.tema-moderno .produto-card {
+  box-shadow: 0 20px 40px color-mix(in srgb, var(--catalogo-cor-principal), transparent 90%);
+}
+
+.catalogo-publico.tema-escuro .card {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+.catalogo-publico.tema-escuro .resumo-pill,
+.catalogo-publico.tema-escuro .passo-compra,
+.catalogo-publico.tema-escuro .produto-infos,
+.catalogo-publico.tema-escuro .chip,
+.catalogo-publico.tema-escuro .produto-midia-acoes {
+  background: color-mix(in srgb, var(--catalogo-cor-fundo-secundario), #020617 10%);
+}
+
+.catalogo-publico.tema-escuro .botao-secundario {
+  color: #e5e7eb;
+}
+
+.catalogo-publico.tema-suave .card {
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--catalogo-cor-principal), transparent 92%);
+}
+
+.catalogo-publico.tema-suave .produto-card,
+.catalogo-publico.tema-suave .resumo-pill {
+  border-radius: 22px;
 }
 
 @media (min-width: 720px) {
