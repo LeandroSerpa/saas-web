@@ -2147,7 +2147,7 @@ onBeforeUnmount(() => {
             </label>
             <label class="campo-checkbox destaque-checkbox">
               <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
-              Somente baixo estoque
+              <span class="campo-checkbox-texto">Somente baixo estoque</span>
             </label>
           </div>
 
@@ -2611,7 +2611,7 @@ onBeforeUnmount(() => {
             </label>
             <label class="campo-checkbox destaque-checkbox opcao-booleana">
               <input v-model="formularioProduto.ativo" type="checkbox" />
-              Produto ativo
+              <span class="campo-checkbox-texto">Produto ativo</span>
             </label>
           </div>
 
@@ -2624,11 +2624,11 @@ onBeforeUnmount(() => {
             <div class="campos">
               <label class="campo-checkbox destaque-checkbox opcao-booleana">
                 <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
-                Exibir no catalogo publico
+                <span class="campo-checkbox-texto">Exibir no catalogo publico</span>
               </label>
               <label class="campo-checkbox destaque-checkbox opcao-booleana">
                 <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
-                Produto em destaque
+                <span class="campo-checkbox-texto">Produto em destaque</span>
               </label>
               <label>
                 Imagem do produto por URL
@@ -2676,11 +2676,11 @@ onBeforeUnmount(() => {
               </label>
               <label class="campo-checkbox destaque-checkbox opcao-booleana">
                 <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
-                Mostrar quantidade ao cliente
+                <span class="campo-checkbox-texto">Mostrar quantidade ao cliente</span>
               </label>
               <label class="campo-checkbox destaque-checkbox opcao-booleana">
                 <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
-                Mostrar preco ao cliente
+                <span class="campo-checkbox-texto">Mostrar preco ao cliente</span>
               </label>
             </div>
           </section>
@@ -3017,23 +3017,34 @@ label {
 }
 
 .campo-checkbox {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: start;
-  column-gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 12px 14px;
-  line-height: 1.25;
+  line-height: 1.35;
   white-space: normal;
   word-break: normal;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 
 .campo-checkbox input {
-  width: auto;
-  min-width: 18px;
-  margin: 2px 0 0;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
 }
+
+.campo-checkbox-texto {
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .opcao-booleana { min-width: 0; }
 input, select, textarea {
   width: 100%;
@@ -3227,8 +3238,7 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .botao,
   .botao-fechar { width: auto; }
   .campo-checkbox {
-    grid-template-columns: 18px minmax(0, 1fr);
-    align-items: flex-start;
+    align-items: center;
   }
 }
 @media (max-width: 560px) {

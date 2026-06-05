@@ -104,22 +104,18 @@ const subtituloPagina = computed(() =>
 )
 
 const logoEmpresa = computed(() =>
-  String(
-    personalizacao.value.logoUrl ||
-      empresa.value.logoUrl ||
-      empresa.value.logo ||
-      '',
-  ).trim(),
+  normalizarUrlImagemPublica(
+    String(personalizacao.value.logoUrl || empresa.value.logoUrl || empresa.value.logo || '').trim(),
+  ),
 )
 
 const bannerEmpresa = computed(() =>
-  String(
-    personalizacao.value.bannerUrl ||
-      empresa.value.bannerUrl ||
-      empresa.value.capaUrl ||
-      '',
-  ).trim(),
+  normalizarUrlImagemPublica(
+    String(personalizacao.value.bannerUrl || empresa.value.bannerUrl || empresa.value.capaUrl || '').trim(),
+  ),
 )
+const logoEmpresaComErro = ref(false)
+const bannerEmpresaComErro = ref(false)
 
 const descricaoCatalogo = computed(() =>
   subtituloPagina.value || 'Confira os produtos publicados hoje e fale com a empresa direto pelo WhatsApp.'
@@ -156,6 +152,11 @@ const estilosCatalogo = computed(() => {
     '--catalogo-cor-overlay': mapa.overlay,
     '--catalogo-cor-modal': mapa.modal,
     '--catalogo-cor-modal-midia': mapa.modalMidia,
+    '--catalogo-cor-modal-texto': '#0f172a',
+    '--catalogo-cor-modal-texto-suave': '#475569',
+    '--catalogo-cor-modal-borda': 'rgba(148, 163, 184, 0.26)',
+    '--catalogo-cor-modal-fechar': 'rgba(226, 232, 240, 0.98)',
+    '--catalogo-cor-modal-fechar-texto': '#0f172a',
   }
 })
 
@@ -208,6 +209,14 @@ watch(
   },
   { immediate: true },
 )
+
+watch(logoEmpresa, () => {
+  logoEmpresaComErro.value = false
+})
+
+watch(bannerEmpresa, () => {
+  bannerEmpresaComErro.value = false
+})
 
 function criarEmpresaPadrao() {
   return {
@@ -468,8 +477,8 @@ function criarMapaVisualCatalogo(corPrincipal, corSecundaria, tema) {
       chip: 'rgba(30, 41, 59, 0.92)',
       chipTexto: '#e2e8f0',
       overlay: corComAlpha('#020617', 0.5),
-      modal: 'rgba(15, 23, 42, 0.98)',
-      modalMidia: `linear-gradient(180deg, ${corComAlpha(corPrincipal, 0.18)}, rgba(15, 23, 42, 0.96))`,
+      modal: 'rgba(255, 255, 255, 0.99)',
+      modalMidia: `linear-gradient(180deg, ${misturarCores(corPrincipal, '#ffffff', 0.86)}, #ffffff)`,
     }
   }
 
@@ -526,6 +535,14 @@ function imagemProdutoDisponivel(produto) {
 
 function imagemProdutoUrl(produto) {
   return normalizarUrlImagemPublica(String(produto?.imagemUrl || '').trim())
+}
+
+function aoFalharLogoEmpresa() {
+  logoEmpresaComErro.value = true
+}
+
+function aoFalharBannerEmpresa() {
+  bannerEmpresaComErro.value = true
 }
 
 function normalizarData(valor) {
@@ -761,7 +778,13 @@ onBeforeUnmount(() => {
     <template v-else>
       <header class="hero card">
         <div class="hero-banner-shell">
-          <img v-if="bannerEmpresa" :src="bannerEmpresa" alt="Banner da empresa" class="hero-banner" />
+          <img
+            v-if="bannerEmpresa && !bannerEmpresaComErro"
+            :src="bannerEmpresa"
+            alt="Banner da empresa"
+            class="hero-banner"
+            @error="aoFalharBannerEmpresa"
+          />
           <div v-else class="hero-banner hero-banner-placeholder">
             <div class="hero-banner-texto">
               <span>Catalogo do dia</span>
@@ -775,7 +798,13 @@ onBeforeUnmount(() => {
           <div class="hero-principal">
             <div class="hero-identidade">
               <div class="logo-shell">
-                <img v-if="logoEmpresa" :src="logoEmpresa" alt="Logo da empresa" class="logo-empresa" />
+                <img
+                  v-if="logoEmpresa && !logoEmpresaComErro"
+                  :src="logoEmpresa"
+                  alt="Logo da empresa"
+                  class="logo-empresa"
+                  @error="aoFalharLogoEmpresa"
+                />
                 <span v-else>{{ extrairIniciais(empresa.nome || tituloPagina) }}</span>
               </div>
 
@@ -1794,8 +1823,9 @@ onBeforeUnmount(() => {
   max-height: min(calc(100dvh - 32px), 940px);
   overflow: hidden;
   background: var(--catalogo-cor-modal);
+  color: var(--catalogo-cor-modal-texto);
   border-radius: 30px;
-  border: 0;
+  border: 1px solid var(--catalogo-cor-modal-borda);
   outline: 0;
   box-shadow: 0 34px 80px rgba(15, 23, 42, 0.3);
   display: grid;
@@ -1809,14 +1839,17 @@ onBeforeUnmount(() => {
   right: 12px;
   width: 42px;
   height: 42px;
-  border: 0;
+  border: 1px solid var(--catalogo-cor-modal-borda);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--catalogo-cor-secundaria), #000000 26%);
-  color: var(--catalogo-cor-botao-texto);
+  background: var(--catalogo-cor-modal-fechar);
+  color: var(--catalogo-cor-modal-fechar-texto);
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
   z-index: 2;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.14);
 }
 
 .produto-modal-midia {
@@ -1869,6 +1902,7 @@ onBeforeUnmount(() => {
   gap: 18px;
   padding: 28px;
   min-height: 0;
+  color: var(--catalogo-cor-modal-texto);
 }
 
 .produto-modal-cabecalho {
@@ -1882,6 +1916,7 @@ onBeforeUnmount(() => {
   font-weight: 900;
   line-height: 1.08;
   margin: 0;
+  color: var(--catalogo-cor-modal-texto);
 }
 
 .produto-modal-categoria {
@@ -1905,7 +1940,7 @@ onBeforeUnmount(() => {
 .produto-modal-quantidade,
 .produto-modal-descricao {
   margin: 0;
-  color: var(--catalogo-texto-suave);
+  color: var(--catalogo-cor-modal-texto-suave);
   line-height: 1.6;
 }
 
@@ -1923,6 +1958,17 @@ onBeforeUnmount(() => {
 .botao-whatsapp-modal,
 .botao-fechar-modal {
   flex: 1 1 180px;
+}
+
+.botao-fechar-modal {
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%);
+  color: color-mix(in srgb, var(--catalogo-cor-secundaria), #0f172a 24%);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 78%);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.botao-fechar-modal:hover {
+  filter: brightness(0.98);
 }
 
 .modal-previa-enter-active,
