@@ -9,6 +9,12 @@ import {
   buscarPersonalizacaoPublica,
 } from '@/services/api'
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
+import {
+  criarMapaVisualPublico,
+  criarVariaveisCssPublicas,
+  normalizarCorHex as normalizarCorHexPublica,
+  normalizarTemaPublico as normalizarTemaPublicoCompartilhado,
+} from '@/utils/temasPublicos'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
@@ -121,42 +127,15 @@ const descricaoCatalogo = computed(() =>
   subtituloPagina.value || 'Confira os produtos publicados hoje e fale com a empresa direto pelo WhatsApp.'
 )
 
-const corPrincipalCatalogo = computed(() => normalizarCorHex(personalizacao.value.corPrincipal, '#2563eb'))
-const corSecundariaCatalogo = computed(() => normalizarCorHex(personalizacao.value.corSecundaria, '#0f172a'))
-const temaCatalogo = computed(() => normalizarTemaPublico(personalizacao.value.tema))
+const corPrincipalCatalogo = computed(() => normalizarCorHexPublica(personalizacao.value.corPrincipal, '#2563eb'))
+const corSecundariaCatalogo = computed(() => normalizarCorHexPublica(personalizacao.value.corSecundaria, '#0f172a'))
+const temaCatalogo = computed(() => normalizarTemaPublicoCompartilhado(personalizacao.value.tema))
 const classeTemaCatalogo = computed(() => `tema-${temaCatalogo.value.toLowerCase()}`)
 const estilosCatalogo = computed(() => {
-  const corPrincipal = corPrincipalCatalogo.value
-  const corSecundaria = corSecundariaCatalogo.value
-  const mapa = criarMapaVisualCatalogo(corPrincipal, corSecundaria, temaCatalogo.value)
+  const mapa = criarMapaVisualPublico(corPrincipalCatalogo.value, corSecundariaCatalogo.value, temaCatalogo.value)
 
   return {
-    '--catalogo-cor-principal': corPrincipal,
-    '--catalogo-cor-secundaria': corSecundaria,
-    '--catalogo-cor-destaque': mapa.destaque,
-    '--catalogo-cor-fundo': mapa.fundo,
-    '--catalogo-cor-card': mapa.card,
-    '--catalogo-cor-texto': mapa.texto,
-    '--catalogo-cor-texto-suave': mapa.textoSuave,
-    '--catalogo-cor-borda': mapa.borda,
-    '--catalogo-cor-hero': mapa.hero,
-    '--catalogo-cor-botao': mapa.botao,
-    '--catalogo-cor-botao-texto': mapa.botaoTexto,
-    '--catalogo-cor-fundo-secundario': mapa.fundoSecundario,
-    '--catalogo-cor-chip': mapa.chip,
-    '--catalogo-cor-chip-texto': mapa.chipTexto,
-    '--catalogo-cor-sucesso': mapa.sucesso,
-    '--catalogo-cor-sucesso-suave': mapa.sucessoSuave,
-    '--catalogo-cor-perigo': mapa.perigo,
-    '--catalogo-cor-perigo-suave': mapa.perigoSuave,
-    '--catalogo-cor-overlay': mapa.overlay,
-    '--catalogo-cor-modal': mapa.modal,
-    '--catalogo-cor-modal-midia': mapa.modalMidia,
-    '--catalogo-cor-modal-texto': '#0f172a',
-    '--catalogo-cor-modal-texto-suave': '#475569',
-    '--catalogo-cor-modal-borda': 'rgba(148, 163, 184, 0.26)',
-    '--catalogo-cor-modal-fechar': 'rgba(226, 232, 240, 0.98)',
-    '--catalogo-cor-modal-fechar-texto': '#0f172a',
+    ...criarVariaveisCssPublicas(mapa, '--catalogo-cor'),
   }
 })
 
@@ -704,6 +683,14 @@ async function carregarCatalogo() {
       ...criarPersonalizacaoPadrao(),
       ...normalizarObjeto(personalizacaoApi),
     }
+    personalizacao.value = {
+      ...personalizacao.value,
+      logoUrl: normalizarUrlImagemPublica(personalizacao.value.logoUrl),
+      bannerUrl: normalizarUrlImagemPublica(personalizacao.value.bannerUrl),
+      corPrincipal: normalizarCorHexPublica(personalizacao.value.corPrincipal, '#2563eb'),
+      corSecundaria: normalizarCorHexPublica(personalizacao.value.corSecundaria, '#0f172a'),
+      tema: normalizarTemaPublicoCompartilhado(personalizacao.value.tema),
+    }
     produtos.value = normalizarLista(catalogoApi?.produtos || []).map(normalizarProdutoCatalogo)
     categoriasResposta.value = normalizarLista(catalogoApi?.categorias)
   } catch (errorAtual) {
@@ -1130,7 +1117,6 @@ onBeforeUnmount(() => {
 
 .card {
   background: var(--catalogo-card);
-  backdrop-filter: blur(10px);
   border: 1px solid var(--catalogo-borda);
   border-radius: 24px;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
@@ -1145,14 +1131,20 @@ onBeforeUnmount(() => {
 
 .hero-banner-shell {
   position: relative;
-  min-height: 140px;
+  min-height: 150px;
+  height: clamp(150px, 24vw, 280px);
+  max-height: 280px;
+  overflow: hidden;
+  background: var(--catalogo-cor-fundo-secundario);
 }
 
 .hero-banner {
   width: 100%;
-  min-height: 140px;
-  max-height: 210px;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
   object-fit: cover;
+  object-position: center;
   display: block;
 }
 
@@ -1822,7 +1814,7 @@ onBeforeUnmount(() => {
   width: min(100%, 1240px);
   max-height: min(calc(100dvh - 32px), 940px);
   overflow: hidden;
-  background: var(--catalogo-cor-modal);
+  background: #ffffff;
   color: var(--catalogo-cor-modal-texto);
   border-radius: 30px;
   border: 1px solid var(--catalogo-cor-modal-borda);
@@ -1902,6 +1894,7 @@ onBeforeUnmount(() => {
   gap: 18px;
   padding: 28px;
   min-height: 0;
+  background: #ffffff;
   color: var(--catalogo-cor-modal-texto);
 }
 
@@ -2094,7 +2087,7 @@ onBeforeUnmount(() => {
 @media (max-width: 560px) {
   .hero-banner-shell,
   .hero-banner {
-    min-height: 120px;
+    min-height: 130px;
   }
 
   .hero-conteudo,

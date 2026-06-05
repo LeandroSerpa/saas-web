@@ -1,31 +1,72 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   buscarMinhaPersonalizacao,
   recalcularOnboarding,
   salvarMinhaPersonalizacao,
 } from '@/services/api'
+import { normalizarUrlImagemPublica } from '@/utils/imagens'
+import {
+  criarMapaVisualPublico,
+  criarVariaveisCssPublicas,
+  normalizarCorHex,
+  normalizarTemaPublico,
+  obterNomeTemaPublico,
+  obterOpcoesTemasPublicos,
+  obterTemaPublico,
+} from '@/utils/temasPublicos'
 
-const temas = ['PADRAO', 'MODERNO', 'ESCURO', 'SUAVE']
+const temas = obterOpcoesTemasPublicos()
 const carregando = ref(true)
 const salvando = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const personalizacao = ref(criarPersonalizacaoInicial())
+const logoPreviewComErro = ref(false)
+const bannerPreviewComErro = ref(false)
 const route = useRoute()
 const router = useRouter()
 
+const temaPreview = computed(() => normalizarTemaPublico(personalizacao.value.tema))
+const temaPreviewConfig = computed(() => obterTemaPublico(temaPreview.value))
+const mapaVisualPreview = computed(() =>
+  criarMapaVisualPublico(corPrincipalPreview.value, corSecundariaPreview.value, temaPreview.value),
+)
 const estilosPreview = computed(() => ({
-  '--cor-principal': corPrincipalPreview.value,
-  '--cor-secundaria': corSecundariaPreview.value,
+  ...criarVariaveisCssPublicas(mapaVisualPreview.value, '--preview-cor'),
+  '--cor-principal': mapaVisualPreview.value.principal,
+  '--cor-secundaria': mapaVisualPreview.value.secundaria,
 }))
 
-const classeTemaPreview = computed(() => `tema-${normalizarTema(personalizacao.value.tema).toLowerCase()}`)
-const corPrincipalPreview = computed(() => normalizarCorHex(personalizacao.value.corPrincipal, '#2563eb'))
-const corSecundariaPreview = computed(() => normalizarCorHex(personalizacao.value.corSecundaria, '#0f172a'))
+const classeTemaPreview = computed(() => `tema-${temaPreview.value.toLowerCase()}`)
+const corPrincipalPreview = computed(() =>
+  normalizarCorHex(personalizacao.value.corPrincipal, temaPreviewConfig.value.corPrincipal),
+)
+const corSecundariaPreview = computed(() =>
+  normalizarCorHex(personalizacao.value.corSecundaria, temaPreviewConfig.value.corSecundaria),
+)
 const corPrincipalInvalida = computed(() => corHexDigitadaInvalida(personalizacao.value.corPrincipal))
 const corSecundariaInvalida = computed(() => corHexDigitadaInvalida(personalizacao.value.corSecundaria))
+const logoPreviewUrl = computed(() => normalizarUrlImagemPublica(personalizacao.value.logoUrl))
+const bannerPreviewUrl = computed(() => normalizarUrlImagemPublica(personalizacao.value.bannerUrl))
+const iniciaisPreview = computed(() =>
+  extrairIniciais(personalizacao.value.tituloPagina || personalizacao.value.tituloCatalogo || 'NM'),
+)
+
+watch(
+  () => personalizacao.value.logoUrl,
+  () => {
+    logoPreviewComErro.value = false
+  },
+)
+
+watch(
+  () => personalizacao.value.bannerUrl,
+  () => {
+    bannerPreviewComErro.value = false
+  },
+)
 
 onMounted(() => {
   carregarPersonalizacao()
@@ -77,6 +118,8 @@ async function salvarPersonalizacao() {
 
     const corPrincipal = normalizarCorHex(personalizacao.value.corPrincipal, '')
     const corSecundaria = normalizarCorHex(personalizacao.value.corSecundaria, '')
+    const logoUrl = normalizarUrlImagemPublica(personalizacao.value.logoUrl)
+    const bannerUrl = normalizarUrlImagemPublica(personalizacao.value.bannerUrl)
 
     if (!corPrincipal || !corSecundaria) {
       erro.value = 'A cor deve estar no formato hexadecimal, exemplo #2563eb.'
@@ -86,10 +129,14 @@ async function salvarPersonalizacao() {
     salvando.value = true
     personalizacao.value.corPrincipal = corPrincipal
     personalizacao.value.corSecundaria = corSecundaria
+    personalizacao.value.logoUrl = logoUrl
+    personalizacao.value.bannerUrl = bannerUrl
     await salvarMinhaPersonalizacao({
       ...personalizacao.value,
       corPrincipal,
       corSecundaria,
+      logoUrl,
+      bannerUrl,
     })
     await retornarParaOnboardingSeNecessario('PERSONALIZACAO')
     mensagemSucesso.value = 'Personalização salva com sucesso.'
@@ -108,9 +155,11 @@ function normalizarPersonalizacao(dados) {
   return {
     ...padrao,
     ...origem,
+    logoUrl: normalizarUrlImagemPublica(origem.logoUrl),
+    bannerUrl: normalizarUrlImagemPublica(origem.bannerUrl),
     corPrincipal: normalizarCorHex(origem.corPrincipal, padrao.corPrincipal),
     corSecundaria: normalizarCorHex(origem.corSecundaria, padrao.corSecundaria),
-    tema: temas.includes(origem.tema) ? origem.tema : padrao.tema,
+    tema: normalizarTemaPublico(origem.tema || padrao.tema),
     mostrarPreco: origem.mostrarPreco !== false,
     mostrarFuncionario: origem.mostrarFuncionario !== false,
     mostrarEndereco: origem.mostrarEndereco !== false,
@@ -149,37 +198,35 @@ function corHexDigitadaInvalida(cor) {
   return !/^#?[0-9a-fA-F]{6}$/.test(texto)
 }
 
-function normalizarCorHex(cor, fallback = '') {
-  const texto = String(cor || '').trim().toLowerCase()
-
-  if (!texto) {
-    return fallback
-  }
-
-  if (/^#[0-9a-f]{6}$/.test(texto)) {
-    return texto
-  }
-
-  if (/^[0-9a-f]{6}$/.test(texto)) {
-    return `#${texto}`
-  }
-
-  return fallback
+function normalizarTema(tema) {
+  return normalizarTemaPublico(tema)
 }
 
-function normalizarTema(tema) {
-  return temas.includes(tema) ? tema : 'PADRAO'
+function extrairIniciais(texto) {
+  const palavras = String(texto || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+
+  if (!palavras.length) {
+    return 'NM'
+  }
+
+  return palavras.map((parte) => parte.charAt(0).toUpperCase()).join('')
 }
 
 function nomeTema(tema) {
-  const nomes = {
-    PADRAO: 'Padrão',
-    MODERNO: 'Moderno',
-    ESCURO: 'Escuro',
-    SUAVE: 'Suave',
-  }
+  return obterNomeTemaPublico(tema)
+}
 
-  return nomes[tema] || tema
+function aplicarTemaSelecionado(valor) {
+  const tema = normalizarTemaPublico(valor)
+  const configuracao = obterTemaPublico(tema)
+
+  personalizacao.value.tema = tema
+  personalizacao.value.corPrincipal = configuracao.corPrincipal
+  personalizacao.value.corSecundaria = configuracao.corSecundaria
 }
 
 function obterMensagemErro(error, fallback) {
@@ -232,7 +279,12 @@ function obterMensagemErro(error, fallback) {
             <label>
               URL do banner
               <input v-model="personalizacao.bannerUrl" type="text" placeholder="https://..." />
+              <small class="ajuda-campo neutro">Recomendado: imagem horizontal, por exemplo 1600x450 ou 1800x500. O recorte se ajusta automaticamente.</small>
             </label>
+            <small class="dica campo-grande">
+              Você pode colar um link direto de imagem ou um link público do Google Drive. No Google Drive,
+              deixe o arquivo como "Qualquer pessoa com o link pode ver".
+            </small>
             <label class="campo-cor">
               <span>Cor principal</span>
               <div class="campo-cor-controles">
@@ -283,8 +335,8 @@ function obterMensagemErro(error, fallback) {
             </label>
             <label>
               Tema
-              <select v-model="personalizacao.tema">
-                <option v-for="tema in temas" :key="tema" :value="tema">{{ nomeTema(tema) }}</option>
+              <select :value="personalizacao.tema" @change="aplicarTemaSelecionado($event.target.value)">
+                <option v-for="tema in temas" :key="tema.valor" :value="tema.valor">{{ tema.nome }}</option>
               </select>
               <small class="ajuda-campo neutro">O tema afeta a página pública de agendamento e também o catálogo/cardápio.</small>
             </label>
@@ -384,11 +436,20 @@ function obterMensagemErro(error, fallback) {
           <span>Preview unificado</span>
           <small>As mesmas cores aparecem no agendamento e na vitrine pública.</small>
         </div>
-        <div v-if="personalizacao.bannerUrl" class="preview-banner">
-          <img :src="personalizacao.bannerUrl" alt="" />
+        <div v-if="bannerPreviewUrl && !bannerPreviewComErro" class="preview-banner">
+          <img :src="bannerPreviewUrl" alt="" @error="bannerPreviewComErro = true" />
+        </div>
+        <div v-else class="preview-banner preview-banner-placeholder" aria-hidden="true">
+          <strong>{{ personalizacao.tituloPagina || 'Banner da empresa' }}</strong>
         </div>
         <div class="preview-topo">
-          <img v-if="personalizacao.logoUrl" :src="personalizacao.logoUrl" alt="" />
+          <img
+            v-if="logoPreviewUrl && !logoPreviewComErro"
+            :src="logoPreviewUrl"
+            alt=""
+            @error="logoPreviewComErro = true"
+          />
+          <div v-else class="preview-logo-fallback" aria-hidden="true">{{ iniciaisPreview }}</div>
           <div>
             <span>{{ nomeTema(normalizarTema(personalizacao.tema)) }}</span>
             <h2>{{ personalizacao.tituloPagina || 'Sua empresa' }}</h2>
@@ -590,6 +651,14 @@ input[type='color']::-webkit-color-swatch {
   color: #475569;
 }
 
+.dica {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .invalido {
   border-color: #f59e0b;
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
@@ -612,12 +681,18 @@ textarea {
 
 .campo-checkbox {
   grid-template-columns: auto 1fr;
-  align-items: center;
+  align-items: start;
+  min-width: 0;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 input[type='checkbox'] {
+  flex: 0 0 auto;
   width: 18px;
   height: 18px;
+  margin-top: 1px;
   accent-color: #2563eb;
 }
 
@@ -653,7 +728,9 @@ input[type='checkbox'] {
 .preview {
   position: sticky;
   top: 18px;
-  color: #111827;
+  background: var(--preview-cor-card);
+  border-color: var(--preview-cor-borda);
+  color: var(--preview-cor-texto);
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
@@ -661,29 +738,27 @@ input[type='checkbox'] {
 }
 
 .preview.tema-padrao {
-  background: white;
-  border-color: #e5e7eb;
+  background: var(--preview-cor-card);
+  border-color: var(--preview-cor-borda);
 }
 
 .preview.tema-moderno {
   border-radius: 18px;
-  border-color: rgba(37, 99, 235, 0.18);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.92)),
-    linear-gradient(135deg, var(--cor-principal), var(--cor-secundaria));
+  border-color: var(--preview-cor-borda);
+  background: var(--preview-cor-card);
   box-shadow: 0 22px 52px rgba(15, 23, 42, 0.18);
 }
 
 .preview.tema-escuro {
   border-color: rgba(148, 163, 184, 0.24);
-  background: #111827;
-  color: #e5e7eb;
+  background: var(--preview-cor-card);
+  color: var(--preview-cor-texto);
   box-shadow: 0 22px 54px rgba(2, 6, 23, 0.34);
 }
 
 .preview.tema-suave {
-  border-color: #e0e7ff;
-  background: #f8fbff;
+  border-color: var(--preview-cor-borda);
+  background: var(--preview-cor-card);
   box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
 }
 
@@ -701,14 +776,17 @@ input[type='checkbox'] {
 }
 
 .preview-legenda small {
-  color: #64748b;
+  color: var(--preview-cor-texto-suave);
   font-weight: 600;
 }
 
 .preview-banner {
-  height: 150px;
+  min-height: 132px;
+  height: clamp(132px, 24vw, 190px);
+  max-height: 210px;
   overflow: hidden;
   border-radius: 8px;
+  background: var(--preview-cor-fundo-secundario);
 }
 
 .tema-moderno .preview-banner {
@@ -718,7 +796,24 @@ input[type='checkbox'] {
 .preview-banner img {
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: cover;
+  object-position: center;
+}
+
+.preview-banner-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  background: var(--preview-cor-hero);
+  color: var(--cor-secundaria);
+  text-align: center;
+  padding: 18px;
+}
+
+.preview-banner-placeholder strong {
+  font-size: 16px;
+  font-weight: 800;
 }
 
 .preview-topo {
@@ -734,6 +829,19 @@ input[type='checkbox'] {
   object-fit: cover;
 }
 
+.preview-logo-fallback {
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, var(--cor-principal), var(--cor-secundaria));
+  color: white;
+  font-size: 20px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
 .preview-topo span {
   color: var(--cor-principal);
   font-size: 12px;
@@ -741,7 +849,7 @@ input[type='checkbox'] {
 }
 
 .preview-topo h2 {
-  color: var(--cor-secundaria);
+  color: var(--preview-cor-texto);
 }
 
 .tema-escuro .preview-topo h2,
@@ -756,13 +864,13 @@ input[type='checkbox'] {
 .preview-texto,
 .preview-instrucoes {
   margin: 0;
-  color: #475569;
+  color: var(--preview-cor-texto-suave);
 }
 
 .preview-instrucoes {
   padding: 12px;
   border-left: 4px solid var(--cor-principal);
-  background: #f8fafc;
+  background: var(--preview-cor-fundo-secundario);
 }
 
 .tema-moderno .preview-instrucoes {
@@ -786,9 +894,10 @@ input[type='checkbox'] {
   display: grid;
   gap: 8px;
   padding: 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--preview-cor-borda);
   border-radius: 8px;
-  background: white;
+  background: #ffffff;
+  color: #111827;
 }
 
 .tema-moderno .preview-servico {
@@ -874,8 +983,9 @@ input[type='checkbox'] {
   gap: 12px;
   padding: 14px;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.95));
+  border: 1px solid var(--preview-cor-borda);
+  background: #ffffff;
+  color: #111827;
 }
 
 .preview-catalogo-topo {

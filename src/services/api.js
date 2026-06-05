@@ -1680,10 +1680,16 @@ export async function salvarServicosVinculadosAoFuncionario(funcionarioId, servi
 }
 
 export async function salvarMinhaPersonalizacao(dados) {
+  const payload = {
+    ...dados,
+    logoUrl: normalizarUrlImagemPublica(dados?.logoUrl),
+    bannerUrl: normalizarUrlImagemPublica(dados?.bannerUrl),
+  }
+
   const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(dados),
+    body: JSON.stringify(payload),
   })
 
   return tratarResposta(response)

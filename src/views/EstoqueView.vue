@@ -3018,7 +3018,7 @@ label {
 
 .campo-checkbox {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   width: 100%;
   min-width: 0;
@@ -3027,7 +3027,7 @@ label {
   line-height: 1.35;
   white-space: normal;
   word-break: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   cursor: pointer;
 }
 
@@ -3035,17 +3035,21 @@ label {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
-  margin: 0;
+  margin: 1px 0 0;
 }
 
 .campo-checkbox-texto {
   min-width: 0;
   flex: 1 1 auto;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
-.opcao-booleana { min-width: 0; }
+.opcao-booleana {
+  min-width: 0;
+  min-height: 58px;
+}
 input, select, textarea {
   width: 100%;
   min-width: 0;
@@ -3238,7 +3242,7 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .botao,
   .botao-fechar { width: auto; }
   .campo-checkbox {
-    align-items: center;
+    align-items: flex-start;
   }
 }
 @media (max-width: 560px) {
