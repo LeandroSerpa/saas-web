@@ -1731,6 +1731,24 @@ export async function buscarOnboarding() {
   return tratarResposta(response)
 }
 
+export async function buscarStatusPrimeiroUso() {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const query = montarQueryString(filtrosConsulta)
+
+  return tentarRotas(
+    [
+      `${API_URL}/minha-empresa/primeiro-uso/status${query}`,
+      `${API_URL}/primeiro-uso/status${query}`,
+      `${API_URL}/primeiro-uso${query}`,
+      `${API_URL}/onboarding/status${query}`,
+      `${API_URL}/onboarding${query}`,
+    ],
+    {
+      headers: montarHeaders(),
+    },
+  )
+}
+
 export async function recalcularOnboarding() {
   const response = await executarFetch(`${API_URL}/onboarding/recalcular`, {
     method: 'POST',

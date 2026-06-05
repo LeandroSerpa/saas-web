@@ -1,13 +1,14 @@
 ﻿<script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import PrimeiroUsoAssistente from '@/components/PrimeiroUsoAssistente.vue'
 import {
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
   buscarMinhaEmpresa,
   buscarResumoNotificacoes,
-  buscarOnboarding,
+  buscarStatusPrimeiroUso,
   buscarServicos,
   buscarStatusFinanceiroMinhaEmpresa,
   montarLinkPublicoAgendamento,
@@ -28,6 +29,7 @@ const clientes = ref([])
 const servicos = ref([])
 const funcionarios = ref([])
 const onboarding = ref(null)
+const empresaDashboard = ref(null)
 const resumoNotificacoes = ref(null)
 const statusFinanceiro = ref(null)
 const linkPublicoAgendamento = ref('')
@@ -35,7 +37,9 @@ const linkPublicoCatalogo = ref('')
 const usuarioLogado = ref(obterUsuarioLogado())
 
 const carregando = ref(true)
+const carregandoPrimeiroUso = ref(true)
 const erro = ref('')
+const onboardingUsandoFallback = ref(true)
 const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
 const modoEssencial = computed(() => modoNavegacao.value === MODO_NAVEGACAO_ESSENCIAL)
 const onboardingPercentual = computed(() => {
@@ -273,10 +277,15 @@ async function carregarOnboardingDashboard() {
   if (!adminEmpresa.value) return
 
   try {
-    onboarding.value = normalizarObjeto(await buscarOnboarding())
+    carregandoPrimeiroUso.value = true
+    onboarding.value = normalizarObjeto(await buscarStatusPrimeiroUso())
+    onboardingUsandoFallback.value = false
   } catch (error) {
     onboarding.value = null
+    onboardingUsandoFallback.value = true
     console.error(error)
+  } finally {
+    carregandoPrimeiroUso.value = false
   }
 }
 
@@ -304,11 +313,13 @@ async function carregarResumoNotificacoesDashboard() {
 async function carregarLinksPublicos() {
   try {
     const empresa = await buscarMinhaEmpresa()
+    empresaDashboard.value = empresa
     const slug = String(empresa?.slug || '').trim()
 
     linkPublicoAgendamento.value = montarLinkPublicoAgendamento(slug)
     linkPublicoCatalogo.value = montarLinkPublicoCatalogo(slug)
   } catch (error) {
+    empresaDashboard.value = null
     linkPublicoAgendamento.value = ''
     linkPublicoCatalogo.value = ''
     console.error(error)
@@ -570,10 +581,22 @@ async function atualizarDashboard() {
 
 async function copiarLinkPublico() {
   if (!linkPublicoAgendamento.value) {
+    window.dispatchEvent(
+      new CustomEvent('mensagem-global', {
+        detail: {
+          mensagem: 'Configure o link público da empresa antes de copiar.',
+          tipo: 'erro',
+        },
+      }),
+    )
     return
   }
 
   try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error('CLIPBOARD_INDISPONIVEL')
+    }
+
     await navigator.clipboard.writeText(linkPublicoAgendamento.value)
     window.dispatchEvent(
       new CustomEvent('mensagem-global', {
@@ -588,7 +611,10 @@ async function copiarLinkPublico() {
     window.dispatchEvent(
       new CustomEvent('mensagem-global', {
         detail: {
-          mensagem: 'Não foi possível copiar o link público.',
+          mensagem:
+            error?.message === 'CLIPBOARD_INDISPONIVEL'
+              ? 'Não foi possível copiar automaticamente. Abra o link e copie manualmente.'
+              : 'Não foi possível copiar o link público.',
           tipo: 'erro',
         },
       }),
@@ -702,6 +728,22 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </section>
+
+      <PrimeiroUsoAssistente
+        v-if="adminEmpresa"
+        :carregando="carregandoPrimeiroUso"
+        :usando-fallback="onboardingUsandoFallback"
+        :status-primeiro-uso="onboarding"
+        :empresa="empresaDashboard"
+        :total-clientes="clientes.length"
+        :total-servicos="servicos.length"
+        :total-funcionarios="funcionarios.length"
+        :total-agendamentos="agendamentos.length"
+        :total-recebidos-link-publico-hoje="totalRecebidosLinkPublicoHoje"
+        :link-publico-agendamento="linkPublicoAgendamento"
+        :link-publico-catalogo="linkPublicoCatalogo"
+        @copiar-link="copiarLinkPublico"
+      />
 
       <section class="grade-essencial-metricas">
         <article class="card resumo-essencial">
