@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import {
   buscarPlanosCadastroPublico,
   buscarSegmentosCadastroPublico,
   cadastrarEmpresaInteressadaPublico,
 } from '@/services/api'
+import PublicidadeNuvemMais from '@/components/PublicidadeNuvemMais.vue'
 import { debugLog } from '@/utils/devDebug'
 import {
   criarManipuladorPasteNumerico,
@@ -21,10 +22,12 @@ import {
 const etapas = [{ titulo: 'Empresa' }, { titulo: 'Responsável' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'Revisão' }]
 const ufs = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
+const route = useRoute()
 
 const etapaAtual = ref(0)
 const segmentos = ref([])
 const planos = ref([])
+const secaoPlanosRef = ref(null)
 const carregando = ref(true)
 const enviando = ref(false)
 const erro = ref('')
@@ -37,10 +40,60 @@ const segmentoSelecionado = computed(() => segmentos.value.find((segmento) => St
 const planoSelecionado = computed(() => planos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null)
 const planosVisiveis = computed(() => planos.value.slice(0, 4))
 const possuiPlanosOcultos = computed(() => planos.value.length > planosVisiveis.value.length)
+const destacarPlanos = computed(() => route.hash === '#planos')
+
+const planosComerciais = [
+  {
+    nome: 'NuvemMais Vitrine',
+    chamada: 'Para quem quer vender ou divulgar produtos pelo WhatsApp.',
+    recursos: [
+      'Catálogo/cardápio público',
+      'Fotos, preços e disponibilidade',
+      'Botão de pedido pelo WhatsApp',
+      'Link público para divulgar',
+      'Ideal para doces, artesanatos, comidas, produtos e pequenos negócios',
+    ],
+  },
+  {
+    nome: 'NuvemMais Agenda',
+    chamada: 'Para quem trabalha com horários, serviços e atendimento.',
+    recursos: [
+      'Página pública de agendamento',
+      'Cadastro de clientes, serviços e funcionários',
+      'Agenda interna',
+      'Organização de horários',
+      'Ideal para barbearias, salões, estética, consultórios e atendimentos',
+    ],
+  },
+  {
+    nome: 'NuvemMais Completo',
+    chamada: 'Para quem precisa de catálogo e agenda no mesmo sistema.',
+    recursos: [
+      'Tudo do NuvemMais Vitrine',
+      'Tudo do NuvemMais Agenda',
+      'Estoque do dia',
+      'Catálogo/cardápio + agendamento',
+      'Ideal para negócios que vendem produtos e também prestam serviços',
+    ],
+  },
+]
 
 watch(() => formulario.value.nomeEmpresa, (nome) => {
   formulario.value.slugDesejado = gerarSlug(nome)
 })
+
+watch(
+  () => [route.hash, carregando.value],
+  async () => {
+    if (typeof window === 'undefined' || route.hash !== '#planos' || carregando.value) {
+      return
+    }
+
+    await nextTick()
+    secaoPlanosRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  },
+  { immediate: true },
+)
 
 function criarFormularioInicial() {
   return {
@@ -481,12 +534,35 @@ onMounted(carregarOpcoes)
             </label>
           </div>
 
-          <div v-else-if="etapaAtual === 3" class="campo-grande etapa-planos">
+          <div
+            v-else-if="etapaAtual === 3"
+            id="planos"
+            ref="secaoPlanosRef"
+            :class="['campo-grande', 'etapa-planos', { destaque: destacarPlanos }]"
+          >
             <div class="cabecalho-planos">
               <span class="selo">Escolha seu plano</span>
               <h2>Compare as opções disponíveis</h2>
               <p>Selecione o plano que combina melhor com o momento da sua empresa. Você poderá confirmar a escolha na revisão.</p>
             </div>
+
+            <section class="planos-comerciais" aria-label="Apresentação comercial dos planos NuvemMais">
+              <article v-for="planoComercial in planosComerciais" :key="planoComercial.nome" class="plano-comercial">
+                <div class="plano-comercial-topo">
+                  <span class="selo">Plano comercial</span>
+                  <h3>{{ planoComercial.nome }}</h3>
+                  <p class="plano-comercial-chamada">{{ planoComercial.chamada }}</p>
+                </div>
+
+                <ul class="plano-comercial-recursos">
+                  <li v-for="recurso in planoComercial.recursos" :key="recurso">{{ recurso }}</li>
+                </ul>
+              </article>
+            </section>
+
+            <p class="aviso-planos aviso-planos-comerciais">
+              Os planos selecionáveis abaixo continuam vindo da sua base atual e podem variar conforme a configuração da plataforma.
+            </p>
 
             <section v-if="!planos.length" class="sem-planos">
               <h3>Nenhum plano disponível agora</h3>
@@ -576,3 +652,79 @@ onMounted(carregarOpcoes)
 .pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:1080px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-align:center;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}.etapa-planos{display:grid;gap:18px}.cabecalho-planos{display:grid;gap:7px}.cabecalho-planos p{color:#64748b}.aviso-planos{padding:12px 14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1e3a8a;font-weight:700;line-height:1.45}.grade-planos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.plano-card{display:grid;grid-template-rows:auto auto 1fr auto auto;gap:16px;min-width:0;padding:18px;border:1px solid #dbe4f0;border-radius:8px;background:white;box-shadow:0 14px 30px rgba(15,23,42,.08);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}.plano-card.selecionado{border-color:#2563eb;box-shadow:0 20px 42px rgba(37,99,235,.2);transform:translateY(-2px)}.plano-topo{display:grid;gap:10px}.plano-topo h3{margin:0;font-size:22px;line-height:1.15;overflow-wrap:anywhere}.plano-topo strong{color:#0f172a;font-size:26px;line-height:1}.plano-topo strong span{color:#64748b;font-size:14px;font-weight:800}.plano-descricao{color:#475569;line-height:1.5}.lista-limites{display:grid;gap:8px;margin:0}.lista-limites div,.recursos-plano li{display:flex;justify-content:space-between;gap:12px;align-items:center}.lista-limites dt,.recursos-plano span{color:#64748b;font-weight:800}.lista-limites dd{margin:0;color:#0f172a;font-weight:900;text-align:right}.recursos-plano{display:grid;gap:8px;margin:0;padding:14px 0 0;border-top:1px solid #e2e8f0;list-style:none}.recursos-plano strong{color:#0f766e}.botao-plano{width:100%;min-height:46px;border:1px solid #2563eb;border-radius:8px;padding:12px 14px;background:#2563eb;color:white;cursor:pointer;font-weight:900}.plano-card.selecionado .botao-plano{background:#0f172a;border-color:#0f172a}.sem-planos{display:grid;gap:8px;padding:20px;border:1px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#1e3a8a}.sem-planos h3{margin:0}.sem-planos p{color:#334155}.recursos-revisao{display:grid;gap:6px;margin:10px 0 0;padding-left:20px;color:#334155}.recursos-revisao li{line-height:1.35}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}.grade-planos{grid-template-columns:1fr}.plano-topo strong{font-size:24px}}@media (max-width:560px){.pagina-publica{padding:22px 12px}.card,.feedback{padding:18px}.etapas{grid-template-columns:1fr}.acoes{display:grid;grid-template-columns:1fr}.botao,.botao-plano{width:100%}.lista-limites div,.recursos-plano li{align-items:flex-start}.plano-card{padding:16px}}
 </style>
 
+<style scoped>
+.etapa-planos {
+  scroll-margin-top: 18px;
+}
+
+.etapa-planos.destaque {
+  padding: 18px;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.08);
+}
+
+.planos-comerciais {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.plano-comercial {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+}
+
+.plano-comercial-topo {
+  display: grid;
+  gap: 8px;
+}
+
+.plano-comercial h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.plano-comercial-chamada {
+  margin: 0;
+  color: #334155;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.plano-comercial-recursos {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: #0f172a;
+}
+
+.plano-comercial-recursos li {
+  line-height: 1.45;
+}
+
+.aviso-planos-comerciais {
+  margin-top: -2px;
+}
+
+@media (max-width: 900px) {
+  .planos-comerciais {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .plano-comercial {
+    padding: 16px;
+  }
+}
+</style>

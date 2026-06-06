@@ -20,6 +20,7 @@ import {
   normalizarTemaPublico as normalizarTemaPublicoCompartilhado,
 } from '@/utils/temasPublicos'
 import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
+import PublicidadeNuvemMais from '@/components/PublicidadeNuvemMais.vue'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
@@ -1313,20 +1314,7 @@ onMounted(() => {
         </section>
       </section>
 
-      <section class="card bloco-divulgacao-nuvemmais" aria-label="Divulgação NuvemMais">
-        <div class="bloco-divulgacao-nuvemmais-texto">
-          <p class="bloco-divulgacao-nuvemmais-selo">Tecnologia NuvemMais Gestão</p>
-          <h2>Quer receber agendamentos online também?</h2>
-          <p>
-            Crie sua página de agendamento com o NuvemMais Gestão e facilite o atendimento dos seus clientes.
-          </p>
-        </div>
-
-        <div class="bloco-divulgacao-nuvemmais-acoes">
-          <a class="botao secundario" href="/cadastro" target="_blank" rel="noopener noreferrer">Criar minha página</a>
-          <a class="botao principal" href="/cadastro" target="_blank" rel="noopener noreferrer">Conhecer planos</a>
-        </div>
-      </section>
+      <PublicidadeNuvemMais />
 
       <nav class="links-institucionais card" aria-label="Páginas públicas">
         <RouterLink to="/sobre">Sobre</RouterLink>

@@ -118,18 +118,13 @@ watch(
 )
 
 const abasDisponiveis = computed(() => {
-  const abas = [
+  return [
     { id: 'produtos', rotulo: 'Produtos' },
+    { id: 'novo', rotulo: produtoEditandoId.value ? 'Editar produto' : 'Novo produto' },
     { id: 'estoque-dia', rotulo: 'Estoque do dia' },
     { id: 'catalogo', rotulo: 'Catálogo público' },
     { id: 'movimentacoes', rotulo: 'Movimentações' },
   ]
-
-  if (!modoVisualizacaoSuperAdmin.value) {
-    abas.splice(1, 0, { id: 'novo', rotulo: produtoEditandoId.value ? 'Editar produto' : 'Novo produto' })
-  }
-
-  return abas
 })
 
 const categoriasDisponiveis = computed(() => {
@@ -388,12 +383,6 @@ const cardsResumo = computed(() => [
     destaque: 'Potencial estimado com o saldo atual.',
   },
 ])
-
-watch(modoVisualizacaoSuperAdmin, (ativo) => {
-  if (ativo && abaAtiva.value === 'novo') {
-    abaAtiva.value = 'produtos'
-  }
-})
 
 watch(
   [produtosReinicioEstoqueDia, estoqueDia],
@@ -2130,7 +2119,7 @@ onBeforeUnmount(() => {
           :key="aba.id"
           type="button"
           :class="{ ativa: abaAtiva === aba.id }"
-          @click="abaAtiva = aba.id"
+          @click="selecionarAba(aba.id)"
         >
           {{ aba.rotulo }}
         </button>
@@ -2171,10 +2160,10 @@ onBeforeUnmount(() => {
               </select>
               <small>Use o seletor de visualização no topo para trocar a empresa.</small>
             </label>
-            <div class="estoque-opcoes-grid estoque-opcoes-grid--compacta">
-              <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+            <div class="filtro-checkbox-container">
+              <label class="filtro-checkbox">
                 <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
-                <span class="campo-checkbox-texto estoque-opcao-label">Somente baixo estoque</span>
+                <span>Somente baixo estoque</span>
               </label>
             </div>
           </div>
@@ -2401,9 +2390,9 @@ onBeforeUnmount(() => {
                 v-if="obterImagemUrlProduto(produto)"
                 :src="obterImagemUrlProduto(produto)"
                 :alt="`Imagem de ${obterNomeProduto(produto)}`"
-                class="catalogo-imagem"
+                class="estoque-dia-card-imagem"
               />
-              <div v-else class="catalogo-imagem catalogo-imagem-placeholder">
+              <div v-else class="estoque-dia-card-imagem estoque-dia-card-imagem-placeholder">
                 <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
                 <span>Sem imagem</span>
               </div>
@@ -2534,8 +2523,12 @@ onBeforeUnmount(() => {
           <p>Cadastre um produto para comecar a montar o catalogo publico.</p>
         </section>
 
-        <section v-else class="grade-produtos">
-          <article v-for="produto in produtosCatalogoOrdenados" :key="`catalogo-${produto.id}`" class="card produto-card">
+        <section v-else class="grade-produtos grade-produtos-catalogo">
+          <article
+            v-for="produto in produtosCatalogoOrdenados"
+            :key="`catalogo-${produto.id}`"
+            class="card produto-card produto-card-catalogo"
+          >
             <img
               v-if="imagemProdutoDisponivel(produto)"
               :src="obterImagemUrlProduto(produto)"
@@ -2602,7 +2595,7 @@ onBeforeUnmount(() => {
         </section>
       </section>
 
-      <section v-if="abaAtiva === 'novo' && !modoVisualizacaoSuperAdmin" class="secao-lista">
+      <section v-if="abaAtiva === 'novo'" class="secao-lista">
         <form class="card formulario-produto" @submit.prevent="salvarProduto">
           <div class="titulo-card">
             <h2>{{ produtoEditandoId ? 'Editar produto' : 'Novo produto' }}</h2>
@@ -2656,10 +2649,10 @@ onBeforeUnmount(() => {
               Estoque mínimo
               <input v-model="formularioProduto.estoqueMinimo" type="number" min="0" step="0.01" />
             </label>
-            <div class="campo-grande estoque-opcoes-grid">
-              <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+            <div class="campo-grande produto-ativo-container">
+              <label class="produto-ativo-checkbox produto-form-checkbox">
                 <input v-model="formularioProduto.ativo" type="checkbox" />
-                <span class="campo-checkbox-texto estoque-opcao-label">Produto ativo</span>
+                <span>Produto ativo</span>
               </label>
             </div>
           </div>
@@ -2715,22 +2708,22 @@ onBeforeUnmount(() => {
                 Texto do botao
                 <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
               </label>
-              <div class="campo-grande estoque-opcoes-grid">
-                <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+              <div class="campo-grande produto-catalogo-checkbox-grid">
+                <label class="produto-catalogo-checkbox produto-form-checkbox">
                   <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
-                  <span class="campo-checkbox-texto estoque-opcao-label">Exibir no catalogo publico</span>
+                  <span>Exibir no catalogo publico</span>
                 </label>
-                <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                <label class="produto-catalogo-checkbox produto-form-checkbox">
                   <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
-                  <span class="campo-checkbox-texto estoque-opcao-label">Produto em destaque</span>
+                  <span>Produto em destaque</span>
                 </label>
-                <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                <label class="produto-catalogo-checkbox produto-form-checkbox">
                   <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
-                  <span class="campo-checkbox-texto estoque-opcao-label">Mostrar quantidade ao cliente</span>
+                  <span>Mostrar quantidade ao cliente</span>
                 </label>
-                <label class="campo-checkbox destaque-checkbox opcao-booleana estoque-opcao-card">
+                <label class="produto-catalogo-checkbox produto-form-checkbox">
                   <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
-                  <span class="campo-checkbox-texto estoque-opcao-label">Mostrar preco ao cliente</span>
+                  <span>Mostrar preco ao cliente</span>
                 </label>
               </div>
             </div>
@@ -2982,21 +2975,37 @@ small { color: #64748b; }
   align-items: end;
 }
 .lista-preparo-estoque-dia,
-.grade-estoque-dia { display: grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap: 18px; }
+.grade-estoque-dia { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .preparo-item-card,
-.estoque-dia-card { display: grid; gap: 14px; }
+.estoque-dia-card { display: grid; gap: 12px; }
 .seletor-produto-dia {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
   border: 1px solid #dbe4f0;
   border-radius: 10px;
   background: #f8fafc;
+  min-width: 0;
 }
-.seletor-produto-dia input { width: auto; margin-top: 2px; }
-.seletor-produto-dia strong { color: #0f172a; }
-.seletor-produto-dia p { color: #64748b; }
+.seletor-produto-dia input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 18px;
+}
+.seletor-produto-dia > div { min-width: 0; }
+.seletor-produto-dia strong,
+.seletor-produto-dia p {
+  display: block;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.2;
+}
+.seletor-produto-dia strong { color: #0f172a; font-size: 14px; }
+.seletor-produto-dia p { color: #64748b; font-size: 12px; }
 .acoes-preparo-item,
 .acoes-estoque-dia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .controle-quantidade-dia {
@@ -3010,7 +3019,42 @@ small { color: #64748b; }
   min-height: 52px;
   font-size: 18px;
 }
-.estoque-dia-midia { display: grid; }
+.estoque-dia-midia {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+.estoque-dia-card-imagem {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid #dbe4f0;
+  border-radius: inherit;
+  box-sizing: border-box;
+}
+.estoque-dia-card-imagem-placeholder {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #eff6ff, #f8fafc);
+  color: #1d4ed8;
+}
+.estoque-dia-card-imagem-placeholder strong {
+  font-size: 30px;
+  font-weight: 900;
+}
+.estoque-dia-card-imagem-placeholder span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .catalogo-link-alternativo {
   display: grid;
   gap: 8px;
@@ -3056,6 +3100,10 @@ small { color: #64748b; }
   border-bottom-color: #2563eb;
   color: #1d4ed8;
 }
+.abas button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
 .campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .filtros-campos { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
 .campo-grande { grid-column: 1 / -1; }
@@ -3067,67 +3115,72 @@ label {
   font-weight: 800;
 }
 
-.campo-checkbox {
+.filtro-checkbox-container,
+.produto-ativo-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.filtro-checkbox,
+.produto-ativo-checkbox,
+.produto-catalogo-checkbox {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 9px;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  padding: 12px 14px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #f8fafc;
   line-height: 1.35;
   white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: normal;
-  hyphens: manual;
+  word-break: normal;
+  overflow-wrap: break-word;
   cursor: pointer;
 }
 
-.campo-checkbox input {
+.filtro-checkbox input[type='checkbox'],
+.produto-ativo-checkbox input[type='checkbox'],
+.produto-catalogo-checkbox input[type='checkbox'] {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
-  margin: 1px 0 0;
+  padding: 0;
+  margin: 0;
 }
 
-.campo-checkbox-texto {
+.produto-form-checkbox {
+  min-height: 30px;
+  padding: 5px 7px;
+  gap: 6px;
+  line-height: 1.15;
+}
+
+.produto-form-checkbox input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+}
+
+.filtro-checkbox span,
+.produto-ativo-checkbox span,
+.produto-catalogo-checkbox span {
+  display: block;
   min-width: 0;
   flex: 1 1 auto;
   white-space: normal;
-  overflow-wrap: normal;
-  word-break: keep-all;
-  hyphens: manual;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
-.estoque-opcoes-grid {
+.produto-catalogo-checkbox-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   width: 100%;
   min-width: 0;
-}
-
-.estoque-opcoes-grid--compacta {
-  grid-column: 1 / -1;
-}
-
-.estoque-opcao-card {
-  min-width: 0;
-  min-height: 64px;
-  align-items: center;
-}
-
-.estoque-opcao-label {
-  display: block;
-  line-height: 1.4;
-  white-space: normal;
-  overflow-wrap: normal;
-  word-break: keep-all;
-}
-
-.opcao-booleana {
-  min-width: 0;
-  min-height: 58px;
 }
 input, select, textarea {
   width: 100%;
@@ -3145,11 +3198,6 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 input[readonly] { background: #f8fafc; color: #64748b; }
-.destaque-checkbox {
-  border: 1px solid #dbe4f0;
-  border-radius: 8px;
-  background: #f8fafc;
-}
 .preview-imagem-produto {
   display: grid;
   gap: 10px;
@@ -3178,9 +3226,16 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   font-size: 14px;
 }
 .grade-produtos { display: grid; grid-template-columns: repeat(2, minmax(340px, 1fr)); gap: 18px; }
+.grade-produtos-catalogo {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
 .lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
 .produto-card,
 .historico-card { display: grid; gap: 14px; }
+.produto-card-catalogo {
+  gap: 10px;
+}
 .produto-card-topo {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
@@ -3233,12 +3288,14 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 }
 .catalogo-imagem {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 210px;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid #dbe4f0;
 }
 .catalogo-imagem-placeholder {
+  width: 100%;
+  height: 210px;
   display: grid;
   place-items: center;
   gap: 6px;
@@ -3346,12 +3403,13 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 @media (max-width: 1200px) {
   .cards-resumo { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
   .filtros-campos,
-  .grade-produtos,
-  .grade-estoque-dia,
-  .lista-preparo-estoque-dia,
   .lista-historico,
   .catalogo-link-conteudo,
   .preparo-topo { grid-template-columns: 1fr; }
+  .grade-produtos,
+  .lista-preparo-estoque-dia,
+  .grade-estoque-dia { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grade-produtos-catalogo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
   .cabecalho-pagina,
@@ -3367,13 +3425,14 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .acoes-preparo-item,
   .acoes-estoque-dia,
   .controle-quantidade-dia { grid-template-columns: 1fr; }
-  .estoque-opcoes-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .badges-topo { justify-content: flex-start; }
   .botao,
   .botao-fechar { width: auto; }
-  .campo-checkbox {
-    align-items: flex-start;
-  }
+  .produto-catalogo-checkbox-grid { grid-template-columns: 1fr; }
+  .grade-produtos,
+  .grade-produtos-catalogo,
+  .lista-preparo-estoque-dia,
+  .grade-estoque-dia { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .card,
@@ -3384,7 +3443,9 @@ input[readonly] { background: #f8fafc; color: #64748b; }
     width: 100%;
     max-width: 120px;
   }
-  .estoque-opcoes-grid { grid-template-columns: 1fr; }
+  .estoque-dia-midia,
+  .catalogo-imagem,
+  .catalogo-imagem-placeholder { height: 180px; }
   .acoes,
   .botoes-paginacao,
   .acoes-preparo-item,
@@ -3392,6 +3453,8 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .botao,
   .paginacao label,
   .paginacao select { width: 100%; }
-  .seletor-produto-dia { align-items: center; }
+  .seletor-produto-dia {
+    align-items: center;
+  }
 }
 </style>

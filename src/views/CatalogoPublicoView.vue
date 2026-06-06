@@ -15,6 +15,7 @@ import {
   normalizarCorHex as normalizarCorHexPublica,
   normalizarTemaPublico as normalizarTemaPublicoCompartilhado,
 } from '@/utils/temasPublicos'
+import PublicidadeNuvemMais from '@/components/PublicidadeNuvemMais.vue'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
@@ -1355,20 +1356,7 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="card bloco-divulgacao-nuvemmais" aria-label="Divulgação NuvemMais">
-        <div class="bloco-divulgacao-nuvemmais-texto">
-          <p class="bloco-divulgacao-nuvemmais-selo">Tecnologia NuvemMais Gestão</p>
-          <h2>Quer ter uma página como esta?</h2>
-          <p>
-            Com o NuvemMais Gestão, você pode divulgar seu catálogo, cardápio ou vitrine online e receber pedidos pelo WhatsApp.
-          </p>
-        </div>
-
-        <div class="bloco-divulgacao-nuvemmais-acoes">
-          <a class="botao-secundario" href="/cadastro" target="_blank" rel="noopener noreferrer">Criar minha página</a>
-          <a class="botao-primario" href="/cadastro" target="_blank" rel="noopener noreferrer">Conhecer planos</a>
-        </div>
-      </section>
+      <PublicidadeNuvemMais />
 
       <teleport to="body">
         <transition name="modal-previa">
