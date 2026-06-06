@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import {
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   buscarCardapioPublico,
@@ -216,6 +216,14 @@ const linkWhatsappContato = computed(() => {
   return `https://wa.me/${whatsappNumero.value}?text=${encodeURIComponent(linhas.join('\n'))}`
 })
 const resumoContatoCatalogo = computed(() => (temWhatsapp.value ? `WhatsApp: ${formatarTelefoneWhatsapp(whatsappNumero.value)}` : ''))
+
+function atualizarTituloPaginaCatalogo(nomeEmpresa = '') {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  document.title = nomeEmpresa ? `${nomeEmpresa} | Catálogo NuvemMais` : 'NuvemMais Gestão'
+}
 
 watch(
   slug,
@@ -935,6 +943,8 @@ function mensagemIndisponibilidadeCatalogo(errorAtual) {
 }
 
 async function carregarCatalogo() {
+  atualizarTituloPaginaCatalogo()
+
   if (!slug.value) {
     carregando.value = false
     indisponivel.value = true
@@ -963,6 +973,7 @@ async function carregarCatalogo() {
       ...criarEmpresaPadrao(),
       ...normalizarObjeto(empresaApi),
     }
+    atualizarTituloPaginaCatalogo(empresa.value.nome)
     personalizacao.value = {
       ...criarPersonalizacaoPadrao(),
       ...normalizarObjeto(personalizacaoApi),
@@ -1341,6 +1352,21 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </article>
+        </div>
+      </section>
+
+      <section class="card bloco-divulgacao-nuvemmais" aria-label="Divulgação NuvemMais">
+        <div class="bloco-divulgacao-nuvemmais-texto">
+          <p class="bloco-divulgacao-nuvemmais-selo">Tecnologia NuvemMais Gestão</p>
+          <h2>Quer ter uma página como esta?</h2>
+          <p>
+            Com o NuvemMais Gestão, você pode divulgar seu catálogo, cardápio ou vitrine online e receber pedidos pelo WhatsApp.
+          </p>
+        </div>
+
+        <div class="bloco-divulgacao-nuvemmais-acoes">
+          <RouterLink class="botao-secundario" to="/cadastro">Criar minha página</RouterLink>
+          <RouterLink class="botao-primario" to="/cadastro">Conhecer planos</RouterLink>
         </div>
       </section>
 
@@ -2650,11 +2676,63 @@ onBeforeUnmount(() => {
   outline-offset: 3px;
 }
 
+.bloco-divulgacao-nuvemmais {
+  display: grid;
+  gap: 14px;
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-principal), white 82%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--catalogo-cor-fundo-secundario), white 16%),
+    color-mix(in srgb, var(--catalogo-cor-principal), white 92%)
+  );
+}
+
+.bloco-divulgacao-nuvemmais-texto {
+  display: grid;
+  gap: 6px;
+}
+
+.bloco-divulgacao-nuvemmais-selo {
+  margin: 0;
+  color: var(--catalogo-cor-principal);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bloco-divulgacao-nuvemmais h2 {
+  margin: 0;
+  font-size: clamp(18px, 2.8vw, 24px);
+  line-height: 1.2;
+}
+
+.bloco-divulgacao-nuvemmais p {
+  margin: 0;
+  color: var(--catalogo-texto-suave);
+  line-height: 1.55;
+}
+
+.bloco-divulgacao-nuvemmais-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bloco-divulgacao-nuvemmais-acoes > a {
+  min-width: 180px;
+}
+
 @media (max-width: 719px) {
   .produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp {
     width: 100%;
     flex-basis: 100%;
     white-space: normal;
+  }
+
+  .bloco-divulgacao-nuvemmais-acoes > a {
+    width: 100%;
+    min-width: 0;
   }
 }
 </style>

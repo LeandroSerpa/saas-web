@@ -117,6 +117,14 @@ const mensagemConfirmacaoPublica = computed(
     'Guarde essas informações. A empresa poderá entrar em contato para confirmação do atendimento.',
 )
 
+function atualizarTituloPaginaAgendamento(nomeEmpresa = '') {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  document.title = nomeEmpresa ? `Agendar com ${nomeEmpresa} | NuvemMais` : 'NuvemMais Gestão'
+}
+
 const dataAtendimentoFormatada = computed(() =>
   agendamento.value.dataAtendimento ? formatarDataAtendimento(agendamento.value.dataAtendimento) : '',
 )
@@ -620,6 +628,8 @@ function montarLabelServico(servico) {
 }
 
 async function carregarDadosPublicos() {
+  atualizarTituloPaginaAgendamento()
+
   try {
     carregando.value = true
     erro.value = ''
@@ -641,6 +651,7 @@ async function carregarDadosPublicos() {
 
     empresa.value = empresaApi
     personalizacao.value = normalizarPersonalizacaoPublica(personalizacaoApi)
+    atualizarTituloPaginaAgendamento(empresa.value?.nome)
 
     const [servicosApi, funcionariosApi] = await Promise.all([
       buscarServicosPublicos(slug.value),
@@ -1302,6 +1313,21 @@ onMounted(() => {
         </section>
       </section>
 
+      <section class="card bloco-divulgacao-nuvemmais" aria-label="Divulgação NuvemMais">
+        <div class="bloco-divulgacao-nuvemmais-texto">
+          <p class="bloco-divulgacao-nuvemmais-selo">Tecnologia NuvemMais Gestão</p>
+          <h2>Quer receber agendamentos online também?</h2>
+          <p>
+            Crie sua página de agendamento com o NuvemMais Gestão e facilite o atendimento dos seus clientes.
+          </p>
+        </div>
+
+        <div class="bloco-divulgacao-nuvemmais-acoes">
+          <RouterLink class="botao secundario" to="/cadastro">Criar minha página</RouterLink>
+          <RouterLink class="botao principal" to="/cadastro">Conhecer planos</RouterLink>
+        </div>
+      </section>
+
       <nav class="links-institucionais card" aria-label="Páginas públicas">
         <RouterLink to="/sobre">Sobre</RouterLink>
         <RouterLink to="/termos">Termos de Uso</RouterLink>
@@ -1461,6 +1487,33 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .erro { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
 .sucesso-card { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; display: grid; gap: 8px; }
 .sucesso-card h3, .sucesso-card p { margin: 0; }
+.bloco-divulgacao-nuvemmais {
+  display: grid;
+  gap: 14px;
+  border-color: color-mix(in srgb, var(--publico-cor-principal), white 82%);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--publico-cor-fundo-secundario), white 18%),
+      color-mix(in srgb, var(--publico-cor-principal), white 92%)
+    );
+}
+.bloco-divulgacao-nuvemmais-texto { display: grid; gap: 6px; }
+.bloco-divulgacao-nuvemmais-selo {
+  margin: 0;
+  color: var(--cor-principal-publica, #2563eb);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.bloco-divulgacao-nuvemmais h2 { margin: 0; font-size: clamp(18px, 2.8vw, 24px); line-height: 1.2; }
+.bloco-divulgacao-nuvemmais p { margin: 0; color: #475569; line-height: 1.55; }
+.tema-escuro .bloco-divulgacao-nuvemmais p,
+.tema-preto_elegante .bloco-divulgacao-nuvemmais p,
+.tema-preto_dourado .bloco-divulgacao-nuvemmais p { color: #cbd5e1; }
+.bloco-divulgacao-nuvemmais-acoes { display: flex; flex-wrap: wrap; gap: 10px; }
+.bloco-divulgacao-nuvemmais-acoes > a { min-width: 180px; }
 @media (max-width: 900px) {
   .layout-publico, .cabecalho-publico { grid-template-columns: 1fr; }
   .cabecalho-publico { gap: 16px; }
@@ -1469,6 +1522,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
   .campos, .previa, .resumo-confirmacao { grid-template-columns: 1fr; }
   .rodape-formulario .botao { width: 100%; min-height: 48px; }
   .grade-horarios { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bloco-divulgacao-nuvemmais-acoes > a { width: 100%; min-width: 0; }
 }
 @media (max-width: 520px) {
   .pagina-publica { padding: 20px 12px 18px; }
@@ -1479,4 +1533,3 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
   .grade-horarios { grid-template-columns: 1fr; }
 }
 </style>
-
