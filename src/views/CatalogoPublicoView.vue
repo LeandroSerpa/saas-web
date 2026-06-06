@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
@@ -19,6 +19,7 @@ import {
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
 const acessandoViaCardapio = computed(() => String(route.path || '').startsWith('/cardapio/'))
+const produtoQueryId = computed(() => normalizarIdConsultaProduto(route.query?.produto))
 
 const carregando = ref(true)
 const indisponivel = ref(false)
@@ -31,9 +32,12 @@ const categoriaAtiva = ref('')
 const categoriasRef = ref(null)
 const produtoSelecionado = ref(null)
 const imagensComErro = ref({})
+const produtoRefMap = new Map()
 let overflowBodyAnterior = ''
 let overflowHtmlAnterior = ''
 let scrollBloqueadoModal = false
+let historicoModalAtivo = false
+let ultimoProdutoFocadoPorQuery = ''
 
 const produtosPublicados = computed(() =>
   [...produtos.value]
@@ -151,12 +155,12 @@ const estilosCatalogo = computed(() => {
 
 const whatsappNumero = computed(() => {
   const candidatos = [
+    personalizacao.value.whatsapp,
+    personalizacao.value.telefone,
     empresa.value.whatsapp,
     empresa.value.telefoneWhatsapp,
     empresa.value.telefoneComercial,
     empresa.value.telefone,
-    personalizacao.value.whatsapp,
-    personalizacao.value.telefone,
   ]
 
   for (const candidato of candidatos) {
@@ -177,6 +181,27 @@ const quantidadeCategorias = computed(() => categorias.value.length)
 const categoriaAtivaSelecionada = computed(() => categorias.value.find((item) => item.nome === categoriaAtiva.value) || null)
 const totalVisiveis = computed(() => produtosFiltrados.value.length)
 const totalProdutosPublicados = computed(() => produtosPublicados.value.length)
+const listaProdutosCatalogoView = computed(() =>
+  produtosFiltrados.value.map((produto, indice) => criarProdutoCatalogoView(produto, indice)),
+)
+const produtoSelecionadoView = computed(() => {
+  if (!produtoSelecionado.value) {
+    return null
+  }
+
+  const produto = produtoSelecionado.value
+  const chaveImagem = produto.chaveImagem || chaveImagemProduto(produto)
+  const imagemNormalizada = produto.imagemNormalizada || normalizarImagemProduto(produto)
+  const possuiErroImagem = Boolean(chaveImagem && imagensComErro.value[chaveImagem])
+
+  return {
+    ...produto,
+    chaveImagem,
+    imagemNormalizada,
+    possuiErroImagem,
+    possuiImagem: Boolean(imagemNormalizada && !possuiErroImagem),
+  }
+})
 const linkWhatsappContato = computed(() => {
   if (!temWhatsapp.value) {
     return ''
@@ -196,6 +221,18 @@ watch(
   slug,
   () => {
     carregarCatalogo()
+  },
+  { immediate: true },
+)
+
+watch(
+  produtoQueryId,
+  async (produtoId) => {
+    if (!produtoId || produtoId === ultimoProdutoFocadoPorQuery) {
+      return
+    }
+
+    await focarProdutoPorQuery(produtoId)
   },
   { immediate: true },
 )
@@ -284,7 +321,7 @@ function normalizarProdutoCatalogo(produto) {
     nome: String(item.nome || '').trim(),
     descricaoPublica: String(item.descricaoPublica || item.descricao || '').trim(),
     categoriaPublica,
-    imagemUrl: normalizarUrlImagemPublica(String(item.imagemUrl || item.fotoUrl || item.imagem || '').trim()),
+    imagemUrl: normalizarUrlImagemPublica(obterCampoImagemProduto(item)),
     precoVenda: Number(item.precoVenda ?? item.preco ?? 0),
     quantidadeDisponivel: Number.isFinite(quantidadeDisponivel) ? quantidadeDisponivel : 0,
     unidade: String(item.unidade || item.unidadeMedida || 'UN').trim().toUpperCase(),
@@ -533,30 +570,106 @@ function formatarQuantidadePublica(produto) {
   return `${formatarQuantidade(produto.quantidadeDisponivel)} ${unidade}`
 }
 
-function chaveImagemProduto(produto) {
-  return String(produto?.id ?? produto?.codigo ?? produto?.sku ?? produto?.nome ?? '').trim()
+function obterCampoImagemProduto(produto) {
+  if (!produto || typeof produto !== 'object') {
+    return ''
+  }
+
+  const candidatos = [
+    produto.imagemUrl,
+    produto.imagem_url,
+    produto.imagemProduto,
+    produto.imagem_produto,
+    produto.fotoUrl,
+    produto.foto_url,
+    produto.foto,
+    produto.imagem,
+    produto.urlImagem,
+    produto.url_imagem,
+  ]
+
+  return String(candidatos.find((valor) => String(valor || '').trim()) || '').trim()
+}
+
+function normalizarImagemProduto(produto) {
+  return normalizarUrlImagemPublica(obterCampoImagemProduto(produto))
+}
+
+function chaveImagemProduto(produto, indice = -1) {
+  const candidatos = [produto?.id, produto?.codigoInterno, produto?.codigo, produto?.sku]
+
+  for (const candidato of candidatos) {
+    const chave = String(candidato || '').trim()
+
+    if (chave) {
+      return chave
+    }
+  }
+
+  const nome = String(produto?.nome || '').trim() || 'produto'
+  return indice >= 0 ? `${nome}-${indice}` : nome
+}
+
+function criarProdutoCatalogoView(produto, indice) {
+  const item = produto && typeof produto === 'object' && !Array.isArray(produto) ? produto : {}
+  const chaveImagem = chaveImagemProduto(produto, indice)
+  const imagemNormalizada = normalizarImagemProduto(produto)
+  const possuiErroImagem = Boolean(chaveImagem && imagensComErro.value[chaveImagem])
+
+  return {
+    ...item,
+    chaveImagem,
+    imagemNormalizada,
+    possuiErroImagem,
+    possuiImagem: Boolean(imagemNormalizada && !possuiErroImagem),
+  }
+}
+
+function encontrarIndiceProdutoCatalogo(produto) {
+  if (!produto) {
+    return -1
+  }
+
+  const porReferencia = produtosFiltrados.value.findIndex((item) => item === produto)
+
+  if (porReferencia >= 0) {
+    return porReferencia
+  }
+
+  const chaveConsulta = chaveProdutoConsulta(produto)
+
+  if (!chaveConsulta) {
+    return -1
+  }
+
+  return produtosFiltrados.value.findIndex((item) => chaveProdutoConsulta(item) === chaveConsulta)
 }
 
 function imagemProdutoDisponivel(produto) {
-  const chave = chaveImagemProduto(produto)
+  const imagemNormalizada = normalizarImagemProduto(produto)
 
-  if (!imagemProdutoUrl(produto)) {
+  if (!imagemNormalizada) {
     return false
   }
 
+  const chave = produto?.chaveImagem || chaveImagemProduto(produto)
   return !imagensComErro.value[chave]
 }
 
 function imagemProdutoUrl(produto) {
-  return normalizarUrlImagemPublica(String(produto?.imagemUrl || '').trim())
+  return normalizarImagemProduto(produto)
 }
 
 function aoFalharLogoEmpresa() {
-  logoEmpresaComErro.value = true
+  if (!logoEmpresaComErro.value) {
+    logoEmpresaComErro.value = true
+  }
 }
 
 function aoFalharBannerEmpresa() {
-  bannerEmpresaComErro.value = true
+  if (!bannerEmpresaComErro.value) {
+    bannerEmpresaComErro.value = true
+  }
 }
 
 function normalizarData(valor) {
@@ -630,17 +743,104 @@ function irParaCategorias() {
   categoriasRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-function montarMensagemWhatsapp(produto) {
-  const nomeEmpresa = empresa.value.nome || 'empresa'
-  const linhas = [`Ola! Vim pelo catalogo da ${nomeEmpresa} e tenho interesse em: ${produto.nome}.`]
+function montarLinkCatalogoProduto(produto) {
+  const produtoId = normalizarIdConsultaProduto(produto?.id)
+  const rotaAtual = String(route.path || '').trim() || (acessandoViaCardapio.value ? `/cardapio/${slug.value}` : `/catalogo/${slug.value}`)
+  const urlBase = typeof window !== 'undefined' ? window.location.origin : ''
 
-  if (produto.mostrarPrecoPublico && Number(produto.precoVenda || 0) > 0) {
-    linhas.push(`Preco: ${formatarMoeda(produto.precoVenda)}.`)
+  if (!urlBase) {
+    return produtoId ? `${rotaAtual}?produto=${encodeURIComponent(produtoId)}` : rotaAtual
   }
 
-  linhas.push('Ainda esta disponivel?')
+  const url = new URL(rotaAtual, urlBase)
 
-  return linhas.join('\n')
+  if (produtoId) {
+    url.searchParams.set('produto', produtoId)
+  }
+
+  return url.toString()
+}
+
+function normalizarIdConsultaProduto(valor) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) {
+    return ''
+  }
+
+  return Number.isFinite(Number(texto)) ? String(Number(texto)) : texto
+}
+
+function registrarRefProduto(produto, elemento) {
+  const chave = chaveProdutoConsulta(produto)
+
+  if (!chave) {
+    return
+  }
+
+  if (elemento) {
+    produtoRefMap.set(chave, elemento)
+  } else {
+    produtoRefMap.delete(chave)
+  }
+}
+
+function chaveProdutoConsulta(produto) {
+  return String(produto?.id ?? produto?.codigoInterno ?? produto?.codigo ?? produto?.sku ?? '').trim()
+}
+
+async function focarProdutoPorQuery(produtoId) {
+  if (!produtoId || typeof window === 'undefined' || produtoId === ultimoProdutoFocadoPorQuery) {
+    return
+  }
+
+  await nextTick()
+
+  const item = produtoRefMap.get(produtoId) || produtoRefMap.get(String(Number(produtoId))) || null
+
+  if (item?.scrollIntoView) {
+    item.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  ultimoProdutoFocadoPorQuery = produtoId
+}
+
+function montarMensagemWhatsapp(produto) {
+  const nomeEmpresa = empresa.value.nome || 'empresa'
+  const linhas = ['Olá! Tenho interesse neste produto:', '']
+  const nomeProduto = String(produto?.nome || '').trim()
+  const categoria = String(produto?.categoriaPublica || '').trim()
+  const mostrarPreco = produto?.mostrarPrecoPublico === true
+  const mostrarQuantidade = produto?.mostrarQuantidadePublica === true
+  const preco = Number(produto?.precoVenda || 0)
+  const quantidade = Number(produto?.quantidadeDisponivel || 0)
+  const linkCatalogo = montarLinkCatalogoProduto(produto)
+
+  if (nomeProduto) {
+    linhas.push(`Produto: ${nomeProduto}`)
+  }
+
+  if (categoria) {
+    linhas.push(`Categoria: ${categoria}`)
+  }
+
+  if (mostrarPreco && preco > 0) {
+    linhas.push(`Preço: ${formatarMoeda(preco)}`)
+  }
+
+  if (mostrarQuantidade) {
+    linhas.push(`Disponível hoje: ${formatarQuantidadePublica(produto)}`)
+  }
+
+  linhas.push(`Empresa: ${nomeEmpresa}`)
+
+  if (linkCatalogo) {
+    linhas.push(`Link: ${linkCatalogo}`)
+  }
+
+  linhas.push('', produto?.textoBotaoPublico || 'Pode me passar mais detalhes?')
+
+  return linhas.filter((linha, indice, lista) => linha !== '' || lista[indice - 1] !== '').join('\n')
 }
 
 function linkWhatsappProduto(produto) {
@@ -652,24 +852,66 @@ function linkWhatsappProduto(produto) {
 }
 
 function abrirPreviaProduto(produto) {
+  if (!produtoSelecionado.value) {
+    registrarHistoricoModal()
+  }
+
   produtoSelecionado.value = produto
 }
 
-function fecharPreviaProduto() {
-  produtoSelecionado.value = null
-}
-
-function aoFalharImagemProduto(produto) {
-  const chave = chaveImagemProduto(produto)
-
-  if (!chave) {
+function fecharPreviaProduto({ sincronizarHistorico = true } = {}) {
+  if (
+    sincronizarHistorico &&
+    historicoModalAtivo &&
+    typeof window !== 'undefined' &&
+    window.history.state?.catalogoProdutoModal === true
+  ) {
+    historicoModalAtivo = false
+    produtoSelecionado.value = null
+    window.history.back()
     return
   }
 
-  imagensComErro.value = {
-    ...imagensComErro.value,
-    [chave]: true,
+  historicoModalAtivo = false
+  produtoSelecionado.value = null
+}
+
+function registrarHistoricoModal() {
+  if (historicoModalAtivo || typeof window === 'undefined') {
+    return
   }
+
+  try {
+    const estadoAtual = window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
+    window.history.pushState({ ...estadoAtual, catalogoProdutoModal: true }, '', window.location.href)
+    historicoModalAtivo = true
+  } catch {
+    historicoModalAtivo = false
+  }
+}
+
+function aoVoltarHistoricoModal() {
+  if (!historicoModalAtivo || !produtoSelecionado.value) {
+    return
+  }
+
+  fecharPreviaProduto({ sincronizarHistorico: false })
+}
+
+function aoPressionarTecla(evento) {
+  if (evento.key === 'Escape' && produtoSelecionado.value) {
+    fecharPreviaProduto()
+  }
+}
+
+function aoFalharImagemProduto(produto) {
+  const chave = produto?.chaveImagem || chaveImagemProduto(produto)
+
+  if (!chave || imagensComErro.value[chave]) {
+    return
+  }
+
+  imagensComErro.value[chave] = true
 }
 
 function mensagemIndisponibilidadeCatalogo(errorAtual) {
@@ -702,6 +944,7 @@ async function carregarCatalogo() {
     categoriasResposta.value = []
     produtoSelecionado.value = null
     imagensComErro.value = {}
+    ultimoProdutoFocadoPorQuery = ''
 
     const buscarVitrinePublica = acessandoViaCardapio.value ? buscarCardapioPublico : buscarCatalogoPublico
     const [empresaApi, personalizacaoApi, catalogoApi] = await Promise.all([
@@ -728,6 +971,10 @@ async function carregarCatalogo() {
     }
     produtos.value = normalizarLista(catalogoApi?.produtos || []).map(normalizarProdutoCatalogo)
     categoriasResposta.value = normalizarLista(catalogoApi?.categorias)
+
+    if (produtoQueryId.value) {
+      await focarProdutoPorQuery(produtoQueryId.value)
+    }
   } catch (errorAtual) {
     indisponivel.value = true
     erro.value = mensagemIndisponibilidadeCatalogo(errorAtual)
@@ -737,7 +984,7 @@ async function carregarCatalogo() {
   }
 }
 
-watch(
+  watch(
   produtoSelecionado,
   (produto) => {
     if (typeof document === 'undefined') {
@@ -767,7 +1014,19 @@ watch(
   { immediate: true },
 )
 
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('popstate', aoVoltarHistoricoModal)
+    window.addEventListener('keydown', aoPressionarTecla)
+  }
+})
+
 onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('popstate', aoVoltarHistoricoModal)
+    window.removeEventListener('keydown', aoPressionarTecla)
+  }
+
   if (typeof document !== 'undefined') {
     if (scrollBloqueadoModal) {
       document.body.style.overflow = overflowBodyAnterior
@@ -780,6 +1039,8 @@ onBeforeUnmount(() => {
       document.documentElement.style.overflow = ''
     }
   }
+
+  historicoModalAtivo = false
 })
 </script>
 
@@ -813,7 +1074,6 @@ onBeforeUnmount(() => {
               <strong>{{ empresa.nome || 'NuvemMais Gestao' }}</strong>
             </div>
           </div>
-          <div class="hero-filtro"></div>
         </div>
 
         <div class="hero-conteudo">
@@ -1004,7 +1264,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="grid-produtos">
-          <article v-for="produto in produtosFiltrados" :key="produto.id" class="card produto-card">
+          <article
+            v-for="produto in listaProdutosCatalogoView"
+            :key="produto.chaveImagem"
+            class="card produto-card"
+            :ref="(el) => registrarRefProduto(produto, el)"
+          >
             <button
               type="button"
               class="produto-midia"
@@ -1012,8 +1277,8 @@ onBeforeUnmount(() => {
               @click="abrirPreviaProduto(produto)"
             >
               <img
-                v-if="imagemProdutoDisponivel(produto)"
-                :src="imagemProdutoUrl(produto)"
+                v-if="produto.possuiImagem"
+                :src="produto.imagemNormalizada"
                 :alt="`Imagem de ${produto.nome}`"
                 class="produto-imagem"
                 @error="aoFalharImagemProduto(produto)"
@@ -1073,7 +1338,7 @@ onBeforeUnmount(() => {
 
       <teleport to="body">
         <transition name="modal-previa">
-          <div v-if="produtoSelecionado" class="produto-modal" role="dialog" aria-modal="true" :aria-label="`Prévia de ${produtoSelecionado.nome}`" @click.self="fecharPreviaProduto">
+          <div v-if="produtoSelecionadoView" class="produto-modal" role="dialog" aria-modal="true" :aria-label="`Prévia de ${produtoSelecionadoView.nome}`" @click.self="fecharPreviaProduto">
             <div class="produto-modal-conteudo">
               <button type="button" class="produto-modal-fechar" aria-label="Fechar prévia" @click="fecharPreviaProduto">
                 ×
@@ -1081,15 +1346,15 @@ onBeforeUnmount(() => {
 
               <div class="produto-modal-midia">
                 <img
-                  v-if="imagemProdutoDisponivel(produtoSelecionado)"
-                  :src="imagemProdutoUrl(produtoSelecionado)"
-                  :alt="`Imagem ampliada de ${produtoSelecionado.nome}`"
+                  v-if="produtoSelecionadoView.possuiImagem"
+                  :src="produtoSelecionadoView.imagemNormalizada"
+                  :alt="`Imagem ampliada de ${produtoSelecionadoView.nome}`"
                   class="produto-modal-imagem"
-                  @error="aoFalharImagemProduto(produtoSelecionado)"
+                  @error="aoFalharImagemProduto(produtoSelecionadoView)"
                 />
                 <div v-else class="produto-modal-placeholder">
-                  <span class="produto-placeholder-iniciais">{{ extrairIniciais(produtoSelecionado.nome) }}</span>
-                  <strong>{{ produtoSelecionado.categoriaPublica || 'Produto especial' }}</strong>
+                  <span class="produto-placeholder-iniciais">{{ extrairIniciais(produtoSelecionadoView.nome) }}</span>
+                  <strong>{{ produtoSelecionadoView.categoriaPublica || 'Produto especial' }}</strong>
                   <small>Sem imagem disponível</small>
                 </div>
               </div>
@@ -1097,22 +1362,22 @@ onBeforeUnmount(() => {
               <div class="produto-modal-corpo">
                 <div class="produto-modal-cabecalho">
                   <p class="painel-selo">Prévia do produto</p>
-                  <h2>{{ produtoSelecionado.nome }}</h2>
-                  <p v-if="produtoSelecionado.categoriaPublica" class="produto-modal-categoria">{{ produtoSelecionado.categoriaPublica }}</p>
+                  <h2>{{ produtoSelecionadoView.nome }}</h2>
+                  <p v-if="produtoSelecionadoView.categoriaPublica" class="produto-modal-categoria">{{ produtoSelecionadoView.categoriaPublica }}</p>
                 </div>
 
                 <div class="produto-modal-dados">
-                  <p v-if="produtoSelecionado.mostrarPrecoPublico" class="produto-modal-preco">{{ formatarMoeda(produtoSelecionado.precoVenda) }}</p>
-                  <p v-if="produtoSelecionado.mostrarQuantidadePublica" class="produto-modal-quantidade">
-                    Disponivel hoje: {{ formatarQuantidadePublica(produtoSelecionado) }}
+                  <p v-if="produtoSelecionadoView.mostrarPrecoPublico" class="produto-modal-preco">{{ formatarMoeda(produtoSelecionadoView.precoVenda) }}</p>
+                  <p v-if="produtoSelecionadoView.mostrarQuantidadePublica" class="produto-modal-quantidade">
+                    Disponivel hoje: {{ formatarQuantidadePublica(produtoSelecionadoView) }}
                   </p>
-                  <p v-if="!produtoSelecionado.disponivel" class="produto-modal-quantidade produto-modal-esgotado">
+                  <p v-if="!produtoSelecionadoView.disponivel" class="produto-modal-quantidade produto-modal-esgotado">
                     Estoque do dia encerrado no momento.
                   </p>
                 </div>
 
                 <div class="produto-modal-textos">
-                  <p v-if="produtoSelecionado.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionado.descricaoPublica }}</p>
+                  <p v-if="produtoSelecionadoView.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionadoView.descricaoPublica }}</p>
                   <p v-if="textoInstrucoesCatalogo" class="produto-modal-apoio">{{ textoInstrucoesCatalogo }}</p>
                 </div>
 
@@ -1120,11 +1385,12 @@ onBeforeUnmount(() => {
                   <a
                     v-if="temWhatsapp"
                     class="botao-whatsapp botao-whatsapp-modal"
-                    :href="linkWhatsappProduto(produtoSelecionado)"
+                    :href="linkWhatsappProduto(produtoSelecionadoView)"
                     target="_blank"
                     rel="noopener noreferrer"
+                    @click="fecharPreviaProduto"
                   >
-                    {{ produtoSelecionado.disponivel ? produtoSelecionado.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
+                    {{ produtoSelecionadoView.disponivel ? produtoSelecionadoView.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
                   </a>
                   <button type="button" class="botao-secundario botao-fechar-modal" @click="fecharPreviaProduto">
                     Fechar
@@ -1174,18 +1440,17 @@ onBeforeUnmount(() => {
 
 .hero {
   overflow: hidden;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-hero), transparent 12%), transparent),
-    var(--catalogo-card);
+  background: var(--catalogo-card);
 }
 
 .hero-banner-shell {
   position: relative;
-  min-height: 180px;
-  height: clamp(180px, 22vw, 300px);
-  max-height: 300px;
-  overflow: hidden;
-  background: var(--catalogo-cor-fundo-secundario);
+  min-height: 150px;
+  height: clamp(150px, 20vw, 260px);
+  max-height: 260px;
+  padding: 12px;
+  background: #ffffff;
+  border-bottom: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
 }
 
 .hero-banner {
@@ -1193,24 +1458,25 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 0;
   max-height: none;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   display: block;
+  background: #ffffff;
+  border-radius: 18px;
 }
 
 .hero-banner-placeholder {
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.26), transparent 28%),
-    linear-gradient(135deg, var(--catalogo-cor-principal), var(--catalogo-cor-secundaria));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 92%), #ffffff);
+  border: 1px dashed color-mix(in srgb, var(--catalogo-cor-secundaria), white 70%);
 }
 
 .hero-banner-texto {
   display: grid;
   gap: 6px;
   text-align: center;
-  color: white;
+  color: var(--catalogo-texto);
   padding: 18px;
 }
 
@@ -1224,13 +1490,6 @@ onBeforeUnmount(() => {
 .hero-banner-texto strong {
   font-size: clamp(22px, 5vw, 34px);
   font-weight: 900;
-}
-
-.hero-filtro {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), var(--catalogo-cor-overlay));
-  pointer-events: none;
 }
 
 .hero-conteudo {
@@ -1879,6 +2138,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .produto-modal-conteudo {
@@ -1901,13 +2161,13 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--catalogo-cor-modal-borda);
   border-radius: 999px;
   background: var(--catalogo-cor-modal-fechar);
   color: var(--catalogo-cor-modal-fechar-texto);
-  font-size: 26px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
   z-index: 2;
@@ -1931,7 +2191,7 @@ onBeforeUnmount(() => {
 .produto-modal-imagem,
 .produto-modal-placeholder {
   width: 100%;
-  height: auto;
+  height: min(62vh, 680px);
   min-height: 320px;
   max-height: min(62vh, 680px);
   display: block;
@@ -1969,6 +2229,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   max-height: min(calc(100dvh - 24px), 880px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: #ffffff;
   color: var(--catalogo-cor-modal-texto);
 }
@@ -1991,6 +2252,7 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--catalogo-cor-principal);
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .produto-modal-dados {
@@ -2010,6 +2272,7 @@ onBeforeUnmount(() => {
   margin: 0;
   color: var(--catalogo-cor-modal-texto-suave);
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .produto-modal-textos {
@@ -2024,6 +2287,7 @@ onBeforeUnmount(() => {
   padding: 14px 16px;
   border-radius: 16px;
   background: color-mix(in srgb, var(--catalogo-cor-principal), white 92%);
+  overflow-wrap: anywhere;
 }
 
 .produto-modal-esgotado {
@@ -2078,7 +2342,8 @@ onBeforeUnmount(() => {
   box-shadow: 0 20px 40px color-mix(in srgb, var(--catalogo-cor-principal), transparent 90%);
 }
 
-.catalogo-publico.tema-escuro .card {
+.catalogo-publico.tema-escuro .card,
+.catalogo-publico.tema-preto_elegante .card {
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
 }
 
@@ -2086,11 +2351,17 @@ onBeforeUnmount(() => {
 .catalogo-publico.tema-escuro .passo-compra,
 .catalogo-publico.tema-escuro .produto-infos,
 .catalogo-publico.tema-escuro .chip,
-.catalogo-publico.tema-escuro .produto-midia-acoes {
+.catalogo-publico.tema-escuro .produto-midia-acoes,
+.catalogo-publico.tema-preto_elegante .resumo-pill,
+.catalogo-publico.tema-preto_elegante .passo-compra,
+.catalogo-publico.tema-preto_elegante .produto-infos,
+.catalogo-publico.tema-preto_elegante .chip,
+.catalogo-publico.tema-preto_elegante .produto-midia-acoes {
   background: color-mix(in srgb, var(--catalogo-cor-fundo-secundario), #020617 10%);
 }
 
-.catalogo-publico.tema-escuro .botao-secundario {
+.catalogo-publico.tema-escuro .botao-secundario,
+.catalogo-publico.tema-preto_elegante .botao-secundario {
   color: #e5e7eb;
 }
 
@@ -2175,9 +2446,18 @@ onBeforeUnmount(() => {
 @media (max-width: 560px) {
   .hero-banner-shell,
   .hero-banner {
-    min-height: 160px;
-    height: clamp(160px, 42vw, 210px);
-    max-height: 210px;
+    min-height: 112px;
+    height: clamp(112px, 42vw, 170px);
+    max-height: 170px;
+  }
+
+  .hero-banner-shell {
+    padding: 8px;
+  }
+
+  .hero-banner {
+    object-fit: contain;
+    border-radius: 14px;
   }
 
   .hero-conteudo,
@@ -2215,26 +2495,54 @@ onBeforeUnmount(() => {
 
 @media (max-width: 719px) {
   .produto-modal {
-    padding: 8px;
+    padding: 10px;
+    align-items: center;
   }
 
   .produto-modal-conteudo {
-    width: min(100%, calc(100vw - 16px));
-    max-height: calc(100dvh - 16px);
+    width: min(100%, calc(100vw - 20px));
+    max-height: calc(100dvh - 20px);
+    border-radius: 22px;
+    grid-template-rows: minmax(260px, 46dvh) minmax(0, 1fr);
   }
 
   .produto-modal-midia {
-    padding: 14px 14px 0;
+    min-height: 0;
+    padding: 12px 12px 6px;
   }
 
   .produto-modal-imagem,
   .produto-modal-placeholder {
-    min-height: min(44vh, 320px);
-    max-height: min(44vh, 320px);
+    height: 100%;
+    min-height: 240px;
+    max-height: 46dvh;
+    border-radius: 18px;
   }
 
   .produto-modal-corpo {
-    padding: 18px 18px 20px;
+    align-content: start;
+    max-height: none;
+    padding: 16px 16px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .produto-modal-cabecalho {
+    padding-right: 42px;
+  }
+
+  .produto-modal-fechar {
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    font-size: 20px;
+  }
+
+  .produto-modal-acoes {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    padding-top: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff 28%);
   }
 
   .produto-midia-acoes {
