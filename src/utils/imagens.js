@@ -56,3 +56,24 @@ export function normalizarUrlImagemPublica(url) {
 
   return valor
 }
+
+export function obterCampoImagemPublica(item) {
+  if (!item || typeof item !== 'object') {
+    return ''
+  }
+
+  const candidatos = [
+    item.imagemUrl,
+    item.imagem_url,
+    item.imagemProduto,
+    item.imagem_produto,
+    item.fotoUrl,
+    item.foto_url,
+    item.foto,
+    item.imagem,
+    item.urlImagem,
+    item.url_imagem,
+  ]
+
+  return String(candidatos.find((valor) => String(valor || '').trim()) || '').trim()
+}

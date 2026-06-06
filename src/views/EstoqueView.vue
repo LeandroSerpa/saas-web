@@ -30,7 +30,7 @@ import {
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   atualizarProdutoEstoque,
 } from '@/services/api'
-import { normalizarUrlImagemPublica } from '@/utils/imagens'
+import { normalizarUrlImagemPublica, obterCampoImagemPublica } from '@/utils/imagens'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const UNIDADES_FALLBACK = Object.freeze([
@@ -982,7 +982,7 @@ function obterExibirCatalogoPublico(item) {
 }
 
 function obterImagemUrlProduto(item) {
-  return normalizarUrlImagemPublica(String(obterCampo(item, 'imagemUrl', 'fotoUrl', 'imagem') || '').trim())
+  return normalizarUrlImagemPublica(obterCampoImagemPublica(item))
 }
 
 function chaveImagemProduto(item) {
@@ -998,7 +998,7 @@ function imagemProdutoDisponivel(item) {
 function aoFalharImagemProduto(item) {
   const chave = chaveImagemProduto(item)
 
-  if (!chave) {
+  if (!chave || errosImagemProduto.value[chave]) {
     return
   }
 
@@ -2537,14 +2537,15 @@ onBeforeUnmount(() => {
         <section v-else class="grade-produtos">
           <article v-for="produto in produtosCatalogoOrdenados" :key="`catalogo-${produto.id}`" class="card produto-card">
             <img
-              v-if="obterImagemUrlProduto(produto)"
+              v-if="imagemProdutoDisponivel(produto)"
               :src="obterImagemUrlProduto(produto)"
-              :alt="`Imagem de ${obterNomeProduto(produto)}`"
+              alt=""
               class="catalogo-imagem"
+              @error="aoFalharImagemProduto(produto)"
             />
             <div v-else class="catalogo-imagem catalogo-imagem-placeholder">
               <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
-              <span>Sem imagem</span>
+              <span>{{ obterCategoriaPublicaProduto(produto) || obterCategoriaProduto(produto) || 'Produto' }}</span>
             </div>
 
             <div class="topo-card">
