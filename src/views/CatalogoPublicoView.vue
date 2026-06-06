@@ -1365,8 +1365,8 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="bloco-divulgacao-nuvemmais-acoes">
-          <RouterLink class="botao-secundario" to="/cadastro">Criar minha página</RouterLink>
-          <RouterLink class="botao-primario" to="/cadastro">Conhecer planos</RouterLink>
+          <a class="botao-secundario" href="/cadastro" target="_blank" rel="noopener noreferrer">Criar minha página</a>
+          <a class="botao-primario" href="/cadastro" target="_blank" rel="noopener noreferrer">Conhecer planos</a>
         </div>
       </section>
 
