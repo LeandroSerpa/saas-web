@@ -51,7 +51,7 @@ export function normalizarUrlImagemPublica(url) {
   const idGoogleDrive = extrairIdGoogleDrive(valor)
 
   if (idGoogleDrive) {
-    return `https://drive.google.com/thumbnail?id=${encodeURIComponent(idGoogleDrive)}&sz=w1200`
+    return `https://drive.google.com/thumbnail?id=${encodeURIComponent(idGoogleDrive)}&sz=w1600`
   }
 
   return valor

@@ -32,11 +32,12 @@ const categoriaAtiva = ref('')
 const categoriasRef = ref(null)
 const produtoSelecionado = ref(null)
 const imagensComErro = ref({})
-const produtoRefMap = ref(new Map())
+const produtoRefMap = new Map()
 let overflowBodyAnterior = ''
 let overflowHtmlAnterior = ''
 let scrollBloqueadoModal = false
 let historicoModalAtivo = false
+let ultimoProdutoFocadoPorQuery = ''
 
 const produtosPublicados = computed(() =>
   [...produtos.value]
@@ -180,6 +181,27 @@ const quantidadeCategorias = computed(() => categorias.value.length)
 const categoriaAtivaSelecionada = computed(() => categorias.value.find((item) => item.nome === categoriaAtiva.value) || null)
 const totalVisiveis = computed(() => produtosFiltrados.value.length)
 const totalProdutosPublicados = computed(() => produtosPublicados.value.length)
+const listaProdutosCatalogoView = computed(() =>
+  produtosFiltrados.value.map((produto, indice) => criarProdutoCatalogoView(produto, indice)),
+)
+const produtoSelecionadoView = computed(() => {
+  if (!produtoSelecionado.value) {
+    return null
+  }
+
+  const produto = produtoSelecionado.value
+  const chaveImagem = produto.chaveImagem || chaveImagemProduto(produto)
+  const imagemNormalizada = produto.imagemNormalizada || normalizarImagemProduto(produto)
+  const possuiErroImagem = Boolean(chaveImagem && imagensComErro.value[chaveImagem])
+
+  return {
+    ...produto,
+    chaveImagem,
+    imagemNormalizada,
+    possuiErroImagem,
+    possuiImagem: Boolean(imagemNormalizada && !possuiErroImagem),
+  }
+})
 const linkWhatsappContato = computed(() => {
   if (!temWhatsapp.value) {
     return ''
@@ -206,7 +228,7 @@ watch(
 watch(
   produtoQueryId,
   async (produtoId) => {
-    if (!produtoId) {
+    if (!produtoId || produtoId === ultimoProdutoFocadoPorQuery) {
       return
     }
 
@@ -299,7 +321,7 @@ function normalizarProdutoCatalogo(produto) {
     nome: String(item.nome || '').trim(),
     descricaoPublica: String(item.descricaoPublica || item.descricao || '').trim(),
     categoriaPublica,
-    imagemUrl: normalizarUrlImagemPublica(String(item.imagemUrl || item.fotoUrl || item.imagem || '').trim()),
+    imagemUrl: normalizarUrlImagemPublica(obterCampoImagemProduto(item)),
     precoVenda: Number(item.precoVenda ?? item.preco ?? 0),
     quantidadeDisponivel: Number.isFinite(quantidadeDisponivel) ? quantidadeDisponivel : 0,
     unidade: String(item.unidade || item.unidadeMedida || 'UN').trim().toUpperCase(),
@@ -548,30 +570,106 @@ function formatarQuantidadePublica(produto) {
   return `${formatarQuantidade(produto.quantidadeDisponivel)} ${unidade}`
 }
 
-function chaveImagemProduto(produto) {
-  return String(produto?.id ?? produto?.codigo ?? produto?.sku ?? produto?.nome ?? '').trim()
+function obterCampoImagemProduto(produto) {
+  if (!produto || typeof produto !== 'object') {
+    return ''
+  }
+
+  const candidatos = [
+    produto.imagemUrl,
+    produto.imagem_url,
+    produto.imagemProduto,
+    produto.imagem_produto,
+    produto.fotoUrl,
+    produto.foto_url,
+    produto.foto,
+    produto.imagem,
+    produto.urlImagem,
+    produto.url_imagem,
+  ]
+
+  return String(candidatos.find((valor) => String(valor || '').trim()) || '').trim()
+}
+
+function normalizarImagemProduto(produto) {
+  return normalizarUrlImagemPublica(obterCampoImagemProduto(produto))
+}
+
+function chaveImagemProduto(produto, indice = -1) {
+  const candidatos = [produto?.id, produto?.codigoInterno, produto?.codigo, produto?.sku]
+
+  for (const candidato of candidatos) {
+    const chave = String(candidato || '').trim()
+
+    if (chave) {
+      return chave
+    }
+  }
+
+  const nome = String(produto?.nome || '').trim() || 'produto'
+  return indice >= 0 ? `${nome}-${indice}` : nome
+}
+
+function criarProdutoCatalogoView(produto, indice) {
+  const item = produto && typeof produto === 'object' && !Array.isArray(produto) ? produto : {}
+  const chaveImagem = chaveImagemProduto(produto, indice)
+  const imagemNormalizada = normalizarImagemProduto(produto)
+  const possuiErroImagem = Boolean(chaveImagem && imagensComErro.value[chaveImagem])
+
+  return {
+    ...item,
+    chaveImagem,
+    imagemNormalizada,
+    possuiErroImagem,
+    possuiImagem: Boolean(imagemNormalizada && !possuiErroImagem),
+  }
+}
+
+function encontrarIndiceProdutoCatalogo(produto) {
+  if (!produto) {
+    return -1
+  }
+
+  const porReferencia = produtosFiltrados.value.findIndex((item) => item === produto)
+
+  if (porReferencia >= 0) {
+    return porReferencia
+  }
+
+  const chaveConsulta = chaveProdutoConsulta(produto)
+
+  if (!chaveConsulta) {
+    return -1
+  }
+
+  return produtosFiltrados.value.findIndex((item) => chaveProdutoConsulta(item) === chaveConsulta)
 }
 
 function imagemProdutoDisponivel(produto) {
-  const chave = chaveImagemProduto(produto)
+  const imagemNormalizada = normalizarImagemProduto(produto)
 
-  if (!imagemProdutoUrl(produto)) {
+  if (!imagemNormalizada) {
     return false
   }
 
+  const chave = produto?.chaveImagem || chaveImagemProduto(produto)
   return !imagensComErro.value[chave]
 }
 
 function imagemProdutoUrl(produto) {
-  return normalizarUrlImagemPublica(String(produto?.imagemUrl || '').trim())
+  return normalizarImagemProduto(produto)
 }
 
 function aoFalharLogoEmpresa() {
-  logoEmpresaComErro.value = true
+  if (!logoEmpresaComErro.value) {
+    logoEmpresaComErro.value = true
+  }
 }
 
 function aoFalharBannerEmpresa() {
-  bannerEmpresaComErro.value = true
+  if (!bannerEmpresaComErro.value) {
+    bannerEmpresaComErro.value = true
+  }
 }
 
 function normalizarData(valor) {
@@ -680,36 +778,31 @@ function registrarRefProduto(produto, elemento) {
     return
   }
 
-  const mapa = new Map(produtoRefMap.value)
-
   if (elemento) {
-    mapa.set(chave, elemento)
+    produtoRefMap.set(chave, elemento)
   } else {
-    mapa.delete(chave)
+    produtoRefMap.delete(chave)
   }
-
-  produtoRefMap.value = mapa
 }
 
 function chaveProdutoConsulta(produto) {
-  return String(produto?.id ?? produto?.codigo ?? produto?.sku ?? '').trim()
+  return String(produto?.id ?? produto?.codigoInterno ?? produto?.codigo ?? produto?.sku ?? '').trim()
 }
 
 async function focarProdutoPorQuery(produtoId) {
-  if (!produtoId || typeof window === 'undefined') {
+  if (!produtoId || typeof window === 'undefined' || produtoId === ultimoProdutoFocadoPorQuery) {
     return
   }
 
   await nextTick()
 
-  const item =
-    produtoRefMap.value.get(produtoId) ||
-    produtoRefMap.value.get(String(Number(produtoId))) ||
-    null
+  const item = produtoRefMap.get(produtoId) || produtoRefMap.get(String(Number(produtoId))) || null
 
   if (item?.scrollIntoView) {
     item.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
+
+  ultimoProdutoFocadoPorQuery = produtoId
 }
 
 function montarMensagemWhatsapp(produto) {
@@ -812,16 +905,13 @@ function aoPressionarTecla(evento) {
 }
 
 function aoFalharImagemProduto(produto) {
-  const chave = chaveImagemProduto(produto)
+  const chave = produto?.chaveImagem || chaveImagemProduto(produto)
 
-  if (!chave) {
+  if (!chave || imagensComErro.value[chave]) {
     return
   }
 
-  imagensComErro.value = {
-    ...imagensComErro.value,
-    [chave]: true,
-  }
+  imagensComErro.value[chave] = true
 }
 
 function mensagemIndisponibilidadeCatalogo(errorAtual) {
@@ -854,6 +944,7 @@ async function carregarCatalogo() {
     categoriasResposta.value = []
     produtoSelecionado.value = null
     imagensComErro.value = {}
+    ultimoProdutoFocadoPorQuery = ''
 
     const buscarVitrinePublica = acessandoViaCardapio.value ? buscarCardapioPublico : buscarCatalogoPublico
     const [empresaApi, personalizacaoApi, catalogoApi] = await Promise.all([
@@ -983,7 +1074,6 @@ onBeforeUnmount(() => {
               <strong>{{ empresa.nome || 'NuvemMais Gestao' }}</strong>
             </div>
           </div>
-          <div class="hero-filtro"></div>
         </div>
 
         <div class="hero-conteudo">
@@ -1175,8 +1265,8 @@ onBeforeUnmount(() => {
 
         <div class="grid-produtos">
           <article
-            v-for="produto in produtosFiltrados"
-            :key="produto.id"
+            v-for="produto in listaProdutosCatalogoView"
+            :key="produto.chaveImagem"
             class="card produto-card"
             :ref="(el) => registrarRefProduto(produto, el)"
           >
@@ -1187,8 +1277,8 @@ onBeforeUnmount(() => {
               @click="abrirPreviaProduto(produto)"
             >
               <img
-                v-if="imagemProdutoDisponivel(produto)"
-                :src="imagemProdutoUrl(produto)"
+                v-if="produto.possuiImagem"
+                :src="produto.imagemNormalizada"
                 :alt="`Imagem de ${produto.nome}`"
                 class="produto-imagem"
                 @error="aoFalharImagemProduto(produto)"
@@ -1248,7 +1338,7 @@ onBeforeUnmount(() => {
 
       <teleport to="body">
         <transition name="modal-previa">
-          <div v-if="produtoSelecionado" class="produto-modal" role="dialog" aria-modal="true" :aria-label="`Prévia de ${produtoSelecionado.nome}`" @click.self="fecharPreviaProduto">
+          <div v-if="produtoSelecionadoView" class="produto-modal" role="dialog" aria-modal="true" :aria-label="`Prévia de ${produtoSelecionadoView.nome}`" @click.self="fecharPreviaProduto">
             <div class="produto-modal-conteudo">
               <button type="button" class="produto-modal-fechar" aria-label="Fechar prévia" @click="fecharPreviaProduto">
                 ×
@@ -1256,15 +1346,15 @@ onBeforeUnmount(() => {
 
               <div class="produto-modal-midia">
                 <img
-                  v-if="imagemProdutoDisponivel(produtoSelecionado)"
-                  :src="imagemProdutoUrl(produtoSelecionado)"
-                  :alt="`Imagem ampliada de ${produtoSelecionado.nome}`"
+                  v-if="produtoSelecionadoView.possuiImagem"
+                  :src="produtoSelecionadoView.imagemNormalizada"
+                  :alt="`Imagem ampliada de ${produtoSelecionadoView.nome}`"
                   class="produto-modal-imagem"
-                  @error="aoFalharImagemProduto(produtoSelecionado)"
+                  @error="aoFalharImagemProduto(produtoSelecionadoView)"
                 />
                 <div v-else class="produto-modal-placeholder">
-                  <span class="produto-placeholder-iniciais">{{ extrairIniciais(produtoSelecionado.nome) }}</span>
-                  <strong>{{ produtoSelecionado.categoriaPublica || 'Produto especial' }}</strong>
+                  <span class="produto-placeholder-iniciais">{{ extrairIniciais(produtoSelecionadoView.nome) }}</span>
+                  <strong>{{ produtoSelecionadoView.categoriaPublica || 'Produto especial' }}</strong>
                   <small>Sem imagem disponível</small>
                 </div>
               </div>
@@ -1272,22 +1362,22 @@ onBeforeUnmount(() => {
               <div class="produto-modal-corpo">
                 <div class="produto-modal-cabecalho">
                   <p class="painel-selo">Prévia do produto</p>
-                  <h2>{{ produtoSelecionado.nome }}</h2>
-                  <p v-if="produtoSelecionado.categoriaPublica" class="produto-modal-categoria">{{ produtoSelecionado.categoriaPublica }}</p>
+                  <h2>{{ produtoSelecionadoView.nome }}</h2>
+                  <p v-if="produtoSelecionadoView.categoriaPublica" class="produto-modal-categoria">{{ produtoSelecionadoView.categoriaPublica }}</p>
                 </div>
 
                 <div class="produto-modal-dados">
-                  <p v-if="produtoSelecionado.mostrarPrecoPublico" class="produto-modal-preco">{{ formatarMoeda(produtoSelecionado.precoVenda) }}</p>
-                  <p v-if="produtoSelecionado.mostrarQuantidadePublica" class="produto-modal-quantidade">
-                    Disponivel hoje: {{ formatarQuantidadePublica(produtoSelecionado) }}
+                  <p v-if="produtoSelecionadoView.mostrarPrecoPublico" class="produto-modal-preco">{{ formatarMoeda(produtoSelecionadoView.precoVenda) }}</p>
+                  <p v-if="produtoSelecionadoView.mostrarQuantidadePublica" class="produto-modal-quantidade">
+                    Disponivel hoje: {{ formatarQuantidadePublica(produtoSelecionadoView) }}
                   </p>
-                  <p v-if="!produtoSelecionado.disponivel" class="produto-modal-quantidade produto-modal-esgotado">
+                  <p v-if="!produtoSelecionadoView.disponivel" class="produto-modal-quantidade produto-modal-esgotado">
                     Estoque do dia encerrado no momento.
                   </p>
                 </div>
 
                 <div class="produto-modal-textos">
-                  <p v-if="produtoSelecionado.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionado.descricaoPublica }}</p>
+                  <p v-if="produtoSelecionadoView.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionadoView.descricaoPublica }}</p>
                   <p v-if="textoInstrucoesCatalogo" class="produto-modal-apoio">{{ textoInstrucoesCatalogo }}</p>
                 </div>
 
@@ -1295,12 +1385,12 @@ onBeforeUnmount(() => {
                   <a
                     v-if="temWhatsapp"
                     class="botao-whatsapp botao-whatsapp-modal"
-                    :href="linkWhatsappProduto(produtoSelecionado)"
+                    :href="linkWhatsappProduto(produtoSelecionadoView)"
                     target="_blank"
                     rel="noopener noreferrer"
                     @click="fecharPreviaProduto"
                   >
-                    {{ produtoSelecionado.disponivel ? produtoSelecionado.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
+                    {{ produtoSelecionadoView.disponivel ? produtoSelecionadoView.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
                   </a>
                   <button type="button" class="botao-secundario botao-fechar-modal" @click="fecharPreviaProduto">
                     Fechar
@@ -1350,18 +1440,17 @@ onBeforeUnmount(() => {
 
 .hero {
   overflow: hidden;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-hero), transparent 12%), transparent),
-    var(--catalogo-card);
+  background: var(--catalogo-card);
 }
 
 .hero-banner-shell {
   position: relative;
-  min-height: 180px;
-  height: clamp(180px, 22vw, 300px);
-  max-height: 300px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--catalogo-cor-fundo-secundario), white 72%);
+  min-height: 150px;
+  height: clamp(150px, 20vw, 260px);
+  max-height: 260px;
+  padding: 12px;
+  background: #ffffff;
+  border-bottom: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
 }
 
 .hero-banner {
@@ -1369,25 +1458,25 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 0;
   max-height: none;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   display: block;
   background: #ffffff;
+  border-radius: 18px;
 }
 
 .hero-banner-placeholder {
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.26), transparent 28%),
-    linear-gradient(135deg, var(--catalogo-cor-principal), var(--catalogo-cor-secundaria));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 92%), #ffffff);
+  border: 1px dashed color-mix(in srgb, var(--catalogo-cor-secundaria), white 70%);
 }
 
 .hero-banner-texto {
   display: grid;
   gap: 6px;
   text-align: center;
-  color: white;
+  color: var(--catalogo-texto);
   padding: 18px;
 }
 
@@ -1401,13 +1490,6 @@ onBeforeUnmount(() => {
 .hero-banner-texto strong {
   font-size: clamp(22px, 5vw, 34px);
   font-weight: 900;
-}
-
-.hero-filtro {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), var(--catalogo-cor-overlay));
-  pointer-events: none;
 }
 
 .hero-conteudo {
@@ -2364,19 +2446,18 @@ onBeforeUnmount(() => {
 @media (max-width: 560px) {
   .hero-banner-shell,
   .hero-banner {
-    min-height: 118px;
-    height: clamp(118px, 44vw, 188px);
-    max-height: 188px;
+    min-height: 112px;
+    height: clamp(112px, 42vw, 170px);
+    max-height: 170px;
   }
 
   .hero-banner-shell {
     padding: 8px;
-    background: color-mix(in srgb, var(--catalogo-cor-fundo-secundario), white 86%);
   }
 
   .hero-banner {
     object-fit: contain;
-    border-radius: 16px;
+    border-radius: 14px;
   }
 
   .hero-conteudo,
