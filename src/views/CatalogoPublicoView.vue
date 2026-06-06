@@ -1060,18 +1060,20 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <header class="hero card">
-        <div class="hero-banner-shell">
-          <img
-            v-if="bannerEmpresa && !bannerEmpresaComErro"
-            :src="bannerEmpresa"
-            alt="Banner da empresa"
-            class="hero-banner"
-            @error="aoFalharBannerEmpresa"
-          />
-          <div v-else class="hero-banner hero-banner-placeholder">
-            <div class="hero-banner-texto">
-              <span>Catalogo do dia</span>
-              <strong>{{ empresa.nome || 'NuvemMais Gestao' }}</strong>
+        <div class="hero-banner-shell banner-publico">
+          <div class="banner-publico-moldura">
+            <img
+              v-if="bannerEmpresa && !bannerEmpresaComErro"
+              :src="bannerEmpresa"
+              alt="Banner da empresa"
+              class="hero-banner banner-publico-imagem"
+              @error="aoFalharBannerEmpresa"
+            />
+            <div v-else class="hero-banner-placeholder banner-publico-placeholder">
+              <div class="hero-banner-texto banner-publico-placeholder-conteudo">
+                <span>Catalogo do dia</span>
+                <strong>{{ empresa.nome || 'NuvemMais Gestao' }}</strong>
+              </div>
             </div>
           </div>
         </div>
@@ -1445,15 +1447,33 @@ onBeforeUnmount(() => {
 
 .hero-banner-shell {
   position: relative;
-  min-height: 150px;
-  height: clamp(150px, 20vw, 260px);
-  max-height: 260px;
+  min-height: 138px;
+  height: clamp(138px, 18vw, 224px);
+  max-height: 224px;
   padding: 12px;
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 70%), transparent 32%),
+    radial-gradient(circle at 86% 84%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 72%), transparent 30%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 94%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 96%));
   border-bottom: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
 }
 
-.hero-banner {
+.banner-publico-moldura {
+  width: min(100%, 1060px);
+  height: 100%;
+  margin: 0 auto;
+  padding: 8px;
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 84%), transparent 40%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), white 86%), transparent 36%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), color-mix(in srgb, var(--catalogo-cor-principal), white 92%));
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--catalogo-cor-principal), transparent 88%);
+}
+
+.banner-publico-imagem {
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -1461,18 +1481,24 @@ onBeforeUnmount(() => {
   object-fit: contain;
   object-position: center;
   display: block;
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.86), transparent 26%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 94%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 96%));
   border-radius: 18px;
 }
 
-.hero-banner-placeholder {
+.banner-publico-placeholder {
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 92%), #ffffff);
-  border: 1px dashed color-mix(in srgb, var(--catalogo-cor-secundaria), white 70%);
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 80%), transparent 30%),
+    radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 92%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 96%));
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%);
 }
 
-.hero-banner-texto {
+.banner-publico-placeholder-conteudo {
   display: grid;
   gap: 6px;
   text-align: center;
@@ -1509,11 +1535,13 @@ onBeforeUnmount(() => {
 }
 
 .logo-shell {
-  width: 72px;
-  height: 72px;
+  width: 78px;
+  height: 78px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.42);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), #ffffff);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 84%), transparent 36%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 88%), #ffffff);
   box-shadow: 0 12px 30px color-mix(in srgb, var(--catalogo-cor-principal), transparent 82%);
   display: grid;
   place-items: center;
@@ -1526,7 +1554,9 @@ onBeforeUnmount(() => {
 .logo-empresa {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), color-mix(in srgb, var(--catalogo-cor-principal), white 94%));
 }
 
 .hero-textos {
@@ -2444,19 +2474,22 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 560px) {
-  .hero-banner-shell,
-  .hero-banner {
-    min-height: 112px;
-    height: clamp(112px, 42vw, 170px);
-    max-height: 170px;
+  .hero-banner-shell {
+    min-height: 104px;
+    height: clamp(104px, 36vw, 150px);
+    max-height: 150px;
   }
 
   .hero-banner-shell {
     padding: 8px;
   }
 
-  .hero-banner {
-    object-fit: contain;
+  .banner-publico-moldura {
+    padding: 6px;
+    border-radius: 18px;
+  }
+
+  .banner-publico-imagem {
     border-radius: 14px;
   }
 
