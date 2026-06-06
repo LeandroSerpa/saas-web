@@ -843,6 +843,12 @@ function montarMensagemWhatsapp(produto) {
   return linhas.filter((linha, indice, lista) => linha !== '' || lista[indice - 1] !== '').join('\n')
 }
 
+function obterRotuloBotaoWhatsApp(produto) {
+  const texto = String(produto?.textoBotaoPublico || '').trim()
+
+  return texto.length > 0 && texto.length <= 28 ? texto : TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
+}
+
 function linkWhatsappProduto(produto) {
   if (!temWhatsapp.value) {
     return ''
@@ -1328,7 +1334,7 @@ onBeforeUnmount(() => {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {{ produto.disponivel ? produto.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
+                  {{ produto.disponivel ? obterRotuloBotaoWhatsApp(produto) : 'Perguntar no WhatsApp' }}
                 </a>
 
                 <p v-else class="aviso-card">WhatsApp da empresa nao informado.</p>
@@ -1386,13 +1392,13 @@ onBeforeUnmount(() => {
                 <div class="produto-modal-acoes">
                   <a
                     v-if="temWhatsapp"
-                    class="botao-whatsapp botao-whatsapp-modal"
+                    class="botao-whatsapp botao-whatsapp-modal produto-modal-botao-whatsapp"
                     :href="linkWhatsappProduto(produtoSelecionadoView)"
                     target="_blank"
                     rel="noopener noreferrer"
                     @click="fecharPreviaProduto"
                   >
-                    {{ produtoSelecionadoView.disponivel ? produtoSelecionadoView.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
+                    {{ produtoSelecionadoView.disponivel ? obterRotuloBotaoWhatsApp(produtoSelecionadoView) : 'Perguntar no WhatsApp' }}
                   </a>
                   <button type="button" class="botao-secundario botao-fechar-modal" @click="fecharPreviaProduto">
                     Fechar
@@ -1450,27 +1456,27 @@ onBeforeUnmount(() => {
   min-height: 138px;
   height: clamp(138px, 18vw, 224px);
   max-height: 224px;
-  padding: 12px;
+  padding: 10px;
   background:
-    radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 70%), transparent 32%),
-    radial-gradient(circle at 86% 84%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 72%), transparent 30%),
-    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 94%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 96%));
-  border-bottom: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
+    radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 82%), transparent 34%),
+    radial-gradient(circle at 86% 84%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 90%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%));
+  border-bottom: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 88%);
 }
 
 .banner-publico-moldura {
   width: min(100%, 1060px);
   height: 100%;
   margin: 0 auto;
-  padding: 8px;
-  border-radius: 24px;
+  padding: 4px;
+  border-radius: 22px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 84%), transparent 40%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), white 86%), transparent 36%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), color-mix(in srgb, var(--catalogo-cor-principal), white 92%));
-  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%);
-  box-shadow: 0 14px 28px color-mix(in srgb, var(--catalogo-cor-principal), transparent 88%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), transparent 42%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), white 88%), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 94%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 96%));
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 82%);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--catalogo-cor-principal), transparent 92%);
 }
 
 .banner-publico-imagem {
@@ -1482,8 +1488,9 @@ onBeforeUnmount(() => {
   object-position: center;
   display: block;
   background:
-    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.86), transparent 26%),
-    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 94%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 96%));
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 90%), transparent 28%),
+    radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%), transparent 28%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 95%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 97%));
   border-radius: 18px;
 }
 
@@ -1492,10 +1499,10 @@ onBeforeUnmount(() => {
   place-items: center;
   min-height: 100%;
   background:
-    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 80%), transparent 30%),
-    radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%), transparent 32%),
-    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 92%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 96%));
-  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%);
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), transparent 32%),
+    radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 88%), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 94%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 97%));
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
 }
 
 .banner-publico-placeholder-conteudo {
@@ -2136,21 +2143,38 @@ onBeforeUnmount(() => {
   display: inline-flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
   min-height: 44px;
   border-radius: 14px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: linear-gradient(135deg, var(--catalogo-cor-botao), color-mix(in srgb, var(--catalogo-cor-botao), #000000 18%));
   color: var(--catalogo-cor-botao-texto);
   text-decoration: none;
   font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid transparent;
   box-shadow: 0 12px 24px color-mix(in srgb, var(--catalogo-cor-botao), transparent 78%);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease, border-color 0.18s ease;
 }
 
 .botao-whatsapp.secundario {
   background: linear-gradient(135deg, var(--catalogo-cor-secundaria), color-mix(in srgb, var(--catalogo-cor-secundaria), #000000 16%));
   color: var(--catalogo-cor-botao-texto);
   box-shadow: 0 12px 24px color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 80%);
+  border-color: color-mix(in srgb, var(--catalogo-cor-secundaria), white 24%);
+}
+
+.botao-whatsapp:hover,
+.botao-whatsapp:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.botao-whatsapp:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--catalogo-cor-botao), white 36%);
+  outline-offset: 2px;
 }
 
 .aviso-card {
@@ -2329,11 +2353,13 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: stretch;
 }
 
-.botao-whatsapp-modal,
+.produto-modal-acoes > a.produto-modal-botao-whatsapp,
 .botao-fechar-modal {
   flex: 1 1 180px;
+  min-height: 46px;
 }
 
 .botao-fechar-modal {
@@ -2481,11 +2507,11 @@ onBeforeUnmount(() => {
   }
 
   .hero-banner-shell {
-    padding: 8px;
+    padding: 6px;
   }
 
   .banner-publico-moldura {
-    padding: 6px;
+    padding: 3px;
     border-radius: 18px;
   }
 
@@ -2578,10 +2604,57 @@ onBeforeUnmount(() => {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff 28%);
   }
 
+  .produto-modal-acoes > a.produto-modal-botao-whatsapp,
+  .botao-fechar-modal {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
   .produto-midia-acoes {
     right: 10px;
     bottom: 10px;
     font-size: 10px;
+  }
+}
+
+.produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0.85rem 1.35rem;
+  background: var(--catalogo-cor-principal, var(--cor-publica-principal, #16a34a));
+  color: #ffffff;
+  border: 0;
+  border-radius: 14px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--catalogo-cor-principal, #16a34a), transparent 76%);
+  cursor: pointer;
+}
+
+.produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp:hover,
+.produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp:focus-visible {
+  color: #ffffff;
+  text-decoration: none;
+  filter: brightness(0.96);
+}
+
+.produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--catalogo-cor-principal, #16a34a), white 42%);
+  outline-offset: 3px;
+}
+
+@media (max-width: 719px) {
+  .produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp {
+    width: 100%;
+    flex-basis: 100%;
+    white-space: normal;
   }
 }
 </style>
