@@ -641,6 +641,18 @@ const conteudoDetalhadoPorTopico = {
 
 const historicoAtualizacoes = [
   {
+    versao: '1.2.1-hml',
+    dataPublicacao: '2026-06-06',
+    itens: [
+      'Planos comerciais NuvemMais Vitrine, Agenda e Completo.',
+      'Bloco público “Quer ter uma página como esta?” com CTA para cadastro e planos em nova aba.',
+      'Melhorias visuais no catálogo e cardápio público.',
+      'Ajustes no Estoque, Estoque do dia e Catálogo público interno.',
+      'Open Graph dinâmico para compartilhamento por cliente no WhatsApp.',
+      'Fallback NuvemMais para links do site principal.',
+    ],
+  },
+  {
     versao: '1.2.0-hml',
     dataPublicacao: '2026-06-04',
     itens: [

@@ -1,13 +1,14 @@
 ﻿<script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import PrimeiroUsoAssistente from '@/components/PrimeiroUsoAssistente.vue'
 import {
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
   buscarMinhaEmpresa,
   buscarResumoNotificacoes,
-  buscarOnboarding,
+  buscarStatusPrimeiroUso,
   buscarServicos,
   buscarStatusFinanceiroMinhaEmpresa,
   montarLinkPublicoAgendamento,
@@ -28,6 +29,7 @@ const clientes = ref([])
 const servicos = ref([])
 const funcionarios = ref([])
 const onboarding = ref(null)
+const empresaDashboard = ref(null)
 const resumoNotificacoes = ref(null)
 const statusFinanceiro = ref(null)
 const linkPublicoAgendamento = ref('')
@@ -35,13 +37,13 @@ const linkPublicoCatalogo = ref('')
 const usuarioLogado = ref(obterUsuarioLogado())
 
 const carregando = ref(true)
+const carregandoPrimeiroUso = ref(true)
 const erro = ref('')
+const onboardingUsandoFallback = ref(true)
 const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
 const modoEssencial = computed(() => modoNavegacao.value === MODO_NAVEGACAO_ESSENCIAL)
-const onboardingPercentual = computed(() => {
-  const valor = Number(obterCampo(onboarding.value, 'percentualConclusao', 'percentualConcluido', 'percentual', 'progresso'))
-  return Number.isFinite(valor) ? Math.max(0, Math.min(100, Math.round(valor))) : 0
-})
+const deveExibirPrimeiroUso = computed(() => Boolean(adminEmpresa.value || empresaDashboard.value))
+const onboardingPercentual = computed(() => calcularPercentualOnboarding(onboarding.value))
 const onboardingConcluido = computed(() =>
   Boolean(obterCampo(onboarding.value, 'onboardingConcluido', 'concluido', 'finalizado')) || onboardingPercentual.value >= 100,
 )
@@ -270,13 +272,23 @@ async function carregarDados() {
 }
 
 async function carregarOnboardingDashboard() {
-  if (!adminEmpresa.value) return
+  if (!deveExibirPrimeiroUso.value) {
+    onboarding.value = null
+    onboardingUsandoFallback.value = true
+    carregandoPrimeiroUso.value = false
+    return
+  }
 
   try {
-    onboarding.value = normalizarObjeto(await buscarOnboarding())
+    carregandoPrimeiroUso.value = true
+    onboarding.value = normalizarObjeto(await buscarStatusPrimeiroUso())
+    onboardingUsandoFallback.value = false
   } catch (error) {
     onboarding.value = null
+    onboardingUsandoFallback.value = true
     console.error(error)
+  } finally {
+    carregandoPrimeiroUso.value = false
   }
 }
 
@@ -304,11 +316,13 @@ async function carregarResumoNotificacoesDashboard() {
 async function carregarLinksPublicos() {
   try {
     const empresa = await buscarMinhaEmpresa()
+    empresaDashboard.value = empresa
     const slug = String(empresa?.slug || '').trim()
 
     linkPublicoAgendamento.value = montarLinkPublicoAgendamento(slug)
     linkPublicoCatalogo.value = montarLinkPublicoCatalogo(slug)
   } catch (error) {
+    empresaDashboard.value = null
     linkPublicoAgendamento.value = ''
     linkPublicoCatalogo.value = ''
     console.error(error)
@@ -553,6 +567,49 @@ function obterCampo(item, ...campos) {
   return ''
 }
 
+function extrairNumeroSeguro(...valores) {
+  for (const valor of valores) {
+    const numero = Number(valor)
+    if (Number.isFinite(numero)) {
+      return numero
+    }
+  }
+  return null
+}
+
+function calcularPercentualOnboarding(dados) {
+  const origem = normalizarObjeto(dados)
+  const percentualApi = extrairNumeroSeguro(
+    obterCampo(origem, 'percentualConclusao', 'percentual_conclusao'),
+    obterCampo(origem, 'percentualConcluido', 'percentual_concluido'),
+    obterCampo(origem, 'percentual', 'progresso'),
+  )
+  const totalPassos = extrairNumeroSeguro(
+    obterCampo(origem, 'totalPassos', 'total_passos'),
+    obterCampo(origem, 'totalPassosPrincipais', 'total_passos_principais'),
+  )
+  const passosConcluidos = extrairNumeroSeguro(
+    obterCampo(origem, 'passosConcluidos', 'passos_concluidos'),
+    obterCampo(origem, 'totalPassosConcluidos', 'total_passos_concluidos'),
+  )
+  const percentualCalculado =
+    Number.isFinite(totalPassos) && totalPassos > 0 && Number.isFinite(passosConcluidos)
+      ? Math.max(0, Math.min(100, Math.round((Math.min(passosConcluidos, totalPassos) / totalPassos) * 100)))
+      : null
+
+  if (Number.isFinite(percentualApi)) {
+    const percentualNormalizado = Math.max(0, Math.min(100, Math.round(percentualApi)))
+
+    if (percentualCalculado !== null && Math.abs(percentualNormalizado - percentualCalculado) > 1) {
+      return percentualCalculado
+    }
+
+    return percentualNormalizado
+  }
+
+  return percentualCalculado ?? 0
+}
+
 async function atualizarDashboard() {
   await Promise.all([
     carregarDados(),
@@ -570,10 +627,22 @@ async function atualizarDashboard() {
 
 async function copiarLinkPublico() {
   if (!linkPublicoAgendamento.value) {
+    window.dispatchEvent(
+      new CustomEvent('mensagem-global', {
+        detail: {
+          mensagem: 'Configure o link público da empresa antes de copiar.',
+          tipo: 'erro',
+        },
+      }),
+    )
     return
   }
 
   try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error('CLIPBOARD_INDISPONIVEL')
+    }
+
     await navigator.clipboard.writeText(linkPublicoAgendamento.value)
     window.dispatchEvent(
       new CustomEvent('mensagem-global', {
@@ -588,7 +657,10 @@ async function copiarLinkPublico() {
     window.dispatchEvent(
       new CustomEvent('mensagem-global', {
         detail: {
-          mensagem: 'Não foi possível copiar o link público.',
+          mensagem:
+            error?.message === 'CLIPBOARD_INDISPONIVEL'
+              ? 'Não foi possível copiar automaticamente. Abra o link e copie manualmente.'
+              : 'Não foi possível copiar o link público.',
           tipo: 'erro',
         },
       }),
@@ -634,13 +706,27 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
 
 onMounted(() => {
   carregarDados()
-  carregarOnboardingDashboard()
   carregarStatusFinanceiroDashboard()
   carregarResumoNotificacoesDashboard()
   carregarLinksPublicos()
   window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
   window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
+
+watch(
+  deveExibirPrimeiroUso,
+  (podeExibir) => {
+    if (podeExibir) {
+      carregarOnboardingDashboard()
+      return
+    }
+
+    onboarding.value = null
+    onboardingUsandoFallback.value = true
+    carregandoPrimeiroUso.value = false
+  },
+  { immediate: true },
+)
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
@@ -665,6 +751,22 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-if="modoEssencial" class="dashboard-essencial">
+      <PrimeiroUsoAssistente
+        v-if="deveExibirPrimeiroUso"
+        :carregando="carregandoPrimeiroUso"
+        :usando-fallback="onboardingUsandoFallback"
+        :status-primeiro-uso="onboarding"
+        :empresa="empresaDashboard"
+        :total-clientes="clientes.length"
+        :total-servicos="servicos.length"
+        :total-funcionarios="funcionarios.length"
+        :total-agendamentos="agendamentos.length"
+        :total-recebidos-link-publico-hoje="totalRecebidosLinkPublicoHoje"
+        :link-publico-agendamento="linkPublicoAgendamento"
+        :link-publico-catalogo="linkPublicoCatalogo"
+        @copiar-link="copiarLinkPublico"
+      />
+
       <section class="card painel-essencial">
         <div class="cabecalho-essencial">
           <div>

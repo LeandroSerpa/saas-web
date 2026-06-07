@@ -30,6 +30,7 @@ import {
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   atualizarProdutoEstoque,
 } from '@/services/api'
+import { normalizarUrlImagemPublica, obterCampoImagemPublica } from '@/utils/imagens'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const UNIDADES_FALLBACK = Object.freeze([
@@ -83,6 +84,8 @@ const erroMovimentacoes = ref('')
 const sucesso = ref('')
 const mensagemLinkCatalogo = ref('')
 const bloqueioPlano = ref(false)
+const erroPreviewImagemProduto = ref(false)
+const errosImagemProduto = ref({})
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
 const formularioProduto = ref(criarProdutoInicial())
@@ -103,20 +106,25 @@ const formularioReinicioEstoqueDia = ref(criarFormularioReinicioEstoqueDia())
 const reinicioSelecionados = ref({})
 const reinicioQuantidades = ref({})
 const reiniciandoEstoqueDia = ref(false)
+const imagemUrlFormularioNormalizada = computed(() =>
+  normalizarUrlImagemPublica(formularioProduto.value.imagemUrl),
+)
+
+watch(
+  () => formularioProduto.value.imagemUrl,
+  () => {
+    erroPreviewImagemProduto.value = false
+  },
+)
 
 const abasDisponiveis = computed(() => {
-  const abas = [
+  return [
     { id: 'produtos', rotulo: 'Produtos' },
+    { id: 'novo', rotulo: produtoEditandoId.value ? 'Editar produto' : 'Novo produto' },
     { id: 'estoque-dia', rotulo: 'Estoque do dia' },
     { id: 'catalogo', rotulo: 'Catálogo público' },
     { id: 'movimentacoes', rotulo: 'Movimentações' },
   ]
-
-  if (!modoVisualizacaoSuperAdmin.value) {
-    abas.splice(1, 0, { id: 'novo', rotulo: produtoEditandoId.value ? 'Editar produto' : 'Novo produto' })
-  }
-
-  return abas
 })
 
 const categoriasDisponiveis = computed(() => {
@@ -376,12 +384,6 @@ const cardsResumo = computed(() => [
   },
 ])
 
-watch(modoVisualizacaoSuperAdmin, (ativo) => {
-  if (ativo && abaAtiva.value === 'novo') {
-    abaAtiva.value = 'produtos'
-  }
-})
-
 watch(
   [produtosReinicioEstoqueDia, estoqueDia],
   () => {
@@ -429,6 +431,7 @@ async function carregarTela() {
 
     if (produtosResultado.sucesso) {
       produtos.value = normalizarLista(produtosApi)
+      errosImagemProduto.value = {}
     }
 
     if (movimentacoesResultado.sucesso) {
@@ -479,6 +482,7 @@ async function carregarProdutos() {
 
     if (produtosResultado.sucesso) {
       produtos.value = normalizarLista(dadosConsulta(produtosResultado))
+      errosImagemProduto.value = {}
     }
 
     if (estoqueDiaResultado.sucesso) {
@@ -967,7 +971,42 @@ function obterExibirCatalogoPublico(item) {
 }
 
 function obterImagemUrlProduto(item) {
-  return String(obterCampo(item, 'imagemUrl', 'fotoUrl', 'imagem') || '').trim()
+  return normalizarUrlImagemPublica(obterCampoImagemPublica(item))
+}
+
+function chaveImagemProduto(item) {
+  return String(obterCampo(item, 'id', 'codigoSku', 'codigo', 'nome') || '').trim()
+}
+
+function imagemProdutoDisponivel(item) {
+  const chave = chaveImagemProduto(item)
+
+  return Boolean(obterImagemUrlProduto(item)) && !errosImagemProduto.value[chave]
+}
+
+function aoFalharImagemProduto(item) {
+  const chave = chaveImagemProduto(item)
+
+  if (!chave || errosImagemProduto.value[chave]) {
+    return
+  }
+
+  errosImagemProduto.value = {
+    ...errosImagemProduto.value,
+    [chave]: true,
+  }
+}
+
+function normalizarImagemUrlFormulario() {
+  formularioProduto.value.imagemUrl = imagemUrlFormularioNormalizada.value
+}
+
+function aoCarregarImagemFormulario() {
+  erroPreviewImagemProduto.value = false
+}
+
+function aoFalharImagemFormulario() {
+  erroPreviewImagemProduto.value = true
 }
 
 function obterDestaqueCatalogo(item) {
@@ -1425,6 +1464,7 @@ async function salvarProduto() {
       return
     }
 
+    normalizarImagemUrlFormulario()
     salvandoProduto.value = true
     const payload = montarPayloadProduto()
 
@@ -1447,6 +1487,8 @@ async function salvarProduto() {
 }
 
 function montarPayloadProduto() {
+  const imagemUrl = imagemUrlFormularioNormalizada.value
+
   const payload = {
     nome: formularioProduto.value.nome.trim(),
     descricao: formularioProduto.value.descricao.trim(),
@@ -1459,7 +1501,7 @@ function montarPayloadProduto() {
     estoqueMinimo: numeroOuZero(formularioProduto.value.estoqueMinimo),
     ativo: formularioProduto.value.ativo !== false,
     exibirCatalogoPublico: formularioProduto.value.exibirCatalogoPublico === true,
-    imagemUrl: formularioProduto.value.imagemUrl.trim(),
+    imagemUrl,
     descricaoPublica: formularioProduto.value.descricaoPublica.trim(),
     categoriaPublica: formularioProduto.value.categoriaPublica.trim(),
     destaqueCatalogo: formularioProduto.value.destaqueCatalogo === true,
@@ -1513,7 +1555,7 @@ function montarPayloadProdutoExistente(produtoOrigem, sobrescritas = {}) {
     codigoSku: String((sobrescritas.codigoSku ?? payloadBase.codigoSku) || '').trim(),
     sku: String((sobrescritas.sku ?? sobrescritas.codigoSku ?? payloadBase.sku) || '').trim(),
     categoria: normalizarCategoriaEnvio(sobrescritas.categoria ?? payloadBase.categoria),
-    imagemUrl: String((sobrescritas.imagemUrl ?? payloadBase.imagemUrl) || '').trim(),
+    imagemUrl: normalizarUrlImagemPublica(String((sobrescritas.imagemUrl ?? payloadBase.imagemUrl) || '').trim()),
     descricaoPublica: String((sobrescritas.descricaoPublica ?? payloadBase.descricaoPublica) || '').trim(),
     categoriaPublica: normalizarCategoriaEnvio(sobrescritas.categoriaPublica ?? payloadBase.categoriaPublica),
     ordemCatalogo: numeroOuZero(sobrescritas.ordemCatalogo ?? payloadBase.ordemCatalogo),
@@ -1785,6 +1827,7 @@ async function editarProduto(item) {
       ordemCatalogo: obterOrdemCatalogo(produtoDetalhado),
       textoBotaoPublico: obterTextoBotaoPublico(produtoDetalhado),
     }
+    erroPreviewImagemProduto.value = false
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar os dados do produto.')
   } finally {
@@ -1795,6 +1838,7 @@ async function editarProduto(item) {
 function cancelarEdicaoProduto(limparMensagens = true) {
   produtoEditandoId.value = null
   formularioProduto.value = criarProdutoInicial()
+  erroPreviewImagemProduto.value = false
 
   if (limparMensagens) {
     sucesso.value = ''
@@ -2075,7 +2119,7 @@ onBeforeUnmount(() => {
           :key="aba.id"
           type="button"
           :class="{ ativa: abaAtiva === aba.id }"
-          @click="abaAtiva = aba.id"
+          @click="selecionarAba(aba.id)"
         >
           {{ aba.rotulo }}
         </button>
@@ -2116,10 +2160,12 @@ onBeforeUnmount(() => {
               </select>
               <small>Use o seletor de visualização no topo para trocar a empresa.</small>
             </label>
-            <label class="campo-checkbox destaque-checkbox">
-              <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
-              Somente baixo estoque
-            </label>
+            <div class="filtro-checkbox-container">
+              <label class="filtro-checkbox">
+                <input v-model="filtros.somenteBaixoEstoque" type="checkbox" />
+                <span>Somente baixo estoque</span>
+              </label>
+            </div>
           </div>
 
           <div class="acoes">
@@ -2154,7 +2200,23 @@ onBeforeUnmount(() => {
 
         <section v-if="!erroProdutos && produtosVisiveis.length" class="grade-produtos">
           <article v-for="produto in produtosPaginados" :key="produto.id" class="card produto-card">
-            <div class="topo-card">
+            <div class="produto-card-topo">
+              <div class="produto-miniatura">
+                <img
+                  v-if="imagemProdutoDisponivel(produto)"
+                  :src="obterImagemUrlProduto(produto)"
+                  :alt="`Miniatura de ${obterNomeProduto(produto)}`"
+                  class="produto-miniatura-imagem"
+                  @error="aoFalharImagemProduto(produto)"
+                />
+                <div v-else class="produto-miniatura-placeholder">
+                  <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
+                  <span>Sem imagem</span>
+                </div>
+              </div>
+
+              <div class="produto-card-topo-conteudo">
+                <div class="topo-card">
               <div>
                 <h3>{{ obterNomeProduto(produto) }}</h3>
                 <p>{{ obterCategoriaProduto(produto) }}</p>
@@ -2176,7 +2238,9 @@ onBeforeUnmount(() => {
               <p><strong>Preço de venda:</strong> {{ formatarMoeda(obterPrecoVenda(produto)) }}</p>
             </div>
 
-            <p v-if="obterDescricaoProduto(produto)" class="descricao-produto">{{ obterDescricaoProduto(produto) }}</p>
+                <p v-if="obterDescricaoProduto(produto)" class="descricao-produto">{{ obterDescricaoProduto(produto) }}</p>
+              </div>
+            </div>
 
             <div v-if="!modoVisualizacaoSuperAdmin" class="acoes acoes-produto-card">
               <button class="botao secundario" @click="editarProduto(produto)">Editar</button>
@@ -2326,9 +2390,9 @@ onBeforeUnmount(() => {
                 v-if="obterImagemUrlProduto(produto)"
                 :src="obterImagemUrlProduto(produto)"
                 :alt="`Imagem de ${obterNomeProduto(produto)}`"
-                class="catalogo-imagem"
+                class="estoque-dia-card-imagem"
               />
-              <div v-else class="catalogo-imagem catalogo-imagem-placeholder">
+              <div v-else class="estoque-dia-card-imagem estoque-dia-card-imagem-placeholder">
                 <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
                 <span>Sem imagem</span>
               </div>
@@ -2459,17 +2523,22 @@ onBeforeUnmount(() => {
           <p>Cadastre um produto para comecar a montar o catalogo publico.</p>
         </section>
 
-        <section v-else class="grade-produtos">
-          <article v-for="produto in produtosCatalogoOrdenados" :key="`catalogo-${produto.id}`" class="card produto-card">
+        <section v-else class="grade-produtos grade-produtos-catalogo">
+          <article
+            v-for="produto in produtosCatalogoOrdenados"
+            :key="`catalogo-${produto.id}`"
+            class="card produto-card produto-card-catalogo"
+          >
             <img
-              v-if="obterImagemUrlProduto(produto)"
+              v-if="imagemProdutoDisponivel(produto)"
               :src="obterImagemUrlProduto(produto)"
-              :alt="`Imagem de ${obterNomeProduto(produto)}`"
+              alt=""
               class="catalogo-imagem"
+              @error="aoFalharImagemProduto(produto)"
             />
             <div v-else class="catalogo-imagem catalogo-imagem-placeholder">
               <strong>{{ extrairIniciaisCatalogo(obterNomeProduto(produto)) }}</strong>
-              <span>Sem imagem</span>
+              <span>{{ obterCategoriaPublicaProduto(produto) || obterCategoriaProduto(produto) || 'Produto' }}</span>
             </div>
 
             <div class="topo-card">
@@ -2526,7 +2595,7 @@ onBeforeUnmount(() => {
         </section>
       </section>
 
-      <section v-if="abaAtiva === 'novo' && !modoVisualizacaoSuperAdmin" class="secao-lista">
+      <section v-if="abaAtiva === 'novo'" class="secao-lista">
         <form class="card formulario-produto" @submit.prevent="salvarProduto">
           <div class="titulo-card">
             <h2>{{ produtoEditandoId ? 'Editar produto' : 'Novo produto' }}</h2>
@@ -2580,10 +2649,12 @@ onBeforeUnmount(() => {
               Estoque mínimo
               <input v-model="formularioProduto.estoqueMinimo" type="number" min="0" step="0.01" />
             </label>
-            <label class="campo-checkbox destaque-checkbox">
-              <input v-model="formularioProduto.ativo" type="checkbox" />
-              Produto ativo
-            </label>
+            <div class="campo-grande produto-ativo-container">
+              <label class="produto-ativo-checkbox produto-form-checkbox">
+                <input v-model="formularioProduto.ativo" type="checkbox" />
+                <span>Produto ativo</span>
+              </label>
+            </div>
           </div>
 
           <section class="secao-formulario-publico">
@@ -2593,18 +2664,29 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="campos">
-              <label class="campo-checkbox destaque-checkbox">
-                <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
-                Exibir no catalogo publico
-              </label>
-              <label class="campo-checkbox destaque-checkbox">
-                <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
-                Produto em destaque
-              </label>
               <label>
                 Imagem do produto por URL
-                <input v-model="formularioProduto.imagemUrl" type="url" placeholder="https://..." />
-                <small>O upload de imagem fica para uma proxima fase. Por enquanto, use um link direto.</small>
+                <input
+                  v-model="formularioProduto.imagemUrl"
+                  type="url"
+                  placeholder="https://..."
+                  @blur="normalizarImagemUrlFormulario"
+                />
+                <small>Voce pode colar um link direto de imagem ou um link publico do Google Drive. No Google Drive, deixe o arquivo como "Qualquer pessoa com o link pode ver".</small>
+                <div v-if="imagemUrlFormularioNormalizada" class="preview-imagem-produto">
+                  <img
+                    v-if="!erroPreviewImagemProduto"
+                    :src="imagemUrlFormularioNormalizada"
+                    alt="Previa da imagem do produto"
+                    class="preview-imagem"
+                    @error="aoFalharImagemFormulario"
+                    @load="aoCarregarImagemFormulario"
+                  />
+                  <div v-else class="preview-imagem-erro">
+                    <strong>Previa indisponivel</strong>
+                    <small>A imagem nao carregou, mas o link pode continuar salvo para o catalogo publico.</small>
+                  </div>
+                </div>
               </label>
               <label>
                 Categoria publica
@@ -2626,14 +2708,24 @@ onBeforeUnmount(() => {
                 Texto do botao
                 <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
               </label>
-              <label class="campo-checkbox destaque-checkbox">
-                <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
-                Mostrar quantidade ao cliente
-              </label>
-              <label class="campo-checkbox destaque-checkbox">
-                <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
-                Mostrar preco ao cliente
-              </label>
+              <div class="campo-grande produto-catalogo-checkbox-grid">
+                <label class="produto-catalogo-checkbox produto-form-checkbox">
+                  <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
+                  <span>Exibir no catalogo publico</span>
+                </label>
+                <label class="produto-catalogo-checkbox produto-form-checkbox">
+                  <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
+                  <span>Produto em destaque</span>
+                </label>
+                <label class="produto-catalogo-checkbox produto-form-checkbox">
+                  <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
+                  <span>Mostrar quantidade ao cliente</span>
+                </label>
+                <label class="produto-catalogo-checkbox produto-form-checkbox">
+                  <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
+                  <span>Mostrar preco ao cliente</span>
+                </label>
+              </div>
             </div>
           </section>
 
@@ -2814,6 +2906,9 @@ onBeforeUnmount(() => {
   gap: 18px;
   color: #111827;
 }
+.estoque-view {
+  overflow-x: hidden;
+}
 .cabecalho-pagina,
 .cabecalho-secao,
 .topo-card,
@@ -2880,21 +2975,37 @@ small { color: #64748b; }
   align-items: end;
 }
 .lista-preparo-estoque-dia,
-.grade-estoque-dia { display: grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap: 18px; }
+.grade-estoque-dia { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .preparo-item-card,
-.estoque-dia-card { display: grid; gap: 14px; }
+.estoque-dia-card { display: grid; gap: 12px; }
 .seletor-produto-dia {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
   border: 1px solid #dbe4f0;
   border-radius: 10px;
   background: #f8fafc;
+  min-width: 0;
 }
-.seletor-produto-dia input { width: auto; margin-top: 2px; }
-.seletor-produto-dia strong { color: #0f172a; }
-.seletor-produto-dia p { color: #64748b; }
+.seletor-produto-dia input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 18px;
+}
+.seletor-produto-dia > div { min-width: 0; }
+.seletor-produto-dia strong,
+.seletor-produto-dia p {
+  display: block;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.2;
+}
+.seletor-produto-dia strong { color: #0f172a; font-size: 14px; }
+.seletor-produto-dia p { color: #64748b; font-size: 12px; }
 .acoes-preparo-item,
 .acoes-estoque-dia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .controle-quantidade-dia {
@@ -2908,7 +3019,42 @@ small { color: #64748b; }
   min-height: 52px;
   font-size: 18px;
 }
-.estoque-dia-midia { display: grid; }
+.estoque-dia-midia {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+.estoque-dia-card-imagem {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid #dbe4f0;
+  border-radius: inherit;
+  box-sizing: border-box;
+}
+.estoque-dia-card-imagem-placeholder {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #eff6ff, #f8fafc);
+  color: #1d4ed8;
+}
+.estoque-dia-card-imagem-placeholder strong {
+  font-size: 30px;
+  font-weight: 900;
+}
+.estoque-dia-card-imagem-placeholder span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .catalogo-link-alternativo {
   display: grid;
   gap: 8px;
@@ -2954,25 +3100,87 @@ small { color: #64748b; }
   border-bottom-color: #2563eb;
   color: #1d4ed8;
 }
-.campos { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 14px; }
+.abas button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+.campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .filtros-campos { grid-template-columns: repeat(3, minmax(180px, 1fr)); }
 .campo-grande { grid-column: 1 / -1; }
-label { display: grid; gap: 7px; color: #334155; font-weight: 800; }
+label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #334155;
+  font-weight: 800;
+}
 
-.campo-checkbox {
+.filtro-checkbox-container,
+.produto-ativo-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.filtro-checkbox,
+.produto-ativo-checkbox,
+.produto-catalogo-checkbox {
   display: flex;
   align-items: center;
-  gap: 10px;
-  justify-content: flex-start;
-  padding: 12px 14px;
-  line-height: 1.25;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
   cursor: pointer;
 }
 
-.campo-checkbox input {
+.filtro-checkbox input[type='checkbox'],
+.produto-ativo-checkbox input[type='checkbox'],
+.produto-catalogo-checkbox input[type='checkbox'] {
   flex: 0 0 auto;
-  width: auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   margin: 0;
+}
+
+.produto-form-checkbox {
+  min-height: 30px;
+  padding: 5px 7px;
+  gap: 6px;
+  line-height: 1.15;
+}
+
+.produto-form-checkbox input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+}
+
+.filtro-checkbox span,
+.produto-ativo-checkbox span,
+.produto-catalogo-checkbox span {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.produto-catalogo-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 input, select, textarea {
   width: 100%;
@@ -2990,23 +3198,104 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 input[readonly] { background: #f8fafc; color: #64748b; }
-.destaque-checkbox {
+.preview-imagem-produto {
+  display: grid;
+  gap: 10px;
+  max-width: 100%;
+  padding: 12px;
   border: 1px solid #dbe4f0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #f8fafc;
 }
+.preview-imagem {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+.preview-imagem-erro {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+.preview-imagem-erro strong {
+  font-size: 14px;
+}
 .grade-produtos { display: grid; grid-template-columns: repeat(2, minmax(340px, 1fr)); gap: 18px; }
+.grade-produtos-catalogo {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
 .lista-historico { display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 18px; }
 .produto-card,
 .historico-card { display: grid; gap: 14px; }
+.produto-card-catalogo {
+  gap: 10px;
+}
+.produto-card-topo {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.produto-card-topo-conteudo {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.produto-miniatura {
+  width: 96px;
+  min-width: 96px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #dbe4f0;
+  background: #f8fafc;
+}
+.produto-miniatura-imagem,
+.produto-miniatura-placeholder {
+  width: 100%;
+  height: 100%;
+}
+.produto-miniatura-imagem {
+  display: block;
+  object-fit: cover;
+}
+.produto-miniatura-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 8px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #eff6ff, #f8fafc);
+  color: #1d4ed8;
+}
+.produto-miniatura-placeholder strong {
+  font-size: 22px;
+  font-weight: 900;
+}
+.produto-miniatura-placeholder span {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .catalogo-imagem {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 210px;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid #dbe4f0;
 }
 .catalogo-imagem-placeholder {
+  width: 100%;
+  height: 210px;
   display: grid;
   place-items: center;
   gap: 6px;
@@ -3114,12 +3403,13 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 @media (max-width: 1200px) {
   .cards-resumo { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
   .filtros-campos,
-  .grade-produtos,
-  .grade-estoque-dia,
-  .lista-preparo-estoque-dia,
   .lista-historico,
   .catalogo-link-conteudo,
   .preparo-topo { grid-template-columns: 1fr; }
+  .grade-produtos,
+  .lista-preparo-estoque-dia,
+  .grade-estoque-dia { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grade-produtos-catalogo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
   .cabecalho-pagina,
@@ -3138,14 +3428,24 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .badges-topo { justify-content: flex-start; }
   .botao,
   .botao-fechar { width: auto; }
-  .campo-checkbox {
-    align-items: flex-start;
-  }
+  .produto-catalogo-checkbox-grid { grid-template-columns: 1fr; }
+  .grade-produtos,
+  .grade-produtos-catalogo,
+  .lista-preparo-estoque-dia,
+  .grade-estoque-dia { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .card,
   .modal { padding: 18px; }
   .modal-overlay { padding: 10px; }
+  .produto-card-topo { grid-template-columns: 1fr; }
+  .produto-miniatura {
+    width: 100%;
+    max-width: 120px;
+  }
+  .estoque-dia-midia,
+  .catalogo-imagem,
+  .catalogo-imagem-placeholder { height: 180px; }
   .acoes,
   .botoes-paginacao,
   .acoes-preparo-item,
@@ -3153,6 +3453,8 @@ input[readonly] { background: #f8fafc; color: #64748b; }
   .botao,
   .paginacao label,
   .paginacao select { width: 100%; }
-  .seletor-produto-dia { align-items: center; }
+  .seletor-produto-dia {
+    align-items: center;
+  }
 }
 </style>

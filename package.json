@@ -1,11 +1,13 @@
 {
   "name": "saas-web",
-  "version": "1.2.0-hml",
+  "version": "1.2.1-hml",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "start": "node server.js",
+    "test:seo": "node scripts/test-seo-server.mjs",
     "preview": "vite preview",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",

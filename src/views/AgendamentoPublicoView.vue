@@ -12,7 +12,15 @@ import {
 } from '@/services/api'
 import { emitirAtualizacaoEmpresa } from '@/utils/atualizacoesEmpresa'
 import { debugLog } from '@/utils/devDebug'
+import { normalizarUrlImagemPublica } from '@/utils/imagens'
+import {
+  criarMapaVisualPublico,
+  criarVariaveisCssPublicas,
+  normalizarCorHex as normalizarCorHexPublica,
+  normalizarTemaPublico as normalizarTemaPublicoCompartilhado,
+} from '@/utils/temasPublicos'
 import { sanitizarTelefoneDoEvento } from '@/utils/validacoes'
+import PublicidadeNuvemMais from '@/components/PublicidadeNuvemMais.vue'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
@@ -34,6 +42,8 @@ const mensagemSucesso = ref('')
 const mensagemCopia = ref('')
 const confirmacaoAgendamento = ref(null)
 const agendamento = ref(criarAgendamentoInicial())
+const logoPublicoComErro = ref(false)
+const bannerPublicoComErro = ref(false)
 
 const servicoSelecionado = computed(() =>
   servicos.value.find((servico) => Number(servico.id) === Number(agendamento.value.servicoId)),
@@ -65,14 +75,29 @@ const terminoPrevisto = computed(() =>
   dataHoraFimSelecionada.value ? formatarDataHoraPreview(dataHoraFimSelecionada.value) : '',
 )
 
+const temaPublico = computed(() => normalizarTemaPublicoCompartilhado(personalizacao.value.tema))
+const mapaVisualPublico = computed(() =>
+  criarMapaVisualPublico(personalizacao.value.corPrincipal, personalizacao.value.corSecundaria, temaPublico.value),
+)
 const estilosPersonalizados = computed(() => ({
-  '--cor-principal-publica': personalizacao.value.corPrincipal,
-  '--cor-secundaria-publica': personalizacao.value.corSecundaria,
+  ...criarVariaveisCssPublicas(mapaVisualPublico.value, '--publico-cor'),
+  '--cor-principal-publica': mapaVisualPublico.value.principal,
+  '--cor-secundaria-publica': mapaVisualPublico.value.secundaria,
 }))
 
-const classeTemaPublico = computed(() => `tema-${normalizarTemaPublico(personalizacao.value.tema).toLowerCase()}`)
+const classeTemaPublico = computed(() => `tema-${temaPublico.value.toLowerCase()}`)
 
 const tituloPublico = computed(() => personalizacao.value.tituloPagina || empresa.value?.nome || 'Agendamento')
+const logoPublicoUrl = computed(() =>
+  normalizarUrlImagemPublica(
+    String(personalizacao.value.logoUrl || empresa.value?.logoUrl || empresa.value?.logo || '').trim(),
+  ),
+)
+const bannerPublicoUrl = computed(() =>
+  normalizarUrlImagemPublica(
+    String(personalizacao.value.bannerUrl || empresa.value?.bannerUrl || empresa.value?.capaUrl || '').trim(),
+  ),
+)
 const empresaIniciais = computed(() =>
   String(empresa.value?.nome || tituloPublico.value || 'AG')
     .split(' ')
@@ -92,6 +117,14 @@ const mensagemConfirmacaoPublica = computed(
     personalizacao.value.mensagemConfirmacao ||
     'Guarde essas informações. A empresa poderá entrar em contato para confirmação do atendimento.',
 )
+
+function atualizarTituloPaginaAgendamento(nomeEmpresa = '') {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  document.title = nomeEmpresa ? `Agendar com ${nomeEmpresa} | NuvemMais` : 'NuvemMais Gestão'
+}
 
 const dataAtendimentoFormatada = computed(() =>
   agendamento.value.dataAtendimento ? formatarDataAtendimento(agendamento.value.dataAtendimento) : '',
@@ -258,6 +291,14 @@ watch(
   },
 )
 
+watch(logoPublicoUrl, () => {
+  logoPublicoComErro.value = false
+})
+
+watch(bannerPublicoUrl, () => {
+  bannerPublicoComErro.value = false
+})
+
 function criarAgendamentoInicial() {
   return {
     nomeCliente: '',
@@ -305,8 +346,11 @@ function normalizarPersonalizacaoPublica(dados) {
   return {
     ...padrao,
     ...origem,
-    corPrincipal: corHexValida(origem.corPrincipal) ? origem.corPrincipal : padrao.corPrincipal,
-    corSecundaria: corHexValida(origem.corSecundaria) ? origem.corSecundaria : padrao.corSecundaria,
+    logoUrl: normalizarUrlImagemPublica(origem.logoUrl),
+    bannerUrl: normalizarUrlImagemPublica(origem.bannerUrl),
+    corPrincipal: normalizarCorHexPublica(origem.corPrincipal, padrao.corPrincipal),
+    corSecundaria: normalizarCorHexPublica(origem.corSecundaria, padrao.corSecundaria),
+    tema: normalizarTemaPublicoCompartilhado(origem.tema || padrao.tema),
     mostrarPreco: origem.mostrarPreco !== false,
     mostrarFuncionario: origem.mostrarFuncionario !== false,
     mostrarEndereco: origem.mostrarEndereco !== false,
@@ -319,7 +363,7 @@ function corHexValida(cor) {
 }
 
 function normalizarTemaPublico(tema) {
-  return ['PADRAO', 'MODERNO', 'ESCURO', 'SUAVE'].includes(tema) ? tema : 'PADRAO'
+  return normalizarTemaPublicoCompartilhado(tema)
 }
 
 function criarPayloadAgendamentoPublico() {
@@ -585,6 +629,8 @@ function montarLabelServico(servico) {
 }
 
 async function carregarDadosPublicos() {
+  atualizarTituloPaginaAgendamento()
+
   try {
     carregando.value = true
     erro.value = ''
@@ -606,6 +652,7 @@ async function carregarDadosPublicos() {
 
     empresa.value = empresaApi
     personalizacao.value = normalizarPersonalizacaoPublica(personalizacaoApi)
+    atualizarTituloPaginaAgendamento(empresa.value?.nome)
 
     const [servicosApi, funcionariosApi] = await Promise.all([
       buscarServicosPublicos(slug.value),
@@ -908,6 +955,14 @@ function formatarDataHoraPreview(data) {
   })
 }
 
+function aoFalharLogoPublico() {
+  logoPublicoComErro.value = true
+}
+
+function aoFalharBannerPublico() {
+  bannerPublicoComErro.value = true
+}
+
 function formatarDataAtendimento(data) {
   const [ano, mes, dia] = String(data || '').split('-').map(Number)
 
@@ -1003,13 +1058,23 @@ onMounted(() => {
 
     <section v-else class="conteudo-publico">
       <section class="hero-publico card">
-        <section v-if="personalizacao.bannerUrl" class="banner-publico">
-          <img :src="personalizacao.bannerUrl" alt="" />
+        <section v-if="bannerPublicoUrl && !bannerPublicoComErro" class="banner-publico">
+          <img :src="bannerPublicoUrl" alt="" @error="aoFalharBannerPublico" />
+        </section>
+        <section v-else class="banner-publico banner-publico-placeholder" aria-hidden="true">
+          <strong>{{ tituloPublico }}</strong>
+          <span>Banner indisponível</span>
         </section>
 
         <header class="cabecalho-publico">
           <div class="identidade-empresa">
-            <img v-if="personalizacao.logoUrl" class="logo-publico" :src="personalizacao.logoUrl" alt="" />
+            <img
+              v-if="logoPublicoUrl && !logoPublicoComErro"
+              class="logo-publico"
+              :src="logoPublicoUrl"
+              alt=""
+              @error="aoFalharLogoPublico"
+            />
             <div v-else class="logo-fallback" aria-hidden="true">{{ empresaIniciais }}</div>
             <div>
               <p class="subtitulo">Agende seu atendimento</p>
@@ -1249,6 +1314,8 @@ onMounted(() => {
         </section>
       </section>
 
+      <PublicidadeNuvemMais />
+
       <nav class="links-institucionais card" aria-label="Páginas públicas">
         <RouterLink to="/sobre">Sobre</RouterLink>
         <RouterLink to="/termos">Termos de Uso</RouterLink>
@@ -1259,22 +1326,45 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.pagina-publica { min-height: 100vh; padding: 30px 16px 24px; background: radial-gradient(circle at 8% -5%, rgba(37, 99, 235, 0.16), transparent 32%), linear-gradient(180deg, #f8fbff 0%, #eef3f9 45%, #f3f6fb 100%); color: #111827; }
-.pagina-publica.tema-moderno { background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 34%), linear-gradient(135deg, #f8fafc 0%, #e0f2fe 48%, #eef2ff 100%); }
-.pagina-publica.tema-escuro { background: #020617; color: #e5e7eb; }
-.pagina-publica.tema-suave { background: #f7fbff; color: #1f2937; }
+.pagina-publica { min-height: 100vh; padding: 30px 16px 24px; background: radial-gradient(circle at 8% -5%, color-mix(in srgb, var(--publico-cor-principal), transparent 82%), transparent 32%), linear-gradient(180deg, color-mix(in srgb, var(--publico-cor-hero), white 34%) 0%, var(--publico-cor-fundo) 52%, color-mix(in srgb, var(--publico-cor-fundo), #e2e8f0 18%) 100%); color: var(--publico-cor-texto); }
+.pagina-publica.tema-moderno { background: radial-gradient(circle at top left, color-mix(in srgb, var(--publico-cor-principal), transparent 84%), transparent 34%), linear-gradient(135deg, var(--publico-cor-fundo) 0%, color-mix(in srgb, var(--publico-cor-principal), white 88%) 48%, color-mix(in srgb, var(--publico-cor-secundaria), white 90%) 100%); }
+.pagina-publica.tema-escuro,
+.pagina-publica.tema-preto_elegante,
+.pagina-publica.tema-preto_dourado { background: var(--publico-cor-fundo); color: var(--publico-cor-texto); }
+.pagina-publica.tema-suave { background: var(--publico-cor-fundo); color: var(--publico-cor-texto); }
 .conteudo-publico { width: 100%; max-width: 1160px; margin: 0 auto; display: grid; gap: 20px; }
-.card { background: white; border: 1px solid #e5e7eb; border-radius: 18px; padding: 22px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
+.card { background: var(--publico-cor-card); border: 1px solid var(--publico-cor-borda); border-radius: 18px; padding: 22px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
 .tema-moderno .card { border-radius: 18px; border-color: rgba(37, 99, 235, 0.16); box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14); }
-.tema-escuro .card { background: #111827; border-color: rgba(148, 163, 184, 0.22); color: #e5e7eb; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32); }
+.tema-escuro .card,
+.tema-preto_elegante .card,
+.tema-preto_dourado .card { background: #111827; border-color: rgba(148, 163, 184, 0.22); color: #e5e7eb; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32); }
 .tema-suave .card { background: #ffffff; border-color: #dbeafe; box-shadow: 0 10px 26px rgba(37, 99, 235, 0.07); }
 .hero-publico { display: grid; gap: 18px; }
-.banner-publico { height: 210px; overflow: hidden; border-radius: 14px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
-.banner-publico img { width: 100%; height: 100%; object-fit: cover; }
+.banner-publico { min-height: 150px; height: clamp(150px, 24vw, 280px); max-height: 280px; overflow: hidden; border-radius: 14px; background: color-mix(in srgb, var(--publico-cor-fundo-secundario), white 72%); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
+.banner-publico img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; background: #ffffff; }
+.banner-publico-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  background: var(--publico-cor-hero);
+  color: var(--cor-secundaria-publica, #0f172a);
+  text-align: center;
+  padding: 24px;
+}
+.banner-publico-placeholder strong {
+  font-size: 18px;
+  font-weight: 800;
+}
+.banner-publico-placeholder span {
+  color: #64748b;
+  font-size: 13px;
+}
 .estado { width: min(100%, 620px); text-align: center; margin: 0 auto; }
 .estado h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; }
 .estado p { margin: 0; color: #64748b; }
-.tema-escuro .estado p, .tema-escuro .mensagem-publica, .tema-escuro .dados-empresa p, .tema-escuro .titulo-card p, .tema-escuro .titulo-horarios p, .tema-escuro .aviso-horario, .tema-escuro .previa, .tema-escuro .bloco-publico p, .tema-escuro .politica-publica p { color: #cbd5e1; }
+.tema-escuro .estado p, .tema-escuro .mensagem-publica, .tema-escuro .dados-empresa p, .tema-escuro .titulo-card p, .tema-escuro .titulo-horarios p, .tema-escuro .aviso-horario, .tema-escuro .previa, .tema-escuro .bloco-publico p, .tema-escuro .politica-publica p,
+.tema-preto_elegante .estado p, .tema-preto_elegante .mensagem-publica, .tema-preto_elegante .dados-empresa p, .tema-preto_elegante .titulo-card p, .tema-preto_elegante .titulo-horarios p, .tema-preto_elegante .aviso-horario, .tema-preto_elegante .previa, .tema-preto_elegante .bloco-publico p, .tema-preto_elegante .politica-publica p,
+.tema-preto_dourado .estado p, .tema-preto_dourado .mensagem-publica, .tema-preto_dourado .dados-empresa p, .tema-preto_dourado .titulo-card p, .tema-preto_dourado .titulo-horarios p, .tema-preto_dourado .aviso-horario, .tema-preto_dourado .previa, .tema-preto_dourado .bloco-publico p, .tema-preto_dourado .politica-publica p { color: #cbd5e1; }
 .cabecalho-publico { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 22px; align-items: flex-start; }
 .identidade-empresa { display: flex; align-items: flex-start; gap: 20px; }
 .subtitulo { margin: 0 0 4px; color: var(--cor-principal-publica, #2563eb); font-size: 14px; font-weight: 700; text-transform: uppercase; }
@@ -1297,7 +1387,9 @@ onMounted(() => {
 .links-institucionais { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 14px; }
 .links-institucionais a { color: #64748b; font-size: 13px; font-weight: 700; text-decoration: none; }
 .links-institucionais a:hover { color: var(--cor-principal-publica, #2563eb); text-decoration: underline; }
-.tema-escuro .links-institucionais a { color: #cbd5e1; }
+.tema-escuro .links-institucionais a,
+.tema-preto_elegante .links-institucionais a,
+.tema-preto_dourado .links-institucionais a { color: #cbd5e1; }
 .confirmacao-card { display: grid; gap: 18px; border-color: #bbf7d0; background: #fbfffd; }
 .confirmacao-topo { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; padding-bottom: 16px; border-bottom: 1px solid #dcfce7; }
 .confirmacao-topo h2 { margin: 0; color: #14532d; font-size: 26px; font-weight: 800; }
@@ -1316,21 +1408,27 @@ onMounted(() => {
 .acoes-confirmacao { display: flex; gap: 12px; flex-wrap: wrap; }
 .formulario { display: grid; gap: 16px; }
 .titulo-card h2 { margin: 0; font-size: 22px; color: #111827; font-weight: 800; }
-.tema-escuro .titulo-card h2, .tema-escuro .titulo-horarios h3, .tema-escuro .estado-horarios strong, .tema-escuro .politica-publica h2 { color: #f8fafc; }
+.tema-escuro .titulo-card h2, .tema-escuro .titulo-horarios h3, .tema-escuro .estado-horarios strong, .tema-escuro .politica-publica h2,
+.tema-preto_elegante .titulo-card h2, .tema-preto_elegante .titulo-horarios h3, .tema-preto_elegante .estado-horarios strong, .tema-preto_elegante .politica-publica h2,
+.tema-preto_dourado .titulo-card h2, .tema-preto_dourado .titulo-horarios h3, .tema-preto_dourado .estado-horarios strong, .tema-preto_dourado .politica-publica h2 { color: #f8fafc; }
 .titulo-card p { margin: 6px 0 0; color: #64748b; font-size: 14px; }
 .campos { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 16px; }
 .etapa-formulario { padding-top: 2px; }
 .etapa-tag { margin: 0; display: inline-flex; align-items: center; min-height: 32px; padding: 6px 12px; border-radius: 999px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1e3a8a; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
 label { display: grid; gap: 6px; color: #374151; font-weight: 700; font-size: 14px; }
 input, select, textarea { width: 100%; min-width: 0; border: 1px solid #d1d5db; border-radius: 10px; padding: 11px 12px; font-size: 15px; background: white; box-sizing: border-box; }
-.tema-escuro input, .tema-escuro select, .tema-escuro textarea { background: #0f172a; border-color: #334155; color: #f8fafc; }
+.tema-escuro input, .tema-escuro select, .tema-escuro textarea,
+.tema-preto_elegante input, .tema-preto_elegante select, .tema-preto_elegante textarea,
+.tema-preto_dourado input, .tema-preto_dourado select, .tema-preto_dourado textarea { background: #0f172a; border-color: #334155; color: #f8fafc; }
 .tema-moderno input, .tema-moderno select, .tema-moderno textarea, .tema-moderno .horarios, .tema-moderno .previa { border-radius: 14px; }
 .tema-suave input, .tema-suave select, .tema-suave textarea { border-color: #bfdbfe; background: #fbfdff; }
 textarea { min-height: 110px; resize: vertical; font-family: inherit; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
 .campo-grande { grid-column: 1 / -1; }
 .horarios { display: grid; gap: 14px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc; }
-.tema-escuro .horarios, .tema-escuro .estado-horarios, .tema-escuro .previa, .tema-escuro .resumo-confirmacao div, .tema-escuro .lista-ocupados span { background: #0f172a; border-color: #334155; }
+.tema-escuro .horarios, .tema-escuro .estado-horarios, .tema-escuro .previa, .tema-escuro .resumo-confirmacao div, .tema-escuro .lista-ocupados span,
+.tema-preto_elegante .horarios, .tema-preto_elegante .estado-horarios, .tema-preto_elegante .previa, .tema-preto_elegante .resumo-confirmacao div, .tema-preto_elegante .lista-ocupados span,
+.tema-preto_dourado .horarios, .tema-preto_dourado .estado-horarios, .tema-preto_dourado .previa, .tema-preto_dourado .resumo-confirmacao div, .tema-preto_dourado .lista-ocupados span { background: #0f172a; border-color: #334155; }
 .tema-suave .horarios, .tema-suave .previa { background: #f1f8ff; border-color: #dbeafe; }
 .titulo-horarios h3, .titulo-horarios p { margin: 0; }
 .titulo-horarios h3 { font-size: 16px; font-weight: 800; color: #111827; }
@@ -1338,7 +1436,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .grade-horarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 12px; }
 .horario { min-height: 56px; border: 1px solid #bfdbfe; border-radius: 10px; background: white; color: var(--cor-principal-publica, #1d4ed8); cursor: pointer; font-size: 16px; font-weight: 800; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease; }
 .tema-moderno .horario { min-height: 62px; border-radius: 14px; box-shadow: 0 10px 22px rgba(37, 99, 235, 0.1); }
-.tema-escuro .horario { background: #1f2937; border-color: #334155; }
+.tema-escuro .horario,
+.tema-preto_elegante .horario,
+.tema-preto_dourado .horario { background: #1f2937; border-color: #334155; }
 .tema-suave .horario { background: #ffffff; border-color: #dbeafe; }
 .horario:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--cor-principal-publica, #2563eb); background: #eff6ff; }
 .horario.selecionado { background: var(--cor-principal-publica, #2563eb); border-color: var(--cor-principal-publica, #2563eb); color: white; }
@@ -1360,7 +1460,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .botao { border: none; color: white; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: 800; transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease; }
 .tema-moderno .botao { border-radius: 999px; padding: 12px 18px; box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18); }
 .tema-suave .botao { color: var(--cor-secundaria-publica, #0f172a); background: #dbeafe; }
-.tema-escuro .secundario { background: #334155; color: #f8fafc; }
+.tema-escuro .secundario,
+.tema-preto_elegante .secundario,
+.tema-preto_dourado .secundario { background: #334155; color: #f8fafc; }
 .botao:hover:not(:disabled) { transform: translateY(-1px); }
 .botao:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .principal { background: var(--cor-principal-publica, #2563eb); }
@@ -1373,6 +1475,33 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .erro { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
 .sucesso-card { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; display: grid; gap: 8px; }
 .sucesso-card h3, .sucesso-card p { margin: 0; }
+.bloco-divulgacao-nuvemmais {
+  display: grid;
+  gap: 14px;
+  border-color: color-mix(in srgb, var(--publico-cor-principal), white 82%);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--publico-cor-fundo-secundario), white 18%),
+      color-mix(in srgb, var(--publico-cor-principal), white 92%)
+    );
+}
+.bloco-divulgacao-nuvemmais-texto { display: grid; gap: 6px; }
+.bloco-divulgacao-nuvemmais-selo {
+  margin: 0;
+  color: var(--cor-principal-publica, #2563eb);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.bloco-divulgacao-nuvemmais h2 { margin: 0; font-size: clamp(18px, 2.8vw, 24px); line-height: 1.2; }
+.bloco-divulgacao-nuvemmais p { margin: 0; color: #475569; line-height: 1.55; }
+.tema-escuro .bloco-divulgacao-nuvemmais p,
+.tema-preto_elegante .bloco-divulgacao-nuvemmais p,
+.tema-preto_dourado .bloco-divulgacao-nuvemmais p { color: #cbd5e1; }
+.bloco-divulgacao-nuvemmais-acoes { display: flex; flex-wrap: wrap; gap: 10px; }
+.bloco-divulgacao-nuvemmais-acoes > a { min-width: 180px; }
 @media (max-width: 900px) {
   .layout-publico, .cabecalho-publico { grid-template-columns: 1fr; }
   .cabecalho-publico { gap: 16px; }
@@ -1381,12 +1510,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
   .campos, .previa, .resumo-confirmacao { grid-template-columns: 1fr; }
   .rodape-formulario .botao { width: 100%; min-height: 48px; }
   .grade-horarios { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bloco-divulgacao-nuvemmais-acoes > a { width: 100%; min-width: 0; }
 }
 @media (max-width: 520px) {
   .pagina-publica { padding: 20px 12px 18px; }
   .card { padding: 16px; border-radius: 14px; }
+  .banner-publico { min-height: 118px; height: clamp(118px, 44vw, 188px); max-height: 188px; padding: 8px; background: color-mix(in srgb, var(--publico-cor-fundo-secundario), white 86%); }
+  .banner-publico img { object-fit: contain; border-radius: 12px; }
   .logo-publico, .logo-fallback { width: 68px; height: 68px; border-radius: 14px; }
   .grade-horarios { grid-template-columns: 1fr; }
 }
 </style>
-

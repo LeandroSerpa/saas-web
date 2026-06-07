@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import {
   buscarPlanosCadastroPublico,
   buscarSegmentosCadastroPublico,
   cadastrarEmpresaInteressadaPublico,
 } from '@/services/api'
+import PublicidadeNuvemMais from '@/components/PublicidadeNuvemMais.vue'
 import { debugLog } from '@/utils/devDebug'
 import {
   criarManipuladorPasteNumerico,
@@ -21,10 +22,12 @@ import {
 const etapas = [{ titulo: 'Empresa' }, { titulo: 'Responsável' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'Revisão' }]
 const ufs = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
+const route = useRoute()
 
 const etapaAtual = ref(0)
 const segmentos = ref([])
 const planos = ref([])
+const secaoPlanosRef = ref(null)
 const carregando = ref(true)
 const enviando = ref(false)
 const erro = ref('')
@@ -34,13 +37,61 @@ const formulario = ref(criarFormularioInicial())
 const errosCampos = ref(criarErrosCamposIniciais())
 
 const segmentoSelecionado = computed(() => segmentos.value.find((segmento) => String(segmento.id) === String(formulario.value.segmentoNegocioId)) || null)
-const planoSelecionado = computed(() => planos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null)
-const planosVisiveis = computed(() => planos.value.slice(0, 4))
-const possuiPlanosOcultos = computed(() => planos.value.length > planosVisiveis.value.length)
+const planoSelecionado = computed(() => planosExibidos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null)
+const planosExibidos = computed(() =>
+  [...planos.value]
+    .sort(compararPlanosPublicos)
+    .map((plano) => ({
+      ...plano,
+      destaqueComercial: obterDestaqueComercialPlano(plano),
+    })),
+)
+const destacarPlanos = computed(() => route.hash === '#planos')
+
+const destaquePlanoPadrao = {
+  selo: 'Plano real',
+  chamada: 'Uma opção clara para pequenos negócios, com nome, proposta e limites vindos da API.',
+  destaque: 'Selecione o cartão que melhor representa o momento da sua empresa.',
+  recursos: ['Dados reais da API', 'Seleção preservada no formulário', 'Visual responsivo para mobile'],
+}
+
+const destaquePlanosPublicos = {
+  vitrine: {
+    selo: 'Vitrine',
+    chamada: 'Catálogo, cardápio e vitrine pública para divulgar produtos e receber pedidos pelo WhatsApp.',
+    destaque: 'Ideal para quem quer mostrar produtos com link público e vender com mais organização.',
+    recursos: ['Catálogo/cardápio público', 'Fotos, preços e disponibilidade', 'Link público para divulgar'],
+  },
+  agenda: {
+    selo: 'Agenda',
+    chamada: 'Agenda online para horários, serviços, clientes e atendimento com mais controle.',
+    destaque: 'Perfeito para quem agenda horários e quer organizar a operação do dia a dia.',
+    recursos: ['Agenda online', 'Clientes, serviços e funcionários', 'Organização de horários'],
+  },
+  completo: {
+    selo: 'Completo',
+    chamada: 'Catálogo/cardápio + agenda em um só plano, para vender e atender no mesmo sistema.',
+    destaque: 'Reúne vitrine e agenda para negócios que precisam dos dois fluxos juntos.',
+    recursos: ['Catálogo/cardápio + agenda', 'Estoque do dia', 'Operação completa em um só lugar'],
+  },
+}
 
 watch(() => formulario.value.nomeEmpresa, (nome) => {
   formulario.value.slugDesejado = gerarSlug(nome)
 })
+
+watch(
+  () => [route.hash, carregando.value],
+  async () => {
+    if (typeof window === 'undefined' || route.hash !== '#planos' || carregando.value) {
+      return
+    }
+
+    await nextTick()
+    secaoPlanosRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  },
+  { immediate: true },
+)
 
 function criarFormularioInicial() {
   return {
@@ -316,6 +367,54 @@ function selecionarPlano(plano) {
   erro.value = ''
 }
 
+function obterDestaqueComercialPlano(plano) {
+  const chave = identificarPlanoPublico(plano)
+
+  return destaquePlanosPublicos[chave] || {
+    ...destaquePlanoPadrao,
+    recursos: plano?.nome ? [`Plano disponível na base: ${plano.nome}`] : destaquePlanoPadrao.recursos,
+  }
+}
+
+function identificarPlanoPublico(plano) {
+  const nome = gerarSlug(obterCampo(plano, 'nome', 'titulo', 'codigo', 'slug'))
+
+  if (
+    nome.includes('vitrine') ||
+    nome.includes('catalogo') ||
+    nome.includes('cardapio') ||
+    nome.includes('catalogo-publico') ||
+    nome.includes('vitrine-publica')
+  ) {
+    return 'vitrine'
+  }
+
+  if (nome.includes('agenda')) {
+    return 'agenda'
+  }
+
+  if (nome.includes('completo') || (nome.includes('catalogo') && nome.includes('agenda'))) {
+    return 'completo'
+  }
+
+  return ''
+}
+
+function compararPlanosPublicos(planoA, planoB) {
+  const ordem = { vitrine: 0, agenda: 1, completo: 2 }
+  const chaveA = identificarPlanoPublico(planoA)
+  const chaveB = identificarPlanoPublico(planoB)
+  const pesoA = ordem[chaveA] ?? 99
+  const pesoB = ordem[chaveB] ?? 99
+
+  if (pesoA !== pesoB) return pesoA - pesoB
+
+  return String(obterCampo(planoA, 'nome', 'titulo') || '').localeCompare(
+    String(obterCampo(planoB, 'nome', 'titulo') || ''),
+    'pt-BR',
+  )
+}
+
 function formatarMoeda(valor) {
   const numero = Number(valor ?? 0)
 
@@ -330,7 +429,7 @@ function precoPlano(plano) {
 }
 
 function descricaoPlano(plano) {
-  return plano?.descricao || plano?.resumo || 'Uma opção para organizar sua operação com mais clareza, controle e previsibilidade.'
+  return plano?.descricao || plano?.resumo || plano?.destaqueComercial?.chamada || 'Uma opção para organizar sua operação com mais clareza, controle e previsibilidade.'
 }
 
 function exibirLimite(valor) {
@@ -364,6 +463,10 @@ function limiteProdutosPlano(plano) {
 
 function recursosPrincipaisPlano(plano, limite = 4) {
   if (!plano) return []
+
+  if (Array.isArray(plano?.destaqueComercial?.recursos) && plano.destaqueComercial.recursos.length) {
+    return plano.destaqueComercial.recursos.slice(0, limite)
+  }
 
   return [
     { ativo: plano.permitePersonalizacao, rotulo: 'Personalização' },
@@ -481,59 +584,77 @@ onMounted(carregarOpcoes)
             </label>
           </div>
 
-          <div v-else-if="etapaAtual === 3" class="campo-grande etapa-planos">
+          <div
+            v-else-if="etapaAtual === 3"
+            id="planos"
+            ref="secaoPlanosRef"
+            :class="['campo-grande', 'etapa-planos', { destaque: destacarPlanos }]"
+          >
             <div class="cabecalho-planos">
               <span class="selo">Escolha seu plano</span>
-              <h2>Compare as opções disponíveis</h2>
-              <p>Selecione o plano que combina melhor com o momento da sua empresa. Você poderá confirmar a escolha na revisão.</p>
+              <h2>Compare os planos reais da API</h2>
+              <p>Os cartões abaixo já trazem a proposta comercial e os dados reais do cadastro público. Basta escolher a opção que faz mais sentido para a sua empresa.</p>
             </div>
 
-            <section v-if="!planos.length" class="sem-planos">
+            <p class="aviso-planos">
+              Vitrine = catálogo/cardápio/vitrine pública. Agenda = agenda online. Completo = catálogo/cardápio + agenda.
+            </p>
+
+            <section v-if="!planosExibidos.length" class="sem-planos">
               <h3>Nenhum plano disponível agora</h3>
               <p>Entre em contato com a equipe NuvemMais para receber orientação sobre a melhor opção para sua empresa.</p>
             </section>
 
-            <template v-else>
-              <p v-if="possuiPlanosOcultos" class="aviso-planos">
-                Mostrando os principais planos disponíveis. Nossa equipe poderá ajustar a melhor opção após a análise.
-              </p>
-
-              <section class="grade-planos" aria-label="Planos disponíveis">
-                <article
-                  v-for="plano in planosVisiveis"
-                  :key="plano.id"
-                  :class="['plano-card', { selecionado: String(formulario.planoId) === String(plano.id) }]"
-                >
-                  <div class="plano-topo">
-                    <h3>{{ plano.nome || plano.titulo || 'Plano sem nome' }}</h3>
-                    <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mês</span></strong>
+            <section v-else class="grade-planos" aria-label="Planos disponíveis">
+              <article
+                v-for="plano in planosExibidos"
+                :key="plano.id"
+                :class="['plano-card', { selecionado: String(formulario.planoId) === String(plano.id) }]"
+                role="button"
+                tabindex="0"
+                @click="selecionarPlano(plano)"
+                @keydown.enter.prevent="selecionarPlano(plano)"
+                @keydown.space.prevent="selecionarPlano(plano)"
+              >
+                <div class="plano-topo">
+                  <div class="plano-badges">
+                    <span class="selo">{{ plano.destaqueComercial.selo }}</span>
+                    <span class="plano-badge">{{ plano.destaqueComercial.destaque }}</span>
                   </div>
+                  <h3>{{ plano.nome || plano.titulo || 'Plano sem nome' }}</h3>
+                  <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mês</span></strong>
+                </div>
 
-                  <p class="plano-descricao">{{ descricaoPlano(plano) }}</p>
+                <p class="plano-descricao">{{ descricaoPlano(plano) }}</p>
 
-                  <dl class="lista-limites">
-                    <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
-                    <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
-                    <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
-                    <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
-                    <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
-                    <div><dt>Produtos no estoque</dt><dd>{{ estoqueIncluido(plano) ? limiteProdutosPlano(plano) : 'Não incluso' }}</dd></div>
-                  </dl>
+                <ul class="plano-resumo-comercial">
+                  <li v-for="recurso in plano.destaqueComercial.recursos" :key="recurso">{{ recurso }}</li>
+                </ul>
 
-                  <ul class="recursos-plano">
-                    <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
-                    <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
-                    <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
-                    <li><span>Estoque</span><strong>{{ estoqueIncluido(plano) ? 'Sim' : 'Não' }}</strong></li>
-                    <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
-                  </ul>
+                <dl class="lista-limites">
+                  <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
+                  <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
+                  <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
+                  <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
+                  <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
+                  <div><dt>Produtos no estoque</dt><dd>{{ estoqueIncluido(plano) ? limiteProdutosPlano(plano) : 'Não incluso' }}</dd></div>
+                </dl>
 
-                  <button class="botao-plano" type="button" @click="selecionarPlano(plano)">
-                    {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : 'Escolher plano' }}
-                  </button>
-                </article>
-              </section>
-            </template>
+                <ul class="recursos-plano">
+                  <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
+                  <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
+                  <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
+                  <li><span>Estoque</span><strong>{{ estoqueIncluido(plano) ? 'Sim' : 'Não' }}</strong></li>
+                  <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
+                </ul>
+
+                <div class="plano-acao">
+                  <span :class="['botao-plano', { selecionado: String(formulario.planoId) === String(plano.id) }]">
+                    {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : 'Clique para escolher' }}
+                  </span>
+                </div>
+              </article>
+            </section>
           </div>
 
           <div v-else class="revisao">
@@ -574,5 +695,145 @@ onMounted(carregarOpcoes)
 
 <style scoped>
 .pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:1080px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-align:center;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}.etapa-planos{display:grid;gap:18px}.cabecalho-planos{display:grid;gap:7px}.cabecalho-planos p{color:#64748b}.aviso-planos{padding:12px 14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1e3a8a;font-weight:700;line-height:1.45}.grade-planos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.plano-card{display:grid;grid-template-rows:auto auto 1fr auto auto;gap:16px;min-width:0;padding:18px;border:1px solid #dbe4f0;border-radius:8px;background:white;box-shadow:0 14px 30px rgba(15,23,42,.08);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}.plano-card.selecionado{border-color:#2563eb;box-shadow:0 20px 42px rgba(37,99,235,.2);transform:translateY(-2px)}.plano-topo{display:grid;gap:10px}.plano-topo h3{margin:0;font-size:22px;line-height:1.15;overflow-wrap:anywhere}.plano-topo strong{color:#0f172a;font-size:26px;line-height:1}.plano-topo strong span{color:#64748b;font-size:14px;font-weight:800}.plano-descricao{color:#475569;line-height:1.5}.lista-limites{display:grid;gap:8px;margin:0}.lista-limites div,.recursos-plano li{display:flex;justify-content:space-between;gap:12px;align-items:center}.lista-limites dt,.recursos-plano span{color:#64748b;font-weight:800}.lista-limites dd{margin:0;color:#0f172a;font-weight:900;text-align:right}.recursos-plano{display:grid;gap:8px;margin:0;padding:14px 0 0;border-top:1px solid #e2e8f0;list-style:none}.recursos-plano strong{color:#0f766e}.botao-plano{width:100%;min-height:46px;border:1px solid #2563eb;border-radius:8px;padding:12px 14px;background:#2563eb;color:white;cursor:pointer;font-weight:900}.plano-card.selecionado .botao-plano{background:#0f172a;border-color:#0f172a}.sem-planos{display:grid;gap:8px;padding:20px;border:1px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#1e3a8a}.sem-planos h3{margin:0}.sem-planos p{color:#334155}.recursos-revisao{display:grid;gap:6px;margin:10px 0 0;padding-left:20px;color:#334155}.recursos-revisao li{line-height:1.35}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}.grade-planos{grid-template-columns:1fr}.plano-topo strong{font-size:24px}}@media (max-width:560px){.pagina-publica{padding:22px 12px}.card,.feedback{padding:18px}.etapas{grid-template-columns:1fr}.acoes{display:grid;grid-template-columns:1fr}.botao,.botao-plano{width:100%}.lista-limites div,.recursos-plano li{align-items:flex-start}.plano-card{padding:16px}}
+</style>
+
+<style scoped>
+.etapa-planos {
+  scroll-margin-top: 18px;
+}
+
+.etapa-planos.destaque {
+  padding: 18px;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.08);
+}
+
+.planos-comerciais {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.plano-comercial {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
+}
+
+.plano-comercial-topo {
+  display: grid;
+  gap: 8px;
+}
+
+.plano-comercial h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.plano-comercial-chamada {
+  margin: 0;
+  color: #334155;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.plano-comercial-recursos {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: #0f172a;
+}
+
+.plano-comercial-recursos li {
+  line-height: 1.45;
+}
+
+.aviso-planos-comerciais {
+  margin-top: -2px;
+}
+
+@media (max-width: 900px) {
+  .planos-comerciais {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .plano-comercial {
+    padding: 16px;
+  }
+}
+
+.plano-card {
+  cursor: pointer;
+}
+
+.plano-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+.plano-card:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+
+.plano-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.plano-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.plano-resumo-comercial {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+.plano-resumo-comercial li {
+  line-height: 1.45;
+}
+
+.plano-acao {
+  display: flex;
+}
+
+.plano-acao .botao-plano {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plano-acao .botao-plano.selecionado {
+  background: #0f172a;
+  border-color: #0f172a;
+}
 </style>
 

@@ -43,7 +43,7 @@ import PrivacidadeView from '../views/PrivacidadeView.vue'
 import SobreView from '../views/SobreView.vue'
 import AjudaView from '../views/AjudaView.vue'
 import EstoqueView from '../views/EstoqueView.vue'
-import { carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
+import { caminhoEhRotaPublicaFrontend, carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -60,7 +60,10 @@ const rotasSuperAdmin = {
   requiresSuperAdmin: true,
 }
 
-const caminhosPublicos = ['/cadastro', '/cadastro-empresa', '/comece-agora', '/termos', '/privacidade', '/sobre']
+const rotasPublicas = {
+  requiresAuth: false,
+  publico: true,
+}
 
 function empresaPendente(usuario) {
   if (!usuario || typeof usuario !== 'object') return false
@@ -390,32 +393,38 @@ const router = createRouter({
       path: '/agendar/:slug',
       name: 'agendamento-publico',
       component: AgendamentoPublicoView,
+      meta: rotasPublicas,
     },
     {
       path: '/catalogo/:slug',
       alias: ['/cardapio/:slug'],
       name: 'catalogo-publico',
       component: CatalogoPublicoView,
+      meta: rotasPublicas,
     },
     {
       path: '/cadastro',
       name: 'cadastro-empresa-publico',
       component: CadastroEmpresaPublicoView,
+      meta: rotasPublicas,
     },
     {
       path: '/termos',
       name: 'termos',
       component: TermosView,
+      meta: rotasPublicas,
     },
     {
       path: '/privacidade',
       name: 'privacidade',
       component: PrivacidadeView,
+      meta: rotasPublicas,
     },
     {
       path: '/sobre',
       name: 'sobre',
       component: SobreView,
+      meta: rotasPublicas,
     },
     {
       path: '/cadastro-empresa',
@@ -429,6 +438,7 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
+      meta: rotasPublicas,
     },
     {
       path: '/cadastro-pendente',
@@ -458,12 +468,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (
-    to.path.startsWith('/agendar') ||
-    to.path.startsWith('/catalogo/') ||
-    to.path.startsWith('/cardapio/') ||
-    caminhosPublicos.includes(to.path)
-  ) {
+  if (to.matched.some((registro) => registro.meta?.publico) || caminhoEhRotaPublicaFrontend(to.path)) {
     return true
   }
 

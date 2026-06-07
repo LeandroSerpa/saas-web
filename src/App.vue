@@ -333,7 +333,7 @@ const descricaoSeloAmbienteTopo = computed(() =>
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.2.0-hml'
+  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.2.1-hml'
   return `v${versaoBase}`
 })
 
@@ -400,7 +400,12 @@ function alterarTemaAparencia(novoTema) {
 }
 
 function atualizarUsuarioLogado() {
-  if (rotaAgendamentoPublico.value) {
+  if (
+    rotaAgendamentoPublico.value ||
+    rotaCatalogoPublico.value ||
+    rotaCadastroPublico.value ||
+    rotaInstitucionalPublica.value
+  ) {
     usuario.value = null
     statusFinanceiro.value = null
     return

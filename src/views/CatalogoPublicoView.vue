@@ -1,15 +1,27 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import {
+  APP_VERSION,
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+  buscarCardapioPublico,
   buscarCatalogoPublico,
   buscarEmpresaPublica,
   buscarPersonalizacaoPublica,
 } from '@/services/api'
+import { normalizarUrlImagemPublica } from '@/utils/imagens'
+import {
+  criarMapaVisualPublico,
+  criarVariaveisCssPublicas,
+  normalizarCorHex as normalizarCorHexPublica,
+  normalizarTemaPublico as normalizarTemaPublicoCompartilhado,
+} from '@/utils/temasPublicos'
+import PublicidadeNuvemMais from '@/components/PublicidadeNuvemMais.vue'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug || '').trim())
+const acessandoViaCardapio = computed(() => String(route.path || '').startsWith('/cardapio/'))
+const produtoQueryId = computed(() => normalizarIdConsultaProduto(route.query?.produto))
 
 const carregando = ref(true)
 const indisponivel = ref(false)
@@ -25,6 +37,8 @@ const imagensComErro = ref({})
 let overflowBodyAnterior = ''
 let overflowHtmlAnterior = ''
 let scrollBloqueadoModal = false
+let historicoModalAtivo = false
+let ultimoProdutoAbertoPorQuery = ''
 
 const produtosPublicados = computed(() =>
   [...produtos.value]
@@ -100,36 +114,54 @@ const subtituloPagina = computed(() =>
   ).trim(),
 )
 
+const textoSobreCatalogo = computed(() => String(personalizacao.value.textoSobre || '').trim())
+const textoInstrucoesCatalogo = computed(() => String(personalizacao.value.textoInstrucoes || '').trim())
+
 const logoEmpresa = computed(() =>
-  String(
-    personalizacao.value.logoUrl ||
-      empresa.value.logoUrl ||
-      empresa.value.logo ||
-      '',
-  ).trim(),
+  normalizarUrlImagemPublica(
+    String(personalizacao.value.logoUrl || empresa.value.logoUrl || empresa.value.logo || '').trim(),
+  ),
 )
 
 const bannerEmpresa = computed(() =>
-  String(
-    personalizacao.value.bannerUrl ||
-      empresa.value.bannerUrl ||
-      empresa.value.capaUrl ||
-      '',
-  ).trim(),
+  normalizarUrlImagemPublica(
+    String(personalizacao.value.bannerUrl || empresa.value.bannerUrl || empresa.value.capaUrl || '').trim(),
+  ),
 )
+const logoEmpresaComErro = ref(false)
+const bannerEmpresaComErro = ref(false)
 
 const descricaoCatalogo = computed(() =>
   subtituloPagina.value || 'Confira os produtos publicados hoje e fale com a empresa direto pelo WhatsApp.'
 )
+const tituloPrincipalCatalogo = computed(() => tituloPagina.value || empresa.value.nome || 'Catalogo publico')
+const exibirNomeEmpresaNoHero = computed(() => {
+  const nomeEmpresa = normalizarTextoComparacao(empresa.value.nome)
+  const titulo = normalizarTextoComparacao(tituloPrincipalCatalogo.value)
+
+  return Boolean(nomeEmpresa && titulo && nomeEmpresa !== titulo)
+})
+
+const corPrincipalCatalogo = computed(() => normalizarCorHexPublica(personalizacao.value.corPrincipal, '#2563eb'))
+const corSecundariaCatalogo = computed(() => normalizarCorHexPublica(personalizacao.value.corSecundaria, '#0f172a'))
+const temaCatalogo = computed(() => normalizarTemaPublicoCompartilhado(personalizacao.value.tema))
+const classeTemaCatalogo = computed(() => `tema-${temaCatalogo.value.toLowerCase()}`)
+const estilosCatalogo = computed(() => {
+  const mapa = criarMapaVisualPublico(corPrincipalCatalogo.value, corSecundariaCatalogo.value, temaCatalogo.value)
+
+  return {
+    ...criarVariaveisCssPublicas(mapa, '--catalogo-cor'),
+  }
+})
 
 const whatsappNumero = computed(() => {
   const candidatos = [
+    personalizacao.value.whatsapp,
+    personalizacao.value.telefone,
     empresa.value.whatsapp,
     empresa.value.telefoneWhatsapp,
     empresa.value.telefoneComercial,
     empresa.value.telefone,
-    personalizacao.value.whatsapp,
-    personalizacao.value.telefone,
   ]
 
   for (const candidato of candidatos) {
@@ -150,6 +182,27 @@ const quantidadeCategorias = computed(() => categorias.value.length)
 const categoriaAtivaSelecionada = computed(() => categorias.value.find((item) => item.nome === categoriaAtiva.value) || null)
 const totalVisiveis = computed(() => produtosFiltrados.value.length)
 const totalProdutosPublicados = computed(() => produtosPublicados.value.length)
+const listaProdutosCatalogoView = computed(() =>
+  produtosFiltrados.value.map((produto, indice) => criarProdutoCatalogoView(produto, indice)),
+)
+const produtoSelecionadoView = computed(() => {
+  if (!produtoSelecionado.value) {
+    return null
+  }
+
+  const produto = produtoSelecionado.value
+  const chaveImagem = produto.chaveImagem || chaveImagemProduto(produto)
+  const imagemNormalizada = produto.imagemNormalizada || normalizarImagemProduto(produto)
+  const possuiErroImagem = Boolean(chaveImagem && imagensComErro.value[chaveImagem])
+
+  return {
+    ...produto,
+    chaveImagem,
+    imagemNormalizada,
+    possuiErroImagem,
+    possuiImagem: Boolean(imagemNormalizada && !possuiErroImagem),
+  }
+})
 const linkWhatsappContato = computed(() => {
   if (!temWhatsapp.value) {
     return ''
@@ -163,6 +216,15 @@ const linkWhatsappContato = computed(() => {
 
   return `https://wa.me/${whatsappNumero.value}?text=${encodeURIComponent(linhas.join('\n'))}`
 })
+const resumoContatoCatalogo = computed(() => (temWhatsapp.value ? `WhatsApp: ${formatarTelefoneWhatsapp(whatsappNumero.value)}` : ''))
+
+function atualizarTituloPaginaCatalogo(nomeEmpresa = '') {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  document.title = nomeEmpresa ? `${nomeEmpresa} | Catálogo NuvemMais` : 'NuvemMais Gestão'
+}
 
 watch(
   slug,
@@ -171,6 +233,27 @@ watch(
   },
   { immediate: true },
 )
+
+watch(
+  produtoQueryId,
+  (produtoId) => {
+    if (!produtoId) {
+      ultimoProdutoAbertoPorQuery = ''
+      return
+    }
+
+    abrirProdutoPorQuery(produtoId)
+  },
+  { immediate: true },
+)
+
+watch(logoEmpresa, () => {
+  logoEmpresaComErro.value = false
+})
+
+watch(bannerEmpresa, () => {
+  bannerEmpresaComErro.value = false
+})
 
 function criarEmpresaPadrao() {
   return {
@@ -190,10 +273,15 @@ function criarPersonalizacaoPadrao() {
   return {
     logoUrl: '',
     bannerUrl: '',
+    corPrincipal: '#2563eb',
+    corSecundaria: '#0f172a',
+    tema: 'PADRAO',
     tituloPagina: '',
     subtituloPagina: '',
     tituloCatalogo: '',
     subtituloCatalogo: '',
+    textoSobre: '',
+    textoInstrucoes: '',
     whatsapp: '',
     telefone: '',
   }
@@ -243,7 +331,7 @@ function normalizarProdutoCatalogo(produto) {
     nome: String(item.nome || '').trim(),
     descricaoPublica: String(item.descricaoPublica || item.descricao || '').trim(),
     categoriaPublica,
-    imagemUrl: String(item.imagemUrl || item.fotoUrl || item.imagem || '').trim(),
+    imagemUrl: normalizarUrlImagemPublica(obterCampoImagemProduto(item)),
     precoVenda: Number(item.precoVenda ?? item.preco ?? 0),
     quantidadeDisponivel: Number.isFinite(quantidadeDisponivel) ? quantidadeDisponivel : 0,
     unidade: String(item.unidade || item.unidadeMedida || 'UN').trim().toUpperCase(),
@@ -286,6 +374,193 @@ function normalizarTelefoneWhatsappBrasil(valor) {
   return ''
 }
 
+function formatarTelefoneWhatsapp(valor) {
+  const numero = String(valor || '').replace(/\D+/g, '')
+
+  if (numero.length === 13 && numero.startsWith('55')) {
+    return `+55 (${numero.slice(2, 4)}) ${numero.slice(4, 9)}-${numero.slice(9)}`
+  }
+
+  if (numero.length === 12 && numero.startsWith('55')) {
+    return `+55 (${numero.slice(2, 4)}) ${numero.slice(4, 8)}-${numero.slice(8)}`
+  }
+
+  return String(valor || '').trim()
+}
+
+function normalizarTextoComparacao(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function corHexValida(cor) {
+  return /^#[0-9a-f]{6}$/.test(String(cor || '').trim().toLowerCase())
+}
+
+function normalizarCorHex(cor, fallback = '') {
+  const texto = String(cor || '').trim().toLowerCase()
+
+  if (!texto) {
+    return fallback
+  }
+
+  if (/^#[0-9a-f]{6}$/.test(texto)) {
+    return texto
+  }
+
+  if (/^[0-9a-f]{6}$/.test(texto)) {
+    return `#${texto}`
+  }
+
+  return fallback
+}
+
+function normalizarTemaPublico(tema) {
+  return ['PADRAO', 'MODERNO', 'ESCURO', 'SUAVE'].includes(tema) ? tema : 'PADRAO'
+}
+
+function converterHexParaRgb(cor) {
+  const corNormalizada = normalizarCorHex(cor, '')
+
+  if (!corHexValida(corNormalizada)) {
+    return null
+  }
+
+  return {
+    r: Number.parseInt(corNormalizada.slice(1, 3), 16),
+    g: Number.parseInt(corNormalizada.slice(3, 5), 16),
+    b: Number.parseInt(corNormalizada.slice(5, 7), 16),
+  }
+}
+
+function formatarRgbComoHex({ r, g, b }) {
+  return `#${[r, g, b]
+    .map((valor) => Math.max(0, Math.min(255, Math.round(valor))).toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+function misturarCores(base, mistura, proporcaoMistura = 0.5) {
+  const rgbBase = converterHexParaRgb(base)
+  const rgbMistura = converterHexParaRgb(mistura)
+
+  if (!rgbBase || !rgbMistura) {
+    return normalizarCorHex(base, mistura)
+  }
+
+  const proporcao = Math.max(0, Math.min(1, Number(proporcaoMistura)))
+  const proporcaoBase = 1 - proporcao
+
+  return formatarRgbComoHex({
+    r: rgbBase.r * proporcaoBase + rgbMistura.r * proporcao,
+    g: rgbBase.g * proporcaoBase + rgbMistura.g * proporcao,
+    b: rgbBase.b * proporcaoBase + rgbMistura.b * proporcao,
+  })
+}
+
+function corComAlpha(cor, alpha) {
+  const rgb = converterHexParaRgb(cor)
+
+  if (!rgb) {
+    return `rgba(15, 23, 42, ${alpha})`
+  }
+
+  const opacidade = Math.max(0, Math.min(1, Number(alpha)))
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacidade})`
+}
+
+function luminancia(cor) {
+  const rgb = converterHexParaRgb(cor)
+
+  if (!rgb) {
+    return 0
+  }
+
+  const canais = [rgb.r, rgb.g, rgb.b].map((canal) => {
+    const valor = canal / 255
+    return valor <= 0.03928 ? valor / 12.92 : ((valor + 0.055) / 1.055) ** 2.4
+  })
+
+  return 0.2126 * canais[0] + 0.7152 * canais[1] + 0.0722 * canais[2]
+}
+
+function escolherTextoContraste(corFundo, claro = '#f8fafc', escuro = '#0f172a') {
+  return luminancia(corFundo) > 0.52 ? escuro : claro
+}
+
+function criarMapaVisualCatalogo(corPrincipal, corSecundaria, tema) {
+  const base = {
+    destaque: misturarCores(corPrincipal, corSecundaria, 0.2),
+    fundo: '#f8fafc',
+    card: 'rgba(255, 255, 255, 0.92)',
+    texto: '#1f2937',
+    textoSuave: '#5b6474',
+    borda: corComAlpha(misturarCores(corSecundaria, '#cbd5e1', 0.72), 0.38),
+    hero: misturarCores(corPrincipal, '#ffffff', 0.88),
+    botao: corPrincipal,
+    botaoTexto: escolherTextoContraste(corPrincipal),
+    fundoSecundario: misturarCores(corSecundaria, '#ffffff', 0.9),
+    chip: misturarCores(corSecundaria, '#ffffff', 0.9),
+    chipTexto: misturarCores(corSecundaria, '#0f172a', 0.25),
+    sucesso: '#166534',
+    sucessoSuave: '#dcfce7',
+    perigo: '#b91c1c',
+    perigoSuave: '#fee2e2',
+    overlay: corComAlpha(corSecundaria, 0.72),
+    modal: 'rgba(255, 255, 255, 0.99)',
+    modalMidia: `linear-gradient(180deg, ${misturarCores(corPrincipal, '#ffffff', 0.78)}, #ffffff)`,
+  }
+
+  if (tema === 'MODERNO') {
+    return {
+      ...base,
+      fundo: misturarCores(corPrincipal, '#f8fafc', 0.9),
+      card: corComAlpha('#ffffff', 0.9),
+      hero: `linear-gradient(135deg, ${corComAlpha(corPrincipal, 0.16)}, ${corComAlpha(corSecundaria, 0.12)})`,
+      fundoSecundario: misturarCores(corPrincipal, '#ffffff', 0.92),
+      chip: misturarCores(corPrincipal, '#ffffff', 0.88),
+    }
+  }
+
+  if (tema === 'ESCURO') {
+    return {
+      ...base,
+      fundo: '#020617',
+      card: 'rgba(15, 23, 42, 0.88)',
+      texto: '#e5e7eb',
+      textoSuave: '#cbd5e1',
+      borda: corComAlpha('#94a3b8', 0.28),
+      hero: `linear-gradient(135deg, ${corComAlpha(corPrincipal, 0.22)}, ${corComAlpha(corSecundaria, 0.4)})`,
+      botaoTexto: escolherTextoContraste(corPrincipal, '#f8fafc', '#020617'),
+      fundoSecundario: 'rgba(15, 23, 42, 0.92)',
+      chip: 'rgba(30, 41, 59, 0.92)',
+      chipTexto: '#e2e8f0',
+      overlay: corComAlpha('#020617', 0.5),
+      modal: 'rgba(255, 255, 255, 0.99)',
+      modalMidia: `linear-gradient(180deg, ${misturarCores(corPrincipal, '#ffffff', 0.86)}, #ffffff)`,
+    }
+  }
+
+  if (tema === 'SUAVE') {
+    return {
+      ...base,
+      fundo: misturarCores(corPrincipal, '#f8fafc', 0.95),
+      card: 'rgba(255, 255, 255, 0.96)',
+      texto: '#243041',
+      textoSuave: '#64748b',
+      borda: corComAlpha(misturarCores(corPrincipal, '#cbd5e1', 0.7), 0.28),
+      hero: misturarCores(corPrincipal, '#ffffff', 0.92),
+      fundoSecundario: misturarCores(corPrincipal, '#ffffff', 0.93),
+      chip: misturarCores(corSecundaria, '#ffffff', 0.95),
+      chipTexto: misturarCores(corSecundaria, '#475569', 0.45),
+    }
+  }
+
+  return base
+}
+
 function formatarMoeda(valor) {
   return Number(valor || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -305,18 +580,106 @@ function formatarQuantidadePublica(produto) {
   return `${formatarQuantidade(produto.quantidadeDisponivel)} ${unidade}`
 }
 
-function chaveImagemProduto(produto) {
-  return String(produto?.id ?? produto?.codigo ?? produto?.sku ?? produto?.nome ?? '').trim()
+function obterCampoImagemProduto(produto) {
+  if (!produto || typeof produto !== 'object') {
+    return ''
+  }
+
+  const candidatos = [
+    produto.imagemUrl,
+    produto.imagem_url,
+    produto.imagemProduto,
+    produto.imagem_produto,
+    produto.fotoUrl,
+    produto.foto_url,
+    produto.foto,
+    produto.imagem,
+    produto.urlImagem,
+    produto.url_imagem,
+  ]
+
+  return String(candidatos.find((valor) => String(valor || '').trim()) || '').trim()
+}
+
+function normalizarImagemProduto(produto) {
+  return normalizarUrlImagemPublica(obterCampoImagemProduto(produto))
+}
+
+function chaveImagemProduto(produto, indice = -1) {
+  const candidatos = [produto?.id, produto?.codigoInterno, produto?.codigo, produto?.sku]
+
+  for (const candidato of candidatos) {
+    const chave = String(candidato || '').trim()
+
+    if (chave) {
+      return chave
+    }
+  }
+
+  const nome = String(produto?.nome || '').trim() || 'produto'
+  return indice >= 0 ? `${nome}-${indice}` : nome
+}
+
+function criarProdutoCatalogoView(produto, indice) {
+  const item = produto && typeof produto === 'object' && !Array.isArray(produto) ? produto : {}
+  const chaveImagem = chaveImagemProduto(produto, indice)
+  const imagemNormalizada = normalizarImagemProduto(produto)
+  const possuiErroImagem = Boolean(chaveImagem && imagensComErro.value[chaveImagem])
+
+  return {
+    ...item,
+    chaveImagem,
+    imagemNormalizada,
+    possuiErroImagem,
+    possuiImagem: Boolean(imagemNormalizada && !possuiErroImagem),
+  }
+}
+
+function encontrarIndiceProdutoCatalogo(produto) {
+  if (!produto) {
+    return -1
+  }
+
+  const porReferencia = produtosFiltrados.value.findIndex((item) => item === produto)
+
+  if (porReferencia >= 0) {
+    return porReferencia
+  }
+
+  const chaveConsulta = chaveProdutoConsulta(produto)
+
+  if (!chaveConsulta) {
+    return -1
+  }
+
+  return produtosFiltrados.value.findIndex((item) => chaveProdutoConsulta(item) === chaveConsulta)
 }
 
 function imagemProdutoDisponivel(produto) {
-  const chave = chaveImagemProduto(produto)
+  const imagemNormalizada = normalizarImagemProduto(produto)
 
-  if (!produto?.imagemUrl) {
+  if (!imagemNormalizada) {
     return false
   }
 
+  const chave = produto?.chaveImagem || chaveImagemProduto(produto)
   return !imagensComErro.value[chave]
+}
+
+function imagemProdutoUrl(produto) {
+  return normalizarImagemProduto(produto)
+}
+
+function aoFalharLogoEmpresa() {
+  if (!logoEmpresaComErro.value) {
+    logoEmpresaComErro.value = true
+  }
+}
+
+function aoFalharBannerEmpresa() {
+  if (!bannerEmpresaComErro.value) {
+    bannerEmpresaComErro.value = true
+  }
 }
 
 function normalizarData(valor) {
@@ -390,16 +753,102 @@ function irParaCategorias() {
   categoriasRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-function montarMensagemWhatsapp(produto) {
-  const linhas = [`Ola! Vim pelo catalogo da NuvemMais e tenho interesse em: ${produto.nome}.`]
+function montarLinkCatalogoProduto(produto) {
+  const produtoId = normalizarIdConsultaProduto(produto?.id)
+  const rotaAtual = String(route.path || '').trim() || (acessandoViaCardapio.value ? `/cardapio/${slug.value}` : `/catalogo/${slug.value}`)
+  const urlBase = typeof window !== 'undefined' ? window.location.origin : ''
+  const url = new URL(rotaAtual, urlBase || 'http://localhost')
 
-  if (produto.mostrarPrecoPublico && Number(produto.precoVenda || 0) > 0) {
-    linhas.push(`Preco: ${formatarMoeda(produto.precoVenda)}.`)
+  if (produtoId) {
+    url.searchParams.set('produto', produtoId)
   }
 
-  linhas.push('Ainda esta disponivel?')
+  if (APP_VERSION) {
+    url.searchParams.set('v', APP_VERSION)
+  }
 
-  return linhas.join('\n')
+  return urlBase ? url.toString() : `${url.pathname}${url.search}${url.hash}`
+}
+
+function normalizarIdConsultaProduto(valor) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) {
+    return ''
+  }
+
+  return Number.isFinite(Number(texto)) ? String(Number(texto)) : texto
+}
+
+function chaveProdutoConsulta(produto) {
+  return String(produto?.id ?? produto?.codigoInterno ?? produto?.codigo ?? produto?.sku ?? '').trim()
+}
+
+function abrirProdutoPorQuery(produtoId) {
+  const idNormalizado = normalizarIdConsultaProduto(produtoId)
+
+  if (
+    !idNormalizado ||
+    carregando.value ||
+    indisponivel.value ||
+    idNormalizado === ultimoProdutoAbertoPorQuery
+  ) {
+    return
+  }
+
+  const produto = produtosPublicados.value.find(
+    (item) => normalizarIdConsultaProduto(chaveProdutoConsulta(item)) === idNormalizado,
+  )
+
+  ultimoProdutoAbertoPorQuery = idNormalizado
+
+  if (produto) {
+    abrirPreviaProduto(produto)
+  }
+}
+
+function montarMensagemWhatsapp(produto) {
+  const nomeEmpresa = empresa.value.nome || 'empresa'
+  const linhas = ['Olá! Tenho interesse neste produto:', '']
+  const nomeProduto = String(produto?.nome || '').trim()
+  const categoria = String(produto?.categoriaPublica || '').trim()
+  const mostrarPreco = produto?.mostrarPrecoPublico === true
+  const mostrarQuantidade = produto?.mostrarQuantidadePublica === true
+  const preco = Number(produto?.precoVenda || 0)
+  const quantidade = Number(produto?.quantidadeDisponivel || 0)
+  const linkCatalogo = montarLinkCatalogoProduto(produto)
+
+  if (nomeProduto) {
+    linhas.push(`Produto: ${nomeProduto}`)
+  }
+
+  if (categoria) {
+    linhas.push(`Categoria: ${categoria}`)
+  }
+
+  if (mostrarPreco && preco > 0) {
+    linhas.push(`Preço: ${formatarMoeda(preco)}`)
+  }
+
+  if (mostrarQuantidade) {
+    linhas.push(`Disponível hoje: ${formatarQuantidadePublica(produto)}`)
+  }
+
+  linhas.push(`Empresa: ${nomeEmpresa}`)
+
+  if (linkCatalogo) {
+    linhas.push(`Link: ${linkCatalogo}`)
+  }
+
+  linhas.push('', produto?.textoBotaoPublico || 'Pode me passar mais detalhes?')
+
+  return linhas.filter((linha, indice, lista) => linha !== '' || lista[indice - 1] !== '').join('\n')
+}
+
+function obterRotuloBotaoWhatsApp(produto) {
+  const texto = String(produto?.textoBotaoPublico || '').trim()
+
+  return texto.length > 0 && texto.length <= 28 ? texto : TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
 }
 
 function linkWhatsappProduto(produto) {
@@ -411,31 +860,89 @@ function linkWhatsappProduto(produto) {
 }
 
 function abrirPreviaProduto(produto) {
+  if (!produtoSelecionado.value) {
+    registrarHistoricoModal()
+  }
+
   produtoSelecionado.value = produto
 }
 
-function fecharPreviaProduto() {
-  produtoSelecionado.value = null
-}
-
-function aoFalharImagemProduto(produto) {
-  const chave = chaveImagemProduto(produto)
-
-  if (!chave) {
+function fecharPreviaProduto({ sincronizarHistorico = true } = {}) {
+  if (
+    sincronizarHistorico &&
+    historicoModalAtivo &&
+    typeof window !== 'undefined' &&
+    window.history.state?.catalogoProdutoModal === true
+  ) {
+    historicoModalAtivo = false
+    produtoSelecionado.value = null
+    window.history.back()
     return
   }
 
-  imagensComErro.value = {
-    ...imagensComErro.value,
-    [chave]: true,
+  historicoModalAtivo = false
+  produtoSelecionado.value = null
+}
+
+function registrarHistoricoModal() {
+  if (historicoModalAtivo || typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const estadoAtual = window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
+    window.history.pushState({ ...estadoAtual, catalogoProdutoModal: true }, '', window.location.href)
+    historicoModalAtivo = true
+  } catch {
+    historicoModalAtivo = false
   }
 }
 
+function aoVoltarHistoricoModal() {
+  if (!historicoModalAtivo || !produtoSelecionado.value) {
+    return
+  }
+
+  fecharPreviaProduto({ sincronizarHistorico: false })
+}
+
+function aoPressionarTecla(evento) {
+  if (evento.key === 'Escape' && produtoSelecionado.value) {
+    fecharPreviaProduto()
+  }
+}
+
+function aoFalharImagemProduto(produto) {
+  const chave = produto?.chaveImagem || chaveImagemProduto(produto)
+
+  if (!chave || imagensComErro.value[chave]) {
+    return
+  }
+
+  imagensComErro.value[chave] = true
+}
+
+function mensagemIndisponibilidadeCatalogo(errorAtual) {
+  const status = Number(errorAtual?.status || 0)
+
+  if ([401, 403, 404].includes(status)) {
+    return 'Este catalogo publico nao foi encontrado ou nao esta disponivel no momento.'
+  }
+
+  if (status === 0) {
+    return 'Nao foi possivel conectar ao catalogo agora. Verifique sua internet e tente novamente.'
+  }
+
+  return 'Nao foi possivel carregar o catalogo desta empresa agora.'
+}
+
 async function carregarCatalogo() {
+  atualizarTituloPaginaCatalogo()
+
   if (!slug.value) {
     carregando.value = false
     indisponivel.value = true
-    erro.value = 'Catalogo publico invalido.'
+    erro.value = 'Link publico invalido. Confira o endereco e tente novamente.'
     return
   }
 
@@ -447,33 +954,49 @@ async function carregarCatalogo() {
     categoriasResposta.value = []
     produtoSelecionado.value = null
     imagensComErro.value = {}
+    ultimoProdutoAbertoPorQuery = ''
 
+    const buscarVitrinePublica = acessandoViaCardapio.value ? buscarCardapioPublico : buscarCatalogoPublico
     const [empresaApi, personalizacaoApi, catalogoApi] = await Promise.all([
       buscarEmpresaPublica(slug.value),
       buscarPersonalizacaoPublica(slug.value).catch(() => null),
-      buscarCatalogoPublico(slug.value),
+      buscarVitrinePublica(slug.value),
     ])
 
     empresa.value = {
       ...criarEmpresaPadrao(),
       ...normalizarObjeto(empresaApi),
     }
+    atualizarTituloPaginaCatalogo(empresa.value.nome)
     personalizacao.value = {
       ...criarPersonalizacaoPadrao(),
       ...normalizarObjeto(personalizacaoApi),
     }
+    personalizacao.value = {
+      ...personalizacao.value,
+      logoUrl: normalizarUrlImagemPublica(personalizacao.value.logoUrl),
+      bannerUrl: normalizarUrlImagemPublica(personalizacao.value.bannerUrl),
+      corPrincipal: normalizarCorHexPublica(personalizacao.value.corPrincipal, '#2563eb'),
+      corSecundaria: normalizarCorHexPublica(personalizacao.value.corSecundaria, '#0f172a'),
+      tema: normalizarTemaPublicoCompartilhado(personalizacao.value.tema),
+    }
     produtos.value = normalizarLista(catalogoApi?.produtos || []).map(normalizarProdutoCatalogo)
     categoriasResposta.value = normalizarLista(catalogoApi?.categorias)
+
   } catch (errorAtual) {
     indisponivel.value = true
-    erro.value = 'Nao foi possivel carregar o catalogo desta empresa agora.'
+    erro.value = mensagemIndisponibilidadeCatalogo(errorAtual)
     console.error(errorAtual)
   } finally {
     carregando.value = false
+
+    if (!indisponivel.value && produtoQueryId.value) {
+      abrirProdutoPorQuery(produtoQueryId.value)
+    }
   }
 }
 
-watch(
+  watch(
   produtoSelecionado,
   (produto) => {
     if (typeof document === 'undefined') {
@@ -503,7 +1026,19 @@ watch(
   { immediate: true },
 )
 
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('popstate', aoVoltarHistoricoModal)
+    window.addEventListener('keydown', aoPressionarTecla)
+  }
+})
+
 onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('popstate', aoVoltarHistoricoModal)
+    window.removeEventListener('keydown', aoPressionarTecla)
+  }
+
   if (typeof document !== 'undefined') {
     if (scrollBloqueadoModal) {
       document.body.style.overflow = overflowBodyAnterior
@@ -516,11 +1051,13 @@ onBeforeUnmount(() => {
       document.documentElement.style.overflow = ''
     }
   }
+
+  historicoModalAtivo = false
 })
 </script>
 
 <template>
-  <main class="catalogo-publico">
+  <main class="catalogo-publico" :class="classeTemaCatalogo" :style="estilosCatalogo">
     <section v-if="carregando" class="card estado-shell">
       <span class="estado-selo">Carregando</span>
       <h1>Preparando a vitrine publica</h1>
@@ -535,30 +1072,44 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <header class="hero card">
-        <div class="hero-banner-shell">
-          <img v-if="bannerEmpresa" :src="bannerEmpresa" alt="Banner da empresa" class="hero-banner" />
-          <div v-else class="hero-banner hero-banner-placeholder">
-            <div class="hero-banner-texto">
-              <span>Catalogo do dia</span>
-              <strong>{{ empresa.nome || 'NuvemMais Gestao' }}</strong>
+        <div class="hero-banner-shell banner-publico">
+          <div class="banner-publico-moldura">
+            <img
+              v-if="bannerEmpresa && !bannerEmpresaComErro"
+              :src="bannerEmpresa"
+              alt="Banner da empresa"
+              class="hero-banner banner-publico-imagem"
+              @error="aoFalharBannerEmpresa"
+            />
+            <div v-else class="hero-banner-placeholder banner-publico-placeholder">
+              <div class="hero-banner-texto banner-publico-placeholder-conteudo">
+                <span>Catalogo do dia</span>
+                <strong>{{ empresa.nome || 'NuvemMais Gestao' }}</strong>
+              </div>
             </div>
           </div>
-          <div class="hero-filtro"></div>
         </div>
 
         <div class="hero-conteudo">
           <div class="hero-principal">
             <div class="hero-identidade">
               <div class="logo-shell">
-                <img v-if="logoEmpresa" :src="logoEmpresa" alt="Logo da empresa" class="logo-empresa" />
+                <img
+                  v-if="logoEmpresa && !logoEmpresaComErro"
+                  :src="logoEmpresa"
+                  alt="Logo da empresa"
+                  class="logo-empresa"
+                  @error="aoFalharLogoEmpresa"
+                />
                 <span v-else>{{ extrairIniciais(empresa.nome || tituloPagina) }}</span>
               </div>
 
               <div class="hero-textos">
                 <p class="selo">Catalogo publico</p>
-                <h1>{{ empresa.nome || 'Empresa' }}</h1>
-                <p class="titulo">{{ tituloPagina }}</p>
+                <h1>{{ tituloPrincipalCatalogo }}</h1>
+                <p v-if="exibirNomeEmpresaNoHero" class="titulo">{{ empresa.nome }}</p>
                 <p class="subtitulo">{{ descricaoCatalogo }}</p>
+                <p v-if="resumoContatoCatalogo" class="hero-contato">{{ resumoContatoCatalogo }}</p>
               </div>
             </div>
 
@@ -598,9 +1149,7 @@ onBeforeUnmount(() => {
             <div>
               <p class="painel-selo">Como comprar</p>
               <h2>Escolha um produto e finalize o pedido no WhatsApp</h2>
-              <p>
-                Esta vitrine nao possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.
-              </p>
+              <p>{{ textoInstrucoesCatalogo || 'Esta vitrine nao possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.' }}</p>
             </div>
 
             <a v-if="temWhatsapp" class="botao-primario botao-bloco" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
@@ -624,6 +1173,19 @@ onBeforeUnmount(() => {
               <strong>Confirme</strong>
               <p>Combine retirada, entrega e detalhes com a empresa.</p>
             </article>
+          </div>
+        </article>
+
+        <article v-if="textoSobreCatalogo || temWhatsapp" class="card painel-aviso painel-contexto">
+          <div v-if="textoSobreCatalogo" class="painel-contexto-bloco">
+            <p class="painel-selo">Sobre a empresa</p>
+            <p>{{ textoSobreCatalogo }}</p>
+          </div>
+
+          <div v-if="temWhatsapp" class="painel-contexto-bloco">
+            <p class="painel-selo">Atendimento</p>
+            <p>{{ resumoContatoCatalogo }}</p>
+            <a class="link-contato" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">Falar agora no WhatsApp</a>
           </div>
         </article>
 
@@ -716,7 +1278,11 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="grid-produtos">
-          <article v-for="produto in produtosFiltrados" :key="produto.id" class="card produto-card">
+          <article
+            v-for="produto in listaProdutosCatalogoView"
+            :key="produto.chaveImagem"
+            class="card produto-card"
+          >
             <button
               type="button"
               class="produto-midia"
@@ -724,8 +1290,8 @@ onBeforeUnmount(() => {
               @click="abrirPreviaProduto(produto)"
             >
               <img
-                v-if="imagemProdutoDisponivel(produto)"
-                :src="produto.imagemUrl"
+                v-if="produto.possuiImagem"
+                :src="produto.imagemNormalizada"
                 :alt="`Imagem de ${produto.nome}`"
                 class="produto-imagem"
                 @error="aoFalharImagemProduto(produto)"
@@ -773,7 +1339,7 @@ onBeforeUnmount(() => {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {{ produto.disponivel ? produto.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
+                  {{ produto.disponivel ? obterRotuloBotaoWhatsApp(produto) : 'Perguntar no WhatsApp' }}
                 </a>
 
                 <p v-else class="aviso-card">WhatsApp da empresa nao informado.</p>
@@ -783,9 +1349,11 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
+      <PublicidadeNuvemMais />
+
       <teleport to="body">
         <transition name="modal-previa">
-          <div v-if="produtoSelecionado" class="produto-modal" role="dialog" aria-modal="true" :aria-label="`Prévia de ${produtoSelecionado.nome}`" @click.self="fecharPreviaProduto">
+          <div v-if="produtoSelecionadoView" class="produto-modal" role="dialog" aria-modal="true" :aria-label="`Prévia de ${produtoSelecionadoView.nome}`" @click.self="fecharPreviaProduto">
             <div class="produto-modal-conteudo">
               <button type="button" class="produto-modal-fechar" aria-label="Fechar prévia" @click="fecharPreviaProduto">
                 ×
@@ -793,15 +1361,15 @@ onBeforeUnmount(() => {
 
               <div class="produto-modal-midia">
                 <img
-                  v-if="imagemProdutoDisponivel(produtoSelecionado)"
-                  :src="produtoSelecionado.imagemUrl"
-                  :alt="`Imagem ampliada de ${produtoSelecionado.nome}`"
+                  v-if="produtoSelecionadoView.possuiImagem"
+                  :src="produtoSelecionadoView.imagemNormalizada"
+                  :alt="`Imagem ampliada de ${produtoSelecionadoView.nome}`"
                   class="produto-modal-imagem"
-                  @error="aoFalharImagemProduto(produtoSelecionado)"
+                  @error="aoFalharImagemProduto(produtoSelecionadoView)"
                 />
                 <div v-else class="produto-modal-placeholder">
-                  <span class="produto-placeholder-iniciais">{{ extrairIniciais(produtoSelecionado.nome) }}</span>
-                  <strong>{{ produtoSelecionado.categoriaPublica || 'Produto especial' }}</strong>
+                  <span class="produto-placeholder-iniciais">{{ extrairIniciais(produtoSelecionadoView.nome) }}</span>
+                  <strong>{{ produtoSelecionadoView.categoriaPublica || 'Produto especial' }}</strong>
                   <small>Sem imagem disponível</small>
                 </div>
               </div>
@@ -809,31 +1377,35 @@ onBeforeUnmount(() => {
               <div class="produto-modal-corpo">
                 <div class="produto-modal-cabecalho">
                   <p class="painel-selo">Prévia do produto</p>
-                  <h2>{{ produtoSelecionado.nome }}</h2>
-                  <p v-if="produtoSelecionado.categoriaPublica" class="produto-modal-categoria">{{ produtoSelecionado.categoriaPublica }}</p>
+                  <h2>{{ produtoSelecionadoView.nome }}</h2>
+                  <p v-if="produtoSelecionadoView.categoriaPublica" class="produto-modal-categoria">{{ produtoSelecionadoView.categoriaPublica }}</p>
                 </div>
 
                 <div class="produto-modal-dados">
-                  <p v-if="produtoSelecionado.mostrarPrecoPublico" class="produto-modal-preco">{{ formatarMoeda(produtoSelecionado.precoVenda) }}</p>
-                  <p v-if="produtoSelecionado.mostrarQuantidadePublica" class="produto-modal-quantidade">
-                    Disponivel hoje: {{ formatarQuantidadePublica(produtoSelecionado) }}
+                  <p v-if="produtoSelecionadoView.mostrarPrecoPublico" class="produto-modal-preco">{{ formatarMoeda(produtoSelecionadoView.precoVenda) }}</p>
+                  <p v-if="produtoSelecionadoView.mostrarQuantidadePublica" class="produto-modal-quantidade">
+                    Disponivel hoje: {{ formatarQuantidadePublica(produtoSelecionadoView) }}
                   </p>
-                  <p v-if="!produtoSelecionado.disponivel" class="produto-modal-quantidade produto-modal-esgotado">
+                  <p v-if="!produtoSelecionadoView.disponivel" class="produto-modal-quantidade produto-modal-esgotado">
                     Estoque do dia encerrado no momento.
                   </p>
                 </div>
 
-                <p v-if="produtoSelecionado.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionado.descricaoPublica }}</p>
+                <div class="produto-modal-textos">
+                  <p v-if="produtoSelecionadoView.descricaoPublica" class="produto-modal-descricao">{{ produtoSelecionadoView.descricaoPublica }}</p>
+                  <p v-if="textoInstrucoesCatalogo" class="produto-modal-apoio">{{ textoInstrucoesCatalogo }}</p>
+                </div>
 
                 <div class="produto-modal-acoes">
                   <a
                     v-if="temWhatsapp"
-                    class="botao-whatsapp botao-whatsapp-modal"
-                    :href="linkWhatsappProduto(produtoSelecionado)"
+                    class="botao-whatsapp botao-whatsapp-modal produto-modal-botao-whatsapp"
+                    :href="linkWhatsappProduto(produtoSelecionadoView)"
                     target="_blank"
                     rel="noopener noreferrer"
+                    @click="fecharPreviaProduto"
                   >
-                    {{ produtoSelecionado.disponivel ? produtoSelecionado.textoBotaoPublico || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO : 'Perguntar no WhatsApp' }}
+                    {{ produtoSelecionadoView.disponivel ? obterRotuloBotaoWhatsApp(produtoSelecionadoView) : 'Perguntar no WhatsApp' }}
                   </a>
                   <button type="button" class="botao-secundario botao-fechar-modal" @click="fecharPreviaProduto">
                     Fechar
@@ -850,33 +1422,32 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .catalogo-publico {
-  --catalogo-bg: #f8f4ed;
-  --catalogo-card: rgba(255, 255, 255, 0.9);
-  --catalogo-borda: rgba(148, 163, 184, 0.22);
-  --catalogo-texto: #1f2937;
-  --catalogo-texto-suave: #5b6474;
-  --catalogo-destaque: #c2410c;
-  --catalogo-destaque-suave: #ffedd5;
-  --catalogo-sucesso: #166534;
-  --catalogo-sucesso-suave: #dcfce7;
-  --catalogo-perigo: #b91c1c;
-  --catalogo-perigo-suave: #fee2e2;
-  --catalogo-azul: #1d4ed8;
-  --catalogo-azul-suave: #dbeafe;
+  --catalogo-bg: var(--catalogo-cor-fundo);
+  --catalogo-card: var(--catalogo-cor-card);
+  --catalogo-borda: var(--catalogo-cor-borda);
+  --catalogo-texto: var(--catalogo-cor-texto);
+  --catalogo-texto-suave: var(--catalogo-cor-texto-suave);
+  --catalogo-destaque: var(--catalogo-cor-destaque);
+  --catalogo-destaque-suave: var(--catalogo-cor-fundo-secundario);
+  --catalogo-sucesso: var(--catalogo-cor-sucesso);
+  --catalogo-sucesso-suave: var(--catalogo-cor-sucesso-suave);
+  --catalogo-perigo: var(--catalogo-cor-perigo);
+  --catalogo-perigo-suave: var(--catalogo-cor-perigo-suave);
+  --catalogo-azul: var(--catalogo-cor-secundaria);
+  --catalogo-azul-suave: var(--catalogo-cor-chip);
   min-height: 100vh;
   padding: 14px;
   display: grid;
   gap: 14px;
   background:
-    radial-gradient(circle at top left, rgba(251, 191, 36, 0.22), transparent 28%),
-    radial-gradient(circle at top right, rgba(234, 88, 12, 0.18), transparent 24%),
-    linear-gradient(180deg, #fffaf2 0%, var(--catalogo-bg) 55%, #f3f4f6 100%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), transparent 82%), transparent 28%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 84%), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-hero), white 28%) 0%, var(--catalogo-bg) 55%, color-mix(in srgb, var(--catalogo-bg), #e2e8f0 22%) 100%);
   color: var(--catalogo-texto);
 }
 
 .card {
   background: var(--catalogo-card);
-  backdrop-filter: blur(10px);
   border: 1px solid var(--catalogo-borda);
   border-radius: 24px;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
@@ -884,34 +1455,68 @@ onBeforeUnmount(() => {
 
 .hero {
   overflow: hidden;
+  background: var(--catalogo-card);
 }
 
 .hero-banner-shell {
   position: relative;
-  min-height: 140px;
+  min-height: 138px;
+  height: clamp(138px, 18vw, 224px);
+  max-height: 224px;
+  padding: 10px;
+  background:
+    radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 82%), transparent 34%),
+    radial-gradient(circle at 86% 84%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 90%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%));
+  border-bottom: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 88%);
 }
 
-.hero-banner {
+.banner-publico-moldura {
+  width: min(100%, 1060px);
+  height: 100%;
+  margin: 0 auto;
+  padding: 4px;
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), transparent 42%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), white 88%), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 94%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 96%));
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 82%);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--catalogo-cor-principal), transparent 92%);
+}
+
+.banner-publico-imagem {
   width: 100%;
-  min-height: 140px;
-  max-height: 210px;
-  object-fit: cover;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  object-fit: contain;
+  object-position: center;
   display: block;
+  background:
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 90%), transparent 28%),
+    radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%), transparent 28%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 95%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 97%));
+  border-radius: 18px;
 }
 
-.hero-banner-placeholder {
+.banner-publico-placeholder {
   display: grid;
   place-items: center;
+  min-height: 100%;
   background:
-    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.26), transparent 28%),
-    linear-gradient(135deg, rgba(194, 65, 12, 0.92), rgba(251, 191, 36, 0.88));
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), transparent 32%),
+    radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 88%), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 94%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 97%));
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
 }
 
-.hero-banner-texto {
+.banner-publico-placeholder-conteudo {
   display: grid;
   gap: 6px;
   text-align: center;
-  color: white;
+  color: var(--catalogo-texto);
   padding: 18px;
 }
 
@@ -925,13 +1530,6 @@ onBeforeUnmount(() => {
 .hero-banner-texto strong {
   font-size: clamp(22px, 5vw, 34px);
   font-weight: 900;
-}
-
-.hero-filtro {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(15, 23, 42, 0.18));
-  pointer-events: none;
 }
 
 .hero-conteudo {
@@ -951,12 +1549,14 @@ onBeforeUnmount(() => {
 }
 
 .logo-shell {
-  width: 72px;
-  height: 72px;
+  width: 78px;
+  height: 78px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.42);
-  background: linear-gradient(135deg, #fff7ed, #ffffff);
-  box-shadow: 0 12px 30px rgba(194, 65, 12, 0.12);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 84%), transparent 36%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 88%), #ffffff);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--catalogo-cor-principal), transparent 82%);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -968,7 +1568,9 @@ onBeforeUnmount(() => {
 .logo-empresa {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), color-mix(in srgb, var(--catalogo-cor-principal), white 94%));
 }
 
 .hero-textos {
@@ -1000,7 +1602,7 @@ onBeforeUnmount(() => {
   gap: 6px;
   border-radius: 999px;
   padding: 6px 10px;
-  background: rgba(255, 237, 213, 0.95);
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 86%);
   color: var(--catalogo-destaque);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1029,6 +1631,12 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 
+.hero-contato {
+  color: var(--catalogo-destaque);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .hero-resumo {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1040,8 +1648,8 @@ onBeforeUnmount(() => {
   gap: 4px;
   padding: 14px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 237, 213, 0.86);
+  background: color-mix(in srgb, var(--catalogo-cor-card), white 18%);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 82%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
@@ -1085,16 +1693,16 @@ onBeforeUnmount(() => {
 }
 
 .botao-primario {
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  color: white;
-  box-shadow: 0 12px 24px rgba(22, 163, 74, 0.2);
+  background: linear-gradient(135deg, var(--catalogo-cor-botao), color-mix(in srgb, var(--catalogo-cor-botao), #000000 18%));
+  color: var(--catalogo-cor-botao-texto);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--catalogo-cor-botao), transparent 78%);
   border: 1px solid rgba(255, 255, 255, 0.16);
 }
 
 .botao-secundario {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(255, 255, 255, 0.88);
-  color: var(--catalogo-texto);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%);
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%);
+  color: color-mix(in srgb, var(--catalogo-cor-secundaria), #0f172a 28%);
 }
 
 .botao-primario:hover,
@@ -1129,6 +1737,22 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 
+.painel-contexto {
+  align-content: start;
+}
+
+.painel-contexto-bloco {
+  display: grid;
+  gap: 10px;
+}
+
+.link-contato {
+  width: fit-content;
+  color: var(--catalogo-cor-principal);
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .painel-intro h2,
 .painel-aviso h2,
 .secao-produtos-topo h2,
@@ -1149,8 +1773,8 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 14px;
   border-radius: 18px;
-  background: rgba(255, 247, 237, 0.72);
-  border: 1px solid rgba(251, 146, 60, 0.16);
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 92%);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-principal), white 74%);
 }
 
 .passo-compra span {
@@ -1159,7 +1783,7 @@ onBeforeUnmount(() => {
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ffedd5, #fed7aa);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 80%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%));
   color: var(--catalogo-destaque);
   font-weight: 900;
   font-size: 13px;
@@ -1205,7 +1829,7 @@ onBeforeUnmount(() => {
 .contador-filtros {
   border-radius: 999px;
   padding: 8px 12px;
-  background: rgba(194, 65, 12, 0.08);
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 88%);
   color: var(--catalogo-destaque);
   font-size: 13px;
   font-weight: 800;
@@ -1231,11 +1855,11 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 78%);
   border-radius: 999px;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #475569;
+  background: var(--catalogo-cor-chip);
+  color: var(--catalogo-cor-chip-texto);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -1246,16 +1870,16 @@ onBeforeUnmount(() => {
 .chip span {
   border-radius: 999px;
   padding: 2px 8px;
-  background: rgba(148, 163, 184, 0.14);
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
   font-size: 12px;
 }
 
 .chip.ativo {
-  border-color: rgba(194, 65, 12, 0.42);
-  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border-color: color-mix(in srgb, var(--catalogo-cor-principal), #0f172a 12%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 86%));
   color: var(--catalogo-destaque);
   transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(194, 65, 12, 0.12);
+  box-shadow: 0 12px 22px color-mix(in srgb, var(--catalogo-cor-principal), transparent 86%);
 }
 
 .estado-shell {
@@ -1323,10 +1947,10 @@ onBeforeUnmount(() => {
   place-items: center;
   gap: 6px;
   background:
-    radial-gradient(circle at top left, rgba(251, 191, 36, 0.46), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.18), transparent 28%),
-    linear-gradient(135deg, #fff7ed, #fde68a);
-  color: #9a3412;
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 62%), transparent 28%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 84%), transparent 28%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 84%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 80%));
+  color: var(--catalogo-destaque);
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -1340,7 +1964,7 @@ onBeforeUnmount(() => {
 }
 
 .produto-midia:focus-visible {
-  box-shadow: inset 0 0 0 2px rgba(194, 65, 12, 0.28);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--catalogo-cor-principal), transparent 72%);
 }
 
 .produto-midia-acoes {
@@ -1393,7 +2017,7 @@ onBeforeUnmount(() => {
   place-items: center;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(154, 52, 18, 0.12);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-principal), white 84%);
   font-size: 28px;
   font-weight: 900;
   letter-spacing: 0.04em;
@@ -1450,12 +2074,12 @@ onBeforeUnmount(() => {
 }
 
 .badge.destaque {
-  background: rgba(255, 237, 213, 0.96);
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 84%);
   color: var(--catalogo-destaque);
 }
 
 .badge.atualizacao {
-  background: rgba(219, 234, 254, 0.96);
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), white 82%);
   color: var(--catalogo-azul);
 }
 
@@ -1480,7 +2104,7 @@ onBeforeUnmount(() => {
 
 .categoria {
   margin-top: 6px;
-  color: var(--catalogo-destaque);
+  color: var(--catalogo-cor-principal);
   font-size: 14px;
   font-weight: 800;
 }
@@ -1496,18 +2120,18 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 12px;
   border-radius: 16px;
-  background: rgba(248, 250, 252, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: color-mix(in srgb, var(--catalogo-cor-fundo-secundario), white 20%);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
 }
 
 .preco {
-  color: var(--catalogo-sucesso);
+  color: var(--catalogo-cor-principal);
   font-size: 22px;
   font-weight: 900;
 }
 
 .quantidade {
-  color: #334155;
+  color: color-mix(in srgb, var(--catalogo-cor-secundaria), #334155 48%);
   font-size: 14px;
   font-weight: 700;
 }
@@ -1526,20 +2150,38 @@ onBeforeUnmount(() => {
   display: inline-flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
   min-height: 44px;
   border-radius: 14px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, #16a34a, #15803d);
-  color: white;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--catalogo-cor-botao), color-mix(in srgb, var(--catalogo-cor-botao), #000000 18%));
+  color: var(--catalogo-cor-botao-texto);
   text-decoration: none;
   font-weight: 900;
-  box-shadow: 0 12px 24px rgba(22, 163, 74, 0.2);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--catalogo-cor-botao), transparent 78%);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease, border-color 0.18s ease;
 }
 
 .botao-whatsapp.secundario {
-  background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
-  box-shadow: 0 12px 24px rgba(29, 78, 216, 0.18);
+  background: linear-gradient(135deg, var(--catalogo-cor-secundaria), color-mix(in srgb, var(--catalogo-cor-secundaria), #000000 16%));
+  color: var(--catalogo-cor-botao-texto);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 80%);
+  border-color: color-mix(in srgb, var(--catalogo-cor-secundaria), white 24%);
+}
+
+.botao-whatsapp:hover,
+.botao-whatsapp:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.botao-whatsapp:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--catalogo-cor-botao), white 36%);
+  outline-offset: 2px;
 }
 
 .aviso-card {
@@ -1557,16 +2199,18 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .produto-modal-conteudo {
   position: relative;
-  width: min(100%, 1240px);
-  max-height: min(calc(100dvh - 32px), 940px);
+  width: min(100%, 1080px);
+  max-height: min(calc(100dvh - 24px), 880px);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.99);
+  background: #ffffff;
+  color: var(--catalogo-cor-modal-texto);
   border-radius: 30px;
-  border: 0;
+  border: 1px solid var(--catalogo-cor-modal-borda);
   outline: 0;
   box-shadow: 0 34px 80px rgba(15, 23, 42, 0.3);
   display: grid;
@@ -1578,42 +2222,46 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 42px;
-  height: 42px;
-  border: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--catalogo-cor-modal-borda);
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.86);
-  color: white;
-  font-size: 26px;
+  background: var(--catalogo-cor-modal-fechar);
+  color: var(--catalogo-cor-modal-fechar-texto);
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
   z-index: 2;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.14);
 }
 
 .produto-modal-midia {
   position: relative;
   min-height: 0;
   display: flex;
-  align-items: stretch;
-  justify-content: stretch;
+  align-items: center;
+  justify-content: center;
   padding: 18px;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), transparent 34%),
-    linear-gradient(180deg, #fff7ed, #fff);
+    var(--catalogo-cor-modal-midia);
 }
 
 .produto-modal-imagem,
 .produto-modal-placeholder {
   width: 100%;
-  height: 100%;
-  min-height: 340px;
+  height: min(62vh, 680px);
+  min-height: 320px;
+  max-height: min(62vh, 680px);
   display: block;
   border-radius: 22px;
 }
 
 .produto-modal-imagem {
   object-fit: contain;
-  background: linear-gradient(180deg, rgba(255, 247, 237, 0.45), rgba(255, 255, 255, 0.98));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-principal), white 88%), rgba(255, 255, 255, 0.98));
 }
 
 .produto-modal-placeholder {
@@ -1623,9 +2271,9 @@ onBeforeUnmount(() => {
   text-align: center;
   background:
     radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.35), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(194, 65, 12, 0.16), transparent 30%),
-    linear-gradient(135deg, #fff7ed, #fde68a);
-  color: #9a3412;
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 84%), transparent 30%),
+    linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 84%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 78%));
+  color: var(--catalogo-destaque);
   padding: 28px;
 }
 
@@ -1640,6 +2288,11 @@ onBeforeUnmount(() => {
   gap: 18px;
   padding: 28px;
   min-height: 0;
+  max-height: min(calc(100dvh - 24px), 880px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #ffffff;
+  color: var(--catalogo-cor-modal-texto);
 }
 
 .produto-modal-cabecalho {
@@ -1653,12 +2306,14 @@ onBeforeUnmount(() => {
   font-weight: 900;
   line-height: 1.08;
   margin: 0;
+  color: var(--catalogo-cor-modal-texto);
 }
 
 .produto-modal-categoria {
   margin: 0;
-  color: var(--catalogo-texto-suave);
+  color: var(--catalogo-cor-principal);
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .produto-modal-dados {
@@ -1667,7 +2322,7 @@ onBeforeUnmount(() => {
 }
 
 .produto-modal-preco {
-  color: var(--catalogo-sucesso);
+  color: var(--catalogo-cor-principal);
   font-size: clamp(24px, 5vw, 34px);
   font-weight: 900;
   margin: 0;
@@ -1676,8 +2331,24 @@ onBeforeUnmount(() => {
 .produto-modal-quantidade,
 .produto-modal-descricao {
   margin: 0;
-  color: var(--catalogo-texto-suave);
+  color: var(--catalogo-cor-modal-texto-suave);
   line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.produto-modal-textos {
+  display: grid;
+  gap: 12px;
+}
+
+.produto-modal-apoio {
+  margin: 0;
+  color: var(--catalogo-cor-modal-texto-suave);
+  line-height: 1.6;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--catalogo-cor-principal), white 92%);
+  overflow-wrap: anywhere;
 }
 
 .produto-modal-esgotado {
@@ -1689,11 +2360,24 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: stretch;
 }
 
-.botao-whatsapp-modal,
+.produto-modal-acoes > a.produto-modal-botao-whatsapp,
 .botao-fechar-modal {
   flex: 1 1 180px;
+  min-height: 46px;
+}
+
+.botao-fechar-modal {
+  background: color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%);
+  color: color-mix(in srgb, var(--catalogo-cor-secundaria), #0f172a 24%);
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 78%);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.botao-fechar-modal:hover {
+  filter: brightness(0.98);
 }
 
 .modal-previa-enter-active,
@@ -1704,6 +2388,53 @@ onBeforeUnmount(() => {
 .modal-previa-enter-from,
 .modal-previa-leave-to {
   opacity: 0;
+}
+
+.catalogo-publico.tema-moderno .card {
+  border-radius: 28px;
+  box-shadow: 0 24px 52px color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 88%);
+}
+
+.catalogo-publico.tema-moderno .botao-primario,
+.catalogo-publico.tema-moderno .botao-secundario,
+.catalogo-publico.tema-moderno .botao-whatsapp {
+  border-radius: 999px;
+}
+
+.catalogo-publico.tema-moderno .produto-card {
+  box-shadow: 0 20px 40px color-mix(in srgb, var(--catalogo-cor-principal), transparent 90%);
+}
+
+.catalogo-publico.tema-escuro .card,
+.catalogo-publico.tema-preto_elegante .card {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+.catalogo-publico.tema-escuro .resumo-pill,
+.catalogo-publico.tema-escuro .passo-compra,
+.catalogo-publico.tema-escuro .produto-infos,
+.catalogo-publico.tema-escuro .chip,
+.catalogo-publico.tema-escuro .produto-midia-acoes,
+.catalogo-publico.tema-preto_elegante .resumo-pill,
+.catalogo-publico.tema-preto_elegante .passo-compra,
+.catalogo-publico.tema-preto_elegante .produto-infos,
+.catalogo-publico.tema-preto_elegante .chip,
+.catalogo-publico.tema-preto_elegante .produto-midia-acoes {
+  background: color-mix(in srgb, var(--catalogo-cor-fundo-secundario), #020617 10%);
+}
+
+.catalogo-publico.tema-escuro .botao-secundario,
+.catalogo-publico.tema-preto_elegante .botao-secundario {
+  color: #e5e7eb;
+}
+
+.catalogo-publico.tema-suave .card {
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--catalogo-cor-principal), transparent 92%);
+}
+
+.catalogo-publico.tema-suave .produto-card,
+.catalogo-publico.tema-suave .resumo-pill {
+  border-radius: 22px;
 }
 
 @media (min-width: 720px) {
@@ -1746,12 +2477,11 @@ onBeforeUnmount(() => {
 
   .produto-modal-imagem,
   .produto-modal-placeholder {
-    min-height: clamp(420px, 58vh, 760px);
+    min-height: clamp(360px, 48vh, 620px);
   }
 
   .produto-modal-corpo {
     align-content: start;
-    overflow: auto;
   }
 }
 
@@ -1777,9 +2507,23 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 560px) {
-  .hero-banner-shell,
-  .hero-banner {
-    min-height: 120px;
+  .hero-banner-shell {
+    min-height: 104px;
+    height: clamp(104px, 36vw, 150px);
+    max-height: 150px;
+  }
+
+  .hero-banner-shell {
+    padding: 6px;
+  }
+
+  .banner-publico-moldura {
+    padding: 3px;
+    border-radius: 18px;
+  }
+
+  .banner-publico-imagem {
+    border-radius: 14px;
   }
 
   .hero-conteudo,
@@ -1817,31 +2561,159 @@ onBeforeUnmount(() => {
 
 @media (max-width: 719px) {
   .produto-modal {
-    padding: 8px;
+    padding: 10px;
+    align-items: center;
   }
 
   .produto-modal-conteudo {
-    width: min(100%, calc(100vw - 16px));
-    max-height: calc(100dvh - 16px);
+    width: min(100%, calc(100vw - 20px));
+    max-height: calc(100dvh - 20px);
+    border-radius: 22px;
+    grid-template-rows: minmax(260px, 46dvh) minmax(0, 1fr);
   }
 
   .produto-modal-midia {
-    padding: 14px 14px 0;
+    min-height: 0;
+    padding: 12px 12px 6px;
   }
 
   .produto-modal-imagem,
   .produto-modal-placeholder {
-    min-height: min(52vh, 420px);
+    height: 100%;
+    min-height: 240px;
+    max-height: 46dvh;
+    border-radius: 18px;
   }
 
   .produto-modal-corpo {
-    padding: 18px 18px 20px;
+    align-content: start;
+    max-height: none;
+    padding: 16px 16px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .produto-modal-cabecalho {
+    padding-right: 42px;
+  }
+
+  .produto-modal-fechar {
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    font-size: 20px;
+  }
+
+  .produto-modal-acoes {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    padding-top: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff 28%);
+  }
+
+  .produto-modal-acoes > a.produto-modal-botao-whatsapp,
+  .botao-fechar-modal {
+    width: 100%;
+    flex-basis: 100%;
   }
 
   .produto-midia-acoes {
     right: 10px;
     bottom: 10px;
     font-size: 10px;
+  }
+}
+
+.produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0.85rem 1.35rem;
+  background: var(--catalogo-cor-principal, var(--cor-publica-principal, #16a34a));
+  color: #ffffff;
+  border: 0;
+  border-radius: 14px;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--catalogo-cor-principal, #16a34a), transparent 76%);
+  cursor: pointer;
+}
+
+.produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp:hover,
+.produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp:focus-visible {
+  color: #ffffff;
+  text-decoration: none;
+  filter: brightness(0.96);
+}
+
+.produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--catalogo-cor-principal, #16a34a), white 42%);
+  outline-offset: 3px;
+}
+
+.bloco-divulgacao-nuvemmais {
+  display: grid;
+  gap: 14px;
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-principal), white 82%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--catalogo-cor-fundo-secundario), white 16%),
+    color-mix(in srgb, var(--catalogo-cor-principal), white 92%)
+  );
+}
+
+.bloco-divulgacao-nuvemmais-texto {
+  display: grid;
+  gap: 6px;
+}
+
+.bloco-divulgacao-nuvemmais-selo {
+  margin: 0;
+  color: var(--catalogo-cor-principal);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bloco-divulgacao-nuvemmais h2 {
+  margin: 0;
+  font-size: clamp(18px, 2.8vw, 24px);
+  line-height: 1.2;
+}
+
+.bloco-divulgacao-nuvemmais p {
+  margin: 0;
+  color: var(--catalogo-texto-suave);
+  line-height: 1.55;
+}
+
+.bloco-divulgacao-nuvemmais-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bloco-divulgacao-nuvemmais-acoes > a {
+  min-width: 180px;
+}
+
+@media (max-width: 719px) {
+  .produto-modal .produto-modal-acoes a.produto-modal-botao-whatsapp {
+    width: 100%;
+    flex-basis: 100%;
+    white-space: normal;
+  }
+
+  .bloco-divulgacao-nuvemmais-acoes > a {
+    width: 100%;
+    min-width: 0;
   }
 }
 </style>

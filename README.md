@@ -37,6 +37,19 @@ npm run dev
 npm run build
 ```
 
+### Production Server with Dynamic Social Metadata
+
+```sh
+npm run build
+npm start
+```
+
+The production server listens on `PORT` (default `4173`) and serves the Vite
+build. For `/catalogo/:slug`, `/cardapio/:slug`, and `/agendar/:slug`, it reads
+SEO data from `VITE_API_URL/publico/seo/{tipo}/{slug}` before returning the
+initial HTML. Configure `VITE_API_URL` in the runtime environment as well as in
+the build environment.
+
 ### Lint with [ESLint](https://eslint.org/)
 
 ```sh
