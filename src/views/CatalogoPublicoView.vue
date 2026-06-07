@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
@@ -33,12 +33,11 @@ const categoriaAtiva = ref('')
 const categoriasRef = ref(null)
 const produtoSelecionado = ref(null)
 const imagensComErro = ref({})
-const produtoRefMap = new Map()
 let overflowBodyAnterior = ''
 let overflowHtmlAnterior = ''
 let scrollBloqueadoModal = false
 let historicoModalAtivo = false
-let ultimoProdutoFocadoPorQuery = ''
+let ultimoProdutoAbertoPorQuery = ''
 
 const produtosPublicados = computed(() =>
   [...produtos.value]
@@ -236,12 +235,13 @@ watch(
 
 watch(
   produtoQueryId,
-  async (produtoId) => {
-    if (!produtoId || produtoId === ultimoProdutoFocadoPorQuery) {
+  (produtoId) => {
+    if (!produtoId) {
+      ultimoProdutoAbertoPorQuery = ''
       return
     }
 
-    await focarProdutoPorQuery(produtoId)
+    abrirProdutoPorQuery(produtoId)
   },
   { immediate: true },
 )
@@ -780,38 +780,31 @@ function normalizarIdConsultaProduto(valor) {
   return Number.isFinite(Number(texto)) ? String(Number(texto)) : texto
 }
 
-function registrarRefProduto(produto, elemento) {
-  const chave = chaveProdutoConsulta(produto)
-
-  if (!chave) {
-    return
-  }
-
-  if (elemento) {
-    produtoRefMap.set(chave, elemento)
-  } else {
-    produtoRefMap.delete(chave)
-  }
-}
-
 function chaveProdutoConsulta(produto) {
   return String(produto?.id ?? produto?.codigoInterno ?? produto?.codigo ?? produto?.sku ?? '').trim()
 }
 
-async function focarProdutoPorQuery(produtoId) {
-  if (!produtoId || typeof window === 'undefined' || produtoId === ultimoProdutoFocadoPorQuery) {
+function abrirProdutoPorQuery(produtoId) {
+  const idNormalizado = normalizarIdConsultaProduto(produtoId)
+
+  if (
+    !idNormalizado ||
+    carregando.value ||
+    indisponivel.value ||
+    idNormalizado === ultimoProdutoAbertoPorQuery
+  ) {
     return
   }
 
-  await nextTick()
+  const produto = produtosPublicados.value.find(
+    (item) => normalizarIdConsultaProduto(chaveProdutoConsulta(item)) === idNormalizado,
+  )
 
-  const item = produtoRefMap.get(produtoId) || produtoRefMap.get(String(Number(produtoId))) || null
+  ultimoProdutoAbertoPorQuery = idNormalizado
 
-  if (item?.scrollIntoView) {
-    item.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (produto) {
+    abrirPreviaProduto(produto)
   }
-
-  ultimoProdutoFocadoPorQuery = produtoId
 }
 
 function montarMensagemWhatsapp(produto) {
@@ -961,7 +954,7 @@ async function carregarCatalogo() {
     categoriasResposta.value = []
     produtoSelecionado.value = null
     imagensComErro.value = {}
-    ultimoProdutoFocadoPorQuery = ''
+    ultimoProdutoAbertoPorQuery = ''
 
     const buscarVitrinePublica = acessandoViaCardapio.value ? buscarCardapioPublico : buscarCatalogoPublico
     const [empresaApi, personalizacaoApi, catalogoApi] = await Promise.all([
@@ -990,15 +983,16 @@ async function carregarCatalogo() {
     produtos.value = normalizarLista(catalogoApi?.produtos || []).map(normalizarProdutoCatalogo)
     categoriasResposta.value = normalizarLista(catalogoApi?.categorias)
 
-    if (produtoQueryId.value) {
-      await focarProdutoPorQuery(produtoQueryId.value)
-    }
   } catch (errorAtual) {
     indisponivel.value = true
     erro.value = mensagemIndisponibilidadeCatalogo(errorAtual)
     console.error(errorAtual)
   } finally {
     carregando.value = false
+
+    if (!indisponivel.value && produtoQueryId.value) {
+      abrirProdutoPorQuery(produtoQueryId.value)
+    }
   }
 }
 
@@ -1288,7 +1282,6 @@ onBeforeUnmount(() => {
             v-for="produto in listaProdutosCatalogoView"
             :key="produto.chaveImagem"
             class="card produto-card"
-            :ref="(el) => registrarRefProduto(produto, el)"
           >
             <button
               type="button"

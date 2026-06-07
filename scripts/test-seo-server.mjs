@@ -20,7 +20,7 @@ const api = createServer((requisicao, resposta) => {
       data: {
         title: 'Empresa & "Especial"',
         description: 'Descrição <segura> da empresa',
-        imageUrl: '/uploads/logo-social.png',
+        imageUrl: '/publico/seo/imagem/neuciartes/catalogo.png',
         type: 'website',
         siteName: 'NuvemMais Gestão',
       },
@@ -62,12 +62,19 @@ try {
 
   assert.match(catalogo, /Empresa &amp; &quot;Especial&quot;/)
   assert.match(catalogo, /Descrição &lt;segura&gt; da empresa/)
-  assert.match(catalogo, /http:\/\/127\.0\.0\.1:\d+\/uploads\/logo-social\.png/)
+  assert.match(
+    catalogo,
+    /http:\/\/127\.0\.0\.1:\d+\/publico\/seo\/imagem\/neuciartes\/catalogo\.png/,
+  )
+  assert.doesNotMatch(catalogo, /property="og:image" content="[^"]*\/og-nuvemmais\.png"/)
   assert.match(
     catalogo,
     /https:\/\/gestao-hml\.nuvemmais\.com\.br\/catalogo\/neuciartes\?produto=42/,
   )
   assert.match(catalogo, /name="twitter:card" content="summary_large_image"/)
+  assert.match(catalogo, /rel="icon" href="\/favicon\.svg"/)
+  assert.match(catalogo, /rel="shortcut icon" href="\/favicon\.ico"/)
+  assert.match(catalogo, /rel="apple-touch-icon" href="\/apple-touch-icon\.png"/)
 
   const consultasAposCatalogo = consultasSeo
   await buscarTexto(urlCatalogo, headersProxy)
@@ -109,6 +116,14 @@ try {
   const asset = await fetch(`http://${HOST}:${webPort}/og-nuvemmais.png`)
   assert.equal(asset.status, 200)
   assert.equal(asset.headers.get('content-type'), 'image/png')
+
+  const favicon = await fetch(`http://${HOST}:${webPort}/favicon.ico`)
+  assert.equal(favicon.status, 200)
+  assert.equal(favicon.headers.get('content-type'), 'image/x-icon')
+
+  const appleTouchIcon = await fetch(`http://${HOST}:${webPort}/apple-touch-icon.png`)
+  assert.equal(appleTouchIcon.status, 200)
+  assert.equal(appleTouchIcon.headers.get('content-type'), 'image/png')
 
   console.log('Teste SEO concluído: metas dinâmicas, fallback, cache e asset validados.')
 } catch (erro) {
