@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
+  APP_VERSION,
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   buscarCardapioPublico,
   buscarCatalogoPublico,
@@ -756,18 +757,17 @@ function montarLinkCatalogoProduto(produto) {
   const produtoId = normalizarIdConsultaProduto(produto?.id)
   const rotaAtual = String(route.path || '').trim() || (acessandoViaCardapio.value ? `/cardapio/${slug.value}` : `/catalogo/${slug.value}`)
   const urlBase = typeof window !== 'undefined' ? window.location.origin : ''
-
-  if (!urlBase) {
-    return produtoId ? `${rotaAtual}?produto=${encodeURIComponent(produtoId)}` : rotaAtual
-  }
-
-  const url = new URL(rotaAtual, urlBase)
+  const url = new URL(rotaAtual, urlBase || 'http://localhost')
 
   if (produtoId) {
     url.searchParams.set('produto', produtoId)
   }
 
-  return url.toString()
+  if (APP_VERSION) {
+    url.searchParams.set('v', APP_VERSION)
+  }
+
+  return urlBase ? url.toString() : `${url.pathname}${url.search}${url.hash}`
 }
 
 function normalizarIdConsultaProduto(valor) {
