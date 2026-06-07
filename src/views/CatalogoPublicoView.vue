@@ -309,8 +309,16 @@ function normalizarLista(valor) {
   return candidatos.find(Array.isArray) || []
 }
 
+function normalizarCategoriaCatalogo(valor) {
+  if (valor && typeof valor === 'object' && !Array.isArray(valor)) {
+    return String(valor.nome || valor.nomeCategoria || valor.categoriaPublica || valor.categoria || valor.titulo || '').trim()
+  }
+
+  return String(valor || '').trim()
+}
+
 function normalizarCategoriasCatalogo(valor) {
-  return [...new Set(normalizarLista(valor).map((item) => String(item || '').trim()).filter(Boolean))].sort((a, b) =>
+  return [...new Set(normalizarLista(valor).map(normalizarCategoriaCatalogo).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, 'pt-BR'),
   )
 }
@@ -352,6 +360,68 @@ function normalizarObjeto(valor) {
 
   const candidatos = [valor.data, valor.resultado, valor.value, valor.empresa, valor.personalizacao]
   return candidatos.find((item) => item && typeof item === 'object' && !Array.isArray(item)) || valor
+}
+
+function extrairDadosCatalogoPublico(valor) {
+  if (Array.isArray(valor)) {
+    return { produtos: valor }
+  }
+
+  if (!valor || typeof valor !== 'object') {
+    return {}
+  }
+
+  const candidatos = [valor.data, valor.resultado, valor.value]
+  return candidatos.find((item) => item && typeof item === 'object' && !Array.isArray(item)) || valor
+}
+
+function montarEmpresaCatalogoPublico(dadosCatalogo, empresaApi) {
+  const empresaFallback = normalizarObjeto(empresaApi)
+  const empresaCatalogo = {
+    nome: dadosCatalogo.empresaNome || dadosCatalogo.nomeEmpresa || dadosCatalogo.nome || empresaFallback.nome || '',
+    slug: dadosCatalogo.slug || slug.value,
+    mensagemPublica: dadosCatalogo.subtituloPagina || dadosCatalogo.mensagemPublica || empresaFallback.mensagemPublica || '',
+    logoUrl: dadosCatalogo.logoUrl || empresaFallback.logoUrl || '',
+    bannerUrl: dadosCatalogo.bannerUrl || empresaFallback.bannerUrl || '',
+    capaUrl: dadosCatalogo.bannerUrl || dadosCatalogo.capaUrl || empresaFallback.capaUrl || '',
+    telefone: dadosCatalogo.telefone || empresaFallback.telefone || '',
+    telefoneComercial: dadosCatalogo.telefoneComercial || empresaFallback.telefoneComercial || '',
+    telefoneWhatsapp: dadosCatalogo.telefoneWhatsapp || dadosCatalogo.whatsapp || empresaFallback.telefoneWhatsapp || '',
+    whatsapp: dadosCatalogo.whatsapp || empresaFallback.whatsapp || '',
+  }
+
+  return {
+    ...criarEmpresaPadrao(),
+    ...empresaFallback,
+    ...empresaCatalogo,
+  }
+}
+
+function montarPersonalizacaoCatalogoPublico(dadosCatalogo, personalizacaoApi) {
+  const personalizacaoFallback = normalizarObjeto(personalizacaoApi)
+  const personalizacaoCatalogo = {
+    logoUrl: dadosCatalogo.logoUrl || personalizacaoFallback.logoUrl || '',
+    bannerUrl: dadosCatalogo.bannerUrl || dadosCatalogo.capaUrl || personalizacaoFallback.bannerUrl || '',
+    tituloPagina: dadosCatalogo.tituloPagina || dadosCatalogo.tituloCatalogo || personalizacaoFallback.tituloPagina || '',
+    subtituloPagina: dadosCatalogo.subtituloPagina || dadosCatalogo.subtituloCatalogo || personalizacaoFallback.subtituloPagina || '',
+    tituloCatalogo: dadosCatalogo.tituloCatalogo || dadosCatalogo.tituloPagina || personalizacaoFallback.tituloCatalogo || '',
+    subtituloCatalogo: dadosCatalogo.subtituloCatalogo || dadosCatalogo.subtituloPagina || personalizacaoFallback.subtituloCatalogo || '',
+    textoSobre: dadosCatalogo.textoSobre || personalizacaoFallback.textoSobre || '',
+    textoInstrucoes: dadosCatalogo.textoInstrucoes || personalizacaoFallback.textoInstrucoes || '',
+    whatsapp: dadosCatalogo.whatsapp || personalizacaoFallback.whatsapp || '',
+    telefone: dadosCatalogo.telefone || personalizacaoFallback.telefone || '',
+    instagram: dadosCatalogo.instagram || personalizacaoFallback.instagram || '',
+    site: dadosCatalogo.site || personalizacaoFallback.site || '',
+    corPrincipal: dadosCatalogo.corPrincipal || personalizacaoFallback.corPrincipal,
+    corSecundaria: dadosCatalogo.corSecundaria || personalizacaoFallback.corSecundaria,
+    tema: dadosCatalogo.tema || personalizacaoFallback.tema,
+  }
+
+  return {
+    ...criarPersonalizacaoPadrao(),
+    ...personalizacaoFallback,
+    ...personalizacaoCatalogo,
+  }
 }
 
 function normalizarTelefoneWhatsappBrasil(valor) {
@@ -957,21 +1027,23 @@ async function carregarCatalogo() {
     ultimoProdutoAbertoPorQuery = ''
 
     const buscarVitrinePublica = acessandoViaCardapio.value ? buscarCardapioPublico : buscarCatalogoPublico
-    const [empresaApi, personalizacaoApi, catalogoApi] = await Promise.all([
-      buscarEmpresaPublica(slug.value),
-      buscarPersonalizacaoPublica(slug.value).catch(() => null),
-      buscarVitrinePublica(slug.value),
+    const catalogoApi = await buscarVitrinePublica(slug.value)
+    const dadosCatalogo = extrairDadosCatalogoPublico(catalogoApi)
+    const precisaFallbackEmpresa = !dadosCatalogo.empresaNome && !dadosCatalogo.nomeEmpresa && !dadosCatalogo.nome
+    const precisaFallbackPersonalizacao =
+      !dadosCatalogo.tituloPagina &&
+      !dadosCatalogo.subtituloPagina &&
+      !dadosCatalogo.logoUrl &&
+      !dadosCatalogo.bannerUrl &&
+      !dadosCatalogo.whatsapp
+    const [empresaApi, personalizacaoApi] = await Promise.all([
+      precisaFallbackEmpresa ? buscarEmpresaPublica(slug.value).catch(() => null) : Promise.resolve(null),
+      precisaFallbackPersonalizacao ? buscarPersonalizacaoPublica(slug.value).catch(() => null) : Promise.resolve(null),
     ])
 
-    empresa.value = {
-      ...criarEmpresaPadrao(),
-      ...normalizarObjeto(empresaApi),
-    }
+    empresa.value = montarEmpresaCatalogoPublico(dadosCatalogo, empresaApi)
     atualizarTituloPaginaCatalogo(empresa.value.nome)
-    personalizacao.value = {
-      ...criarPersonalizacaoPadrao(),
-      ...normalizarObjeto(personalizacaoApi),
-    }
+    personalizacao.value = montarPersonalizacaoCatalogoPublico(dadosCatalogo, personalizacaoApi)
     personalizacao.value = {
       ...personalizacao.value,
       logoUrl: normalizarUrlImagemPublica(personalizacao.value.logoUrl),
@@ -980,8 +1052,8 @@ async function carregarCatalogo() {
       corSecundaria: normalizarCorHexPublica(personalizacao.value.corSecundaria, '#0f172a'),
       tema: normalizarTemaPublicoCompartilhado(personalizacao.value.tema),
     }
-    produtos.value = normalizarLista(catalogoApi?.produtos || []).map(normalizarProdutoCatalogo)
-    categoriasResposta.value = normalizarLista(catalogoApi?.categorias)
+    produtos.value = normalizarLista(dadosCatalogo.produtos ?? dadosCatalogo).map(normalizarProdutoCatalogo)
+    categoriasResposta.value = normalizarLista(dadosCatalogo.categorias ?? dadosCatalogo.categoriasPublicas ?? [])
 
   } catch (errorAtual) {
     indisponivel.value = true

@@ -1069,7 +1069,7 @@ export async function buscarServicosPublicos(slug) {
 
 export async function buscarCatalogoPublico(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
-  const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/catalogo`, {
+  const response = await executarFetch(`${API_URL}/publico/catalogo/${slugNormalizado}`, {
     headers: montarHeadersPublicos(),
   })
 
