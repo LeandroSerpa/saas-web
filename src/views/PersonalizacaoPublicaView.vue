@@ -39,6 +39,7 @@ const mensagemUploadLogo = ref('')
 const mensagemUploadBanner = ref('')
 const statusUploadsEmpresa = ref(null)
 const resumoUploadsEmpresa = ref(null)
+const resumoUploadsIndisponivel = ref(false)
 const removendoLogo = ref(false)
 const removendoBanner = ref(false)
 const logoPreviewLocal = ref('')
@@ -118,6 +119,7 @@ function criarPersonalizacaoInicial() {
     textoInstrucoes: '',
     politicaCancelamento: '',
     mensagemConfirmacao: '',
+    textoBotaoCatalogoPublico: '',
     whatsapp: '',
     instagram: '',
     site: '',
@@ -285,9 +287,11 @@ async function carregarInformacoesUploadsEmpresa() {
 
     statusUploadsEmpresa.value = statusApi
     resumoUploadsEmpresa.value = resumoApi
+    resumoUploadsIndisponivel.value = false
   } catch {
     statusUploadsEmpresa.value = null
     resumoUploadsEmpresa.value = null
+    resumoUploadsIndisponivel.value = true
   }
 }
 
@@ -345,6 +349,7 @@ function normalizarPersonalizacao(dados) {
     corPrincipal: normalizarCorHex(origem.corPrincipal, padrao.corPrincipal),
     corSecundaria: normalizarCorHex(origem.corSecundaria, padrao.corSecundaria),
     tema: normalizarTemaPublico(origem.tema || padrao.tema),
+    textoBotaoCatalogoPublico: String(origem.textoBotaoCatalogoPublico || '').trim(),
     mostrarPreco: origem.mostrarPreco !== false,
     mostrarFuncionario: origem.mostrarFuncionario !== false,
     mostrarEndereco: origem.mostrarEndereco !== false,
@@ -584,11 +589,15 @@ onBeforeUnmount(() => {
       <p>{{ mensagemSucesso }}</p>
     </section>
 
-    <section v-if="!uploadImagemHabilitado || resumoUploadsEmpresaTexto" class="card">
+    <section
+      v-if="!uploadImagemHabilitado || resumoUploadsEmpresaTexto || resumoUploadsIndisponivel"
+      :class="['card', uploadImagemHabilitado ? 'info-upload' : 'aviso-upload']"
+    >
       <p v-if="!uploadImagemHabilitado" class="descricao-upload">
         O envio de imagens está temporariamente indisponível. Você ainda pode usar uma URL externa.
       </p>
       <p v-if="resumoUploadsEmpresaTexto" class="descricao-upload">{{ resumoUploadsEmpresaTexto }}</p>
+      <p v-else-if="resumoUploadsIndisponivel" class="descricao-upload">Resumo de imagens indisponível no momento.</p>
     </section>
 
     <section v-if="carregando" class="card">
@@ -807,6 +816,17 @@ onBeforeUnmount(() => {
               Mensagem após agendamento
               <textarea v-model="personalizacao.mensagemConfirmacao" rows="4"></textarea>
             </label>
+            <label>
+              Texto padrão do botão dos produtos
+              <input
+                v-model="personalizacao.textoBotaoCatalogoPublico"
+                type="text"
+                placeholder="Pedir pelo WhatsApp"
+              />
+              <small class="ajuda-campo neutro">
+                Esse texto será usado nos botões dos produtos do catálogo/cardápio, como “Pedir pelo WhatsApp”.
+              </small>
+            </label>
           </div>
         </section>
 
@@ -916,7 +936,7 @@ onBeforeUnmount(() => {
               <small>{{ personalizacao.subtituloPagina || 'Ideal para destacar a sua marca no catálogo.' }}</small>
               <div class="preview-produto-rodape">
                 <span>R$ 49,90</span>
-                <button type="button">WhatsApp</button>
+                <button type="button">{{ personalizacao.textoBotaoCatalogoPublico || 'Pedir pelo WhatsApp' }}</button>
               </div>
             </div>
           </article>
@@ -991,6 +1011,16 @@ h1 {
   border-radius: 8px;
   padding: 22px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.info-upload {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.aviso-upload {
+  border-color: #fde68a;
+  background: #fffbeb;
 }
 
 .grade {

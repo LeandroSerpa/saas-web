@@ -288,6 +288,7 @@ function criarPersonalizacaoPadrao() {
     textoInstrucoes: '',
     politicaCancelamento: '',
     mensagemConfirmacao: '',
+    textoBotaoCatalogoPublico: '',
     whatsapp: '',
     telefone: '',
     mostrarPreco: true,
@@ -358,7 +359,7 @@ function normalizarProdutoCatalogo(produto) {
     destaque,
     mostrarQuantidadePublica: item.mostrarQuantidadePublica === true,
     mostrarPrecoPublico: personalizacao.value.mostrarPreco !== false && item.mostrarPrecoPublico !== false,
-    textoBotaoPublico: String(item.textoBotaoPublico || '').trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    textoBotaoPublico: String(item.textoBotaoPublico || '').trim(),
     ordemCatalogo: Number.isFinite(ordemBruta) ? ordemBruta : Number.MAX_SAFE_INTEGER,
   }
 }
@@ -425,6 +426,7 @@ function montarPersonalizacaoCatalogoPublico(dadosCatalogo) {
     textoInstrucoes: dadosPersonalizacao.textoInstrucoes || '',
     politicaCancelamento: dadosPersonalizacao.politicaCancelamento || '',
     mensagemConfirmacao: dadosPersonalizacao.mensagemConfirmacao || '',
+    textoBotaoCatalogoPublico: String(dadosPersonalizacao.textoBotaoCatalogoPublico || '').trim(),
     whatsapp: dadosPersonalizacao.whatsapp || '',
     telefone: dadosPersonalizacao.telefone || '',
     instagram: dadosPersonalizacao.instagram || '',
@@ -925,15 +927,16 @@ function montarMensagemWhatsapp(produto) {
     linhas.push(`Link: ${linkCatalogo}`)
   }
 
-  linhas.push('', produto?.textoBotaoPublico || 'Pode me passar mais detalhes?')
+  linhas.push('', obterRotuloBotaoWhatsApp(produto))
 
   return linhas.filter((linha, indice, lista) => linha !== '' || lista[indice - 1] !== '').join('\n')
 }
 
 function obterRotuloBotaoWhatsApp(produto) {
   const texto = String(produto?.textoBotaoPublico || '').trim()
+  const textoPadrao = String(personalizacao.value.textoBotaoCatalogoPublico || '').trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
 
-  return texto.length > 0 && texto.length <= 28 ? texto : TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
+  return texto.length > 0 && texto.length <= 28 ? texto : textoPadrao
 }
 
 function linkWhatsappProduto(produto) {

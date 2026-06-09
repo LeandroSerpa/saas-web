@@ -2602,8 +2602,7 @@ function normalizarProdutoEstoqueResposta(produto) {
     mostrarPrecoPublico,
     ordemCatalogo,
     textoBotaoPublico:
-      String(primeiroValorPreenchido(produto.textoBotaoPublico, produto.textoBotaoCatalogo, produto.textoBotaoWhatsapp) || '').trim() ||
-      TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+      String(primeiroValorPreenchido(produto.textoBotaoPublico, produto.textoBotaoCatalogo, produto.textoBotaoWhatsapp) || '').trim(),
   }
 }
 
@@ -2688,7 +2687,7 @@ export function normalizarProdutoCatalogoPublico(produto) {
           produtoBase.textoBotaoCatalogo,
           produtoBase.textoBotaoWhatsapp,
         ) || '',
-      ).trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+      ).trim(),
     quantidadeDisponivel: normalizarNumeroEstoque(
       primeiroValorPreenchido(
         produtoBase.quantidadeDisponivel,

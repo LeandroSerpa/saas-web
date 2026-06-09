@@ -96,11 +96,15 @@ const removendoImagemProduto = ref(false)
 const mensagemUploadProduto = ref('')
 const statusUploadsEmpresa = ref(null)
 const resumoUploadsEmpresa = ref(null)
+const resumoUploadsIndisponivel = ref(false)
 const arquivoImagemProdutoPendente = ref(null)
 const previewLocalImagemProduto = ref('')
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
 const formularioProduto = ref(criarProdutoInicial())
+const usarDescricaoNaVitrine = ref(true)
+const usarCategoriaNaVitrine = ref(true)
+const mostrarConfiguracaoAvancadaVitrine = ref(false)
 const formularioMovimentacao = ref(criarMovimentacaoInicial())
 const filtros = ref(criarFiltrosIniciais())
 const filtrosHistorico = ref(criarFiltrosHistoricoIniciais())
@@ -143,6 +147,36 @@ watch(
     erroPreviewImagemProduto.value = false
   },
 )
+
+watch(
+  () => formularioProduto.value.descricao,
+  (valor) => {
+    if (usarDescricaoNaVitrine.value) {
+      formularioProduto.value.descricaoPublica = String(valor || '')
+    }
+  },
+)
+
+watch(
+  () => formularioProduto.value.categoria,
+  (valor) => {
+    if (usarCategoriaNaVitrine.value) {
+      formularioProduto.value.categoriaPublica = String(valor || '')
+    }
+  },
+)
+
+watch(usarDescricaoNaVitrine, (ativo) => {
+  if (ativo) {
+    formularioProduto.value.descricaoPublica = String(formularioProduto.value.descricao || '')
+  }
+})
+
+watch(usarCategoriaNaVitrine, (ativo) => {
+  if (ativo) {
+    formularioProduto.value.categoriaPublica = String(formularioProduto.value.categoria || '')
+  }
+})
 
 const abasDisponiveis = computed(() => {
   return [
@@ -647,7 +681,7 @@ function criarProdutoInicial() {
     mostrarQuantidadePublica: false,
     mostrarPrecoPublico: true,
     ordemCatalogo: '',
-    textoBotaoPublico: TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    textoBotaoPublico: '',
   }
 }
 
@@ -1149,9 +1183,11 @@ async function carregarInformacoesUploadsEmpresa() {
 
     statusUploadsEmpresa.value = statusApi
     resumoUploadsEmpresa.value = resumoApi
+    resumoUploadsIndisponivel.value = false
   } catch {
     statusUploadsEmpresa.value = null
     resumoUploadsEmpresa.value = null
+    resumoUploadsIndisponivel.value = true
   }
 }
 
@@ -1306,8 +1342,39 @@ function obterOrdemCatalogo(item) {
 }
 
 function obterTextoBotaoPublico(item) {
-  const valor = String(obterCampo(item, 'textoBotaoPublico') || '').trim()
-  return valor || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
+  const valor = String(obterCampo(item, 'textoBotaoPublico', 'textoBotaoCatalogo', 'textoBotaoWhatsapp') || '').trim()
+  return valor
+}
+
+function normalizarCampoComparacaoTexto(valor) {
+  return String(valor || '').trim()
+}
+
+function descricaoPublicaUsaTextoInterno(item) {
+  const descricao = normalizarCampoComparacaoTexto(item?.descricao)
+  const descricaoPublica = normalizarCampoComparacaoTexto(item?.descricaoPublica)
+  return !descricaoPublica || descricaoPublica === descricao
+}
+
+function categoriaPublicaUsaTextoInterno(item) {
+  const categoria = normalizarCampoComparacaoTexto(item?.categoria)
+  const categoriaPublica = normalizarCampoComparacaoTexto(item?.categoriaPublica)
+  return !categoriaPublica || categoriaPublica === categoria
+}
+
+function sincronizarCamposPublicosComProdutoAtual() {
+  usarDescricaoNaVitrine.value = descricaoPublicaUsaTextoInterno(formularioProduto.value)
+  usarCategoriaNaVitrine.value = categoriaPublicaUsaTextoInterno(formularioProduto.value)
+
+  if (usarDescricaoNaVitrine.value) {
+    formularioProduto.value.descricaoPublica = String(formularioProduto.value.descricao || '')
+  }
+
+  if (usarCategoriaNaVitrine.value) {
+    formularioProduto.value.categoriaPublica = String(formularioProduto.value.categoria || '')
+  }
+
+  mostrarConfiguracaoAvancadaVitrine.value = Boolean(String(formularioProduto.value.textoBotaoPublico || '').trim())
 }
 
 function extrairIniciaisCatalogo(texto) {
@@ -1788,6 +1855,12 @@ async function salvarProduto() {
 
 function montarPayloadProduto() {
   const imagemUrl = imagemUrlFormularioNormalizada.value
+  const descricaoPublica = usarDescricaoNaVitrine.value
+    ? formularioProduto.value.descricao.trim()
+    : formularioProduto.value.descricaoPublica.trim()
+  const categoriaPublica = usarCategoriaNaVitrine.value
+    ? formularioProduto.value.categoria.trim()
+    : formularioProduto.value.categoriaPublica.trim()
 
   const payload = {
     nome: formularioProduto.value.nome.trim(),
@@ -1802,13 +1875,13 @@ function montarPayloadProduto() {
     ativo: formularioProduto.value.ativo !== false,
     exibirCatalogoPublico: formularioProduto.value.exibirCatalogoPublico === true,
     imagemUrl,
-    descricaoPublica: formularioProduto.value.descricaoPublica.trim(),
-    categoriaPublica: formularioProduto.value.categoriaPublica.trim(),
+    descricaoPublica,
+    categoriaPublica,
     destaqueCatalogo: formularioProduto.value.destaqueCatalogo === true,
     mostrarQuantidadePublica: formularioProduto.value.mostrarQuantidadePublica === true,
     mostrarPrecoPublico: formularioProduto.value.mostrarPrecoPublico !== false,
     ordemCatalogo: numeroOuZero(formularioProduto.value.ordemCatalogo),
-    textoBotaoPublico: formularioProduto.value.textoBotaoPublico.trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    textoBotaoPublico: formularioProduto.value.textoBotaoPublico.trim(),
   }
 
   if (!produtoEditandoId.value) {
@@ -1859,8 +1932,7 @@ function montarPayloadProdutoExistente(produtoOrigem, sobrescritas = {}) {
     descricaoPublica: String((sobrescritas.descricaoPublica ?? payloadBase.descricaoPublica) || '').trim(),
     categoriaPublica: normalizarCategoriaEnvio(sobrescritas.categoriaPublica ?? payloadBase.categoriaPublica),
     ordemCatalogo: numeroOuZero(sobrescritas.ordemCatalogo ?? payloadBase.ordemCatalogo),
-    textoBotaoPublico:
-      String((sobrescritas.textoBotaoPublico ?? payloadBase.textoBotaoPublico) || '').trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    textoBotaoPublico: String((sobrescritas.textoBotaoPublico ?? payloadBase.textoBotaoPublico) || '').trim(),
   }
 }
 
@@ -2127,6 +2199,7 @@ async function editarProduto(item) {
       ordemCatalogo: obterOrdemCatalogo(produtoDetalhado),
       textoBotaoPublico: obterTextoBotaoPublico(produtoDetalhado),
     }
+    sincronizarCamposPublicosComProdutoAtual()
     erroPreviewImagemProduto.value = false
     mensagemUploadProduto.value = ''
     limparImagemPendenteProduto()
@@ -2140,6 +2213,7 @@ async function editarProduto(item) {
 function cancelarEdicaoProduto(limparMensagens = true) {
   produtoEditandoId.value = null
   formularioProduto.value = criarProdutoInicial()
+  sincronizarCamposPublicosComProdutoAtual()
   erroPreviewImagemProduto.value = false
   mensagemUploadProduto.value = ''
   enviandoImagemProduto.value = false
@@ -2395,11 +2469,15 @@ onBeforeUnmount(() => {
       <p>{{ erro }}</p>
     </section>
 
-    <section v-if="!uploadImagemHabilitado || resumoUploadsEmpresaTexto" class="card feedback aviso">
+    <section
+      v-if="!uploadImagemHabilitado || resumoUploadsEmpresaTexto || resumoUploadsIndisponivel"
+      :class="['card', 'feedback', uploadImagemHabilitado ? 'info' : 'aviso']"
+    >
       <p v-if="!uploadImagemHabilitado">
         O envio de imagens está temporariamente indisponível. Você ainda pode usar uma URL externa.
       </p>
       <p v-if="resumoUploadsEmpresaTexto">{{ resumoUploadsEmpresaTexto }}</p>
+      <p v-else-if="resumoUploadsIndisponivel">Resumo de imagens indisponível no momento.</p>
     </section>
 
     <section v-if="sucesso" class="card feedback sucesso">
@@ -2932,10 +3010,18 @@ onBeforeUnmount(() => {
             <label class="campo-grande">
               Descrição
               <textarea v-model="formularioProduto.descricao" rows="3" placeholder="Informações importantes para identificar o produto."></textarea>
+              <div class="produto-form-checkbox produto-form-checkbox-inline">
+                <input v-model="usarDescricaoNaVitrine" type="checkbox" />
+                <span>Usar esta descrição também na vitrine pública</span>
+              </div>
             </label>
             <label>
               Categoria
               <input v-model="formularioProduto.categoria" type="text" placeholder="Ex: Higiene" />
+              <div class="produto-form-checkbox produto-form-checkbox-inline">
+                <input v-model="usarCategoriaNaVitrine" type="checkbox" />
+                <span>Usar esta categoria também na vitrine pública</span>
+              </div>
             </label>
             <label>
               Unidade
@@ -2974,8 +3060,8 @@ onBeforeUnmount(() => {
 
           <section class="secao-formulario-publico">
             <div class="titulo-card">
-              <h2>Catalogo publico</h2>
-              <p>Defina como este produto aparece na vitrine publica e no botao de WhatsApp.</p>
+              <h2>Catálogo público</h2>
+              <p>Defina como este produto aparece na vitrine pública e no botão do WhatsApp.</p>
             </div>
 
             <div class="campos">
@@ -3043,25 +3129,53 @@ onBeforeUnmount(() => {
                 <small class="ajuda-campo-produto">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
               </div>
               <label>
-                Categoria publica
-                <input v-model="formularioProduto.categoriaPublica" type="text" placeholder="Ex: Doces do dia" />
+                Categoria pública
+                <template v-if="usarCategoriaNaVitrine">
+                  <input :value="formularioProduto.categoria || ''" type="text" disabled placeholder="Ex: Doces do dia" />
+                  <small class="ajuda-campo-produto">A vitrine pública usará a mesma categoria informada acima.</small>
+                </template>
+                <input v-else v-model="formularioProduto.categoriaPublica" type="text" placeholder="Ex: Doces do dia" />
               </label>
               <label class="campo-grande">
-                Descricao para o cliente
+                Descrição para o cliente
+                <template v-if="usarDescricaoNaVitrine">
+                  <textarea
+                    :value="formularioProduto.descricao || ''"
+                    rows="3"
+                    disabled
+                    placeholder="Explique sabor, tamanho, recheio ou observações importantes."
+                  ></textarea>
+                  <small class="ajuda-campo-produto">A vitrine pública usará a mesma descrição informada acima.</small>
+                </template>
                 <textarea
+                  v-else
                   v-model="formularioProduto.descricaoPublica"
                   rows="3"
-                  placeholder="Explique sabor, tamanho, recheio ou observacoes importantes."
+                  placeholder="Explique sabor, tamanho, recheio ou observações importantes."
                 ></textarea>
               </label>
               <label>
-                Ordem no catalogo
+                Ordem no catálogo
                 <input v-model="formularioProduto.ordemCatalogo" type="number" min="0" step="1" />
               </label>
-              <label>
-                Texto do botao
-                <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
-              </label>
+              <div class="campo-grande configuracao-avancada-vitrine">
+                <button
+                  type="button"
+                  class="botao-link"
+                  @click="mostrarConfiguracaoAvancadaVitrine = !mostrarConfiguracaoAvancadaVitrine"
+                >
+                  {{ mostrarConfiguracaoAvancadaVitrine ? 'Ocultar configuração avançada da vitrine' : 'Mostrar configuração avançada da vitrine' }}
+                </button>
+                <div v-if="mostrarConfiguracaoAvancadaVitrine" class="configuracao-avancada-conteudo">
+                  <label>
+                    Texto do botão
+                    <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
+                    <small class="ajuda-campo-produto">
+                      Opcional: personalize o botão apenas deste produto. Se deixar em branco, será usado o texto padrão definido em Personalização.
+                    </small>
+                  </label>
+                </div>
+              </div>
               <div class="campo-grande produto-catalogo-checkbox-grid">
                 <label class="produto-catalogo-checkbox produto-form-checkbox">
                   <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
@@ -3309,6 +3423,7 @@ small { color: #64748b; }
 }
 .feedback.erro { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
 .feedback.sucesso { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.feedback.info { border-color: #cbd5e1; background: #f8fafc; color: #334155; }
 .aviso-plano,
 .aviso-visualizacao { border-color: #bfdbfe; background: #eff6ff; color: #1e3a8a; }
 .aviso-plano h2 { font-size: 22px; }
@@ -3477,7 +3592,8 @@ label {
 
 .filtro-checkbox,
 .produto-ativo-checkbox,
-.produto-catalogo-checkbox {
+.produto-catalogo-checkbox,
+.produto-form-checkbox {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -3498,7 +3614,8 @@ label {
 
 .filtro-checkbox input[type='checkbox'],
 .produto-ativo-checkbox input[type='checkbox'],
-.produto-catalogo-checkbox input[type='checkbox'] {
+.produto-catalogo-checkbox input[type='checkbox'],
+.produto-form-checkbox input[type='checkbox'] {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
@@ -3513,6 +3630,10 @@ label {
   line-height: 1.15;
 }
 
+.produto-form-checkbox-inline {
+  margin-top: 6px;
+}
+
 .produto-form-checkbox input[type='checkbox'] {
   width: 15px;
   height: 15px;
@@ -3520,7 +3641,8 @@ label {
 
 .filtro-checkbox span,
 .produto-ativo-checkbox span,
-.produto-catalogo-checkbox span {
+.produto-catalogo-checkbox span,
+.produto-form-checkbox span {
   display: block;
   min-width: 0;
   flex: 1 1 auto;
@@ -3535,6 +3657,31 @@ label {
   gap: 8px;
   width: 100%;
   min-width: 0;
+}
+
+.configuracao-avancada-vitrine {
+  display: grid;
+  gap: 10px;
+}
+
+.configuracao-avancada-conteudo {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.botao-link {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
 }
 input, select, textarea {
   width: 100%;
@@ -3551,7 +3698,9 @@ input:focus, select:focus, textarea:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
-input[readonly] { background: #f8fafc; color: #64748b; }
+input[readonly],
+input[disabled],
+textarea[disabled] { background: #f8fafc; color: #64748b; }
 .preview-imagem-produto {
   display: grid;
   gap: 10px;
