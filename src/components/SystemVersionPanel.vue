@@ -7,6 +7,7 @@ import {
   formatarRotuloAmbiente,
   obterInfoVersaoSistemaPadrao,
 } from '@/services/api'
+import { formatarDataPtBrSemFuso } from '@/utils/datas'
 
 const props = defineProps({
   titulo: {
@@ -126,21 +127,7 @@ function normalizarNovidades(valor) {
 }
 
 function formatarData(valor) {
-  if (!valor) {
-    return ''
-  }
-
-  const data = new Date(valor)
-
-  if (Number.isNaN(data.getTime())) {
-    return String(valor)
-  }
-
-  return data.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  return formatarDataPtBrSemFuso(valor)
 }
 
 onMounted(carregarVersao)
