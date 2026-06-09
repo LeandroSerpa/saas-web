@@ -101,7 +101,7 @@ const tituloPagina = computed(() =>
   String(
     personalizacao.value.tituloCatalogo ||
       personalizacao.value.tituloPagina ||
-      `Catalogo de ${empresa.value.nome || 'produtos'}`,
+      `Catálogo de ${empresa.value.nome || 'produtos'}`,
   ).trim(),
 )
 
@@ -134,7 +134,7 @@ const bannerEmpresaComErro = ref(false)
 const descricaoCatalogo = computed(() =>
   subtituloPagina.value || 'Confira os produtos publicados hoje e fale com a empresa direto pelo WhatsApp.'
 )
-const tituloPrincipalCatalogo = computed(() => tituloPagina.value || empresa.value.nome || 'Catalogo publico')
+const tituloPrincipalCatalogo = computed(() => tituloPagina.value || empresa.value.nome || 'Catálogo público')
 const exibirNomeEmpresaNoHero = computed(() => {
   const nomeEmpresa = normalizarTextoComparacao(empresa.value.nome)
   const titulo = normalizarTextoComparacao(tituloPrincipalCatalogo.value)
@@ -288,6 +288,7 @@ function criarPersonalizacaoPadrao() {
     textoInstrucoes: '',
     politicaCancelamento: '',
     mensagemConfirmacao: '',
+    textoBotaoCatalogoPublico: '',
     whatsapp: '',
     telefone: '',
     mostrarPreco: true,
@@ -358,7 +359,7 @@ function normalizarProdutoCatalogo(produto) {
     destaque,
     mostrarQuantidadePublica: item.mostrarQuantidadePublica === true,
     mostrarPrecoPublico: personalizacao.value.mostrarPreco !== false && item.mostrarPrecoPublico !== false,
-    textoBotaoPublico: String(item.textoBotaoPublico || '').trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+    textoBotaoPublico: String(item.textoBotaoPublico || '').trim(),
     ordemCatalogo: Number.isFinite(ordemBruta) ? ordemBruta : Number.MAX_SAFE_INTEGER,
   }
 }
@@ -425,6 +426,7 @@ function montarPersonalizacaoCatalogoPublico(dadosCatalogo) {
     textoInstrucoes: dadosPersonalizacao.textoInstrucoes || '',
     politicaCancelamento: dadosPersonalizacao.politicaCancelamento || '',
     mensagemConfirmacao: dadosPersonalizacao.mensagemConfirmacao || '',
+    textoBotaoCatalogoPublico: String(dadosPersonalizacao.textoBotaoCatalogoPublico || '').trim(),
     whatsapp: dadosPersonalizacao.whatsapp || '',
     telefone: dadosPersonalizacao.telefone || '',
     instagram: dadosPersonalizacao.instagram || '',
@@ -925,15 +927,16 @@ function montarMensagemWhatsapp(produto) {
     linhas.push(`Link: ${linkCatalogo}`)
   }
 
-  linhas.push('', produto?.textoBotaoPublico || 'Pode me passar mais detalhes?')
+  linhas.push('', obterRotuloBotaoWhatsApp(produto))
 
   return linhas.filter((linha, indice, lista) => linha !== '' || lista[indice - 1] !== '').join('\n')
 }
 
 function obterRotuloBotaoWhatsApp(produto) {
   const texto = String(produto?.textoBotaoPublico || '').trim()
+  const textoPadrao = String(personalizacao.value.textoBotaoCatalogoPublico || '').trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
 
-  return texto.length > 0 && texto.length <= 28 ? texto : TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO
+  return texto.length > 0 && texto.length <= 28 ? texto : textoPadrao
 }
 
 function linkWhatsappProduto(produto) {
@@ -1142,13 +1145,13 @@ onBeforeUnmount(() => {
     <section v-if="carregando" class="card estado-shell">
       <span class="estado-selo">Carregando</span>
       <h1>Preparando a vitrine publica</h1>
-      <p>Buscando os produtos publicados para este catalogo.</p>
+      <p>Buscando os produtos publicados para este catálogo.</p>
     </section>
 
     <section v-else-if="indisponivel" class="card estado-shell">
-      <span class="estado-selo erro">Indisponivel</span>
-      <h1>Catalogo indisponivel no momento</h1>
-      <p>{{ erro || 'Esta vitrine publica nao esta disponivel agora. Tente novamente mais tarde.' }}</p>
+      <span class="estado-selo erro">Indisponível</span>
+      <h1>Catálogo indisponível no momento</h1>
+      <p>{{ erro || 'Esta vitrine pública não está disponível agora. Tente novamente mais tarde.' }}</p>
     </section>
 
     <template v-else>
@@ -1164,8 +1167,8 @@ onBeforeUnmount(() => {
             />
             <div v-else class="hero-banner-placeholder banner-publico-placeholder">
               <div class="hero-banner-texto banner-publico-placeholder-conteudo">
-                <span>Catalogo do dia</span>
-                <strong>{{ empresa.nome || 'NuvemMais Gestao' }}</strong>
+                <span>Catálogo do dia</span>
+                <strong>{{ empresa.nome || 'NuvemMais Gestão' }}</strong>
               </div>
             </div>
           </div>
@@ -1186,7 +1189,7 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="hero-textos">
-                <p class="selo">Catalogo publico</p>
+                <p class="selo">{{ acessandoViaCardapio ? 'Cardápio' : 'Catálogo' }}</p>
                 <h1>{{ tituloPrincipalCatalogo }}</h1>
                 <p v-if="exibirNomeEmpresaNoHero" class="titulo">{{ empresa.nome }}</p>
                 <p class="subtitulo">{{ descricaoCatalogo }}</p>
@@ -1196,7 +1199,7 @@ onBeforeUnmount(() => {
 
             <div class="hero-cta">
               <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
-                Pedir no WhatsApp
+                Pedir pelo WhatsApp
               </a>
               <button v-if="categorias.length" type="button" class="botao-secundario" @click="irParaCategorias">
                 Ver categorias
@@ -1230,7 +1233,7 @@ onBeforeUnmount(() => {
             <div>
               <p class="painel-selo">Como comprar</p>
               <h2>Escolha um produto e finalize o pedido no WhatsApp</h2>
-              <p>{{ textoInstrucoesCatalogo || 'Esta vitrine nao possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.' }}</p>
+               <p>{{ textoInstrucoesCatalogo || 'Esta vitrine não possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.' }}</p>
             </div>
 
             <a v-if="temWhatsapp" class="botao-primario botao-bloco" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
@@ -1247,7 +1250,7 @@ onBeforeUnmount(() => {
             <article class="passo-compra">
               <span>2</span>
               <strong>Chame</strong>
-              <p>Toque no botao do WhatsApp para abrir a conversa pronta.</p>
+              <p>Toque no botão do WhatsApp para abrir a conversa pronta.</p>
             </article>
             <article class="passo-compra">
               <span>3</span>
@@ -1272,8 +1275,8 @@ onBeforeUnmount(() => {
 
         <article v-if="!temWhatsapp" class="card painel-aviso">
           <p class="painel-selo">Aviso</p>
-          <h2>WhatsApp ainda nao configurado</h2>
-          <p>Os produtos continuam visiveis, mas o botao de contato fica oculto ate a empresa informar um numero valido.</p>
+          <h2>WhatsApp ainda não configurado</h2>
+          <p>Os produtos continuam visíveis, mas o botão de contato fica oculto até a empresa informar um número válido.</p>
         </article>
       </section>
 
@@ -1282,7 +1285,7 @@ onBeforeUnmount(() => {
           <div>
             <p class="painel-selo">Categorias</p>
             <h2>Filtre a vitrine</h2>
-            <p class="filtros-subtitulo">A navegação fica mais rapida quando o cliente toca na categoria desejada.</p>
+            <p class="filtros-subtitulo">A navegação fica mais rápida quando o cliente toca na categoria desejada.</p>
           </div>
           <div class="filtros-acoes">
             <span class="contador-filtros">{{ totalProdutosPublicados }} item(ns)</span>
@@ -1316,7 +1319,7 @@ onBeforeUnmount(() => {
 
       <section v-if="!produtosPublicados.length" class="card estado-shell">
         <span class="estado-selo">Vitrine vazia</span>
-        <h2>Nenhum produto publicado no catalogo no momento.</h2>
+        <h2>Nenhum produto publicado no catálogo no momento.</h2>
         <p>A empresa ainda pode estar preparando o estoque do dia. Volte mais tarde ou chame no WhatsApp para consultar disponibilidade.</p>
         <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
           Perguntar no WhatsApp
@@ -1329,7 +1332,7 @@ onBeforeUnmount(() => {
         <p>
           {{
             categoriaAtivaSelecionada
-              ? `A categoria ${categoriaAtivaSelecionada.nome} nao possui itens publicados agora.`
+              ? `A categoria ${categoriaAtivaSelecionada.nome} não possui itens publicados agora.`
               : 'Escolha outra categoria para visualizar os demais itens da vitrine.'
           }}
         </p>
@@ -1355,7 +1358,7 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-          <span class="contador-filtros">{{ totalVisiveis }} visiveis</span>
+            <span class="contador-filtros">{{ totalVisiveis }} visíveis</span>
         </div>
 
         <div class="grid-produtos">
@@ -1367,7 +1370,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="produto-midia"
-              :aria-label="`Abrir prévia de ${produto.nome}`"
+                :aria-label="`Abrir prévia de ${produto.nome}`"
               @click="abrirPreviaProduto(produto)"
             >
               <img
@@ -1385,7 +1388,7 @@ onBeforeUnmount(() => {
 
               <div class="badges">
                 <span class="badge" :class="produto.disponivel ? 'disponivel' : 'esgotado'">
-                  {{ produto.disponivel ? 'Disponivel' : 'Esgotado' }}
+                  {{ produto.disponivel ? 'Disponível' : 'Esgotado' }}
                 </span>
                 <span v-if="produto.destaque" class="badge destaque">Destaque</span>
                 <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
@@ -1406,7 +1409,7 @@ onBeforeUnmount(() => {
               <div class="produto-infos">
                 <p v-if="produto.mostrarPrecoPublico" class="preco">{{ formatarMoeda(produto.precoVenda) }}</p>
                 <p v-if="produto.mostrarQuantidadePublica" class="quantidade">
-                  Disponivel hoje: {{ formatarQuantidadePublica(produto) }}
+                  Disponível hoje: {{ formatarQuantidadePublica(produto) }}
                 </p>
                 <p v-if="!produto.disponivel" class="quantidade esgotado-texto">Estoque do dia encerrado no momento.</p>
               </div>
@@ -1423,7 +1426,7 @@ onBeforeUnmount(() => {
                   {{ produto.disponivel ? obterRotuloBotaoWhatsApp(produto) : 'Perguntar no WhatsApp' }}
                 </a>
 
-                <p v-else class="aviso-card">WhatsApp da empresa nao informado.</p>
+                <p v-else class="aviso-card">WhatsApp da empresa não informado.</p>
               </div>
             </div>
           </article>
@@ -1465,7 +1468,7 @@ onBeforeUnmount(() => {
                 <div class="produto-modal-dados">
                   <p v-if="produtoSelecionadoView.mostrarPrecoPublico" class="produto-modal-preco">{{ formatarMoeda(produtoSelecionadoView.precoVenda) }}</p>
                   <p v-if="produtoSelecionadoView.mostrarQuantidadePublica" class="produto-modal-quantidade">
-                    Disponivel hoje: {{ formatarQuantidadePublica(produtoSelecionadoView) }}
+                    Disponível hoje: {{ formatarQuantidadePublica(produtoSelecionadoView) }}
                   </p>
                   <p v-if="!produtoSelecionadoView.disponivel" class="produto-modal-quantidade produto-modal-esgotado">
                     Estoque do dia encerrado no momento.

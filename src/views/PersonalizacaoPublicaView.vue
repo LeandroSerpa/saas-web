@@ -1,10 +1,16 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   buscarMinhaPersonalizacao,
+  buscarResumoUploadsEmpresa,
+  buscarStatusUploadsEmpresa,
   recalcularOnboarding,
+  removerBannerEmpresa,
+  removerLogoEmpresa,
   salvarMinhaPersonalizacao,
+  uploadBannerEmpresa,
+  uploadLogoEmpresa,
 } from '@/services/api'
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
 import {
@@ -25,8 +31,25 @@ const mensagemSucesso = ref('')
 const personalizacao = ref(criarPersonalizacaoInicial())
 const logoPreviewComErro = ref(false)
 const bannerPreviewComErro = ref(false)
+const logoUploadInput = ref(null)
+const bannerUploadInput = ref(null)
+const enviandoLogo = ref(false)
+const enviandoBanner = ref(false)
+const mensagemUploadLogo = ref('')
+const mensagemUploadBanner = ref('')
+const statusUploadsEmpresa = ref(null)
+const resumoUploadsEmpresa = ref(null)
+const resumoUploadsIndisponivel = ref(false)
+const removendoLogo = ref(false)
+const removendoBanner = ref(false)
+const logoPreviewLocal = ref('')
+const bannerPreviewLocal = ref('')
+const nomeArquivoLogo = ref('')
+const nomeArquivoBanner = ref('')
 const route = useRoute()
 const router = useRouter()
+const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
+const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024
 
 const temaPreview = computed(() => normalizarTemaPublico(personalizacao.value.tema))
 const temaPreviewConfig = computed(() => obterTemaPublico(temaPreview.value))
@@ -48,10 +71,24 @@ const corSecundariaPreview = computed(() =>
 )
 const corPrincipalInvalida = computed(() => corHexDigitadaInvalida(personalizacao.value.corPrincipal))
 const corSecundariaInvalida = computed(() => corHexDigitadaInvalida(personalizacao.value.corSecundaria))
-const logoPreviewUrl = computed(() => normalizarUrlImagemPublica(personalizacao.value.logoUrl))
-const bannerPreviewUrl = computed(() => normalizarUrlImagemPublica(personalizacao.value.bannerUrl))
+const logoPreviewUrl = computed(() => logoPreviewLocal.value || normalizarUrlImagemPublica(personalizacao.value.logoUrl))
+const bannerPreviewUrl = computed(() => bannerPreviewLocal.value || normalizarUrlImagemPublica(personalizacao.value.bannerUrl))
+const uploadImagemHabilitado = computed(() => {
+  if (!statusUploadsEmpresa.value || typeof statusUploadsEmpresa.value !== 'object') {
+    return true
+  }
+
+  const ativo = extrairBooleanoUploads(statusUploadsEmpresa.value, ['ativo', 'habilitado', 'uploadAtivo', 'uploadHabilitado', 'disponivel'])
+  const gravavel = extrairBooleanoUploads(statusUploadsEmpresa.value, ['gravavel', 'gravacaoAtiva', 'podeEnviar', 'podeGravar', 'writable'])
+
+  return ativo !== false && gravavel !== false
+})
+const resumoUploadsEmpresaTexto = computed(() => formatarResumoUploads(resumoUploadsEmpresa.value))
 const iniciaisPreview = computed(() =>
   extrairIniciais(personalizacao.value.tituloPagina || personalizacao.value.tituloCatalogo || 'NM'),
+)
+const textoBotaoCatalogoPreview = computed(
+  () => String(personalizacao.value.textoBotaoCatalogoPublico || '').trim() || 'Pedir pelo WhatsApp',
 )
 
 watch(
@@ -70,6 +107,7 @@ watch(
 
 onMounted(() => {
   carregarPersonalizacao()
+  carregarInformacoesUploadsEmpresa()
 })
 
 function criarPersonalizacaoInicial() {
@@ -84,6 +122,7 @@ function criarPersonalizacaoInicial() {
     textoInstrucoes: '',
     politicaCancelamento: '',
     mensagemConfirmacao: '',
+    textoBotaoCatalogoPublico: '',
     whatsapp: '',
     instagram: '',
     site: '',
@@ -95,11 +134,130 @@ function criarPersonalizacaoInicial() {
   }
 }
 
+function extrairBooleanoUploads(origem, chaves) {
+  for (const chave of chaves) {
+    const valor = origem?.[chave]
+
+    if (typeof valor === 'boolean') {
+      return valor
+    }
+  }
+
+  return null
+}
+
+function extrairNumeroUploads(origem, chaves) {
+  for (const chave of chaves) {
+    const numero = Number(origem?.[chave])
+
+    if (Number.isFinite(numero) && numero >= 0) {
+      return numero
+    }
+  }
+
+  return null
+}
+
+function formatarTamanhoArquivo(bytes) {
+  const valor = Number(bytes)
+
+  if (!Number.isFinite(valor) || valor < 0) {
+    return ''
+  }
+
+  if (valor < 1024) {
+    return `${valor} B`
+  }
+
+  const unidades = ['KB', 'MB', 'GB', 'TB']
+  let tamanho = valor / 1024
+  let indice = 0
+
+  while (tamanho >= 1024 && indice < unidades.length - 1) {
+    tamanho /= 1024
+    indice += 1
+  }
+
+  return `${tamanho.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${unidades[indice]}`
+}
+
+function formatarResumoUploads(resumoAtual) {
+  if (!resumoAtual || typeof resumoAtual !== 'object') {
+    return ''
+  }
+
+  const quantidadeArquivos = extrairNumeroUploads(resumoAtual, ['quantidadeArquivos', 'qtdArquivos', 'totalArquivos', 'arquivos'])
+  const totalBytes = extrairNumeroUploads(resumoAtual, ['totalBytes', 'bytesUtilizados', 'tamanhoTotalBytes', 'tamanhoBytes', 'total'])
+  const percentual = extrairNumeroUploads(resumoAtual, ['percentual', 'percentualUtilizado', 'usoPercentual'])
+  const partes = []
+
+  if (totalBytes !== null) {
+    partes.push(formatarTamanhoArquivo(totalBytes))
+  }
+
+  if (quantidadeArquivos !== null) {
+    partes.push(`${quantidadeArquivos.toLocaleString('pt-BR')} ${quantidadeArquivos === 1 ? 'arquivo' : 'arquivos'}`)
+  }
+
+  if (!partes.length) {
+    return ''
+  }
+
+  let texto = `Uso de imagens: ${partes.join(' em ')}.`
+
+  if (percentual !== null) {
+    texto += ` ${percentual.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}% utilizado.`
+  }
+
+  return texto
+}
+
+function limparMensagensUpload() {
+  mensagemUploadLogo.value = ''
+  mensagemUploadBanner.value = ''
+}
+
+function revogarPreviewLocal(tipo) {
+  if (tipo === 'logo' && logoPreviewLocal.value.startsWith('blob:')) {
+    URL.revokeObjectURL(logoPreviewLocal.value)
+  }
+
+  if (tipo === 'banner' && bannerPreviewLocal.value.startsWith('blob:')) {
+    URL.revokeObjectURL(bannerPreviewLocal.value)
+  }
+}
+
+function limparPreviewLocal(tipo) {
+  revogarPreviewLocal(tipo)
+
+  if (tipo === 'logo') {
+    logoPreviewLocal.value = ''
+    nomeArquivoLogo.value = ''
+  } else {
+    bannerPreviewLocal.value = ''
+    nomeArquivoBanner.value = ''
+  }
+}
+
+function definirPreviewLocal(tipo, arquivo) {
+  limparPreviewLocal(tipo)
+  const preview = URL.createObjectURL(arquivo)
+
+  if (tipo === 'logo') {
+    logoPreviewLocal.value = preview
+    nomeArquivoLogo.value = String(arquivo?.name || '').trim()
+  } else {
+    bannerPreviewLocal.value = preview
+    nomeArquivoBanner.value = String(arquivo?.name || '').trim()
+  }
+}
+
 async function carregarPersonalizacao() {
   try {
     carregando.value = true
     erro.value = ''
     mensagemSucesso.value = ''
+    limparMensagensUpload()
 
     const dados = await buscarMinhaPersonalizacao()
     personalizacao.value = normalizarPersonalizacao(dados)
@@ -111,33 +269,67 @@ async function carregarPersonalizacao() {
   }
 }
 
+async function carregarInformacoesUploadsEmpresa() {
+  try {
+    const [statusApi, resumoApi] = await Promise.all([
+      buscarStatusUploadsEmpresa().catch((errorAtual) => {
+        if ([404, 405].includes(errorAtual?.status)) {
+          return null
+        }
+
+        throw errorAtual
+      }),
+      buscarResumoUploadsEmpresa().catch((errorAtual) => {
+        if ([404, 405].includes(errorAtual?.status)) {
+          return null
+        }
+
+        throw errorAtual
+      }),
+    ])
+
+    statusUploadsEmpresa.value = statusApi
+    resumoUploadsEmpresa.value = resumoApi
+    resumoUploadsIndisponivel.value = false
+  } catch {
+    statusUploadsEmpresa.value = null
+    resumoUploadsEmpresa.value = null
+    resumoUploadsIndisponivel.value = true
+  }
+}
+
+function montarPayloadPersonalizacao(sobrescritas = {}) {
+  const corPrincipal = normalizarCorHex(sobrescritas.corPrincipal ?? personalizacao.value.corPrincipal, '')
+  const corSecundaria = normalizarCorHex(sobrescritas.corSecundaria ?? personalizacao.value.corSecundaria, '')
+  const logoUrl = normalizarUrlImagemPublica(sobrescritas.logoUrl ?? personalizacao.value.logoUrl)
+  const bannerUrl = normalizarUrlImagemPublica(sobrescritas.bannerUrl ?? personalizacao.value.bannerUrl)
+
+  return {
+    ...personalizacao.value,
+    ...sobrescritas,
+    corPrincipal,
+    corSecundaria,
+    logoUrl,
+    bannerUrl,
+  }
+}
+
 async function salvarPersonalizacao() {
   try {
     erro.value = ''
     mensagemSucesso.value = ''
+    limparMensagensUpload()
 
-    const corPrincipal = normalizarCorHex(personalizacao.value.corPrincipal, '')
-    const corSecundaria = normalizarCorHex(personalizacao.value.corSecundaria, '')
-    const logoUrl = normalizarUrlImagemPublica(personalizacao.value.logoUrl)
-    const bannerUrl = normalizarUrlImagemPublica(personalizacao.value.bannerUrl)
+    const payload = montarPayloadPersonalizacao()
 
-    if (!corPrincipal || !corSecundaria) {
+    if (!payload.corPrincipal || !payload.corSecundaria) {
       erro.value = 'A cor deve estar no formato hexadecimal, exemplo #2563eb.'
       return
     }
 
     salvando.value = true
-    personalizacao.value.corPrincipal = corPrincipal
-    personalizacao.value.corSecundaria = corSecundaria
-    personalizacao.value.logoUrl = logoUrl
-    personalizacao.value.bannerUrl = bannerUrl
-    await salvarMinhaPersonalizacao({
-      ...personalizacao.value,
-      corPrincipal,
-      corSecundaria,
-      logoUrl,
-      bannerUrl,
-    })
+    personalizacao.value = { ...payload }
+    await salvarMinhaPersonalizacao(payload)
     await retornarParaOnboardingSeNecessario('PERSONALIZACAO')
     mensagemSucesso.value = 'Personalização salva com sucesso.'
   } catch (error) {
@@ -160,10 +352,146 @@ function normalizarPersonalizacao(dados) {
     corPrincipal: normalizarCorHex(origem.corPrincipal, padrao.corPrincipal),
     corSecundaria: normalizarCorHex(origem.corSecundaria, padrao.corSecundaria),
     tema: normalizarTemaPublico(origem.tema || padrao.tema),
+    textoBotaoCatalogoPublico: String(origem.textoBotaoCatalogoPublico || '').trim(),
     mostrarPreco: origem.mostrarPreco !== false,
     mostrarFuncionario: origem.mostrarFuncionario !== false,
     mostrarEndereco: origem.mostrarEndereco !== false,
     mostrarTelefone: origem.mostrarTelefone !== false,
+  }
+}
+
+function validarArquivoImagem(arquivo) {
+  if (!arquivo) {
+    return 'Selecione uma imagem para enviar.'
+  }
+
+  if (!TIPOS_IMAGEM_ACEITOS.includes(arquivo.type) || arquivo.size > TAMANHO_MAXIMO_IMAGEM) {
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.'
+  }
+
+  return ''
+}
+
+function limparCampoArquivo(tipo) {
+  if (tipo === 'logo' && logoUploadInput.value) {
+    logoUploadInput.value.value = ''
+  }
+
+  if (tipo === 'banner' && bannerUploadInput.value) {
+    bannerUploadInput.value.value = ''
+  }
+}
+
+function obterMensagemErroUploadImagem(error) {
+  const mensagem = String(error?.message || '').trim().toLowerCase()
+
+  if (
+    mensagem.includes('arquivo') ||
+    mensagem.includes('imagem') ||
+    mensagem.includes('formato') ||
+    mensagem.includes('tipo') ||
+    mensagem.includes('5 mb') ||
+    mensagem.includes('tamanho') ||
+    mensagem.includes('grande')
+  ) {
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.'
+  }
+
+  return 'Não foi possível enviar a imagem agora. Tente novamente com um arquivo válido.'
+}
+
+async function enviarImagemPersonalizacao(tipo, evento) {
+  const arquivo = evento?.target?.files?.[0]
+  const mensagemValidacao = validarArquivoImagem(arquivo)
+
+  if (tipo === 'logo') {
+    mensagemUploadLogo.value = ''
+  } else {
+    mensagemUploadBanner.value = ''
+  }
+
+  if (mensagemValidacao) {
+    erro.value = mensagemValidacao
+    limparCampoArquivo(tipo)
+    return
+  }
+
+  if (!uploadImagemHabilitado.value) {
+    erro.value = 'O envio de imagens está temporariamente indisponível. Você ainda pode usar uma URL externa.'
+    limparCampoArquivo(tipo)
+    return
+  }
+
+  try {
+    erro.value = ''
+    mensagemSucesso.value = ''
+    definirPreviewLocal(tipo, arquivo)
+
+    if (tipo === 'logo') {
+      enviandoLogo.value = true
+      const resposta = await uploadLogoEmpresa(arquivo)
+      personalizacao.value.logoUrl = normalizarUrlImagemPublica(resposta?.url)
+      logoPreviewComErro.value = false
+      mensagemUploadLogo.value = 'Imagem enviada com sucesso.'
+    } else {
+      enviandoBanner.value = true
+      const resposta = await uploadBannerEmpresa(arquivo)
+      personalizacao.value.bannerUrl = normalizarUrlImagemPublica(resposta?.url)
+      bannerPreviewComErro.value = false
+      mensagemUploadBanner.value = 'Imagem enviada com sucesso.'
+    }
+  } catch (error) {
+    erro.value = obterMensagemErroUploadImagem(error)
+    console.error(error)
+  } finally {
+    if (tipo === 'logo') {
+      enviandoLogo.value = false
+    } else {
+      enviandoBanner.value = false
+    }
+
+    limparPreviewLocal(tipo)
+    limparCampoArquivo(tipo)
+  }
+}
+
+async function removerImagemPersonalizacao(tipo) {
+  try {
+    erro.value = ''
+    mensagemSucesso.value = ''
+    limparMensagensUpload()
+
+    if (tipo === 'logo') {
+      removendoLogo.value = true
+    } else {
+      removendoBanner.value = true
+    }
+
+    const sobrescritas = tipo === 'logo' ? { logoUrl: '' } : { bannerUrl: '' }
+    const payload = montarPayloadPersonalizacao(sobrescritas)
+
+    await salvarMinhaPersonalizacao(payload)
+
+    if (tipo === 'logo') {
+      personalizacao.value.logoUrl = ''
+      logoPreviewComErro.value = false
+      await removerLogoEmpresa().catch(() => null)
+      mensagemUploadLogo.value = 'Imagem removida com sucesso.'
+    } else {
+      personalizacao.value.bannerUrl = ''
+      bannerPreviewComErro.value = false
+      await removerBannerEmpresa().catch(() => null)
+      mensagemUploadBanner.value = 'Imagem removida com sucesso.'
+    }
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível remover a imagem agora.')
+    console.error(error)
+  } finally {
+    if (tipo === 'logo') {
+      removendoLogo.value = false
+    } else {
+      removendoBanner.value = false
+    }
   }
 }
 
@@ -234,6 +562,11 @@ function obterMensagemErro(error, fallback) {
 
   return mensagem || fallback
 }
+
+onBeforeUnmount(() => {
+  limparPreviewLocal('logo')
+  limparPreviewLocal('banner')
+})
 </script>
 
 <template>
@@ -259,6 +592,17 @@ function obterMensagemErro(error, fallback) {
       <p>{{ mensagemSucesso }}</p>
     </section>
 
+    <section
+      v-if="!uploadImagemHabilitado || resumoUploadsEmpresaTexto || resumoUploadsIndisponivel"
+      :class="['card', uploadImagemHabilitado ? 'info-upload' : 'aviso-upload']"
+    >
+      <p v-if="!uploadImagemHabilitado" class="descricao-upload">
+        O envio de imagens está temporariamente indisponível. Você ainda pode usar uma URL externa.
+      </p>
+      <p v-if="resumoUploadsEmpresaTexto" class="descricao-upload">{{ resumoUploadsEmpresaTexto }}</p>
+      <p v-else-if="resumoUploadsIndisponivel" class="descricao-upload">Resumo de imagens indisponível no momento.</p>
+    </section>
+
     <section v-if="carregando" class="card">
       <p>Carregando personalização...</p>
     </section>
@@ -281,6 +625,107 @@ function obterMensagemErro(error, fallback) {
               <input v-model="personalizacao.bannerUrl" type="text" placeholder="https://..." />
               <small class="ajuda-campo neutro">Recomendado: imagem horizontal, por exemplo 1600x450 ou 1800x500. O recorte se ajusta automaticamente.</small>
             </label>
+            <div class="campo-grande uploads-personalizacao">
+              <article class="upload-card">
+                <div class="upload-card-topo">
+                  <div>
+                    <strong>Logo da empresa</strong>
+                    <small>Envie uma imagem ou mantenha a URL externa, se preferir.</small>
+                  </div>
+                </div>
+                <div v-if="logoPreviewUrl" class="preview-upload-imagem">
+                  <img v-if="!logoPreviewComErro" :src="logoPreviewUrl" alt="Preview do logo" @error="logoPreviewComErro = true" />
+                  <div v-else class="preview-upload-fallback">
+                    <strong>Prévia indisponível</strong>
+                    <small>O link atual não carregou, mas continua salvo.</small>
+                  </div>
+                </div>
+                <div v-else class="preview-upload-fallback preview-upload-vazio">
+                  <strong>Sem logo enviado</strong>
+                  <small>Você pode usar upload ou colar uma URL externa.</small>
+                </div>
+                <div class="upload-acoes">
+                  <input
+                    ref="logoUploadInput"
+                    class="input-arquivo"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    :disabled="enviandoLogo || removendoLogo || !uploadImagemHabilitado"
+                    @change="enviarImagemPersonalizacao('logo', $event)"
+                  />
+                  <button
+                    class="botao secundario"
+                    type="button"
+                    :disabled="enviandoLogo || removendoLogo || !uploadImagemHabilitado"
+                    @click="logoUploadInput?.click()"
+                  >
+                    {{ enviandoLogo ? 'Enviando logo...' : 'Enviar logo' }}
+                  </button>
+                  <button
+                    v-if="personalizacao.logoUrl"
+                    class="botao ghost"
+                    type="button"
+                    :disabled="enviandoLogo || removendoLogo"
+                    @click="removerImagemPersonalizacao('logo')"
+                  >
+                    {{ removendoLogo ? 'Removendo logo...' : 'Remover logo' }}
+                  </button>
+                </div>
+                <small v-if="nomeArquivoLogo" class="ajuda-campo neutro">Arquivo selecionado: {{ nomeArquivoLogo }}</small>
+                <p v-if="mensagemUploadLogo" class="sucesso-texto">{{ mensagemUploadLogo }}</p>
+                <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.</small>
+              </article>
+
+              <article class="upload-card">
+                <div class="upload-card-topo">
+                  <div>
+                    <strong>Banner da empresa</strong>
+                    <small>Envie uma imagem ou mantenha a URL externa, se preferir.</small>
+                  </div>
+                </div>
+                <div v-if="bannerPreviewUrl" class="preview-upload-imagem">
+                  <img v-if="!bannerPreviewComErro" :src="bannerPreviewUrl" alt="Preview do banner" @error="bannerPreviewComErro = true" />
+                  <div v-else class="preview-upload-fallback">
+                    <strong>Prévia indisponível</strong>
+                    <small>O link atual não carregou, mas continua salvo.</small>
+                  </div>
+                </div>
+                <div v-else class="preview-upload-fallback preview-upload-vazio">
+                  <strong>Sem banner enviado</strong>
+                  <small>Você pode usar upload ou colar uma URL externa.</small>
+                </div>
+                <div class="upload-acoes">
+                  <input
+                    ref="bannerUploadInput"
+                    class="input-arquivo"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    :disabled="enviandoBanner || removendoBanner || !uploadImagemHabilitado"
+                    @change="enviarImagemPersonalizacao('banner', $event)"
+                  />
+                  <button
+                    class="botao secundario"
+                    type="button"
+                    :disabled="enviandoBanner || removendoBanner || !uploadImagemHabilitado"
+                    @click="bannerUploadInput?.click()"
+                  >
+                    {{ enviandoBanner ? 'Enviando banner...' : 'Enviar banner' }}
+                  </button>
+                  <button
+                    v-if="personalizacao.bannerUrl"
+                    class="botao ghost"
+                    type="button"
+                    :disabled="enviandoBanner || removendoBanner"
+                    @click="removerImagemPersonalizacao('banner')"
+                  >
+                    {{ removendoBanner ? 'Removendo banner...' : 'Remover banner' }}
+                  </button>
+                </div>
+                <small v-if="nomeArquivoBanner" class="ajuda-campo neutro">Arquivo selecionado: {{ nomeArquivoBanner }}</small>
+                <p v-if="mensagemUploadBanner" class="sucesso-texto">{{ mensagemUploadBanner }}</p>
+                <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.</small>
+              </article>
+            </div>
             <small class="dica campo-grande">
               Você pode colar um link direto de imagem ou um link público do Google Drive. No Google Drive,
               deixe o arquivo como "Qualquer pessoa com o link pode ver".
@@ -373,6 +818,21 @@ function obterMensagemErro(error, fallback) {
             <label class="campo-grande">
               Mensagem após agendamento
               <textarea v-model="personalizacao.mensagemConfirmacao" rows="4"></textarea>
+            </label>
+            <label>
+              Texto padrão do botão dos produtos
+              <input
+                v-model="personalizacao.textoBotaoCatalogoPublico"
+                type="text"
+                placeholder="Ex.: Pedir pelo WhatsApp"
+              />
+              <small class="ajuda-campo neutro">
+                Esse texto será usado nos botões dos produtos do catálogo/cardápio quando o produto não tiver um texto próprio.
+              </small>
+              <div class="preview-botao-catalogo">
+                <span>Prévia do botão</span>
+                <button type="button">{{ textoBotaoCatalogoPreview }}</button>
+              </div>
             </label>
           </div>
         </section>
@@ -483,7 +943,7 @@ function obterMensagemErro(error, fallback) {
               <small>{{ personalizacao.subtituloPagina || 'Ideal para destacar a sua marca no catálogo.' }}</small>
               <div class="preview-produto-rodape">
                 <span>R$ 49,90</span>
-                <button type="button">WhatsApp</button>
+                <button type="button">{{ textoBotaoCatalogoPreview }}</button>
               </div>
             </div>
           </article>
@@ -508,7 +968,9 @@ function obterMensagemErro(error, fallback) {
 .pagina,
 .formulario,
 .secao,
-.preview {
+.preview,
+.uploads-personalizacao,
+.upload-card {
   display: grid;
   gap: 16px;
 }
@@ -544,6 +1006,7 @@ h1 {
 }
 
 .descricao,
+.descricao-upload,
 .titulo-card p {
   margin: 6px 0 0;
   color: #64748b;
@@ -557,6 +1020,16 @@ h1 {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
+.info-upload {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.aviso-upload {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
 .grade {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
@@ -568,6 +1041,93 @@ h1 {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 16px;
+}
+
+.uploads-personalizacao {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.upload-card {
+  padding: 16px;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.upload-card-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-upload-imagem,
+.preview-upload-fallback {
+  min-height: 180px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.preview-upload-imagem img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.preview-upload-fallback {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 18px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top left, rgba(148, 163, 184, 0.14), transparent 34%),
+    linear-gradient(135deg, #f8fafc, #eef2ff);
+  color: #334155;
+}
+
+.preview-upload-vazio {
+  color: #475569;
+}
+
+.upload-acoes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preview-botao-catalogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.preview-botao-catalogo span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preview-botao-catalogo button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--cor-principal, #2563eb), var(--cor-secundaria, #0f172a));
+  color: white;
+  font: inherit;
+  font-weight: 800;
+}
+
+.input-arquivo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .campo-cor {
@@ -723,6 +1283,12 @@ input[type='checkbox'] {
   border-color: #bbf7d0;
   background: #f0fdf4;
   color: #15803d;
+}
+
+.sucesso-texto {
+  margin: 0;
+  color: #15803d;
+  font-weight: 800;
 }
 
 .preview {
@@ -1127,6 +1693,7 @@ input[type='checkbox'] {
 @media (max-width: 1050px) {
   .grade,
   .campos,
+  .uploads-personalizacao,
   .opcoes {
     grid-template-columns: 1fr;
   }

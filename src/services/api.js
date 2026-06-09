@@ -989,6 +989,14 @@ async function tratarResposta(response, opcoes = {}) {
   return tratarRespostaCustomizada(response, opcoes)
 }
 
+async function tratarRespostaOpcional(response, opcoes = {}) {
+  if ([404, 405].includes(response.status)) {
+    return null
+  }
+
+  return tratarResposta(response, opcoes)
+}
+
 async function tratarRespostaPublica(response) {
   if (!response.ok) {
     const mensagem = await extrairMensagemErro(response)
@@ -1197,6 +1205,68 @@ export async function buscarMinhaPersonalizacao() {
   })
 
   return tratarResposta(response)
+}
+
+export async function uploadLogoEmpresa(imagem) {
+  const formData = new FormData()
+  formData.append('imagem', imagem)
+
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo`, {
+    method: 'POST',
+    headers: montarHeaders(),
+    body: formData,
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarStatusUploadsEmpresa() {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/uploads/status${montarQueryString(filtrosConsulta)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
+}
+
+export async function buscarResumoUploadsEmpresa() {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/uploads/resumo${montarQueryString(filtrosConsulta)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
+}
+
+export async function removerLogoEmpresa() {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
+}
+
+export async function uploadBannerEmpresa(imagem) {
+  const formData = new FormData()
+  formData.append('imagem', imagem)
+
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner`, {
+    method: 'POST',
+    headers: montarHeaders(),
+    body: formData,
+  })
+
+  return tratarResposta(response)
+}
+
+export async function removerBannerEmpresa() {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
 }
 
 export async function buscarIndisponibilidades(filtros = {}) {
@@ -2532,8 +2602,7 @@ function normalizarProdutoEstoqueResposta(produto) {
     mostrarPrecoPublico,
     ordemCatalogo,
     textoBotaoPublico:
-      String(primeiroValorPreenchido(produto.textoBotaoPublico, produto.textoBotaoCatalogo, produto.textoBotaoWhatsapp) || '').trim() ||
-      TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+      String(primeiroValorPreenchido(produto.textoBotaoPublico, produto.textoBotaoCatalogo, produto.textoBotaoWhatsapp) || '').trim(),
   }
 }
 
@@ -2618,7 +2687,7 @@ export function normalizarProdutoCatalogoPublico(produto) {
           produtoBase.textoBotaoCatalogo,
           produtoBase.textoBotaoWhatsapp,
         ) || '',
-      ).trim() || TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+      ).trim(),
     quantidadeDisponivel: normalizarNumeroEstoque(
       primeiroValorPreenchido(
         produtoBase.quantidadeDisponivel,
@@ -4001,6 +4070,28 @@ export async function excluirProdutoEstoque(id, motivo = '') {
     },
     OPCOES_EXCLUSAO_LOGICA,
   )
+}
+
+export async function uploadImagemProduto(produtoId, imagem) {
+  const formData = new FormData()
+  formData.append('imagem', imagem)
+
+  const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/imagem`, {
+    method: 'POST',
+    headers: montarHeaders(),
+    body: formData,
+  })
+
+  return tratarResposta(response)
+}
+
+export async function removerImagemProduto(produtoId) {
+  const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/imagem`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
 }
 
 export async function cadastrarAgendamento(agendamento) {
