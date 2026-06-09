@@ -30,7 +30,6 @@ import {
   obterMensagemAmigavelErro,
   reiniciarEstoqueDia,
   removerImagemProduto,
-  TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   atualizarProdutoEstoque,
   uploadImagemProduto,
 } from '@/services/api'
@@ -104,7 +103,6 @@ const movimentacaoProduto = ref(null)
 const formularioProduto = ref(criarProdutoInicial())
 const usarDescricaoNaVitrine = ref(true)
 const usarCategoriaNaVitrine = ref(true)
-const mostrarConfiguracaoAvancadaVitrine = ref(false)
 const formularioMovimentacao = ref(criarMovimentacaoInicial())
 const filtros = ref(criarFiltrosIniciais())
 const filtrosHistorico = ref(criarFiltrosHistoricoIniciais())
@@ -1374,8 +1372,6 @@ function sincronizarCamposPublicosComProdutoAtual() {
   if (usarCategoriaNaVitrine.value) {
     formularioProduto.value.categoriaPublica = String(formularioProduto.value.categoria || '')
   }
-
-  mostrarConfiguracaoAvancadaVitrine.value = Boolean(String(formularioProduto.value.textoBotaoPublico || '').trim())
 }
 
 function extrairIniciaisCatalogo(texto) {
@@ -3076,11 +3072,17 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="campos">
-                <label>
+                <label :class="{ 'campo-publico-bloqueado': usarCategoriaNaVitrine }">
                   Categoria pública
                   <template v-if="usarCategoriaNaVitrine">
                     <div class="campo-vinculado-publico">
-                      <input :value="formularioProduto.categoria || ''" type="text" disabled placeholder="Ex.: Doces do dia" />
+                      <input
+                        :value="formularioProduto.categoria || ''"
+                        class="input-publico-bloqueado"
+                        type="text"
+                        disabled
+                        placeholder="Ex.: Doces do dia"
+                      />
                       <small class="ajuda-campo-produto">A vitrine pública está copiando automaticamente a categoria interna.</small>
                     </div>
                   </template>
@@ -3093,12 +3095,13 @@ onBeforeUnmount(() => {
                   Ordem no catálogo
                   <input v-model="formularioProduto.ordemCatalogo" type="number" min="0" step="1" />
                 </label>
-                <label class="campo-grande">
+                <label class="campo-grande" :class="{ 'campo-publico-bloqueado': usarDescricaoNaVitrine }">
                   Descrição da vitrine
                   <template v-if="usarDescricaoNaVitrine">
                     <div class="campo-vinculado-publico">
                       <textarea
                         :value="formularioProduto.descricao || ''"
+                        class="input-publico-bloqueado"
                         rows="3"
                         disabled
                         placeholder="Explique sabor, tamanho, recheio ou observações importantes."
@@ -3193,11 +3196,6 @@ onBeforeUnmount(() => {
             </section>
 
             <section class="bloco-formulario-produto">
-              <div class="bloco-formulario-cabecalho">
-                <h3>Configuração avançada da vitrine</h3>
-                <p>Ajuste detalhes opcionais sem poluir o fluxo principal do cadastro.</p>
-              </div>
-
               <div class="campos">
                 <div class="campo-grande produto-catalogo-checkbox-grid">
                   <label class="produto-catalogo-checkbox produto-form-checkbox">
@@ -3216,24 +3214,6 @@ onBeforeUnmount(() => {
                     <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
                     <span>Mostrar preço ao cliente</span>
                   </label>
-                </div>
-                <div class="campo-grande configuracao-avancada-vitrine">
-                  <button
-                    type="button"
-                    class="botao-link"
-                    @click="mostrarConfiguracaoAvancadaVitrine = !mostrarConfiguracaoAvancadaVitrine"
-                  >
-                    {{ mostrarConfiguracaoAvancadaVitrine ? 'Ocultar configuração avançada da vitrine' : 'Mostrar configuração avançada da vitrine' }}
-                  </button>
-                  <div v-if="mostrarConfiguracaoAvancadaVitrine" class="configuracao-avancada-conteudo">
-                    <label>
-                      Texto do botão deste produto
-                      <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
-                      <small class="ajuda-campo-produto">
-                        Opcional. Se deixar em branco, será usado o texto padrão definido em Personalização.
-                      </small>
-                    </label>
-                  </div>
                 </div>
               </div>
             </section>
@@ -3734,32 +3714,23 @@ label {
 .campo-vinculado-publico {
   display: grid;
   gap: 8px;
-}
-
-.configuracao-avancada-vitrine {
-  display: grid;
-  gap: 10px;
-}
-
-.configuracao-avancada-conteudo {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px dashed #cbd5e1;
+  padding: 12px;
+  border: 1px solid #dbe4f0;
   border-radius: 12px;
-  background: #f8fafc;
+  background: rgba(148, 163, 184, 0.08);
 }
 
-.botao-link {
-  width: fit-content;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #2563eb;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
+.campo-publico-bloqueado {
+  gap: 8px;
 }
+
+.input-publico-bloqueado {
+  background: rgba(241, 245, 249, 0.95) !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+  cursor: not-allowed;
+}
+
 input, select, textarea {
   width: 100%;
   min-width: 0;
@@ -3777,7 +3748,11 @@ input:focus, select:focus, textarea:focus {
 }
 input[readonly],
 input[disabled],
-textarea[disabled] { background: #f8fafc; color: #64748b; }
+textarea[disabled] {
+  background: #f8fafc;
+  color: #64748b;
+  opacity: 1;
+}
 .preview-imagem-produto {
   display: grid;
   gap: 10px;
