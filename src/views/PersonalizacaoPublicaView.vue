@@ -87,6 +87,9 @@ const resumoUploadsEmpresaTexto = computed(() => formatarResumoUploads(resumoUpl
 const iniciaisPreview = computed(() =>
   extrairIniciais(personalizacao.value.tituloPagina || personalizacao.value.tituloCatalogo || 'NM'),
 )
+const textoBotaoCatalogoPreview = computed(
+  () => String(personalizacao.value.textoBotaoCatalogoPublico || '').trim() || 'Pedir pelo WhatsApp',
+)
 
 watch(
   () => personalizacao.value.logoUrl,
@@ -363,7 +366,7 @@ function validarArquivoImagem(arquivo) {
   }
 
   if (!TIPOS_IMAGEM_ACEITOS.includes(arquivo.type) || arquivo.size > TAMANHO_MAXIMO_IMAGEM) {
-    return 'A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.'
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.'
   }
 
   return ''
@@ -391,10 +394,10 @@ function obterMensagemErroUploadImagem(error) {
     mensagem.includes('tamanho') ||
     mensagem.includes('grande')
   ) {
-    return 'A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.'
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.'
   }
 
-  return 'Nao foi possivel enviar a imagem agora. Tente novamente com um arquivo valido.'
+  return 'Não foi possível enviar a imagem agora. Tente novamente com um arquivo válido.'
 }
 
 async function enviarImagemPersonalizacao(tipo, evento) {
@@ -633,13 +636,13 @@ onBeforeUnmount(() => {
                 <div v-if="logoPreviewUrl" class="preview-upload-imagem">
                   <img v-if="!logoPreviewComErro" :src="logoPreviewUrl" alt="Preview do logo" @error="logoPreviewComErro = true" />
                   <div v-else class="preview-upload-fallback">
-                    <strong>Preview indisponivel</strong>
-                    <small>O link atual nao carregou, mas continua salvo.</small>
+                    <strong>Prévia indisponível</strong>
+                    <small>O link atual não carregou, mas continua salvo.</small>
                   </div>
                 </div>
                 <div v-else class="preview-upload-fallback preview-upload-vazio">
                   <strong>Sem logo enviado</strong>
-                  <small>Voce pode usar upload ou colar uma URL externa.</small>
+                  <small>Você pode usar upload ou colar uma URL externa.</small>
                 </div>
                 <div class="upload-acoes">
                   <input
@@ -670,7 +673,7 @@ onBeforeUnmount(() => {
                 </div>
                 <small v-if="nomeArquivoLogo" class="ajuda-campo neutro">Arquivo selecionado: {{ nomeArquivoLogo }}</small>
                 <p v-if="mensagemUploadLogo" class="sucesso-texto">{{ mensagemUploadLogo }}</p>
-                <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
+                <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.</small>
               </article>
 
               <article class="upload-card">
@@ -683,13 +686,13 @@ onBeforeUnmount(() => {
                 <div v-if="bannerPreviewUrl" class="preview-upload-imagem">
                   <img v-if="!bannerPreviewComErro" :src="bannerPreviewUrl" alt="Preview do banner" @error="bannerPreviewComErro = true" />
                   <div v-else class="preview-upload-fallback">
-                    <strong>Preview indisponivel</strong>
-                    <small>O link atual nao carregou, mas continua salvo.</small>
+                    <strong>Prévia indisponível</strong>
+                    <small>O link atual não carregou, mas continua salvo.</small>
                   </div>
                 </div>
                 <div v-else class="preview-upload-fallback preview-upload-vazio">
                   <strong>Sem banner enviado</strong>
-                  <small>Voce pode usar upload ou colar uma URL externa.</small>
+                  <small>Você pode usar upload ou colar uma URL externa.</small>
                 </div>
                 <div class="upload-acoes">
                   <input
@@ -720,7 +723,7 @@ onBeforeUnmount(() => {
                 </div>
                 <small v-if="nomeArquivoBanner" class="ajuda-campo neutro">Arquivo selecionado: {{ nomeArquivoBanner }}</small>
                 <p v-if="mensagemUploadBanner" class="sucesso-texto">{{ mensagemUploadBanner }}</p>
-                <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
+                <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.</small>
               </article>
             </div>
             <small class="dica campo-grande">
@@ -821,11 +824,15 @@ onBeforeUnmount(() => {
               <input
                 v-model="personalizacao.textoBotaoCatalogoPublico"
                 type="text"
-                placeholder="Pedir pelo WhatsApp"
+                placeholder="Ex.: Pedir pelo WhatsApp"
               />
               <small class="ajuda-campo neutro">
-                Esse texto será usado nos botões dos produtos do catálogo/cardápio, como “Pedir pelo WhatsApp”.
+                Esse texto será usado nos botões dos produtos do catálogo/cardápio quando o produto não tiver um texto próprio.
               </small>
+              <div class="preview-botao-catalogo">
+                <span>Prévia do botão</span>
+                <button type="button">{{ textoBotaoCatalogoPreview }}</button>
+              </div>
             </label>
           </div>
         </section>
@@ -936,7 +943,7 @@ onBeforeUnmount(() => {
               <small>{{ personalizacao.subtituloPagina || 'Ideal para destacar a sua marca no catálogo.' }}</small>
               <div class="preview-produto-rodape">
                 <span>R$ 49,90</span>
-                <button type="button">{{ personalizacao.textoBotaoCatalogoPublico || 'Pedir pelo WhatsApp' }}</button>
+                <button type="button">{{ textoBotaoCatalogoPreview }}</button>
               </div>
             </div>
           </article>
@@ -1076,9 +1083,9 @@ h1 {
   padding: 18px;
   text-align: center;
   background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
-    linear-gradient(135deg, #eff6ff, #f8fafc);
-  color: #1d4ed8;
+    radial-gradient(circle at top left, rgba(148, 163, 184, 0.14), transparent 34%),
+    linear-gradient(135deg, #f8fafc, #eef2ff);
+  color: #334155;
 }
 
 .preview-upload-vazio {
@@ -1089,6 +1096,30 @@ h1 {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.preview-botao-catalogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.preview-botao-catalogo span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preview-botao-catalogo button {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--cor-principal, #2563eb), var(--cor-secundaria, #0f172a));
+  color: white;
+  font: inherit;
+  font-weight: 800;
 }
 
 .input-arquivo {

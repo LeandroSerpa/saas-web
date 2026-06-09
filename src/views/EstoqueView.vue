@@ -127,6 +127,7 @@ const imagemUrlFormularioNormalizada = computed(() =>
 )
 const previewImagemProdutoFormulario = computed(() => previewLocalImagemProduto.value || imagemUrlFormularioNormalizada.value)
 const nomeImagemProdutoPendente = computed(() => String(arquivoImagemProdutoPendente.value?.name || '').trim())
+const produtoNovoEmEdicao = computed(() => !produtoEditandoId.value)
 const uploadImagemHabilitado = computed(() => {
   if (!statusUploadsEmpresa.value || typeof statusUploadsEmpresa.value !== 'object') {
     return true
@@ -1156,7 +1157,7 @@ function validarArquivoImagem(arquivo) {
   }
 
   if (!TIPOS_IMAGEM_ACEITOS.includes(arquivo.type) || arquivo.size > TAMANHO_MAXIMO_IMAGEM) {
-    return 'A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.'
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.'
   }
 
   return ''
@@ -1229,10 +1230,10 @@ function obterMensagemErroUploadImagemProduto(errorAtual) {
     mensagem.includes('tamanho') ||
     mensagem.includes('grande')
   ) {
-    return 'A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.'
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.'
   }
 
-  return 'Nao foi possivel enviar a imagem agora. Tente novamente com um arquivo valido.'
+  return 'Não foi possível enviar a imagem agora. Tente novamente com um arquivo válido.'
 }
 
 async function enviarImagemProdutoArquivo(evento) {
@@ -1836,7 +1837,7 @@ async function salvarProduto() {
           sucesso.value = 'Produto cadastrado e imagem enviada com sucesso.'
         } catch {
           sucesso.value =
-            'Produto cadastrado, mas nao foi possivel enviar a imagem. Voce pode tentar novamente editando o produto.'
+            'Produto cadastrado, mas não foi possível enviar a imagem. Você pode tentar novamente editando o produto.'
         }
       } else {
         sucesso.value = 'Produto cadastrado com sucesso.'
@@ -1993,23 +1994,23 @@ async function copiarTexto(texto) {
 
 async function copiarLinkCatalogo() {
   if (!linkCatalogoPublico.value) {
-    mensagemLinkCatalogo.value = 'Defina o slug da empresa para gerar o link publico do catalogo.'
+    mensagemLinkCatalogo.value = 'Defina o slug da empresa para gerar o link público do catálogo.'
     return
   }
 
   try {
     const copiado = await copiarTexto(linkCatalogoPublico.value)
     mensagemLinkCatalogo.value = copiado
-      ? 'Link do catalogo copiado com sucesso.'
-      : 'Nao foi possivel copiar automaticamente. O link continua disponivel abaixo.'
+      ? 'Link do catálogo copiado com sucesso.'
+      : 'Não foi possível copiar automaticamente. O link continua disponível abaixo.'
   } catch {
-    mensagemLinkCatalogo.value = 'Nao foi possivel copiar automaticamente. O link continua disponivel abaixo.'
+    mensagemLinkCatalogo.value = 'Não foi possível copiar automaticamente. O link continua disponível abaixo.'
   }
 }
 
 function abrirCatalogoPublico() {
   if (!linkCatalogoPublico.value) {
-    mensagemLinkCatalogo.value = 'Defina o slug da empresa para abrir o catalogo publico.'
+    mensagemLinkCatalogo.value = 'Defina o slug da empresa para abrir o catálogo público.'
     return
   }
 
@@ -2759,7 +2760,7 @@ onBeforeUnmount(() => {
         <div class="cabecalho-secao">
           <div>
             <h2>Atualizacao rapida diaria</h2>
-            <p>Ajuste a disponibilidade em poucos toques e reflita no catalogo publico apos salvar.</p>
+            <p>Ajuste a disponibilidade em poucos toques e reflita no catálogo público após salvar.</p>
           </div>
           <span class="contador">{{ pluralizar(produtosEstoqueDiaOrdenados.length, 'produto', 'produtos') }}</span>
         </div>
@@ -2808,7 +2809,7 @@ onBeforeUnmount(() => {
               <p><strong>Preco:</strong> {{ formatarMoeda(obterPrecoVenda(produto)) }}</p>
               <p><strong>Quantidade atual:</strong> {{ formatarNumero(obterQuantidadeAtual(produto)) }}</p>
               <p><strong>Quantidade inicial do dia:</strong> {{ formatarNumero(obterQuantidadeInicialDia(produto)) }}</p>
-              <p><strong>Link publico:</strong> {{ temLinkCatalogoPublico ? '/catalogo/' + slugCatalogo : 'Slug nao configurado' }}</p>
+              <p><strong>Link público:</strong> {{ temLinkCatalogoPublico ? '/catalogo/' + slugCatalogo : 'Slug não configurado' }}</p>
               <p><strong>Atualizacao:</strong> {{ formatarAtualizacaoEstoqueDia(produto) }}</p>
             </div>
 
@@ -2845,7 +2846,7 @@ onBeforeUnmount(() => {
                 {{ obterExibirCatalogoPublico(produto) ? 'Ocultar na vitrine' : 'Mostrar na vitrine' }}
               </button>
               <button class="botao secundario" type="button" :disabled="!temLinkCatalogoPublico" @click="abrirCatalogoPublico">
-                Abrir no catalogo
+                Abrir no catálogo
               </button>
               <button class="botao secundario" type="button" :disabled="!temLinkCatalogoPublico" @click="copiarLinkCatalogoProduto">
                 Copiar link
@@ -2858,8 +2859,8 @@ onBeforeUnmount(() => {
       <section v-if="abaAtiva === 'catalogo'" class="secao-lista">
         <section class="card catalogo-link-card">
           <div class="titulo-card">
-            <h2>Link publico do catalogo</h2>
-            <p>O cliente ve estes produtos em /catalogo/{slug}. Atualize a quantidade no Estoque do dia para refletir em tempo real no catalogo.</p>
+            <h2>Link público do catálogo</h2>
+            <p>O cliente vê estes produtos em /catalogo/{slug}. Atualize a quantidade no Estoque do Dia para refletir em tempo real no catálogo.</p>
           </div>
 
           <div class="catalogo-link-conteudo">
@@ -2872,23 +2873,23 @@ onBeforeUnmount(() => {
                 {{
                   slugCatalogo
                     ? 'O host acompanha automaticamente o ambiente atual: localhost no local, gestao-hml.nuvemmais.com.br em HML e gestao.nuvemmais.com.br em producao.'
-                    : 'Sem slug nao e possivel gerar o link publico.'
+                    : 'Sem slug não é possível gerar o link público.'
                 }}
               </p>
 
               <div v-if="temLinkCatalogoPublico" class="catalogo-link-alternativo">
                 <span class="link-rotulo">Alias amigavel</span>
                 <strong class="link-publico">{{ linkCardapioPublico }}</strong>
-                <p class="ajuda-inline">A rota /cardapio/:slug tambem funciona e abre a mesma vitrine publica.</p>
+                <p class="ajuda-inline">A rota /cardapio/:slug também funciona e abre a mesma vitrine pública.</p>
               </div>
             </div>
 
             <div class="acoes">
               <button class="botao principal" type="button" :disabled="!temLinkCatalogoPublico" @click="copiarLinkCatalogo">
-                Copiar link do catalogo
+                Copiar link do catálogo
               </button>
               <button class="botao secundario" type="button" :disabled="!temLinkCatalogoPublico" @click="abrirCatalogoPublico">
-                Abrir catalogo
+                Abrir catálogo
               </button>
             </div>
           </div>
@@ -2907,13 +2908,13 @@ onBeforeUnmount(() => {
         <div class="cabecalho-secao">
           <div>
             <h2>Produtos na vitrine</h2>
-            <p>Revise o que esta visivel no catalogo publico, veja os indicadores e ajuste rapidamente sem sair do estoque.</p>
+            <p>Revise o que está visível no catálogo público, veja os indicadores e ajuste rapidamente sem sair do estoque.</p>
           </div>
           <span class="contador">{{ pluralizar(produtosCatalogoOrdenados.length, 'produto', 'produtos') }}</span>
         </div>
 
         <section v-if="!produtosCatalogoOrdenados.length" class="card estado">
-          <p>Cadastre um produto para comecar a montar o catalogo publico.</p>
+          <p>Cadastre um produto para começar a montar o catálogo público.</p>
         </section>
 
         <section v-else class="grade-produtos grade-produtos-catalogo">
@@ -2949,9 +2950,9 @@ onBeforeUnmount(() => {
             <p v-if="obterDescricaoPublicaProduto(produto)" class="descricao-produto">{{ obterDescricaoPublicaProduto(produto) }}</p>
 
             <div class="detalhes-produto">
-              <p><strong>Categoria publica:</strong> {{ obterCategoriaPublicaProduto(produto) || 'Nao informada' }}</p>
-              <p><strong>Ordem no catalogo:</strong> {{ formatarNumero(obterOrdemCatalogo(produto)) }}</p>
-              <p><strong>Preco publico:</strong> {{ obterMostrarPrecoPublico(produto) ? formatarMoeda(obterPrecoVenda(produto)) : 'Oculto' }}</p>
+              <p><strong>Categoria pública:</strong> {{ obterCategoriaPublicaProduto(produto) || 'Não informada' }}</p>
+              <p><strong>Ordem no catálogo:</strong> {{ formatarNumero(obterOrdemCatalogo(produto)) }}</p>
+              <p><strong>Preço público:</strong> {{ obterMostrarPrecoPublico(produto) ? formatarMoeda(obterPrecoVenda(produto)) : 'Oculto' }}</p>
               <p><strong>Quantidade publica:</strong> {{ obterMostrarQuantidadePublica(produto) ? formatarQuantidadeCatalogo(produto) : 'Oculta' }}</p>
               <p><strong>Botao:</strong> {{ obterTextoBotaoPublico(produto) }}</p>
             </div>
@@ -2967,7 +2968,7 @@ onBeforeUnmount(() => {
                 {{ obterMostrarQuantidadePublica(produto) ? 'Mostra quantidade' : 'Quantidade oculta' }}
               </span>
               <span class="chip-catalogo" :class="produtoDisponivelNoCatalogo(produto) ? 'ativo' : 'inativo'">
-                {{ produtoDisponivelNoCatalogo(produto) ? 'Disponivel' : 'Esgotado' }}
+                {{ produtoDisponivelNoCatalogo(produto) ? 'Disponível' : 'Esgotado' }}
               </span>
             </div>
 
@@ -2981,7 +2982,7 @@ onBeforeUnmount(() => {
                 {{ obterExibirCatalogoPublico(produto) ? 'Ocultar da vitrine' : 'Mostrar na vitrine' }}
               </button>
               <button class="botao principal" type="button" :disabled="!temLinkCatalogoPublico" @click="abrirCatalogoPublico">
-                Abrir catalogo
+                Abrir catálogo
               </button>
             </div>
           </article>
@@ -2997,205 +2998,246 @@ onBeforeUnmount(() => {
 
           <div v-if="carregandoDetalheProduto" class="estado-inline">Carregando dados do produto...</div>
 
-          <div class="campos">
-            <label>
-              Nome *
-              <input v-model="formularioProduto.nome" type="text" placeholder="Ex: Shampoo neutro" />
-            </label>
-            <label>
-              Código interno / SKU
-              <input v-model="formularioProduto.codigoSku" type="text" placeholder="Ex: SH-001" />
-              <small>SKU é um código interno para identificar o produto. Exemplo: SH-001 para Shampoo.</small>
-            </label>
-            <label class="campo-grande">
-              Descrição
-              <textarea v-model="formularioProduto.descricao" rows="3" placeholder="Informações importantes para identificar o produto."></textarea>
-              <div class="produto-form-checkbox produto-form-checkbox-inline">
-                <input v-model="usarDescricaoNaVitrine" type="checkbox" />
-                <span>Usar esta descrição também na vitrine pública</span>
+          <div class="campos-formulario-produto">
+            <section class="bloco-formulario-produto">
+              <div class="bloco-formulario-cabecalho">
+                <h3>Dados internos do produto</h3>
+                <p>Use estas informações para controle do estoque, preços e histórico.</p>
               </div>
-            </label>
-            <label>
-              Categoria
-              <input v-model="formularioProduto.categoria" type="text" placeholder="Ex: Higiene" />
-              <div class="produto-form-checkbox produto-form-checkbox-inline">
-                <input v-model="usarCategoriaNaVitrine" type="checkbox" />
-                <span>Usar esta categoria também na vitrine pública</span>
+
+              <div class="campos">
+                <label>
+                  Nome *
+                  <input v-model="formularioProduto.nome" type="text" placeholder="Ex.: Shampoo neutro" />
+                </label>
+                <label>
+                  Código interno / SKU
+                  <input v-model="formularioProduto.codigoSku" type="text" placeholder="Ex.: SH-001" />
+                  <small>SKU é um código interno para identificar o produto. Exemplo: SH-001 para shampoo.</small>
+                </label>
+                <label class="campo-grande">
+                  Descrição
+                  <textarea v-model="formularioProduto.descricao" rows="3" placeholder="Informações importantes para identificar o produto."></textarea>
+                  <small class="ajuda-campo-produto">Use este campo para controle interno do produto.</small>
+                  <div class="produto-form-checkbox produto-form-checkbox-inline">
+                    <input v-model="usarDescricaoNaVitrine" type="checkbox" />
+                    <span>Usar esta descrição também na vitrine pública</span>
+                  </div>
+                </label>
+                <label>
+                  Categoria
+                  <input v-model="formularioProduto.categoria" type="text" placeholder="Ex.: Higiene" />
+                  <small class="ajuda-campo-produto">Categoria usada para organizar seu estoque.</small>
+                  <div class="produto-form-checkbox produto-form-checkbox-inline">
+                    <input v-model="usarCategoriaNaVitrine" type="checkbox" />
+                    <span>Usar esta categoria também na vitrine pública</span>
+                  </div>
+                </label>
+                <label>
+                  Unidade
+                  <select v-model="formularioProduto.unidade">
+                    <option v-for="opcao in opcoesUnidadeProduto" :key="opcao.valor" :value="opcao.valor">
+                      {{ opcao.valor }} - {{ opcao.descricao }}
+                    </option>
+                  </select>
+                  <small>Caso precise de uma nova opção, entre em contato com a Administração do Sistema para que a equipe adicione o tipo.</small>
+                  <small v-if="avisoUnidades" class="aviso-campo">{{ avisoUnidades }}</small>
+                </label>
+                <label>
+                  Preço de custo
+                  <input v-model="formularioProduto.precoCusto" type="number" min="0" step="0.01" />
+                </label>
+                <label>
+                  Preço de venda
+                  <input v-model="formularioProduto.precoVenda" type="number" min="0" step="0.01" />
+                </label>
+                <label>
+                  Quantidade atual
+                  <input v-model="formularioProduto.quantidadeAtual" type="number" min="0" step="0.01" :readonly="Boolean(produtoEditandoId)" />
+                  <small v-if="produtoEditandoId">O saldo do produto deve ser alterado por Entrada, Saída ou Ajuste, para manter o histórico do estoque.</small>
+                </label>
+                <label>
+                  Estoque mínimo
+                  <input v-model="formularioProduto.estoqueMinimo" type="number" min="0" step="0.01" />
+                </label>
+                <div class="campo-grande produto-ativo-container">
+                  <label class="produto-ativo-checkbox produto-form-checkbox">
+                    <input v-model="formularioProduto.ativo" type="checkbox" />
+                    <span>Produto ativo</span>
+                  </label>
+                </div>
               </div>
-            </label>
-            <label>
-              Unidade
-              <select v-model="formularioProduto.unidade">
-                <option v-for="opcao in opcoesUnidadeProduto" :key="opcao.valor" :value="opcao.valor">
-                  {{ opcao.valor }} - {{ opcao.descricao }}
-                </option>
-              </select>
-              <small>Caso precise de uma nova opção, entre em contato com a Administração do Sistema para que a equipe adicione o tipo.</small>
-              <small v-if="avisoUnidades" class="aviso-campo">{{ avisoUnidades }}</small>
-            </label>
-            <label>
-              Preço de custo
-              <input v-model="formularioProduto.precoCusto" type="number" min="0" step="0.01" />
-            </label>
-            <label>
-              Preço de venda
-              <input v-model="formularioProduto.precoVenda" type="number" min="0" step="0.01" />
-            </label>
-            <label>
-              Quantidade atual
-              <input v-model="formularioProduto.quantidadeAtual" type="number" min="0" step="0.01" :readonly="Boolean(produtoEditandoId)" />
-              <small v-if="produtoEditandoId">O saldo do produto deve ser alterado por Entrada, Saída ou Ajuste, para manter o histórico do estoque.</small>
-            </label>
-            <label>
-              Estoque mínimo
-              <input v-model="formularioProduto.estoqueMinimo" type="number" min="0" step="0.01" />
-            </label>
-            <div class="campo-grande produto-ativo-container">
-              <label class="produto-ativo-checkbox produto-form-checkbox">
-                <input v-model="formularioProduto.ativo" type="checkbox" />
-                <span>Produto ativo</span>
-              </label>
-            </div>
-          </div>
+            </section>
 
-          <section class="secao-formulario-publico">
-            <div class="titulo-card">
-              <h2>Catálogo público</h2>
-              <p>Defina como este produto aparece na vitrine pública e no botão do WhatsApp.</p>
-            </div>
+            <section class="bloco-formulario-produto">
+              <div class="bloco-formulario-cabecalho">
+                <h3>Informações para a vitrine pública</h3>
+                <p>Defina como o produto aparece no Catálogo/Cardápio para o cliente.</p>
+              </div>
 
-            <div class="campos">
-              <label>
-                Imagem do produto por URL
-                <input
-                  v-model="formularioProduto.imagemUrl"
-                  type="url"
-                  placeholder="https://..."
-                  @blur="normalizarImagemUrlFormulario"
-                />
-                <small>Voce pode colar um link direto de imagem ou um link publico do Google Drive. No Google Drive, deixe o arquivo como "Qualquer pessoa com o link pode ver".</small>
-                <div v-if="previewImagemProdutoFormulario" class="preview-imagem-produto">
+              <div class="campos">
+                <label>
+                  Categoria pública
+                  <template v-if="usarCategoriaNaVitrine">
+                    <div class="campo-vinculado-publico">
+                      <input :value="formularioProduto.categoria || ''" type="text" disabled placeholder="Ex.: Doces do dia" />
+                      <small class="ajuda-campo-produto">A vitrine pública está copiando automaticamente a categoria interna.</small>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <input v-model="formularioProduto.categoriaPublica" type="text" placeholder="Ex.: Doces do dia" />
+                    <small class="ajuda-campo-produto">Categoria exibida para o cliente na vitrine.</small>
+                  </template>
+                </label>
+                <label>
+                  Ordem no catálogo
+                  <input v-model="formularioProduto.ordemCatalogo" type="number" min="0" step="1" />
+                </label>
+                <label class="campo-grande">
+                  Descrição da vitrine
+                  <template v-if="usarDescricaoNaVitrine">
+                    <div class="campo-vinculado-publico">
+                      <textarea
+                        :value="formularioProduto.descricao || ''"
+                        rows="3"
+                        disabled
+                        placeholder="Explique sabor, tamanho, recheio ou observações importantes."
+                      ></textarea>
+                      <small class="ajuda-campo-produto">A vitrine pública está copiando automaticamente a descrição interna.</small>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <textarea
+                      v-model="formularioProduto.descricaoPublica"
+                      rows="3"
+                      placeholder="Explique sabor, tamanho, recheio ou observações importantes."
+                    ></textarea>
+                    <small class="ajuda-campo-produto">Esse texto aparece para o cliente no catálogo/cardápio.</small>
+                  </template>
+                </label>
+              </div>
+            </section>
+
+            <section class="bloco-formulario-produto">
+              <div class="bloco-formulario-cabecalho">
+                <h3>Imagem do produto</h3>
+                <p>Use upload próprio ou mantenha uma URL externa, conforme fizer mais sentido.</p>
+              </div>
+
+              <div class="campos">
+                <label>
+                  Imagem do produto por URL
+                  <input
+                    v-model="formularioProduto.imagemUrl"
+                    type="url"
+                    placeholder="https://..."
+                    @blur="normalizarImagemUrlFormulario"
+                  />
+                  <small>Você pode colar um link direto de imagem ou um link público do Google Drive. No Google Drive, deixe o arquivo como "Qualquer pessoa com o link pode ver".</small>
+                </label>
+                <div class="campo-grande upload-produto-card">
+                  <div class="upload-produto-topo">
+                    <div>
+                      <strong>Enviar imagem</strong>
+                      <small v-if="produtoNovoEmEdicao">A imagem será enviada automaticamente após salvar o produto.</small>
+                      <small v-else>Use upload para trocar a imagem sem depender de link externo.</small>
+                    </div>
+                  </div>
+                  <div class="upload-produto-acoes">
+                    <input
+                      ref="uploadImagemProdutoInput"
+                      class="input-arquivo"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      :disabled="enviandoImagemProduto || removendoImagemProduto || !uploadImagemHabilitado"
+                      @change="enviarImagemProdutoArquivo"
+                    />
+                    <button
+                      class="botao secundario botao-upload-produto"
+                      type="button"
+                      :disabled="enviandoImagemProduto || removendoImagemProduto || !uploadImagemHabilitado"
+                      @click="uploadImagemProdutoInput?.click()"
+                    >
+                      {{ enviandoImagemProduto ? 'Enviando imagem...' : produtoEditandoId ? 'Trocar imagem' : 'Escolher imagem' }}
+                    </button>
+                    <button
+                      v-if="arquivoImagemProdutoPendente || previewImagemProdutoFormulario"
+                      class="botao ghost botao-upload-produto"
+                      type="button"
+                      :disabled="enviandoImagemProduto || removendoImagemProduto"
+                      :aria-label="arquivoImagemProdutoPendente ? 'Remover imagem selecionada' : 'Remover imagem do produto'"
+                      @click="removerImagemProdutoAtual"
+                    >
+                      {{ arquivoImagemProdutoPendente ? 'Remover imagem selecionada' : 'Remover imagem' }}
+                    </button>
+                  </div>
+                  <small v-if="nomeImagemProdutoPendente" class="ajuda-campo-produto">Arquivo selecionado: {{ nomeImagemProdutoPendente }}</small>
+                  <p v-if="mensagemUploadProduto" class="sucesso-texto">{{ mensagemUploadProduto }}</p>
+                  <small class="ajuda-campo-produto">A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.</small>
+                </div>
+                <div v-if="previewImagemProdutoFormulario" class="campo-grande preview-imagem-produto">
                   <img
                     v-if="!erroPreviewImagemProduto"
                     :src="previewImagemProdutoFormulario"
-                    alt="Previa da imagem do produto"
+                    alt="Prévia da imagem do produto"
                     class="preview-imagem"
                     @error="aoFalharImagemFormulario"
                     @load="aoCarregarImagemFormulario"
                   />
                   <div v-else class="preview-imagem-erro">
-                    <strong>Previa indisponivel</strong>
-                    <small>A imagem nao carregou, mas o link pode continuar salvo para o catalogo publico.</small>
+                    <strong>Prévia indisponível</strong>
+                    <small>A imagem não carregou, mas o link pode continuar salvo para o catálogo público.</small>
                   </div>
                 </div>
-              </label>
-              <div class="campo-grande upload-produto-card">
-                <div class="upload-produto-topo">
-                  <div>
-                    <strong>Enviar imagem</strong>
-                    <small v-if="produtoEditandoId">Use upload para trocar a imagem sem depender de link externo.</small>
-                    <small v-else>Voce pode escolher a imagem agora. Ela sera enviada automaticamente apos salvar o produto.</small>
-                  </div>
-                </div>
-                <div class="upload-produto-acoes">
-                  <input
-                    ref="uploadImagemProdutoInput"
-                    class="input-arquivo"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    :disabled="enviandoImagemProduto || removendoImagemProduto || !uploadImagemHabilitado"
-                    @change="enviarImagemProdutoArquivo"
-                  />
-                  <button
-                    class="botao secundario"
-                    type="button"
-                    :disabled="enviandoImagemProduto || removendoImagemProduto || !uploadImagemHabilitado"
-                    @click="uploadImagemProdutoInput?.click()"
-                  >
-                    {{ enviandoImagemProduto ? 'Enviando imagem...' : produtoEditandoId ? 'Trocar imagem' : 'Escolher imagem' }}
-                  </button>
-                  <button
-                    v-if="arquivoImagemProdutoPendente || previewImagemProdutoFormulario"
-                    class="botao ghost"
-                    type="button"
-                    :disabled="enviandoImagemProduto || removendoImagemProduto"
-                    @click="removerImagemProdutoAtual"
-                  >
-                    {{ arquivoImagemProdutoPendente ? 'Remover imagem selecionada' : 'Remover imagem' }}
-                  </button>
-                </div>
-                <small v-if="nomeImagemProdutoPendente" class="ajuda-campo-produto">Arquivo selecionado: {{ nomeImagemProdutoPendente }}</small>
-                <p v-if="mensagemUploadProduto" class="sucesso-texto">{{ mensagemUploadProduto }}</p>
-                <small class="ajuda-campo-produto">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
               </div>
-              <label>
-                Categoria pública
-                <template v-if="usarCategoriaNaVitrine">
-                  <input :value="formularioProduto.categoria || ''" type="text" disabled placeholder="Ex: Doces do dia" />
-                  <small class="ajuda-campo-produto">A vitrine pública usará a mesma categoria informada acima.</small>
-                </template>
-                <input v-else v-model="formularioProduto.categoriaPublica" type="text" placeholder="Ex: Doces do dia" />
-              </label>
-              <label class="campo-grande">
-                Descrição para o cliente
-                <template v-if="usarDescricaoNaVitrine">
-                  <textarea
-                    :value="formularioProduto.descricao || ''"
-                    rows="3"
-                    disabled
-                    placeholder="Explique sabor, tamanho, recheio ou observações importantes."
-                  ></textarea>
-                  <small class="ajuda-campo-produto">A vitrine pública usará a mesma descrição informada acima.</small>
-                </template>
-                <textarea
-                  v-else
-                  v-model="formularioProduto.descricaoPublica"
-                  rows="3"
-                  placeholder="Explique sabor, tamanho, recheio ou observações importantes."
-                ></textarea>
-              </label>
-              <label>
-                Ordem no catálogo
-                <input v-model="formularioProduto.ordemCatalogo" type="number" min="0" step="1" />
-              </label>
-              <div class="campo-grande configuracao-avancada-vitrine">
-                <button
-                  type="button"
-                  class="botao-link"
-                  @click="mostrarConfiguracaoAvancadaVitrine = !mostrarConfiguracaoAvancadaVitrine"
-                >
-                  {{ mostrarConfiguracaoAvancadaVitrine ? 'Ocultar configuração avançada da vitrine' : 'Mostrar configuração avançada da vitrine' }}
-                </button>
-                <div v-if="mostrarConfiguracaoAvancadaVitrine" class="configuracao-avancada-conteudo">
-                  <label>
-                    Texto do botão
-                    <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
-                    <small class="ajuda-campo-produto">
-                      Opcional: personalize o botão apenas deste produto. Se deixar em branco, será usado o texto padrão definido em Personalização.
-                    </small>
+            </section>
+
+            <section class="bloco-formulario-produto">
+              <div class="bloco-formulario-cabecalho">
+                <h3>Configuração avançada da vitrine</h3>
+                <p>Ajuste detalhes opcionais sem poluir o fluxo principal do cadastro.</p>
+              </div>
+
+              <div class="campos">
+                <div class="campo-grande produto-catalogo-checkbox-grid">
+                  <label class="produto-catalogo-checkbox produto-form-checkbox">
+                    <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
+                    <span>Exibir no Catálogo Público</span>
+                  </label>
+                  <label class="produto-catalogo-checkbox produto-form-checkbox">
+                    <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
+                    <span>Produto em destaque</span>
+                  </label>
+                  <label class="produto-catalogo-checkbox produto-form-checkbox">
+                    <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
+                    <span>Mostrar quantidade ao cliente</span>
+                  </label>
+                  <label class="produto-catalogo-checkbox produto-form-checkbox">
+                    <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
+                    <span>Mostrar preço ao cliente</span>
                   </label>
                 </div>
+                <div class="campo-grande configuracao-avancada-vitrine">
+                  <button
+                    type="button"
+                    class="botao-link"
+                    @click="mostrarConfiguracaoAvancadaVitrine = !mostrarConfiguracaoAvancadaVitrine"
+                  >
+                    {{ mostrarConfiguracaoAvancadaVitrine ? 'Ocultar configuração avançada da vitrine' : 'Mostrar configuração avançada da vitrine' }}
+                  </button>
+                  <div v-if="mostrarConfiguracaoAvancadaVitrine" class="configuracao-avancada-conteudo">
+                    <label>
+                      Texto do botão deste produto
+                      <input v-model="formularioProduto.textoBotaoPublico" type="text" :placeholder="TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO" />
+                      <small class="ajuda-campo-produto">
+                        Opcional. Se deixar em branco, será usado o texto padrão definido em Personalização.
+                      </small>
+                    </label>
+                  </div>
+                </div>
               </div>
-              <div class="campo-grande produto-catalogo-checkbox-grid">
-                <label class="produto-catalogo-checkbox produto-form-checkbox">
-                  <input v-model="formularioProduto.exibirCatalogoPublico" type="checkbox" />
-                  <span>Exibir no catalogo publico</span>
-                </label>
-                <label class="produto-catalogo-checkbox produto-form-checkbox">
-                  <input v-model="formularioProduto.destaqueCatalogo" type="checkbox" />
-                  <span>Produto em destaque</span>
-                </label>
-                <label class="produto-catalogo-checkbox produto-form-checkbox">
-                  <input v-model="formularioProduto.mostrarQuantidadePublica" type="checkbox" />
-                  <span>Mostrar quantidade ao cliente</span>
-                </label>
-                <label class="produto-catalogo-checkbox produto-form-checkbox">
-                  <input v-model="formularioProduto.mostrarPrecoPublico" type="checkbox" />
-                  <span>Mostrar preco ao cliente</span>
-                </label>
-              </div>
-            </div>
-          </section>
+            </section>
+          </div>
 
           <div class="acoes">
             <button class="botao principal" :disabled="salvandoProduto">
@@ -3659,6 +3701,41 @@ label {
   min-width: 0;
 }
 
+.campos-formulario-produto {
+  display: grid;
+  gap: 18px;
+}
+
+.bloco-formulario-produto {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+}
+
+.bloco-formulario-cabecalho {
+  display: grid;
+  gap: 4px;
+}
+
+.bloco-formulario-cabecalho h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.bloco-formulario-cabecalho p {
+  margin: 0;
+  color: #64748b;
+}
+
+.campo-vinculado-publico {
+  display: grid;
+  gap: 8px;
+}
+
 .configuracao-avancada-vitrine {
   display: grid;
   gap: 10px;
@@ -3722,8 +3799,8 @@ textarea[disabled] { background: #f8fafc; color: #64748b; }
   gap: 4px;
   padding: 12px;
   border-radius: 8px;
-  background: #fff7ed;
-  color: #9a3412;
+  background: #eef2ff;
+  color: #334155;
 }
 .preview-imagem-erro strong {
   font-size: 14px;
@@ -3747,6 +3824,10 @@ textarea[disabled] { background: #f8fafc; color: #64748b; }
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.botao-upload-produto {
+  min-height: 44px;
 }
 .input-arquivo {
   position: absolute;
@@ -3970,6 +4051,7 @@ textarea[disabled] { background: #f8fafc; color: #64748b; }
   .botao,
   .botao-fechar { width: auto; }
   .produto-catalogo-checkbox-grid { grid-template-columns: 1fr; }
+  .bloco-formulario-produto { padding: 16px; }
   .grade-produtos,
   .grade-produtos-catalogo,
   .lista-preparo-estoque-dia,
@@ -3991,6 +4073,7 @@ textarea[disabled] { background: #f8fafc; color: #64748b; }
   .botoes-paginacao,
   .acoes-preparo-item,
   .acoes-estoque-dia { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .upload-produto-acoes > * { width: 100%; }
   .botao,
   .paginacao label,
   .paginacao select { width: 100%; }
