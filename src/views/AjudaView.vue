@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
+import { formatarDataPtBrSemFuso } from '@/utils/datas'
 
 const route = useRoute()
 const router = useRouter()
@@ -912,21 +913,7 @@ watch(
 )
 
 function formatarDataAtualizacao(valor) {
-  if (!valor) {
-    return ''
-  }
-
-  const data = new Date(valor)
-
-  if (Number.isNaN(data.getTime())) {
-    return String(valor)
-  }
-
-  return data.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  return formatarDataPtBrSemFuso(valor)
 }
 
 watch(
