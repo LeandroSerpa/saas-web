@@ -989,6 +989,14 @@ async function tratarResposta(response, opcoes = {}) {
   return tratarRespostaCustomizada(response, opcoes)
 }
 
+async function tratarRespostaOpcional(response, opcoes = {}) {
+  if ([404, 405].includes(response.status)) {
+    return null
+  }
+
+  return tratarResposta(response, opcoes)
+}
+
 async function tratarRespostaPublica(response) {
   if (!response.ok) {
     const mensagem = await extrairMensagemErro(response)
@@ -1212,6 +1220,33 @@ export async function uploadLogoEmpresa(imagem) {
   return tratarResposta(response)
 }
 
+export async function buscarStatusUploadsEmpresa() {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/uploads/status${montarQueryString(filtrosConsulta)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
+}
+
+export async function buscarResumoUploadsEmpresa() {
+  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const response = await executarFetch(`${API_URL}/minha-empresa/uploads/resumo${montarQueryString(filtrosConsulta)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
+}
+
+export async function removerLogoEmpresa() {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
+}
+
 export async function uploadBannerEmpresa(imagem) {
   const formData = new FormData()
   formData.append('imagem', imagem)
@@ -1223,6 +1258,15 @@ export async function uploadBannerEmpresa(imagem) {
   })
 
   return tratarResposta(response)
+}
+
+export async function removerBannerEmpresa() {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
 }
 
 export async function buscarIndisponibilidades(filtros = {}) {
@@ -4040,6 +4084,15 @@ export async function uploadImagemProduto(produtoId, imagem) {
   })
 
   return tratarResposta(response)
+}
+
+export async function removerImagemProduto(produtoId) {
+  const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/imagem`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarRespostaOpcional(response)
 }
 
 export async function cadastrarAgendamento(agendamento) {

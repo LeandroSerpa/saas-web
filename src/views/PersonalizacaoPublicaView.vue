@@ -1,9 +1,13 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   buscarMinhaPersonalizacao,
+  buscarResumoUploadsEmpresa,
+  buscarStatusUploadsEmpresa,
   recalcularOnboarding,
+  removerBannerEmpresa,
+  removerLogoEmpresa,
   salvarMinhaPersonalizacao,
   uploadBannerEmpresa,
   uploadLogoEmpresa,
@@ -33,6 +37,14 @@ const enviandoLogo = ref(false)
 const enviandoBanner = ref(false)
 const mensagemUploadLogo = ref('')
 const mensagemUploadBanner = ref('')
+const statusUploadsEmpresa = ref(null)
+const resumoUploadsEmpresa = ref(null)
+const removendoLogo = ref(false)
+const removendoBanner = ref(false)
+const logoPreviewLocal = ref('')
+const bannerPreviewLocal = ref('')
+const nomeArquivoLogo = ref('')
+const nomeArquivoBanner = ref('')
 const route = useRoute()
 const router = useRouter()
 const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
@@ -58,8 +70,19 @@ const corSecundariaPreview = computed(() =>
 )
 const corPrincipalInvalida = computed(() => corHexDigitadaInvalida(personalizacao.value.corPrincipal))
 const corSecundariaInvalida = computed(() => corHexDigitadaInvalida(personalizacao.value.corSecundaria))
-const logoPreviewUrl = computed(() => normalizarUrlImagemPublica(personalizacao.value.logoUrl))
-const bannerPreviewUrl = computed(() => normalizarUrlImagemPublica(personalizacao.value.bannerUrl))
+const logoPreviewUrl = computed(() => logoPreviewLocal.value || normalizarUrlImagemPublica(personalizacao.value.logoUrl))
+const bannerPreviewUrl = computed(() => bannerPreviewLocal.value || normalizarUrlImagemPublica(personalizacao.value.bannerUrl))
+const uploadImagemHabilitado = computed(() => {
+  if (!statusUploadsEmpresa.value || typeof statusUploadsEmpresa.value !== 'object') {
+    return true
+  }
+
+  const ativo = extrairBooleanoUploads(statusUploadsEmpresa.value, ['ativo', 'habilitado', 'uploadAtivo', 'uploadHabilitado', 'disponivel'])
+  const gravavel = extrairBooleanoUploads(statusUploadsEmpresa.value, ['gravavel', 'gravacaoAtiva', 'podeEnviar', 'podeGravar', 'writable'])
+
+  return ativo !== false && gravavel !== false
+})
+const resumoUploadsEmpresaTexto = computed(() => formatarResumoUploads(resumoUploadsEmpresa.value))
 const iniciaisPreview = computed(() =>
   extrairIniciais(personalizacao.value.tituloPagina || personalizacao.value.tituloCatalogo || 'NM'),
 )
@@ -80,6 +103,7 @@ watch(
 
 onMounted(() => {
   carregarPersonalizacao()
+  carregarInformacoesUploadsEmpresa()
 })
 
 function criarPersonalizacaoInicial() {
@@ -105,9 +129,122 @@ function criarPersonalizacaoInicial() {
   }
 }
 
+function extrairBooleanoUploads(origem, chaves) {
+  for (const chave of chaves) {
+    const valor = origem?.[chave]
+
+    if (typeof valor === 'boolean') {
+      return valor
+    }
+  }
+
+  return null
+}
+
+function extrairNumeroUploads(origem, chaves) {
+  for (const chave of chaves) {
+    const numero = Number(origem?.[chave])
+
+    if (Number.isFinite(numero) && numero >= 0) {
+      return numero
+    }
+  }
+
+  return null
+}
+
+function formatarTamanhoArquivo(bytes) {
+  const valor = Number(bytes)
+
+  if (!Number.isFinite(valor) || valor < 0) {
+    return ''
+  }
+
+  if (valor < 1024) {
+    return `${valor} B`
+  }
+
+  const unidades = ['KB', 'MB', 'GB', 'TB']
+  let tamanho = valor / 1024
+  let indice = 0
+
+  while (tamanho >= 1024 && indice < unidades.length - 1) {
+    tamanho /= 1024
+    indice += 1
+  }
+
+  return `${tamanho.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${unidades[indice]}`
+}
+
+function formatarResumoUploads(resumoAtual) {
+  if (!resumoAtual || typeof resumoAtual !== 'object') {
+    return ''
+  }
+
+  const quantidadeArquivos = extrairNumeroUploads(resumoAtual, ['quantidadeArquivos', 'qtdArquivos', 'totalArquivos', 'arquivos'])
+  const totalBytes = extrairNumeroUploads(resumoAtual, ['totalBytes', 'bytesUtilizados', 'tamanhoTotalBytes', 'tamanhoBytes', 'total'])
+  const percentual = extrairNumeroUploads(resumoAtual, ['percentual', 'percentualUtilizado', 'usoPercentual'])
+  const partes = []
+
+  if (totalBytes !== null) {
+    partes.push(formatarTamanhoArquivo(totalBytes))
+  }
+
+  if (quantidadeArquivos !== null) {
+    partes.push(`${quantidadeArquivos.toLocaleString('pt-BR')} ${quantidadeArquivos === 1 ? 'arquivo' : 'arquivos'}`)
+  }
+
+  if (!partes.length) {
+    return ''
+  }
+
+  let texto = `Uso de imagens: ${partes.join(' em ')}.`
+
+  if (percentual !== null) {
+    texto += ` ${percentual.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}% utilizado.`
+  }
+
+  return texto
+}
+
 function limparMensagensUpload() {
   mensagemUploadLogo.value = ''
   mensagemUploadBanner.value = ''
+}
+
+function revogarPreviewLocal(tipo) {
+  if (tipo === 'logo' && logoPreviewLocal.value.startsWith('blob:')) {
+    URL.revokeObjectURL(logoPreviewLocal.value)
+  }
+
+  if (tipo === 'banner' && bannerPreviewLocal.value.startsWith('blob:')) {
+    URL.revokeObjectURL(bannerPreviewLocal.value)
+  }
+}
+
+function limparPreviewLocal(tipo) {
+  revogarPreviewLocal(tipo)
+
+  if (tipo === 'logo') {
+    logoPreviewLocal.value = ''
+    nomeArquivoLogo.value = ''
+  } else {
+    bannerPreviewLocal.value = ''
+    nomeArquivoBanner.value = ''
+  }
+}
+
+function definirPreviewLocal(tipo, arquivo) {
+  limparPreviewLocal(tipo)
+  const preview = URL.createObjectURL(arquivo)
+
+  if (tipo === 'logo') {
+    logoPreviewLocal.value = preview
+    nomeArquivoLogo.value = String(arquivo?.name || '').trim()
+  } else {
+    bannerPreviewLocal.value = preview
+    nomeArquivoBanner.value = String(arquivo?.name || '').trim()
+  }
 }
 
 async function carregarPersonalizacao() {
@@ -127,34 +264,65 @@ async function carregarPersonalizacao() {
   }
 }
 
+async function carregarInformacoesUploadsEmpresa() {
+  try {
+    const [statusApi, resumoApi] = await Promise.all([
+      buscarStatusUploadsEmpresa().catch((errorAtual) => {
+        if ([404, 405].includes(errorAtual?.status)) {
+          return null
+        }
+
+        throw errorAtual
+      }),
+      buscarResumoUploadsEmpresa().catch((errorAtual) => {
+        if ([404, 405].includes(errorAtual?.status)) {
+          return null
+        }
+
+        throw errorAtual
+      }),
+    ])
+
+    statusUploadsEmpresa.value = statusApi
+    resumoUploadsEmpresa.value = resumoApi
+  } catch {
+    statusUploadsEmpresa.value = null
+    resumoUploadsEmpresa.value = null
+  }
+}
+
+function montarPayloadPersonalizacao(sobrescritas = {}) {
+  const corPrincipal = normalizarCorHex(sobrescritas.corPrincipal ?? personalizacao.value.corPrincipal, '')
+  const corSecundaria = normalizarCorHex(sobrescritas.corSecundaria ?? personalizacao.value.corSecundaria, '')
+  const logoUrl = normalizarUrlImagemPublica(sobrescritas.logoUrl ?? personalizacao.value.logoUrl)
+  const bannerUrl = normalizarUrlImagemPublica(sobrescritas.bannerUrl ?? personalizacao.value.bannerUrl)
+
+  return {
+    ...personalizacao.value,
+    ...sobrescritas,
+    corPrincipal,
+    corSecundaria,
+    logoUrl,
+    bannerUrl,
+  }
+}
+
 async function salvarPersonalizacao() {
   try {
     erro.value = ''
     mensagemSucesso.value = ''
     limparMensagensUpload()
 
-    const corPrincipal = normalizarCorHex(personalizacao.value.corPrincipal, '')
-    const corSecundaria = normalizarCorHex(personalizacao.value.corSecundaria, '')
-    const logoUrl = normalizarUrlImagemPublica(personalizacao.value.logoUrl)
-    const bannerUrl = normalizarUrlImagemPublica(personalizacao.value.bannerUrl)
+    const payload = montarPayloadPersonalizacao()
 
-    if (!corPrincipal || !corSecundaria) {
+    if (!payload.corPrincipal || !payload.corSecundaria) {
       erro.value = 'A cor deve estar no formato hexadecimal, exemplo #2563eb.'
       return
     }
 
     salvando.value = true
-    personalizacao.value.corPrincipal = corPrincipal
-    personalizacao.value.corSecundaria = corSecundaria
-    personalizacao.value.logoUrl = logoUrl
-    personalizacao.value.bannerUrl = bannerUrl
-    await salvarMinhaPersonalizacao({
-      ...personalizacao.value,
-      corPrincipal,
-      corSecundaria,
-      logoUrl,
-      bannerUrl,
-    })
+    personalizacao.value = { ...payload }
+    await salvarMinhaPersonalizacao(payload)
     await retornarParaOnboardingSeNecessario('PERSONALIZACAO')
     mensagemSucesso.value = 'Personalização salva com sucesso.'
   } catch (error) {
@@ -240,9 +408,16 @@ async function enviarImagemPersonalizacao(tipo, evento) {
     return
   }
 
+  if (!uploadImagemHabilitado.value) {
+    erro.value = 'O envio de imagens está temporariamente indisponível. Você ainda pode usar uma URL externa.'
+    limparCampoArquivo(tipo)
+    return
+  }
+
   try {
     erro.value = ''
     mensagemSucesso.value = ''
+    definirPreviewLocal(tipo, arquivo)
 
     if (tipo === 'logo') {
       enviandoLogo.value = true
@@ -267,7 +442,48 @@ async function enviarImagemPersonalizacao(tipo, evento) {
       enviandoBanner.value = false
     }
 
+    limparPreviewLocal(tipo)
     limparCampoArquivo(tipo)
+  }
+}
+
+async function removerImagemPersonalizacao(tipo) {
+  try {
+    erro.value = ''
+    mensagemSucesso.value = ''
+    limparMensagensUpload()
+
+    if (tipo === 'logo') {
+      removendoLogo.value = true
+    } else {
+      removendoBanner.value = true
+    }
+
+    const sobrescritas = tipo === 'logo' ? { logoUrl: '' } : { bannerUrl: '' }
+    const payload = montarPayloadPersonalizacao(sobrescritas)
+
+    await salvarMinhaPersonalizacao(payload)
+
+    if (tipo === 'logo') {
+      personalizacao.value.logoUrl = ''
+      logoPreviewComErro.value = false
+      await removerLogoEmpresa().catch(() => null)
+      mensagemUploadLogo.value = 'Imagem removida com sucesso.'
+    } else {
+      personalizacao.value.bannerUrl = ''
+      bannerPreviewComErro.value = false
+      await removerBannerEmpresa().catch(() => null)
+      mensagemUploadBanner.value = 'Imagem removida com sucesso.'
+    }
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível remover a imagem agora.')
+    console.error(error)
+  } finally {
+    if (tipo === 'logo') {
+      removendoLogo.value = false
+    } else {
+      removendoBanner.value = false
+    }
   }
 }
 
@@ -338,6 +554,11 @@ function obterMensagemErro(error, fallback) {
 
   return mensagem || fallback
 }
+
+onBeforeUnmount(() => {
+  limparPreviewLocal('logo')
+  limparPreviewLocal('banner')
+})
 </script>
 
 <template>
@@ -361,6 +582,13 @@ function obterMensagemErro(error, fallback) {
 
     <section v-if="mensagemSucesso" class="card sucesso-card">
       <p>{{ mensagemSucesso }}</p>
+    </section>
+
+    <section v-if="!uploadImagemHabilitado || resumoUploadsEmpresaTexto" class="card">
+      <p v-if="!uploadImagemHabilitado" class="descricao-upload">
+        O envio de imagens está temporariamente indisponível. Você ainda pode usar uma URL externa.
+      </p>
+      <p v-if="resumoUploadsEmpresaTexto" class="descricao-upload">{{ resumoUploadsEmpresaTexto }}</p>
     </section>
 
     <section v-if="carregando" class="card">
@@ -410,13 +638,28 @@ function obterMensagemErro(error, fallback) {
                     class="input-arquivo"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    :disabled="enviandoLogo"
+                    :disabled="enviandoLogo || removendoLogo || !uploadImagemHabilitado"
                     @change="enviarImagemPersonalizacao('logo', $event)"
                   />
-                  <button class="botao secundario" type="button" :disabled="enviandoLogo" @click="logoUploadInput?.click()">
+                  <button
+                    class="botao secundario"
+                    type="button"
+                    :disabled="enviandoLogo || removendoLogo || !uploadImagemHabilitado"
+                    @click="logoUploadInput?.click()"
+                  >
                     {{ enviandoLogo ? 'Enviando logo...' : 'Enviar logo' }}
                   </button>
+                  <button
+                    v-if="personalizacao.logoUrl"
+                    class="botao ghost"
+                    type="button"
+                    :disabled="enviandoLogo || removendoLogo"
+                    @click="removerImagemPersonalizacao('logo')"
+                  >
+                    {{ removendoLogo ? 'Removendo logo...' : 'Remover logo' }}
+                  </button>
                 </div>
+                <small v-if="nomeArquivoLogo" class="ajuda-campo neutro">Arquivo selecionado: {{ nomeArquivoLogo }}</small>
                 <p v-if="mensagemUploadLogo" class="sucesso-texto">{{ mensagemUploadLogo }}</p>
                 <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
               </article>
@@ -445,13 +688,28 @@ function obterMensagemErro(error, fallback) {
                     class="input-arquivo"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    :disabled="enviandoBanner"
+                    :disabled="enviandoBanner || removendoBanner || !uploadImagemHabilitado"
                     @change="enviarImagemPersonalizacao('banner', $event)"
                   />
-                  <button class="botao secundario" type="button" :disabled="enviandoBanner" @click="bannerUploadInput?.click()">
+                  <button
+                    class="botao secundario"
+                    type="button"
+                    :disabled="enviandoBanner || removendoBanner || !uploadImagemHabilitado"
+                    @click="bannerUploadInput?.click()"
+                  >
                     {{ enviandoBanner ? 'Enviando banner...' : 'Enviar banner' }}
                   </button>
+                  <button
+                    v-if="personalizacao.bannerUrl"
+                    class="botao ghost"
+                    type="button"
+                    :disabled="enviandoBanner || removendoBanner"
+                    @click="removerImagemPersonalizacao('banner')"
+                  >
+                    {{ removendoBanner ? 'Removendo banner...' : 'Remover banner' }}
+                  </button>
                 </div>
+                <small v-if="nomeArquivoBanner" class="ajuda-campo neutro">Arquivo selecionado: {{ nomeArquivoBanner }}</small>
                 <p v-if="mensagemUploadBanner" class="sucesso-texto">{{ mensagemUploadBanner }}</p>
                 <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
               </article>
@@ -721,6 +979,7 @@ h1 {
 }
 
 .descricao,
+.descricao-upload,
 .titulo-card p {
   margin: 6px 0 0;
   color: #64748b;

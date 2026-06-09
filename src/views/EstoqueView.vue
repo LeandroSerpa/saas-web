@@ -10,7 +10,9 @@ import {
   buscarProdutoEstoque,
   buscarProdutosBaixoEstoque,
   buscarProdutosEstoque,
+  buscarResumoUploadsEmpresa,
   buscarResumoEstoque,
+  buscarStatusUploadsEmpresa,
   buscarUnidadesEstoque,
   carregarUsuarioSessao,
   configurarEstoqueDiaProduto,
@@ -27,6 +29,7 @@ import {
   obterEmpresaVisualizacao,
   obterMensagemAmigavelErro,
   reiniciarEstoqueDia,
+  removerImagemProduto,
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   atualizarProdutoEstoque,
   uploadImagemProduto,
@@ -89,7 +92,12 @@ const erroPreviewImagemProduto = ref(false)
 const errosImagemProduto = ref({})
 const uploadImagemProdutoInput = ref(null)
 const enviandoImagemProduto = ref(false)
+const removendoImagemProduto = ref(false)
 const mensagemUploadProduto = ref('')
+const statusUploadsEmpresa = ref(null)
+const resumoUploadsEmpresa = ref(null)
+const arquivoImagemProdutoPendente = ref(null)
+const previewLocalImagemProduto = ref('')
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
 const formularioProduto = ref(criarProdutoInicial())
@@ -113,6 +121,19 @@ const reiniciandoEstoqueDia = ref(false)
 const imagemUrlFormularioNormalizada = computed(() =>
   normalizarUrlImagemPublica(formularioProduto.value.imagemUrl),
 )
+const previewImagemProdutoFormulario = computed(() => previewLocalImagemProduto.value || imagemUrlFormularioNormalizada.value)
+const nomeImagemProdutoPendente = computed(() => String(arquivoImagemProdutoPendente.value?.name || '').trim())
+const uploadImagemHabilitado = computed(() => {
+  if (!statusUploadsEmpresa.value || typeof statusUploadsEmpresa.value !== 'object') {
+    return true
+  }
+
+  const ativo = extrairBooleanoUploads(statusUploadsEmpresa.value, ['ativo', 'habilitado', 'uploadAtivo', 'uploadHabilitado', 'disponivel'])
+  const gravavel = extrairBooleanoUploads(statusUploadsEmpresa.value, ['gravavel', 'gravacaoAtiva', 'podeEnviar', 'podeGravar', 'writable'])
+
+  return ativo !== false && gravavel !== false
+})
+const resumoUploadsEmpresaTexto = computed(() => formatarResumoUploads(resumoUploadsEmpresa.value))
 const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024
 
@@ -408,6 +429,7 @@ async function carregarTela() {
     erroEstoqueDia.value = ''
     sucesso.value = ''
     mensagemLinkCatalogo.value = ''
+    mensagemUploadProduto.value = ''
     bloqueioPlano.value = false
     sincronizarEmpresaVisualizacaoEstoque()
 
@@ -419,13 +441,14 @@ async function carregarTela() {
       consultarEstoque(() => listarEstoqueDia(), 'Nao foi possivel carregar o estoque do dia.'),
       carregarUnidadesEstoque(),
       carregarMinhaEmpresaContexto(),
+      carregarInformacoesUploadsEmpresa(),
     ]
 
     if (superAdmin.value) {
       promessas.push(buscarEmpresas().catch(() => []))
     }
 
-    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, estoqueDiaResultado, , , empresasApi] =
+    const [resumoResultado, produtosResultado, movimentacoesResultado, baixoEstoqueResultado, estoqueDiaResultado, , , , empresasApi] =
       await Promise.all(promessas)
 
     const produtosApi = dadosConsulta(produtosResultado)
@@ -660,6 +683,84 @@ function criarFiltrosHistoricoIniciais() {
     dataInicial: '',
     dataFinal: '',
   }
+}
+
+function extrairBooleanoUploads(origem, chaves) {
+  for (const chave of chaves) {
+    const valor = origem?.[chave]
+
+    if (typeof valor === 'boolean') {
+      return valor
+    }
+  }
+
+  return null
+}
+
+function extrairNumeroUploads(origem, chaves) {
+  for (const chave of chaves) {
+    const numero = Number(origem?.[chave])
+
+    if (Number.isFinite(numero) && numero >= 0) {
+      return numero
+    }
+  }
+
+  return null
+}
+
+function formatarTamanhoArquivo(bytes) {
+  const valor = Number(bytes)
+
+  if (!Number.isFinite(valor) || valor < 0) {
+    return ''
+  }
+
+  if (valor < 1024) {
+    return `${valor} B`
+  }
+
+  const unidades = ['KB', 'MB', 'GB', 'TB']
+  let tamanho = valor / 1024
+  let indice = 0
+
+  while (tamanho >= 1024 && indice < unidades.length - 1) {
+    tamanho /= 1024
+    indice += 1
+  }
+
+  return `${tamanho.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${unidades[indice]}`
+}
+
+function formatarResumoUploads(resumoAtual) {
+  if (!resumoAtual || typeof resumoAtual !== 'object') {
+    return ''
+  }
+
+  const quantidadeArquivos = extrairNumeroUploads(resumoAtual, ['quantidadeArquivos', 'qtdArquivos', 'totalArquivos', 'arquivos'])
+  const totalBytes = extrairNumeroUploads(resumoAtual, ['totalBytes', 'bytesUtilizados', 'tamanhoTotalBytes', 'tamanhoBytes', 'total'])
+  const percentual = extrairNumeroUploads(resumoAtual, ['percentual', 'percentualUtilizado', 'usoPercentual'])
+  const partes = []
+
+  if (totalBytes !== null) {
+    partes.push(formatarTamanhoArquivo(totalBytes))
+  }
+
+  if (quantidadeArquivos !== null) {
+    partes.push(`${formatarNumero(quantidadeArquivos)} ${quantidadeArquivos === 1 ? 'arquivo' : 'arquivos'}`)
+  }
+
+  if (!partes.length) {
+    return ''
+  }
+
+  let texto = `Uso de imagens: ${partes.join(' em ')}.`
+
+  if (percentual !== null) {
+    texto += ` ${percentual.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}% utilizado.`
+  }
+
+  return texto
 }
 
 function criarPaginacaoLocal(size = 10) {
@@ -1027,10 +1128,57 @@ function validarArquivoImagem(arquivo) {
   return ''
 }
 
+async function carregarInformacoesUploadsEmpresa() {
+  try {
+    const [statusApi, resumoApi] = await Promise.all([
+      buscarStatusUploadsEmpresa().catch((errorAtual) => {
+        if ([404, 405].includes(errorAtual?.status)) {
+          return null
+        }
+
+        throw errorAtual
+      }),
+      buscarResumoUploadsEmpresa().catch((errorAtual) => {
+        if ([404, 405].includes(errorAtual?.status)) {
+          return null
+        }
+
+        throw errorAtual
+      }),
+    ])
+
+    statusUploadsEmpresa.value = statusApi
+    resumoUploadsEmpresa.value = resumoApi
+  } catch {
+    statusUploadsEmpresa.value = null
+    resumoUploadsEmpresa.value = null
+  }
+}
+
 function limparInputUploadProduto() {
   if (uploadImagemProdutoInput.value) {
     uploadImagemProdutoInput.value.value = ''
   }
+}
+
+function revogarPreviewLocalImagemProduto() {
+  if (previewLocalImagemProduto.value && previewLocalImagemProduto.value.startsWith('blob:')) {
+    URL.revokeObjectURL(previewLocalImagemProduto.value)
+  }
+}
+
+function limparImagemPendenteProduto() {
+  arquivoImagemProdutoPendente.value = null
+  revogarPreviewLocalImagemProduto()
+  previewLocalImagemProduto.value = ''
+  limparInputUploadProduto()
+}
+
+function definirImagemPendenteProduto(arquivo) {
+  arquivoImagemProdutoPendente.value = arquivo
+  revogarPreviewLocalImagemProduto()
+  previewLocalImagemProduto.value = URL.createObjectURL(arquivo)
+  erroPreviewImagemProduto.value = false
 }
 
 function obterMensagemErroUploadImagemProduto(errorAtual) {
@@ -1057,9 +1205,8 @@ async function enviarImagemProdutoArquivo(evento) {
 
   mensagemUploadProduto.value = ''
 
-  if (!produtoEditandoId.value) {
-    erro.value = 'Salve o produto antes de enviar a imagem.'
-    limparInputUploadProduto()
+  if (!uploadImagemHabilitado.value) {
+    erro.value = 'O envio de imagens está temporariamente indisponível. Você ainda pode usar uma URL externa.'
     return
   }
 
@@ -1068,6 +1215,14 @@ async function enviarImagemProdutoArquivo(evento) {
     limparInputUploadProduto()
     return
   }
+
+  if (!produtoEditandoId.value) {
+    erro.value = ''
+    definirImagemPendenteProduto(arquivo)
+    return
+  }
+
+  limparImagemPendenteProduto()
 
   try {
     erro.value = ''
@@ -1089,6 +1244,47 @@ async function enviarImagemProdutoArquivo(evento) {
   } finally {
     enviandoImagemProduto.value = false
     limparInputUploadProduto()
+  }
+}
+
+async function removerImagemProdutoAtual() {
+  if (arquivoImagemProdutoPendente.value) {
+    limparImagemPendenteProduto()
+    mensagemUploadProduto.value = 'Imagem removida com sucesso.'
+    return
+  }
+
+  if (!produtoEditandoId.value || !imagemUrlFormularioNormalizada.value) {
+    formularioProduto.value.imagemUrl = ''
+    erroPreviewImagemProduto.value = false
+    mensagemUploadProduto.value = 'Imagem removida com sucesso.'
+    return
+  }
+
+  try {
+    erro.value = ''
+    sucesso.value = ''
+    mensagemUploadProduto.value = ''
+    removendoImagemProduto.value = true
+
+    await atualizarProdutoEstoque(produtoEditandoId.value, {
+      ...montarPayloadProduto(),
+      imagemUrl: '',
+    })
+
+    await removerImagemProduto(produtoEditandoId.value).catch(() => null)
+
+    formularioProduto.value.imagemUrl = ''
+    erroPreviewImagemProduto.value = false
+    atualizarListasProduto({
+      id: produtoEditandoId.value,
+      imagemUrl: '',
+    })
+    mensagemUploadProduto.value = 'Imagem removida com sucesso.'
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel remover a imagem agora.')
+  } finally {
+    removendoImagemProduto.value = false
   }
 }
 
@@ -1551,13 +1747,33 @@ async function salvarProduto() {
     normalizarImagemUrlFormulario()
     salvandoProduto.value = true
     const payload = montarPayloadProduto()
+    const arquivoPendente = arquivoImagemProdutoPendente.value
 
     if (produtoEditandoId.value) {
       await atualizarProdutoEstoque(produtoEditandoId.value, payload)
       sucesso.value = 'Produto atualizado com sucesso.'
     } else {
-      await criarProdutoEstoque(payload)
-      sucesso.value = 'Produto cadastrado com sucesso.'
+      const produtoCriado = await criarProdutoEstoque(payload)
+      const produtoCriadoId = obterCampo(produtoCriado, 'id', 'produtoId')
+
+      if (arquivoPendente && produtoCriadoId) {
+        try {
+          const respostaUpload = await uploadImagemProduto(produtoCriadoId, arquivoPendente)
+          const imagemUrl = normalizarUrlImagemPublica(respostaUpload?.url)
+
+          atualizarListasProduto({
+            ...produtoCriado,
+            id: produtoCriadoId,
+            imagemUrl,
+          })
+          sucesso.value = 'Produto cadastrado e imagem enviada com sucesso.'
+        } catch {
+          sucesso.value =
+            'Produto cadastrado, mas nao foi possivel enviar a imagem. Voce pode tentar novamente editando o produto.'
+        }
+      } else {
+        sucesso.value = 'Produto cadastrado com sucesso.'
+      }
     }
 
     cancelarEdicaoProduto(false)
@@ -1913,6 +2129,7 @@ async function editarProduto(item) {
     }
     erroPreviewImagemProduto.value = false
     mensagemUploadProduto.value = ''
+    limparImagemPendenteProduto()
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar os dados do produto.')
   } finally {
@@ -1926,6 +2143,8 @@ function cancelarEdicaoProduto(limparMensagens = true) {
   erroPreviewImagemProduto.value = false
   mensagemUploadProduto.value = ''
   enviandoImagemProduto.value = false
+  removendoImagemProduto.value = false
+  limparImagemPendenteProduto()
   limparInputUploadProduto()
 
   if (limparMensagens) {
@@ -2154,6 +2373,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEstoque)
   window.removeEventListener(EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS, atualizarUnidadesEstoque)
+  revogarPreviewLocalImagemProduto()
 })
 </script>
 
@@ -2173,6 +2393,13 @@ onBeforeUnmount(() => {
 
     <section v-if="erro" class="card feedback erro">
       <p>{{ erro }}</p>
+    </section>
+
+    <section v-if="!uploadImagemHabilitado || resumoUploadsEmpresaTexto" class="card feedback aviso">
+      <p v-if="!uploadImagemHabilitado">
+        O envio de imagens está temporariamente indisponível. Você ainda pode usar uma URL externa.
+      </p>
+      <p v-if="resumoUploadsEmpresaTexto">{{ resumoUploadsEmpresaTexto }}</p>
     </section>
 
     <section v-if="sucesso" class="card feedback sucesso">
@@ -2761,10 +2988,10 @@ onBeforeUnmount(() => {
                   @blur="normalizarImagemUrlFormulario"
                 />
                 <small>Voce pode colar um link direto de imagem ou um link publico do Google Drive. No Google Drive, deixe o arquivo como "Qualquer pessoa com o link pode ver".</small>
-                <div v-if="imagemUrlFormularioNormalizada" class="preview-imagem-produto">
+                <div v-if="previewImagemProdutoFormulario" class="preview-imagem-produto">
                   <img
                     v-if="!erroPreviewImagemProduto"
-                    :src="imagemUrlFormularioNormalizada"
+                    :src="previewImagemProdutoFormulario"
                     alt="Previa da imagem do produto"
                     class="preview-imagem"
                     @error="aoFalharImagemFormulario"
@@ -2780,7 +3007,8 @@ onBeforeUnmount(() => {
                 <div class="upload-produto-topo">
                   <div>
                     <strong>Enviar imagem</strong>
-                    <small>Use upload para atualizar a imagem sem depender de link externo.</small>
+                    <small v-if="produtoEditandoId">Use upload para trocar a imagem sem depender de link externo.</small>
+                    <small v-else>Voce pode escolher a imagem agora. Ela sera enviada automaticamente apos salvar o produto.</small>
                   </div>
                 </div>
                 <div class="upload-produto-acoes">
@@ -2789,21 +3017,28 @@ onBeforeUnmount(() => {
                     class="input-arquivo"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    :disabled="enviandoImagemProduto || !produtoEditandoId"
+                    :disabled="enviandoImagemProduto || removendoImagemProduto || !uploadImagemHabilitado"
                     @change="enviarImagemProdutoArquivo"
                   />
                   <button
                     class="botao secundario"
                     type="button"
-                    :disabled="enviandoImagemProduto || !produtoEditandoId"
+                    :disabled="enviandoImagemProduto || removendoImagemProduto || !uploadImagemHabilitado"
                     @click="uploadImagemProdutoInput?.click()"
                   >
-                    {{ enviandoImagemProduto ? 'Enviando imagem...' : 'Enviar imagem' }}
+                    {{ enviandoImagemProduto ? 'Enviando imagem...' : produtoEditandoId ? 'Trocar imagem' : 'Escolher imagem' }}
                   </button>
-                  <small v-if="!produtoEditandoId" class="ajuda-campo-produto">
-                    Salve o produto primeiro para liberar o upload da imagem.
-                  </small>
+                  <button
+                    v-if="arquivoImagemProdutoPendente || previewImagemProdutoFormulario"
+                    class="botao ghost"
+                    type="button"
+                    :disabled="enviandoImagemProduto || removendoImagemProduto"
+                    @click="removerImagemProdutoAtual"
+                  >
+                    {{ arquivoImagemProdutoPendente ? 'Remover imagem selecionada' : 'Remover imagem' }}
+                  </button>
                 </div>
+                <small v-if="nomeImagemProdutoPendente" class="ajuda-campo-produto">Arquivo selecionado: {{ nomeImagemProdutoPendente }}</small>
                 <p v-if="mensagemUploadProduto" class="sucesso-texto">{{ mensagemUploadProduto }}</p>
                 <small class="ajuda-campo-produto">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
               </div>
