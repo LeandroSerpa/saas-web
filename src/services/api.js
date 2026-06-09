@@ -48,17 +48,20 @@ const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PU
 export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
-const VERSAO_PRODUCAO_PADRAO = '1.1.1'
-const VERSAO_HML_MINIMA = '1.2.1-hml'
+const VERSAO_PRODUCAO_PADRAO = '1.2.2'
+const VERSAO_HML_MINIMA = '1.2.2-hml'
 const DATA_PUBLICACAO_VERSAO_PADRAO =
-  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-06').trim() || '2026-06-06'
+  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-09').trim() || '2026-06-09'
 const NOVIDADES_VERSAO_PADRAO = Object.freeze([
-  'Planos comerciais NuvemMais Vitrine, Agenda e Completo.',
-  'Bloco público “Quer ter uma página como esta?” com CTA para cadastro e planos em nova aba.',
-  'Melhorias visuais no catálogo e cardápio público.',
-  'Ajustes no Estoque, Estoque do dia e Catálogo público interno.',
-  'Open Graph dinâmico para compartilhamento por cliente no WhatsApp.',
-  'Fallback NuvemMais para links do site principal.',
+  'Upload próprio de imagens para logo, banner e produtos.',
+  'Imagens convertidas e padronizadas em WebP.',
+  'Cadastro de produto com imagem antes de salvar.',
+  'Edição segura de imagem com cancelamento restaurando a original.',
+  'Texto padrão global do botão dos produtos do catálogo/cardápio.',
+  'Melhorias nos campos de descrição e categoria da vitrine pública.',
+  'CTA de WhatsApp mais visível na aba Catálogo Público.',
+  'Ajustes visuais e correções de português no Estoque, Personalização e Catálogo Público.',
+  'Preservação de logo/banner ao salvar personalização.',
 ])
 
 export function obterUrlPublicaFrontend() {

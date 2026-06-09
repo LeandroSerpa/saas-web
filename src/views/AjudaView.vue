@@ -641,7 +641,22 @@ const conteudoDetalhadoPorTopico = {
 
 const historicoAtualizacoes = [
   {
-    versao: '1.2.1-hml',
+    versao: '1.2.2',
+    dataPublicacao: '2026-06-09',
+    itens: [
+      'Upload próprio de imagens para logo, banner e produtos.',
+      'Imagens convertidas e padronizadas em WebP.',
+      'Cadastro de produto com imagem antes de salvar.',
+      'Edição segura de imagem com cancelamento restaurando a original.',
+      'Texto padrão global do botão dos produtos do catálogo/cardápio.',
+      'Melhorias nos campos de descrição e categoria da vitrine pública.',
+      'CTA de WhatsApp mais visível na aba Catálogo Público.',
+      'Ajustes visuais e correções de português no Estoque, Personalização e Catálogo Público.',
+      'Preservação de logo/banner ao salvar personalização.',
+    ],
+  },
+  {
+    versao: '1.2.1',
     dataPublicacao: '2026-06-06',
     itens: [
       'Planos comerciais NuvemMais Vitrine, Agenda e Completo.',

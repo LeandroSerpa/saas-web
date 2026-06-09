@@ -333,7 +333,7 @@ const descricaoSeloAmbienteTopo = computed(() =>
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.2.1-hml'
+  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.2.2'
   return `v${versaoBase}`
 })
 
