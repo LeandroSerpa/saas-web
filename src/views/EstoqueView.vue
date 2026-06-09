@@ -2,10 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
+  TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   ativarProdutoEstoque,
   atualizarQuantidadeRapidaProduto,
   buscarEmpresas,
   buscarMinhaEmpresa,
+  buscarMinhaPersonalizacao,
   buscarMovimentacoesProdutoEstoque,
   buscarProdutoEstoque,
   buscarProdutosBaixoEstoque,
@@ -98,9 +100,14 @@ const resumoUploadsEmpresa = ref(null)
 const resumoUploadsIndisponivel = ref(false)
 const arquivoImagemProdutoPendente = ref(null)
 const previewLocalImagemProduto = ref('')
+const abaOrigemEdicaoProduto = ref('produtos')
+const formularioProdutoOriginal = ref(null)
+const imagemProdutoOriginalUrl = ref('')
+const imagemProdutoRemocaoPendente = ref(false)
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
 const formularioProduto = ref(criarProdutoInicial())
+const personalizacaoCatalogoInterno = ref(criarPersonalizacaoCatalogoInicial())
 const usarDescricaoNaVitrine = ref(true)
 const usarCategoriaNaVitrine = ref(true)
 const formularioMovimentacao = ref(criarMovimentacaoInicial())
@@ -123,9 +130,28 @@ const reiniciandoEstoqueDia = ref(false)
 const imagemUrlFormularioNormalizada = computed(() =>
   normalizarUrlImagemPublica(formularioProduto.value.imagemUrl),
 )
-const previewImagemProdutoFormulario = computed(() => previewLocalImagemProduto.value || imagemUrlFormularioNormalizada.value)
+const previewImagemProdutoFormulario = computed(() => {
+  if (imagemProdutoRemocaoPendente.value) {
+    return ''
+  }
+
+  return previewLocalImagemProduto.value || imagemUrlFormularioNormalizada.value
+})
 const nomeImagemProdutoPendente = computed(() => String(arquivoImagemProdutoPendente.value?.name || '').trim())
 const produtoNovoEmEdicao = computed(() => !produtoEditandoId.value)
+const textoBotaoCatalogoPadrao = computed(
+  () =>
+    String(personalizacaoCatalogoInterno.value.textoBotaoCatalogoPublico || '').trim() ||
+    TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
+)
+const whatsappCatalogoConfigurado = computed(() =>
+  [
+    personalizacaoCatalogoInterno.value.whatsapp,
+    minhaEmpresa.value?.whatsapp,
+    minhaEmpresa.value?.telefoneWhatsapp,
+    minhaEmpresa.value?.telefone,
+  ].some((valor) => String(valor || '').replace(/\D/g, '').length >= 10),
+)
 const uploadImagemHabilitado = computed(() => {
   if (!statusUploadsEmpresa.value || typeof statusUploadsEmpresa.value !== 'object') {
     return true
@@ -142,8 +168,13 @@ const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024
 
 watch(
   () => formularioProduto.value.imagemUrl,
-  () => {
+  (valor) => {
     erroPreviewImagemProduto.value = false
+
+    if (imagemProdutoRemocaoPendente.value && String(valor || '').trim()) {
+      imagemProdutoRemocaoPendente.value = false
+      mensagemUploadProduto.value = ''
+    }
   },
 )
 
@@ -474,6 +505,7 @@ async function carregarTela() {
       consultarEstoque(() => listarEstoqueDia(), 'Nao foi possivel carregar o estoque do dia.'),
       carregarUnidadesEstoque(),
       carregarMinhaEmpresaContexto(),
+      carregarPersonalizacaoCatalogoInterno(),
       carregarInformacoesUploadsEmpresa(),
     ]
 
@@ -684,6 +716,13 @@ function criarProdutoInicial() {
   }
 }
 
+function criarPersonalizacaoCatalogoInicial() {
+  return {
+    textoBotaoCatalogoPublico: '',
+    whatsapp: '',
+  }
+}
+
 function criarMovimentacaoInicial() {
   return {
     tipo: 'ENTRADA',
@@ -882,6 +921,21 @@ async function carregarMinhaEmpresaContexto() {
     minhaEmpresa.value = empresaAtual && typeof empresaAtual === 'object' ? empresaAtual : { slug: '' }
   } catch {
     minhaEmpresa.value = { slug: '' }
+  }
+}
+
+async function carregarPersonalizacaoCatalogoInterno() {
+  try {
+    const dados = await buscarMinhaPersonalizacao()
+
+    personalizacaoCatalogoInterno.value = {
+      ...criarPersonalizacaoCatalogoInicial(),
+      ...(dados && typeof dados === 'object' ? dados : {}),
+      textoBotaoCatalogoPublico: String(dados?.textoBotaoCatalogoPublico || '').trim(),
+      whatsapp: String(dados?.whatsapp || '').trim(),
+    }
+  } catch {
+    personalizacaoCatalogoInterno.value = criarPersonalizacaoCatalogoInicial()
   }
 }
 
@@ -1210,6 +1264,7 @@ function limparImagemPendenteProduto() {
 }
 
 function definirImagemPendenteProduto(arquivo) {
+  imagemProdutoRemocaoPendente.value = false
   arquivoImagemProdutoPendente.value = arquivo
   revogarPreviewLocalImagemProduto()
   previewLocalImagemProduto.value = URL.createObjectURL(arquivo)
@@ -1251,76 +1306,46 @@ async function enviarImagemProdutoArquivo(evento) {
     return
   }
 
-  if (!produtoEditandoId.value) {
-    erro.value = ''
-    definirImagemPendenteProduto(arquivo)
-    return
-  }
-
-  limparImagemPendenteProduto()
-
-  try {
-    erro.value = ''
-    sucesso.value = ''
-    enviandoImagemProduto.value = true
-
-    const resposta = await uploadImagemProduto(produtoEditandoId.value, arquivo)
-    const imagemUrl = normalizarUrlImagemPublica(resposta?.url)
-
-    formularioProduto.value.imagemUrl = imagemUrl
-    erroPreviewImagemProduto.value = false
-    atualizarListasProduto({
-      id: produtoEditandoId.value,
-      imagemUrl,
-    })
-    mensagemUploadProduto.value = 'Imagem enviada com sucesso.'
-  } catch (errorAtual) {
-    erro.value = obterMensagemErroUploadImagemProduto(errorAtual)
-  } finally {
-    enviandoImagemProduto.value = false
-    limparInputUploadProduto()
-  }
+  erro.value = ''
+  definirImagemPendenteProduto(arquivo)
+  mensagemUploadProduto.value = produtoEditandoId.value
+    ? 'Nova imagem pronta para salvar.'
+    : 'Imagem pronta para ser enviada ao salvar o produto.'
 }
 
 async function removerImagemProdutoAtual() {
   if (arquivoImagemProdutoPendente.value) {
+    const imagemOriginal = imagemProdutoOriginalUrl.value || String(formularioProdutoOriginal.value?.imagemUrl || '').trim()
     limparImagemPendenteProduto()
-    mensagemUploadProduto.value = 'Imagem removida com sucesso.'
-    return
+
+    if (imagemOriginal) {
+      formularioProduto.value.imagemUrl = imagemOriginal
+      imagemProdutoRemocaoPendente.value = false
+      erroPreviewImagemProduto.value = false
+      mensagemUploadProduto.value = 'Nova imagem descartada. A imagem original continua no produto.'
+      return
+    }
   }
 
-  if (!produtoEditandoId.value || !imagemUrlFormularioNormalizada.value) {
+  const possuiImagemAtual = Boolean(imagemUrlFormularioNormalizada.value || imagemProdutoOriginalUrl.value)
+
+  if (!produtoEditandoId.value) {
     formularioProduto.value.imagemUrl = ''
+    imagemProdutoRemocaoPendente.value = false
     erroPreviewImagemProduto.value = false
     mensagemUploadProduto.value = 'Imagem removida com sucesso.'
     return
   }
 
-  try {
-    erro.value = ''
-    sucesso.value = ''
-    mensagemUploadProduto.value = ''
-    removendoImagemProduto.value = true
-
-    await atualizarProdutoEstoque(produtoEditandoId.value, {
-      ...montarPayloadProduto(),
-      imagemUrl: '',
-    })
-
-    await removerImagemProduto(produtoEditandoId.value).catch(() => null)
-
+  if (possuiImagemAtual) {
     formularioProduto.value.imagemUrl = ''
+    imagemProdutoRemocaoPendente.value = true
     erroPreviewImagemProduto.value = false
-    atualizarListasProduto({
-      id: produtoEditandoId.value,
-      imagemUrl: '',
-    })
-    mensagemUploadProduto.value = 'Imagem removida com sucesso.'
-  } catch (errorAtual) {
-    erro.value = obterMensagemErroEstoque(errorAtual, 'Nao foi possivel remover a imagem agora.')
-  } finally {
-    removendoImagemProduto.value = false
+    mensagemUploadProduto.value = 'Imagem marcada para remocao. Salve o produto para confirmar.'
+    return
   }
+
+  mensagemUploadProduto.value = 'Nenhuma imagem selecionada.'
 }
 
 function obterDestaqueCatalogo(item) {
@@ -1343,6 +1368,10 @@ function obterOrdemCatalogo(item) {
 function obterTextoBotaoPublico(item) {
   const valor = String(obterCampo(item, 'textoBotaoPublico', 'textoBotaoCatalogo', 'textoBotaoWhatsapp') || '').trim()
   return valor
+}
+
+function obterRotuloBotaoCatalogoInterno(item) {
+  return obterTextoBotaoPublico(item) || textoBotaoCatalogoPadrao.value
 }
 
 function normalizarCampoComparacaoTexto(valor) {
@@ -1814,8 +1843,37 @@ async function salvarProduto() {
     const arquivoPendente = arquivoImagemProdutoPendente.value
 
     if (produtoEditandoId.value) {
-      await atualizarProdutoEstoque(produtoEditandoId.value, payload)
-      sucesso.value = 'Produto atualizado com sucesso.'
+      const produtoAtualizado = await atualizarProdutoEstoque(produtoEditandoId.value, payload)
+      let produtoAtualizadoComImagem = {
+        ...produtoAtualizado,
+        id: produtoEditandoId.value,
+        imagemUrl: payload.imagemUrl,
+      }
+
+      if (imagemProdutoRemocaoPendente.value) {
+        await removerImagemProduto(produtoEditandoId.value).catch(() => null)
+        sucesso.value = 'Produto atualizado e imagem removida com sucesso.'
+      } else {
+        sucesso.value = 'Produto atualizado com sucesso.'
+      }
+
+      if (arquivoPendente) {
+        try {
+          const respostaUpload = await uploadImagemProduto(produtoEditandoId.value, arquivoPendente)
+          const imagemUrl = normalizarUrlImagemPublica(respostaUpload?.url)
+
+          produtoAtualizadoComImagem = {
+            ...produtoAtualizadoComImagem,
+            imagemUrl,
+          }
+          sucesso.value = 'Produto atualizado e imagem salva com sucesso.'
+        } catch {
+          sucesso.value =
+            'Produto atualizado, mas nao foi possivel salvar a nova imagem. Voce pode tentar novamente editando o produto.'
+        }
+      }
+
+      atualizarListasProduto(produtoAtualizadoComImagem)
     } else {
       const produtoCriado = await criarProdutoEstoque(payload)
       const produtoCriadoId = obterCampo(produtoCriado, 'id', 'produtoId')
@@ -1851,7 +1909,7 @@ async function salvarProduto() {
 }
 
 function montarPayloadProduto() {
-  const imagemUrl = imagemUrlFormularioNormalizada.value
+  const imagemUrl = imagemProdutoRemocaoPendente.value ? '' : imagemUrlFormularioNormalizada.value
   const descricaoPublica = usarDescricaoNaVitrine.value
     ? formularioProduto.value.descricao.trim()
     : formularioProduto.value.descricaoPublica.trim()
@@ -2163,6 +2221,7 @@ async function editarProduto(item) {
     erro.value = ''
     sucesso.value = ''
     carregandoDetalheProduto.value = true
+    abaOrigemEdicaoProduto.value = abaAtiva.value
     produtoEditandoId.value = item.id
     abaAtiva.value = 'novo'
 
@@ -2174,28 +2233,10 @@ async function editarProduto(item) {
       produtoDetalhado = item
     }
 
-    formularioProduto.value = {
-      nome: obterNomeProduto(produtoDetalhado),
-      descricao: obterDescricaoProduto(produtoDetalhado),
-      codigoSku: obterCodigoProduto(produtoDetalhado),
-      empresaProdutoId: '',
-      categoria: obterCategoriaProduto(produtoDetalhado) === 'Sem categoria' ? '' : obterCategoriaProduto(produtoDetalhado),
-      unidade: obterUnidadeProduto(produtoDetalhado),
-      precoCusto: obterPrecoCusto(produtoDetalhado),
-      precoVenda: obterPrecoVenda(produtoDetalhado),
-      quantidadeAtual: obterQuantidadeAtual(produtoDetalhado),
-      estoqueMinimo: obterEstoqueMinimo(produtoDetalhado),
-      ativo: produtoAtivo(produtoDetalhado),
-      exibirCatalogoPublico: obterExibirCatalogoPublico(produtoDetalhado),
-      imagemUrl: obterImagemUrlProduto(produtoDetalhado),
-      descricaoPublica: obterDescricaoPublicaProduto(produtoDetalhado),
-      categoriaPublica: obterCategoriaPublicaProduto(produtoDetalhado),
-      destaqueCatalogo: obterDestaqueCatalogo(produtoDetalhado),
-      mostrarQuantidadePublica: obterMostrarQuantidadePublica(produtoDetalhado),
-      mostrarPrecoPublico: obterMostrarPrecoPublico(produtoDetalhado),
-      ordemCatalogo: obterOrdemCatalogo(produtoDetalhado),
-      textoBotaoPublico: obterTextoBotaoPublico(produtoDetalhado),
-    }
+    formularioProduto.value = criarFormularioProdutoEdicao(produtoDetalhado)
+    formularioProdutoOriginal.value = { ...formularioProduto.value }
+    imagemProdutoOriginalUrl.value = obterImagemUrlProduto(produtoDetalhado)
+    imagemProdutoRemocaoPendente.value = false
     sincronizarCamposPublicosComProdutoAtual()
     erroPreviewImagemProduto.value = false
     mensagemUploadProduto.value = ''
@@ -2208,8 +2249,12 @@ async function editarProduto(item) {
 }
 
 function cancelarEdicaoProduto(limparMensagens = true) {
+  const formularioRestaurado = formularioProdutoOriginal.value
+    ? { ...formularioProdutoOriginal.value }
+    : criarProdutoInicial()
+
   produtoEditandoId.value = null
-  formularioProduto.value = criarProdutoInicial()
+  formularioProduto.value = formularioRestaurado
   sincronizarCamposPublicosComProdutoAtual()
   erroPreviewImagemProduto.value = false
   mensagemUploadProduto.value = ''
@@ -2217,9 +2262,39 @@ function cancelarEdicaoProduto(limparMensagens = true) {
   removendoImagemProduto.value = false
   limparImagemPendenteProduto()
   limparInputUploadProduto()
+  formularioProdutoOriginal.value = null
+  imagemProdutoOriginalUrl.value = ''
+  imagemProdutoRemocaoPendente.value = false
 
   if (limparMensagens) {
     sucesso.value = ''
+  }
+
+  abaAtiva.value = abaOrigemEdicaoProduto.value || obterAbaInicial()
+}
+
+function criarFormularioProdutoEdicao(produtoDetalhado) {
+  return {
+    nome: obterNomeProduto(produtoDetalhado),
+    descricao: obterDescricaoProduto(produtoDetalhado),
+    codigoSku: obterCodigoProduto(produtoDetalhado),
+    empresaProdutoId: '',
+    categoria: obterCategoriaProduto(produtoDetalhado) === 'Sem categoria' ? '' : obterCategoriaProduto(produtoDetalhado),
+    unidade: obterUnidadeProduto(produtoDetalhado),
+    precoCusto: obterPrecoCusto(produtoDetalhado),
+    precoVenda: obterPrecoVenda(produtoDetalhado),
+    quantidadeAtual: obterQuantidadeAtual(produtoDetalhado),
+    estoqueMinimo: obterEstoqueMinimo(produtoDetalhado),
+    ativo: produtoAtivo(produtoDetalhado),
+    exibirCatalogoPublico: obterExibirCatalogoPublico(produtoDetalhado),
+    imagemUrl: obterImagemUrlProduto(produtoDetalhado),
+    descricaoPublica: obterDescricaoPublicaProduto(produtoDetalhado),
+    categoriaPublica: obterCategoriaPublicaProduto(produtoDetalhado),
+    destaqueCatalogo: obterDestaqueCatalogo(produtoDetalhado),
+    mostrarQuantidadePublica: obterMostrarQuantidadePublica(produtoDetalhado),
+    mostrarPrecoPublico: obterMostrarPrecoPublico(produtoDetalhado),
+    ordemCatalogo: obterOrdemCatalogo(produtoDetalhado),
+    textoBotaoPublico: obterTextoBotaoPublico(produtoDetalhado),
   }
 }
 
@@ -2943,14 +3018,23 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <p v-if="obterDescricaoPublicaProduto(produto)" class="descricao-produto">{{ obterDescricaoPublicaProduto(produto) }}</p>
+            <p v-if="obterDescricaoPublicaProduto(produto)" class="descricao-produto descricao-produto-catalogo">{{ obterDescricaoPublicaProduto(produto) }}</p>
 
             <div class="detalhes-produto">
               <p><strong>Categoria pública:</strong> {{ obterCategoriaPublicaProduto(produto) || 'Não informada' }}</p>
               <p><strong>Ordem no catálogo:</strong> {{ formatarNumero(obterOrdemCatalogo(produto)) }}</p>
               <p><strong>Preço público:</strong> {{ obterMostrarPrecoPublico(produto) ? formatarMoeda(obterPrecoVenda(produto)) : 'Oculto' }}</p>
               <p><strong>Quantidade publica:</strong> {{ obterMostrarQuantidadePublica(produto) ? formatarQuantidadeCatalogo(produto) : 'Oculta' }}</p>
-              <p><strong>Botao:</strong> {{ obterTextoBotaoPublico(produto) }}</p>
+            </div>
+
+            <div class="catalogo-cta-preview" :class="{ indisponivel: !whatsappCatalogoConfigurado }">
+              <span class="catalogo-cta-legenda">Botao de WhatsApp na vitrine</span>
+              <button class="botao botao-whatsapp-preview" type="button" :disabled="!whatsappCatalogoConfigurado">
+                {{ obterRotuloBotaoCatalogoInterno(produto) }}
+              </button>
+              <small v-if="!whatsappCatalogoConfigurado" class="ajuda-campo-produto">
+                Configure o WhatsApp em Personalizacao para liberar o CTA publico.
+              </small>
             </div>
 
             <div class="chips-apoio-catalogo">
@@ -3164,7 +3248,7 @@ onBeforeUnmount(() => {
                       {{ enviandoImagemProduto ? 'Enviando imagem...' : produtoEditandoId ? 'Trocar imagem' : 'Escolher imagem' }}
                     </button>
                     <button
-                      v-if="arquivoImagemProdutoPendente || previewImagemProdutoFormulario"
+                      v-if="arquivoImagemProdutoPendente || previewImagemProdutoFormulario || imagemProdutoRemocaoPendente"
                       class="botao ghost botao-upload-produto"
                       type="button"
                       :disabled="enviandoImagemProduto || removendoImagemProduto"
@@ -3178,15 +3262,19 @@ onBeforeUnmount(() => {
                   <p v-if="mensagemUploadProduto" class="sucesso-texto">{{ mensagemUploadProduto }}</p>
                   <small class="ajuda-campo-produto">A imagem precisa ser JPG, PNG ou WEBP e ter até 5 MB.</small>
                 </div>
-                <div v-if="previewImagemProdutoFormulario" class="campo-grande preview-imagem-produto">
+                <div v-if="previewImagemProdutoFormulario || imagemProdutoRemocaoPendente" class="campo-grande preview-imagem-produto">
                   <img
-                    v-if="!erroPreviewImagemProduto"
+                    v-if="previewImagemProdutoFormulario && !erroPreviewImagemProduto"
                     :src="previewImagemProdutoFormulario"
                     alt="Prévia da imagem do produto"
                     class="preview-imagem"
                     @error="aoFalharImagemFormulario"
                     @load="aoCarregarImagemFormulario"
                   />
+                  <div v-else-if="imagemProdutoRemocaoPendente" class="preview-imagem-remocao">
+                    <strong>Imagem marcada para remocao</strong>
+                    <small>A imagem original volta se voce cancelar a edicao. A remocao so sera aplicada ao salvar.</small>
+                  </div>
                   <div v-else class="preview-imagem-erro">
                     <strong>Prévia indisponível</strong>
                     <small>A imagem não carregou, mas o link pode continuar salvo para o catálogo público.</small>
@@ -3755,19 +3843,20 @@ textarea[disabled] {
 }
 .preview-imagem-produto {
   display: grid;
-  gap: 10px;
-  max-width: 100%;
-  padding: 12px;
+  gap: 8px;
+  width: min(100%, 220px);
+  padding: 10px;
   border: 1px solid #dbe4f0;
   border-radius: 10px;
   background: #f8fafc;
 }
 .preview-imagem {
   width: 100%;
-  max-height: 220px;
-  object-fit: cover;
+  height: 132px;
+  object-fit: contain;
   border-radius: 8px;
   border: 1px solid #cbd5e1;
+  background: white;
 }
 .preview-imagem-erro {
   display: grid;
@@ -3776,6 +3865,17 @@ textarea[disabled] {
   border-radius: 8px;
   background: #eef2ff;
   color: #334155;
+}
+.preview-imagem-remocao {
+  display: grid;
+  gap: 4px;
+  min-height: 132px;
+  padding: 14px;
+  align-content: center;
+  border-radius: 8px;
+  border: 1px dashed #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
 }
 .preview-imagem-erro strong {
   font-size: 14px;
@@ -3832,6 +3932,7 @@ textarea[disabled] {
 .historico-card { display: grid; gap: 14px; }
 .produto-card-catalogo {
   gap: 10px;
+  align-content: start;
 }
 .produto-card-topo {
   display: grid;
@@ -3885,14 +3986,14 @@ textarea[disabled] {
 }
 .catalogo-imagem {
   width: 100%;
-  height: 210px;
+  height: 188px;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid #dbe4f0;
 }
 .catalogo-imagem-placeholder {
   width: 100%;
-  height: 210px;
+  height: 188px;
   display: grid;
   place-items: center;
   gap: 6px;
@@ -3932,6 +4033,40 @@ textarea[disabled] {
 .detalhes-produto { display: grid; gap: 8px; }
 .detalhes-produto p { color: #374151; }
 .detalhes-produto strong { font-weight: 800; }
+.descricao-produto-catalogo {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-height: 1.45;
+  min-height: calc(1.45em * 2);
+}
+.catalogo-cta-preview {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dcfce7;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f0fdf4, #f8fafc);
+}
+.catalogo-cta-preview.indisponivel {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+.catalogo-cta-legenda {
+  font-size: 12px;
+  font-weight: 800;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.catalogo-cta-preview.indisponivel .catalogo-cta-legenda {
+  color: #64748b;
+}
+.botao-whatsapp-preview {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  min-height: 46px;
+}
 .contador { border-radius: 999px; padding: 8px 12px; background: #dbeafe; color: #1d4ed8; font-weight: 800; }
 .botao { border: none; border-radius: 8px; padding: 10px 16px; color: white; cursor: pointer; font-weight: 800; text-decoration: none; }
 .botao:disabled { opacity: 0.6; cursor: not-allowed; }
