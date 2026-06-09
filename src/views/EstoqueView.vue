@@ -29,6 +29,7 @@ import {
   reiniciarEstoqueDia,
   TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO,
   atualizarProdutoEstoque,
+  uploadImagemProduto,
 } from '@/services/api'
 import { normalizarUrlImagemPublica, obterCampoImagemPublica } from '@/utils/imagens'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
@@ -86,6 +87,9 @@ const mensagemLinkCatalogo = ref('')
 const bloqueioPlano = ref(false)
 const erroPreviewImagemProduto = ref(false)
 const errosImagemProduto = ref({})
+const uploadImagemProdutoInput = ref(null)
+const enviandoImagemProduto = ref(false)
+const mensagemUploadProduto = ref('')
 const produtoEditandoId = ref(null)
 const movimentacaoProduto = ref(null)
 const formularioProduto = ref(criarProdutoInicial())
@@ -109,6 +113,8 @@ const reiniciandoEstoqueDia = ref(false)
 const imagemUrlFormularioNormalizada = computed(() =>
   normalizarUrlImagemPublica(formularioProduto.value.imagemUrl),
 )
+const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
+const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024
 
 watch(
   () => formularioProduto.value.imagemUrl,
@@ -1009,6 +1015,83 @@ function aoFalharImagemFormulario() {
   erroPreviewImagemProduto.value = true
 }
 
+function validarArquivoImagem(arquivo) {
+  if (!arquivo) {
+    return 'Selecione uma imagem para enviar.'
+  }
+
+  if (!TIPOS_IMAGEM_ACEITOS.includes(arquivo.type) || arquivo.size > TAMANHO_MAXIMO_IMAGEM) {
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.'
+  }
+
+  return ''
+}
+
+function limparInputUploadProduto() {
+  if (uploadImagemProdutoInput.value) {
+    uploadImagemProdutoInput.value.value = ''
+  }
+}
+
+function obterMensagemErroUploadImagemProduto(errorAtual) {
+  const mensagem = String(errorAtual?.message || '').trim().toLowerCase()
+
+  if (
+    mensagem.includes('arquivo') ||
+    mensagem.includes('imagem') ||
+    mensagem.includes('formato') ||
+    mensagem.includes('tipo') ||
+    mensagem.includes('5 mb') ||
+    mensagem.includes('tamanho') ||
+    mensagem.includes('grande')
+  ) {
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.'
+  }
+
+  return 'Nao foi possivel enviar a imagem agora. Tente novamente com um arquivo valido.'
+}
+
+async function enviarImagemProdutoArquivo(evento) {
+  const arquivo = evento?.target?.files?.[0]
+  const mensagemValidacao = validarArquivoImagem(arquivo)
+
+  mensagemUploadProduto.value = ''
+
+  if (!produtoEditandoId.value) {
+    erro.value = 'Salve o produto antes de enviar a imagem.'
+    limparInputUploadProduto()
+    return
+  }
+
+  if (mensagemValidacao) {
+    erro.value = mensagemValidacao
+    limparInputUploadProduto()
+    return
+  }
+
+  try {
+    erro.value = ''
+    sucesso.value = ''
+    enviandoImagemProduto.value = true
+
+    const resposta = await uploadImagemProduto(produtoEditandoId.value, arquivo)
+    const imagemUrl = normalizarUrlImagemPublica(resposta?.url)
+
+    formularioProduto.value.imagemUrl = imagemUrl
+    erroPreviewImagemProduto.value = false
+    atualizarListasProduto({
+      id: produtoEditandoId.value,
+      imagemUrl,
+    })
+    mensagemUploadProduto.value = 'Imagem enviada com sucesso.'
+  } catch (errorAtual) {
+    erro.value = obterMensagemErroUploadImagemProduto(errorAtual)
+  } finally {
+    enviandoImagemProduto.value = false
+    limparInputUploadProduto()
+  }
+}
+
 function obterDestaqueCatalogo(item) {
   return obterBooleanoCampo(item, ['destaqueCatalogo'], false)
 }
@@ -1438,6 +1521,7 @@ async function salvarProduto() {
   try {
     erro.value = ''
     sucesso.value = ''
+    mensagemUploadProduto.value = ''
 
     if (!formularioProduto.value.nome.trim()) {
       erro.value = 'Informe o nome do produto.'
@@ -1828,6 +1912,7 @@ async function editarProduto(item) {
       textoBotaoPublico: obterTextoBotaoPublico(produtoDetalhado),
     }
     erroPreviewImagemProduto.value = false
+    mensagemUploadProduto.value = ''
   } catch (errorAtual) {
     erro.value = obterMensagemErroEstoque(errorAtual, 'Não foi possível carregar os dados do produto.')
   } finally {
@@ -1839,6 +1924,9 @@ function cancelarEdicaoProduto(limparMensagens = true) {
   produtoEditandoId.value = null
   formularioProduto.value = criarProdutoInicial()
   erroPreviewImagemProduto.value = false
+  mensagemUploadProduto.value = ''
+  enviandoImagemProduto.value = false
+  limparInputUploadProduto()
 
   if (limparMensagens) {
     sucesso.value = ''
@@ -2688,6 +2776,37 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
               </label>
+              <div class="campo-grande upload-produto-card">
+                <div class="upload-produto-topo">
+                  <div>
+                    <strong>Enviar imagem</strong>
+                    <small>Use upload para atualizar a imagem sem depender de link externo.</small>
+                  </div>
+                </div>
+                <div class="upload-produto-acoes">
+                  <input
+                    ref="uploadImagemProdutoInput"
+                    class="input-arquivo"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    :disabled="enviandoImagemProduto || !produtoEditandoId"
+                    @change="enviarImagemProdutoArquivo"
+                  />
+                  <button
+                    class="botao secundario"
+                    type="button"
+                    :disabled="enviandoImagemProduto || !produtoEditandoId"
+                    @click="uploadImagemProdutoInput?.click()"
+                  >
+                    {{ enviandoImagemProduto ? 'Enviando imagem...' : 'Enviar imagem' }}
+                  </button>
+                  <small v-if="!produtoEditandoId" class="ajuda-campo-produto">
+                    Salve o produto primeiro para liberar o upload da imagem.
+                  </small>
+                </div>
+                <p v-if="mensagemUploadProduto" class="sucesso-texto">{{ mensagemUploadProduto }}</p>
+                <small class="ajuda-campo-produto">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
+              </div>
               <label>
                 Categoria publica
                 <input v-model="formularioProduto.categoriaPublica" type="text" placeholder="Ex: Doces do dia" />
@@ -3224,6 +3343,44 @@ input[readonly] { background: #f8fafc; color: #64748b; }
 }
 .preview-imagem-erro strong {
   font-size: 14px;
+}
+.upload-produto-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.upload-produto-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.upload-produto-acoes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.input-arquivo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ajuda-campo-produto {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sucesso-texto {
+  margin: 0;
+  color: #15803d;
+  font-weight: 800;
 }
 .grade-produtos { display: grid; grid-template-columns: repeat(2, minmax(340px, 1fr)); gap: 18px; }
 .grade-produtos-catalogo {

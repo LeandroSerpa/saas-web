@@ -5,6 +5,8 @@ import {
   buscarMinhaPersonalizacao,
   recalcularOnboarding,
   salvarMinhaPersonalizacao,
+  uploadBannerEmpresa,
+  uploadLogoEmpresa,
 } from '@/services/api'
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
 import {
@@ -25,8 +27,16 @@ const mensagemSucesso = ref('')
 const personalizacao = ref(criarPersonalizacaoInicial())
 const logoPreviewComErro = ref(false)
 const bannerPreviewComErro = ref(false)
+const logoUploadInput = ref(null)
+const bannerUploadInput = ref(null)
+const enviandoLogo = ref(false)
+const enviandoBanner = ref(false)
+const mensagemUploadLogo = ref('')
+const mensagemUploadBanner = ref('')
 const route = useRoute()
 const router = useRouter()
+const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
+const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024
 
 const temaPreview = computed(() => normalizarTemaPublico(personalizacao.value.tema))
 const temaPreviewConfig = computed(() => obterTemaPublico(temaPreview.value))
@@ -95,11 +105,17 @@ function criarPersonalizacaoInicial() {
   }
 }
 
+function limparMensagensUpload() {
+  mensagemUploadLogo.value = ''
+  mensagemUploadBanner.value = ''
+}
+
 async function carregarPersonalizacao() {
   try {
     carregando.value = true
     erro.value = ''
     mensagemSucesso.value = ''
+    limparMensagensUpload()
 
     const dados = await buscarMinhaPersonalizacao()
     personalizacao.value = normalizarPersonalizacao(dados)
@@ -115,6 +131,7 @@ async function salvarPersonalizacao() {
   try {
     erro.value = ''
     mensagemSucesso.value = ''
+    limparMensagensUpload()
 
     const corPrincipal = normalizarCorHex(personalizacao.value.corPrincipal, '')
     const corSecundaria = normalizarCorHex(personalizacao.value.corSecundaria, '')
@@ -164,6 +181,93 @@ function normalizarPersonalizacao(dados) {
     mostrarFuncionario: origem.mostrarFuncionario !== false,
     mostrarEndereco: origem.mostrarEndereco !== false,
     mostrarTelefone: origem.mostrarTelefone !== false,
+  }
+}
+
+function validarArquivoImagem(arquivo) {
+  if (!arquivo) {
+    return 'Selecione uma imagem para enviar.'
+  }
+
+  if (!TIPOS_IMAGEM_ACEITOS.includes(arquivo.type) || arquivo.size > TAMANHO_MAXIMO_IMAGEM) {
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.'
+  }
+
+  return ''
+}
+
+function limparCampoArquivo(tipo) {
+  if (tipo === 'logo' && logoUploadInput.value) {
+    logoUploadInput.value.value = ''
+  }
+
+  if (tipo === 'banner' && bannerUploadInput.value) {
+    bannerUploadInput.value.value = ''
+  }
+}
+
+function obterMensagemErroUploadImagem(error) {
+  const mensagem = String(error?.message || '').trim().toLowerCase()
+
+  if (
+    mensagem.includes('arquivo') ||
+    mensagem.includes('imagem') ||
+    mensagem.includes('formato') ||
+    mensagem.includes('tipo') ||
+    mensagem.includes('5 mb') ||
+    mensagem.includes('tamanho') ||
+    mensagem.includes('grande')
+  ) {
+    return 'A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.'
+  }
+
+  return 'Nao foi possivel enviar a imagem agora. Tente novamente com um arquivo valido.'
+}
+
+async function enviarImagemPersonalizacao(tipo, evento) {
+  const arquivo = evento?.target?.files?.[0]
+  const mensagemValidacao = validarArquivoImagem(arquivo)
+
+  if (tipo === 'logo') {
+    mensagemUploadLogo.value = ''
+  } else {
+    mensagemUploadBanner.value = ''
+  }
+
+  if (mensagemValidacao) {
+    erro.value = mensagemValidacao
+    limparCampoArquivo(tipo)
+    return
+  }
+
+  try {
+    erro.value = ''
+    mensagemSucesso.value = ''
+
+    if (tipo === 'logo') {
+      enviandoLogo.value = true
+      const resposta = await uploadLogoEmpresa(arquivo)
+      personalizacao.value.logoUrl = normalizarUrlImagemPublica(resposta?.url)
+      logoPreviewComErro.value = false
+      mensagemUploadLogo.value = 'Imagem enviada com sucesso.'
+    } else {
+      enviandoBanner.value = true
+      const resposta = await uploadBannerEmpresa(arquivo)
+      personalizacao.value.bannerUrl = normalizarUrlImagemPublica(resposta?.url)
+      bannerPreviewComErro.value = false
+      mensagemUploadBanner.value = 'Imagem enviada com sucesso.'
+    }
+  } catch (error) {
+    erro.value = obterMensagemErroUploadImagem(error)
+    console.error(error)
+  } finally {
+    if (tipo === 'logo') {
+      enviandoLogo.value = false
+    } else {
+      enviandoBanner.value = false
+    }
+
+    limparCampoArquivo(tipo)
   }
 }
 
@@ -281,6 +385,77 @@ function obterMensagemErro(error, fallback) {
               <input v-model="personalizacao.bannerUrl" type="text" placeholder="https://..." />
               <small class="ajuda-campo neutro">Recomendado: imagem horizontal, por exemplo 1600x450 ou 1800x500. O recorte se ajusta automaticamente.</small>
             </label>
+            <div class="campo-grande uploads-personalizacao">
+              <article class="upload-card">
+                <div class="upload-card-topo">
+                  <div>
+                    <strong>Logo da empresa</strong>
+                    <small>Envie uma imagem ou mantenha a URL externa, se preferir.</small>
+                  </div>
+                </div>
+                <div v-if="logoPreviewUrl" class="preview-upload-imagem">
+                  <img v-if="!logoPreviewComErro" :src="logoPreviewUrl" alt="Preview do logo" @error="logoPreviewComErro = true" />
+                  <div v-else class="preview-upload-fallback">
+                    <strong>Preview indisponivel</strong>
+                    <small>O link atual nao carregou, mas continua salvo.</small>
+                  </div>
+                </div>
+                <div v-else class="preview-upload-fallback preview-upload-vazio">
+                  <strong>Sem logo enviado</strong>
+                  <small>Voce pode usar upload ou colar uma URL externa.</small>
+                </div>
+                <div class="upload-acoes">
+                  <input
+                    ref="logoUploadInput"
+                    class="input-arquivo"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    :disabled="enviandoLogo"
+                    @change="enviarImagemPersonalizacao('logo', $event)"
+                  />
+                  <button class="botao secundario" type="button" :disabled="enviandoLogo" @click="logoUploadInput?.click()">
+                    {{ enviandoLogo ? 'Enviando logo...' : 'Enviar logo' }}
+                  </button>
+                </div>
+                <p v-if="mensagemUploadLogo" class="sucesso-texto">{{ mensagemUploadLogo }}</p>
+                <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
+              </article>
+
+              <article class="upload-card">
+                <div class="upload-card-topo">
+                  <div>
+                    <strong>Banner da empresa</strong>
+                    <small>Envie uma imagem ou mantenha a URL externa, se preferir.</small>
+                  </div>
+                </div>
+                <div v-if="bannerPreviewUrl" class="preview-upload-imagem">
+                  <img v-if="!bannerPreviewComErro" :src="bannerPreviewUrl" alt="Preview do banner" @error="bannerPreviewComErro = true" />
+                  <div v-else class="preview-upload-fallback">
+                    <strong>Preview indisponivel</strong>
+                    <small>O link atual nao carregou, mas continua salvo.</small>
+                  </div>
+                </div>
+                <div v-else class="preview-upload-fallback preview-upload-vazio">
+                  <strong>Sem banner enviado</strong>
+                  <small>Voce pode usar upload ou colar uma URL externa.</small>
+                </div>
+                <div class="upload-acoes">
+                  <input
+                    ref="bannerUploadInput"
+                    class="input-arquivo"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    :disabled="enviandoBanner"
+                    @change="enviarImagemPersonalizacao('banner', $event)"
+                  />
+                  <button class="botao secundario" type="button" :disabled="enviandoBanner" @click="bannerUploadInput?.click()">
+                    {{ enviandoBanner ? 'Enviando banner...' : 'Enviar banner' }}
+                  </button>
+                </div>
+                <p v-if="mensagemUploadBanner" class="sucesso-texto">{{ mensagemUploadBanner }}</p>
+                <small class="ajuda-campo neutro">A imagem precisa ser JPG, PNG ou WEBP e ter ate 5 MB.</small>
+              </article>
+            </div>
             <small class="dica campo-grande">
               Você pode colar um link direto de imagem ou um link público do Google Drive. No Google Drive,
               deixe o arquivo como "Qualquer pessoa com o link pode ver".
@@ -508,7 +683,9 @@ function obterMensagemErro(error, fallback) {
 .pagina,
 .formulario,
 .secao,
-.preview {
+.preview,
+.uploads-personalizacao,
+.upload-card {
   display: grid;
   gap: 16px;
 }
@@ -568,6 +745,69 @@ h1 {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 16px;
+}
+
+.uploads-personalizacao {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.upload-card {
+  padding: 16px;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.upload-card-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-upload-imagem,
+.preview-upload-fallback {
+  min-height: 180px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.preview-upload-imagem img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.preview-upload-fallback {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 18px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    linear-gradient(135deg, #eff6ff, #f8fafc);
+  color: #1d4ed8;
+}
+
+.preview-upload-vazio {
+  color: #475569;
+}
+
+.upload-acoes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.input-arquivo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .campo-cor {
@@ -723,6 +963,12 @@ input[type='checkbox'] {
   border-color: #bbf7d0;
   background: #f0fdf4;
   color: #15803d;
+}
+
+.sucesso-texto {
+  margin: 0;
+  color: #15803d;
+  font-weight: 800;
 }
 
 .preview {
@@ -1127,6 +1373,7 @@ input[type='checkbox'] {
 @media (max-width: 1050px) {
   .grade,
   .campos,
+  .uploads-personalizacao,
   .opcoes {
     grid-template-columns: 1fr;
   }

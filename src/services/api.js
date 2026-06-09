@@ -1199,6 +1199,32 @@ export async function buscarMinhaPersonalizacao() {
   return tratarResposta(response)
 }
 
+export async function uploadLogoEmpresa(imagem) {
+  const formData = new FormData()
+  formData.append('imagem', imagem)
+
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo`, {
+    method: 'POST',
+    headers: montarHeaders(),
+    body: formData,
+  })
+
+  return tratarResposta(response)
+}
+
+export async function uploadBannerEmpresa(imagem) {
+  const formData = new FormData()
+  formData.append('imagem', imagem)
+
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner`, {
+    method: 'POST',
+    headers: montarHeaders(),
+    body: formData,
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarIndisponibilidades(filtros = {}) {
   const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
   const response = await executarFetch(`${API_URL}/indisponibilidades${montarQueryString(filtrosConsulta)}`, {
@@ -4001,6 +4027,19 @@ export async function excluirProdutoEstoque(id, motivo = '') {
     },
     OPCOES_EXCLUSAO_LOGICA,
   )
+}
+
+export async function uploadImagemProduto(produtoId, imagem) {
+  const formData = new FormData()
+  formData.append('imagem', imagem)
+
+  const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/imagem`, {
+    method: 'POST',
+    headers: montarHeaders(),
+    body: formData,
+  })
+
+  return tratarResposta(response)
 }
 
 export async function cadastrarAgendamento(agendamento) {
