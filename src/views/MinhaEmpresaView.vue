@@ -177,7 +177,7 @@ function validarIntervaloAgenda() {
 
 async function salvarEmpresa() {
   if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
     return
   }
 
@@ -340,7 +340,7 @@ onBeforeUnmount(() => {
     <section v-if="carregando" class="card"><p>Carregando empresa...</p></section>
 
     <section v-if="!carregando && modoVisualizacaoEmpresa" class="card aviso-visualizacao">
-      <p>Modo visualização: somente consulta. Alterações estão bloqueadas.</p>
+      <p>Selecione uma empresa no seletor superior para operar esta tela.</p>
     </section>
 
     <section v-if="!carregando" class="card formulario" :class="{ 'somente-leitura': modoVisualizacaoEmpresa }">

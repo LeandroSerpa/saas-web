@@ -126,7 +126,7 @@ async function desarquivar(item) {
 
 async function excluir(item) {
   if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
     return
   }
 

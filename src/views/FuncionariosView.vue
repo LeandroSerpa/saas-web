@@ -7,6 +7,7 @@ import {
   buscarFuncionarios,
   buscarStatusFinanceiroMinhaEmpresa,
   cadastrarFuncionario,
+  obterEmpresaIdOperacao,
   modoVisualizacaoEmpresaAtivo,
   recalcularOnboarding,
   atualizarFuncionario,
@@ -76,7 +77,7 @@ const funcionariosFiltrados = computed(() => {
 
 function criarFuncionarioInicial() {
   return {
-    empresaId: 1,
+    empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
     nome: '',
     telefone: '',
     email: '',
@@ -139,7 +140,7 @@ async function carregarFuncionarios() {
 
 async function salvarFuncionario() {
   if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
     return
   }
 
@@ -169,7 +170,7 @@ async function salvarFuncionario() {
     }
 
     const dadosFuncionario = {
-      empresaId: 1,
+      empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
       nome: funcionario.value.nome,
       telefone: funcionario.value.telefone,
       email: funcionario.value.email,
@@ -495,7 +496,7 @@ function atualizarModoVisualizacao() {
     </section>
 
     <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
-      <p>Modo visualização: alterações estão bloqueadas.</p>
+      <p>Selecione uma empresa no seletor superior para operar esta tela.</p>
     </section>
 
     <FuncionarioForm

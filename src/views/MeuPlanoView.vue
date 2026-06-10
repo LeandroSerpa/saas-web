@@ -1,14 +1,24 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { buscarMinhaAssinatura, buscarUsoPlano } from '@/services/api'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import {
+  EVENTO_EMPRESA_VISUALIZACAO,
+  buscarMinhaAssinatura,
+  buscarUsoPlano,
+  obterEmpresaVisualizacao,
+} from '@/services/api'
 
 const assinatura = ref(null)
 const usoPlano = ref(null)
 const carregando = ref(true)
 const erro = ref('')
+const empresaSelecionada = ref(obterEmpresaVisualizacao())
 
 const plano = computed(() => assinatura.value?.plano || assinatura.value || {})
 const status = computed(() => assinatura.value?.status || '-')
+const empresaSelecionadaId = computed(() => String(empresaSelecionada.value?.id || '').trim())
+const contextoEmpresa = computed(() =>
+  empresaSelecionada.value?.id ? `Você está operando na empresa ${empresaSelecionada.value.nome} como SUPER_ADMIN.` : '',
+)
 const nomePlanoAtual = computed(() => {
   if ((assinatura.value?.visivelParaEmpresa ?? plano.value?.visivelParaEmpresa) === false) {
     return 'Plano especial'
@@ -65,12 +75,19 @@ const proximoDoLimite = computed(() =>
   itensUso.value.some((item) => item.limite !== null && item.percentual >= 80),
 )
 
+function sincronizarEmpresaSelecionada() {
+  empresaSelecionada.value = obterEmpresaVisualizacao()
+}
+
 async function carregarMeuPlano() {
   try {
     carregando.value = true
     erro.value = ''
+    assinatura.value = null
+    usoPlano.value = null
 
-    const [assinaturaApi, usoApi] = await Promise.all([buscarMinhaAssinatura(), buscarUsoPlano()])
+    const empresaId = empresaSelecionadaId.value
+    const [assinaturaApi, usoApi] = await Promise.all([buscarMinhaAssinatura(empresaId), buscarUsoPlano(empresaId)])
     assinatura.value = assinaturaApi || null
     usoPlano.value = usoApi || null
   } catch (error) {
@@ -156,8 +173,19 @@ function obterMensagemErro(error, fallback) {
 }
 
 onMounted(() => {
+  sincronizarEmpresaSelecionada()
   carregarMeuPlano()
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
+})
+
+function atualizarContextoEmpresa() {
+  sincronizarEmpresaSelecionada()
+  carregarMeuPlano()
+}
 </script>
 
 <template>
@@ -175,6 +203,10 @@ onMounted(() => {
     <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
       <small>Fale com o administrador para alterar seu plano.</small>
+    </section>
+
+    <section v-if="contextoEmpresa" class="card contexto-operacao">
+      <p>{{ contextoEmpresa }}</p>
     </section>
 
     <section v-if="carregando" class="card">

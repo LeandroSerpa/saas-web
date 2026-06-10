@@ -7,6 +7,7 @@ import {
   buscarServicos,
   buscarStatusFinanceiroMinhaEmpresa,
   cadastrarServico,
+  obterEmpresaIdOperacao,
   modoVisualizacaoEmpresaAtivo,
   recalcularOnboarding,
   atualizarServico,
@@ -70,7 +71,7 @@ const servicosFiltrados = computed(() => {
 
 function criarServicoInicial() {
   return {
-    empresaId: 1,
+    empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
     nome: '',
     descricao: '',
     preco: '',
@@ -124,7 +125,7 @@ async function carregarServicos() {
 
 async function salvarServico() {
   if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
     return
   }
 
@@ -301,7 +302,7 @@ function limparFormulario() {
 
 function montarPayloadServico() {
   return {
-    empresaId: 1,
+    empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
     nome: servico.value.nome,
     descricao: servico.value.descricao,
     preco: normalizarDecimalParaBackend(servico.value.preco),
@@ -428,7 +429,7 @@ function atualizarModoVisualizacao() {
     </section>
 
     <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
-      <p>Modo visualização: alterações estão bloqueadas.</p>
+      <p>Selecione uma empresa no seletor superior para operar esta tela.</p>
     </section>
 
     <ServicoForm

@@ -8,6 +8,7 @@ import {
   atualizarCliente,
   excluirCliente,
   buscarStatusFinanceiroMinhaEmpresa,
+  obterEmpresaIdOperacao,
   modoVisualizacaoEmpresaAtivo,
 } from '@/services/api'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
@@ -81,7 +82,7 @@ async function carregarClientes() {
 
 async function salvarCliente() {
   if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
     return
   }
 
@@ -100,7 +101,7 @@ async function salvarCliente() {
     }
 
     const dadosCliente = {
-      empresaId: 1,
+      empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
       nome: cliente.value.nome,
       telefone: cliente.value.telefone,
       email: cliente.value.email,
@@ -282,7 +283,7 @@ function atualizarModoVisualizacao() {
     </section>
 
     <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
-      <p>Modo visualização: alterações estão bloqueadas.</p>
+      <p>Selecione uma empresa no seletor superior para operar esta tela.</p>
     </section>
 
     <ClienteForm

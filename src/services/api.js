@@ -610,16 +610,29 @@ export function limparEmpresaVisualizacao() {
 }
 
 export function modoVisualizacaoEmpresaAtivo() {
-  return Boolean(obterEmpresaVisualizacao())
+  const usuario = carregarUsuarioSessao()
+  const perfil = normalizarTextoBusca(usuario?.perfil).replace(/^role_/, '')
+
+  return Boolean(perfil === 'super_admin' && !obterEmpresaVisualizacao())
 }
 
-export function aplicarEmpresaVisualizacao(filtros = {}) {
+function obterEmpresaSelecionadaOperacao() {
   const empresaVisualizacao = obterEmpresaVisualizacao()
   const usuario = carregarUsuarioSessao()
 
   const perfil = normalizarTextoBusca(usuario?.perfil).replace(/^role_/, '')
 
   if (!empresaVisualizacao?.id || perfil !== 'super_admin') {
+    return null
+  }
+
+  return empresaVisualizacao
+}
+
+export function aplicarEmpresaVisualizacao(filtros = {}) {
+  const empresaVisualizacao = obterEmpresaSelecionadaOperacao()
+
+  if (!empresaVisualizacao?.id) {
     return filtros
   }
 
@@ -627,6 +640,26 @@ export function aplicarEmpresaVisualizacao(filtros = {}) {
     ...(filtros || {}),
     empresaId: filtros?.empresaId || empresaVisualizacao.id,
   }
+}
+
+function aplicarEmpresaSelecionadaNoPayload(dados = {}) {
+  const empresaVisualizacao = obterEmpresaSelecionadaOperacao()
+
+  if (!empresaVisualizacao?.id) {
+    return { ...(dados || {}) }
+  }
+
+  return {
+    ...(dados || {}),
+    empresaId: empresaVisualizacao.id,
+  }
+}
+
+export function obterEmpresaIdOperacao() {
+  const empresaVisualizacao = obterEmpresaSelecionadaOperacao()
+  const usuario = carregarUsuarioSessao()
+
+  return String(empresaVisualizacao?.id || usuario?.empresaId || '').trim()
 }
 
 export function notificarUnidadesEstoqueAtualizadas() {
@@ -1293,7 +1326,7 @@ export async function criarIndisponibilidade(dados) {
   const response = await executarFetch(`${API_URL}/indisponibilidades`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(dados),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
   })
 
   return tratarResposta(response)
@@ -1303,7 +1336,7 @@ export async function atualizarIndisponibilidade(id, dados) {
   const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(dados),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
   })
 
   return tratarResposta(response)
@@ -1331,7 +1364,7 @@ export async function vincularFuncionarioServico(dados) {
   const response = await executarFetch(`${API_URL}/funcionario-servicos`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(dados),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
   })
 
   return tratarResposta(response)
@@ -1374,7 +1407,7 @@ export async function buscarFuncionariosVinculadosAoServico(servicoId) {
 
 export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionarioIds) {
   const url = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
-  const payload = { funcionarioIds }
+  const payload = aplicarEmpresaSelecionadaNoPayload({ funcionarioIds })
   const response = await executarFetch(url, {
     method: 'PUT',
     headers: montarHeaders(true),
@@ -1761,7 +1794,7 @@ export async function salvarMinhaPersonalizacao(dados) {
   const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(payload),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload)),
   })
 
   return tratarResposta(response)
@@ -2918,11 +2951,11 @@ export async function atualizarQuantidadeRapidaProduto(produtoId, quantidadeAtua
   const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/quantidade-rapida`, {
     method: 'PATCH',
     headers: montarHeaders(true),
-    body: JSON.stringify({
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({
       quantidadeAtual,
       quantidade: quantidadeAtual,
       saldoAtual: quantidadeAtual,
-    }),
+    })),
   })
 
   return normalizarProdutoEstoqueResposta(
@@ -2941,7 +2974,7 @@ export async function configurarEstoqueDiaProduto(produtoId, payload) {
   const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/estoque-dia`, {
     method: 'PATCH',
     headers: montarHeaders(true),
-    body: JSON.stringify(payload || {}),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload || {})),
   })
 
   return normalizarProdutoEstoqueResposta(
@@ -2960,7 +2993,7 @@ export async function reiniciarEstoqueDia(payload) {
   const response = await executarFetch(`${API_URL}/estoque/estoque-dia/reiniciar`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(payload || {}),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload || {})),
   })
 
   return normalizarRespostaProdutosEstoque(
@@ -2999,7 +3032,7 @@ export async function criarProdutoEstoque(dados) {
     {
       method: 'POST',
       headers: montarHeaders(true),
-      body: JSON.stringify(dados),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
     },
   )
   )
@@ -3015,7 +3048,7 @@ export async function atualizarProdutoEstoque(id, dados) {
     {
       method: 'PUT',
       headers: montarHeaders(true),
-      body: JSON.stringify(dados),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
     },
   )
   )
@@ -3072,7 +3105,7 @@ export async function criarMovimentacaoEstoque(dados) {
     {
       method: 'POST',
       headers: montarHeaders(true),
-      body: JSON.stringify(dados),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
     },
   )
 }
@@ -3160,8 +3193,8 @@ export async function criarEmpresaCadastroGuiadoAdmin(payload) {
   return tratarResposta(response)
 }
 
-export async function buscarMinhaAssinatura() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+export async function buscarMinhaAssinatura(empresaId = '') {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(empresaId ? { empresaId } : {})
   const response = await executarFetch(`${API_URL}/minha-empresa/assinatura${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
@@ -3169,8 +3202,8 @@ export async function buscarMinhaAssinatura() {
   return tratarResposta(response)
 }
 
-export async function buscarUsoPlano() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+export async function buscarUsoPlano(empresaId = '') {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(empresaId ? { empresaId } : {})
   const response = await executarFetch(`${API_URL}/minha-empresa/uso-plano${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
   })
@@ -3191,7 +3224,7 @@ export async function salvarMinhasConfiguracoesNotificacoes(payload) {
   const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(payload),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload)),
   })
 
   return tratarResposta(response)
@@ -3861,7 +3894,7 @@ export async function atualizarMinhaEmpresa(empresa) {
   const response = await executarFetch(`${API_URL}/minha-empresa`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(empresa),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(empresa)),
   })
 
   return tratarResposta(response)
@@ -3958,7 +3991,7 @@ export async function cadastrarCliente(cliente) {
   const response = await executarFetch(`${API_URL}/clientes`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(cliente),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(cliente)),
   })
 
   return tratarResposta(response)
@@ -3968,7 +4001,7 @@ export async function atualizarCliente(id, cliente) {
   const response = await executarFetch(`${API_URL}/clientes/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(cliente),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(cliente)),
   })
 
   return tratarResposta(response)
@@ -3987,7 +4020,7 @@ export async function cadastrarServico(servico) {
   const response = await executarFetch(`${API_URL}/servicos`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(servico),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(servico)),
   })
 
   return tratarResposta(response)
@@ -3997,7 +4030,7 @@ export async function atualizarServico(id, servico) {
   const response = await executarFetch(`${API_URL}/servicos/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(servico),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(servico)),
   })
 
   return tratarResposta(response)
@@ -4026,7 +4059,7 @@ export async function cadastrarFuncionario(funcionario) {
   const response = await executarFetch(`${API_URL}/funcionarios`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(funcionario),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(funcionario)),
   })
 
   return tratarResposta(response)
@@ -4036,7 +4069,7 @@ export async function atualizarFuncionario(id, funcionario) {
   const response = await executarFetch(`${API_URL}/funcionarios/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(funcionario),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(funcionario)),
   })
 
   return tratarResposta(response)
@@ -4101,7 +4134,7 @@ export async function cadastrarAgendamento(agendamento) {
   const response = await executarFetch(`${API_URL}/agendamentos`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(agendamento),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(agendamento)),
   })
 
   return tratarResposta(response)
@@ -4111,7 +4144,7 @@ export async function atualizarAgendamento(id, agendamento) {
   const response = await executarFetch(`${API_URL}/agendamentos/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(agendamento),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(agendamento)),
   })
 
   return tratarResposta(response)
