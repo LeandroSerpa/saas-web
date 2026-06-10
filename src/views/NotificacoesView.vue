@@ -52,6 +52,15 @@ async function carregarDados() {
   try {
     carregando.value = true
     erro.value = ''
+    sucesso.value = ''
+    modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+
+    if (modoVisualizacaoEmpresa.value) {
+      notificacoes.value = []
+      resumo.value = {}
+      return
+    }
+
     debugLog('notificacoes-view', 'Refresh das notificações da empresa', limparVazios(filtros.value))
     const [listaApi, resumoApi] = await Promise.all([
       buscarNotificacoes(limparVazios(filtros.value)),
@@ -68,6 +77,11 @@ async function carregarDados() {
 }
 
 async function marcarComoLida(item) {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
   if (!item?.id) return
 
   try {
@@ -87,6 +101,11 @@ async function marcarComoLida(item) {
 }
 
 async function arquivar(item) {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
   if (!item?.id) return
 
   try {
@@ -106,6 +125,11 @@ async function arquivar(item) {
 }
 
 async function desarquivar(item) {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
   if (!item?.id) return
 
   try {
@@ -326,6 +350,8 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
 
 function atualizarModoVisualizacao() {
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  erro.value = ''
+  sucesso.value = ''
   carregarDados()
 }
 
@@ -356,6 +382,9 @@ onBeforeUnmount(() => {
 
     <section v-if="erro" class="card feedback erro">{{ erro }}</section>
     <section v-if="sucesso" class="card feedback sucesso">{{ sucesso }}</section>
+    <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
+      <p>Selecione uma empresa no seletor superior para operar esta tela.</p>
+    </section>
 
     <section class="grade-resumo">
       <article v-for="card in cards" :key="card.titulo" class="card indicador">

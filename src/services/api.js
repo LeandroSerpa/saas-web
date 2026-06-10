@@ -629,37 +629,52 @@ function obterEmpresaSelecionadaOperacao() {
   return empresaVisualizacao
 }
 
-export function aplicarEmpresaVisualizacao(filtros = {}) {
-  const empresaVisualizacao = obterEmpresaSelecionadaOperacao()
+function obterEmpresaIdOperacionalSelecionada() {
+  return String(obterEmpresaSelecionadaOperacao()?.id || '').trim()
+}
 
-  if (!empresaVisualizacao?.id) {
-    return filtros
+export function anexarEmpresaIdOperacionalNaQuery(filtros = {}) {
+  const empresaIdOperacional = obterEmpresaIdOperacionalSelecionada()
+
+  if (!empresaIdOperacional) {
+    return { ...(filtros || {}) }
   }
 
   return {
     ...(filtros || {}),
-    empresaId: filtros?.empresaId || empresaVisualizacao.id,
+    empresaId: filtros?.empresaId || empresaIdOperacional,
   }
 }
 
-function aplicarEmpresaSelecionadaNoPayload(dados = {}) {
-  const empresaVisualizacao = obterEmpresaSelecionadaOperacao()
+function montarQueryEmpresaOperacional(filtros = {}) {
+  return montarQueryString(anexarEmpresaIdOperacionalNaQuery(filtros))
+}
 
-  if (!empresaVisualizacao?.id) {
+function anexarEmpresaIdOperacionalNoPayload(dados = {}) {
+  const empresaIdOperacional = obterEmpresaIdOperacionalSelecionada()
+
+  if (!empresaIdOperacional) {
     return { ...(dados || {}) }
   }
 
   return {
     ...(dados || {}),
-    empresaId: empresaVisualizacao.id,
+    empresaId: empresaIdOperacional,
   }
 }
 
+export function aplicarEmpresaVisualizacao(filtros = {}) {
+  return anexarEmpresaIdOperacionalNaQuery(filtros)
+}
+
+function aplicarEmpresaSelecionadaNoPayload(dados = {}) {
+  return anexarEmpresaIdOperacionalNoPayload(dados)
+}
+
 export function obterEmpresaIdOperacao() {
-  const empresaVisualizacao = obterEmpresaSelecionadaOperacao()
   const usuario = carregarUsuarioSessao()
 
-  return String(empresaVisualizacao?.id || usuario?.empresaId || '').trim()
+  return String(obterEmpresaIdOperacionalSelecionada() || usuario?.empresaId || '').trim()
 }
 
 export function notificarUnidadesEstoqueAtualizadas() {
@@ -768,8 +783,16 @@ function solicitouPaginacao(filtros = {}) {
 }
 
 async function executarFetch(input, init) {
+  const configuracaoFetch = {
+    ...(init || {}),
+  }
+
+  if (configuracaoFetch.cache == null) {
+    configuracaoFetch.cache = 'no-store'
+  }
+
   try {
-    return await fetch(input, init)
+    return await fetch(input, configuracaoFetch)
   } catch (error) {
     const erro = new Error(MENSAGENS_PADRAO.redeApiIndisponivel)
     erro.status = 0
@@ -1097,6 +1120,7 @@ export async function buscarEmpresaPublica(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1106,6 +1130,7 @@ export async function buscarServicosPublicos(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/servicos`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1115,6 +1140,7 @@ export async function buscarCatalogoPublico(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/catalogo/${slugNormalizado}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return normalizarRespostaCatalogoPublico(await tratarRespostaPublica(response))
@@ -1127,6 +1153,7 @@ export async function buscarCardapioPublico(slug) {
 export async function buscarSegmentosPublicos() {
   const response = await executarFetch(`${API_URL}/publico/segmentos`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1166,6 +1193,7 @@ export async function buscarConteudoInstitucionalPublico(tipo) {
   const tipoNormalizado = String(tipo || '').trim()
   const response = await executarFetch(`${API_URL}/publico/institucional/${tipoNormalizado}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1193,6 +1221,7 @@ export async function buscarFuncionariosPublicos(slug, filtros = {}) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/funcionarios${montarQueryString(filtros)}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1208,6 +1237,7 @@ export async function buscarDisponibilidadePublica(slug, servicoId, funcionarioI
 
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/disponibilidade?${params}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1218,6 +1248,7 @@ export async function buscarDisponibilidadeDataPublica(slug, data) {
   const params = new URLSearchParams({ data })
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/disponibilidade-data?${params}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1235,9 +1266,10 @@ export async function criarAgendamentoPublico(slug, dados) {
 }
 
 export async function buscarMinhaPersonalizacao() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const filtrosConsulta = anexarEmpresaIdOperacionalNaQuery({})
   const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -1247,7 +1279,7 @@ export async function uploadLogoEmpresa(imagem) {
   const formData = new FormData()
   formData.append('imagem', imagem)
 
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'POST',
     headers: montarHeaders(),
     body: formData,
@@ -1257,25 +1289,27 @@ export async function uploadLogoEmpresa(imagem) {
 }
 
 export async function buscarStatusUploadsEmpresa() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const filtrosConsulta = anexarEmpresaIdOperacionalNaQuery({})
   const response = await executarFetch(`${API_URL}/minha-empresa/uploads/status${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarRespostaOpcional(response)
 }
 
 export async function buscarResumoUploadsEmpresa() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const filtrosConsulta = anexarEmpresaIdOperacionalNaQuery({})
   const response = await executarFetch(`${API_URL}/minha-empresa/uploads/resumo${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarRespostaOpcional(response)
 }
 
 export async function removerLogoEmpresa() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -1287,7 +1321,7 @@ export async function uploadBannerEmpresa(imagem) {
   const formData = new FormData()
   formData.append('imagem', imagem)
 
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'POST',
     headers: montarHeaders(),
     body: formData,
@@ -1297,7 +1331,7 @@ export async function uploadBannerEmpresa(imagem) {
 }
 
 export async function removerBannerEmpresa() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -1315,7 +1349,7 @@ export async function buscarIndisponibilidades(filtros = {}) {
 }
 
 export async function buscarIndisponibilidadePorId(id) {
-  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}${montarQueryEmpresaOperacional()}`, {
     headers: montarHeaders(),
   })
 
@@ -1343,7 +1377,7 @@ export async function atualizarIndisponibilidade(id, dados) {
 }
 
 export async function excluirIndisponibilidade(id) {
-  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}${montarQueryEmpresaOperacional()}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -1371,7 +1405,7 @@ export async function vincularFuncionarioServico(dados) {
 }
 
 export async function excluirFuncionarioServico(id) {
-  const response = await executarFetch(`${API_URL}/funcionario-servicos/${id}`, {
+  const response = await executarFetch(`${API_URL}/funcionario-servicos/${id}${montarQueryEmpresaOperacional()}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -1380,13 +1414,14 @@ export async function excluirFuncionarioServico(id) {
 }
 
 export async function buscarFuncionariosVinculadosAoServico(servicoId) {
-  const urlPrincipal = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
+  const queryEmpresa = montarQueryEmpresaOperacional()
+  const urlPrincipal = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados${queryEmpresa}`
   const response = await executarFetch(urlPrincipal, {
     headers: montarHeaders(),
   })
 
   if (response.status === 404) {
-    const urlFallback = `${API_URL}/servicos/${servicoId}/funcionarios`
+    const urlFallback = `${API_URL}/servicos/${servicoId}/funcionarios${queryEmpresa}`
     const fallback = await executarFetch(urlFallback, {
       headers: montarHeaders(),
     })
@@ -1406,7 +1441,7 @@ export async function buscarFuncionariosVinculadosAoServico(servicoId) {
 }
 
 export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionarioIds) {
-  const url = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
+  const url = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados${montarQueryEmpresaOperacional()}`
   const payload = aplicarEmpresaSelecionadaNoPayload({ funcionarioIds })
   const response = await executarFetch(url, {
     method: 'PUT',
@@ -1791,7 +1826,7 @@ export async function salvarMinhaPersonalizacao(dados) {
     bannerUrl: normalizarUrlImagemPublica(dados?.bannerUrl),
   }
 
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload)),
@@ -1804,6 +1839,7 @@ export async function buscarPersonalizacaoPublica(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/personalizacao`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -2151,6 +2187,7 @@ export async function buscarStatusFinanceiroMinhaEmpresa() {
   const filtrosConsulta = aplicarEmpresaVisualizacao({})
   const response = await executarFetch(`${API_URL}/minha-empresa/status-financeiro${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -3009,11 +3046,12 @@ export async function reiniciarEstoqueDia(payload) {
 }
 
 export async function buscarProdutoEstoque(id) {
+  const queryEmpresa = montarQueryEmpresaOperacional()
   return normalizarProdutoEstoqueResposta(
     await tentarRotas(
     [
-      `${API_URL}/estoque/produtos/${id}`,
-      `${API_URL}/produtos/${id}`,
+      `${API_URL}/estoque/produtos/${id}${queryEmpresa}`,
+      `${API_URL}/produtos/${id}${queryEmpresa}`,
     ],
     {
       headers: montarHeaders(),
@@ -3057,12 +3095,13 @@ export async function atualizarProdutoEstoque(id, dados) {
 export async function ativarProdutoEstoque(id) {
   return tentarRotas(
     [
-      `${API_URL}/estoque/produtos/${id}/ativar`,
-      `${API_URL}/produtos/${id}/ativar`,
+      `${API_URL}/estoque/produtos/${id}/ativar${montarQueryEmpresaOperacional()}`,
+      `${API_URL}/produtos/${id}/ativar${montarQueryEmpresaOperacional()}`,
     ],
     {
       method: 'PATCH',
-      headers: montarHeaders(),
+      headers: montarHeaders(true),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({})),
     },
   )
 }
@@ -3070,12 +3109,13 @@ export async function ativarProdutoEstoque(id) {
 export async function desativarProdutoEstoque(id) {
   return tentarRotas(
     [
-      `${API_URL}/estoque/produtos/${id}/desativar`,
-      `${API_URL}/produtos/${id}/desativar`,
+      `${API_URL}/estoque/produtos/${id}/desativar${montarQueryEmpresaOperacional()}`,
+      `${API_URL}/produtos/${id}/desativar${montarQueryEmpresaOperacional()}`,
     ],
     {
       method: 'PATCH',
-      headers: montarHeaders(),
+      headers: montarHeaders(true),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({})),
     },
   )
 }
@@ -3197,6 +3237,7 @@ export async function buscarMinhaAssinatura(empresaId = '') {
   const filtrosConsulta = aplicarEmpresaVisualizacao(empresaId ? { empresaId } : {})
   const response = await executarFetch(`${API_URL}/minha-empresa/assinatura${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -3206,6 +3247,7 @@ export async function buscarUsoPlano(empresaId = '') {
   const filtrosConsulta = aplicarEmpresaVisualizacao(empresaId ? { empresaId } : {})
   const response = await executarFetch(`${API_URL}/minha-empresa/uso-plano${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -3215,13 +3257,14 @@ export async function buscarMinhasConfiguracoesNotificacoes() {
   const filtrosConsulta = aplicarEmpresaVisualizacao({})
   const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
 }
 
 export async function salvarMinhasConfiguracoesNotificacoes(payload) {
-  const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload)),
@@ -3529,7 +3572,7 @@ export async function buscarResumoNotificacoes() {
 }
 
 export async function marcarNotificacaoComoLida(id) {
-  const response = await executarFetch(`${API_URL}/notificacoes/${id}/lida`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/lida${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3547,7 +3590,7 @@ export async function marcarNotificacaoComoLidaAdmin(id) {
 }
 
 export async function marcarTodasNotificacoesComoLidas() {
-  const response = await executarFetch(`${API_URL}/notificacoes/marcar-todas-lidas`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/marcar-todas-lidas${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3556,7 +3599,7 @@ export async function marcarTodasNotificacoesComoLidas() {
 }
 
 export async function arquivarNotificacao(id) {
-  const response = await executarFetch(`${API_URL}/notificacoes/${id}/arquivar`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/arquivar${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3565,7 +3608,7 @@ export async function arquivarNotificacao(id) {
 }
 
 export async function desarquivarNotificacao(id) {
-  const response = await executarFetch(`${API_URL}/notificacoes/${id}/desarquivar`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/desarquivar${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3574,7 +3617,7 @@ export async function desarquivarNotificacao(id) {
 }
 
 export async function excluirNotificacao(id) {
-  const response = await executarFetch(`${API_URL}/notificacoes/${id}/excluir`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/excluir${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3877,6 +3920,7 @@ export async function buscarMinhaEmpresa() {
 
   const response = await executarFetch(`${API_URL}/minha-empresa`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -3885,13 +3929,14 @@ export async function buscarMinhaEmpresa() {
 export async function buscarEmpresaPorId(id) {
   const response = await executarFetch(`${API_URL}/empresas/${id}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
 }
 
 export async function atualizarMinhaEmpresa(empresa) {
-  const response = await executarFetch(`${API_URL}/minha-empresa`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(empresa)),
@@ -4097,8 +4142,8 @@ export async function atualizarAtivoFuncionario(id, ativo) {
 export async function excluirProdutoEstoque(id, motivo = '') {
   return tentarRotas(
     [
-      `${API_URL}/estoque/produtos/${id}${montarQueryString({ motivo })}`,
-      `${API_URL}/produtos/${id}${montarQueryString({ motivo })}`,
+      `${API_URL}/estoque/produtos/${id}${montarQueryEmpresaOperacional({ motivo })}`,
+      `${API_URL}/produtos/${id}${montarQueryEmpresaOperacional({ motivo })}`,
     ],
     {
       method: 'DELETE',
@@ -4151,17 +4196,17 @@ export async function atualizarAgendamento(id, agendamento) {
 }
 
 export async function atualizarStatusAgendamento(id, status) {
-  const response = await executarFetch(`${API_URL}/agendamentos/${id}/status`, {
+  const response = await executarFetch(`${API_URL}/agendamentos/${id}/status${montarQueryEmpresaOperacional()}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({ status })),
   })
 
   return tratarResposta(response)
 }
 
 export async function excluirAgendamento(id, motivo = '') {
-  const response = await executarFetch(`${API_URL}/agendamentos/${id}${montarQueryString({ motivo })}`, {
+  const response = await executarFetch(`${API_URL}/agendamentos/${id}${montarQueryEmpresaOperacional({ motivo })}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
