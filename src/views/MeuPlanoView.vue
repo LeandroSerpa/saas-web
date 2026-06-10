@@ -53,6 +53,7 @@ const itensUso = computed(() => [
   criarItemUso('Clientes', ['clientes', 'qtdClientes'], obterLimite('limiteClientes')),
   criarItemUso('Funcionários', ['funcionarios', 'qtdFuncionarios'], obterLimite('limiteFuncionarios')),
   criarItemUso('Serviços', ['servicos', 'qtdServicos'], obterLimite('limiteServicos')),
+  criarItemUso('Produtos no estoque', ['produtos', 'qtdProdutos', 'usoProdutos'], obterLimite('limiteProdutos')),
   criarItemUso(
     'Agendamentos no mês',
     ['agendamentosMes', 'agendamentosNoMes', 'qtdAgendamentosMes'],
@@ -231,6 +232,7 @@ onMounted(() => {
         <div class="permissoes">
           <span :class="{ ligado: permissaoLigada('permitePersonalizacao') }">Personalização</span>
           <span :class="{ ligado: permissaoLigada('permiteRelatorios') }">Relatórios</span>
+          <span :class="{ ligado: permissaoLigada('permiteEstoque') }">Estoque</span>
           <span :class="{ ligado: permissaoLigada('permiteAgendamentoPublico') }">Agendamento público</span>
           <span :class="{ ligado: permissaoLigada('permiteSuportePrioritario') }">Suporte prioritário</span>
         </div>
