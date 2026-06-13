@@ -1,5 +1,11 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import {
+  OPCOES_FREQUENCIA_SEMANAL_BEACH_TENNIS,
+  OPCOES_NIVEL_BEACH_TENNIS,
+  OPCOES_PERFIL_BEACH_TENNIS,
+  OPCOES_PLANO_BEACH_TENNIS,
+} from '@/utils/beachTennis'
 import {
   emailBasicoValido,
   limparEspacos,
@@ -29,6 +35,17 @@ const errosCampos = reactive({
   telefone: '',
   email: '',
 })
+
+const temDadosBeachTennis = computed(() =>
+  Boolean(
+    cliente.value?.dataNascimento ||
+      cliente.value?.perfilBeachTennis ||
+      cliente.value?.nivelBeachTennis ||
+      cliente.value?.frequenciaSemanalBeachTennis ||
+      cliente.value?.planoBeachTennis ||
+      cliente.value?.observacaoBeachTennis,
+  ),
+)
 
 function limparErroCampo(campo) {
   errosCampos[campo] = ''
@@ -133,6 +150,73 @@ function solicitarSalvamento() {
         />
       </label>
     </div>
+
+    <details class="bloco-beach-tennis" :open="temDadosBeachTennis">
+      <summary>Dados do aluno - Beach Tennis</summary>
+      <p class="ajuda-bloco">
+        Se esta pessoa também participa das aulas ou dos plays, preencha só os campos que fizerem sentido.
+      </p>
+
+      <div class="campos">
+        <label>
+          Data de nascimento
+          <input v-model="cliente.dataNascimento" type="date" />
+        </label>
+
+        <label>
+          Perfil Beach Tennis
+          <select v-model="cliente.perfilBeachTennis">
+            <option value="">Selecione</option>
+            <option v-for="opcao in OPCOES_PERFIL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Nível
+          <select v-model="cliente.nivelBeachTennis">
+            <option value="">Selecione</option>
+            <option v-for="opcao in OPCOES_NIVEL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Frequência semanal
+          <select v-model="cliente.frequenciaSemanalBeachTennis">
+            <option value="">Selecione</option>
+            <option
+              v-for="opcao in OPCOES_FREQUENCIA_SEMANAL_BEACH_TENNIS"
+              :key="opcao.valor"
+              :value="opcao.valor"
+            >
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Plano Beach Tennis
+          <select v-model="cliente.planoBeachTennis">
+            <option value="">Selecione</option>
+            <option v-for="opcao in OPCOES_PLANO_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label class="campo-grande">
+          Observações do aluno/participante
+          <textarea
+            v-model="cliente.observacaoBeachTennis"
+            rows="3"
+            placeholder="Ex: Prefere treinos noturnos, participa dos plays aos sábados..."
+          ></textarea>
+        </label>
+      </div>
+    </details>
 
     <p v-if="erroValidacao" class="erro-texto">{{ erroValidacao }}</p>
 

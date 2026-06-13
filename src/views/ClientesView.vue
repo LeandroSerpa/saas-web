@@ -11,6 +11,13 @@ import {
   obterEmpresaIdOperacao,
   modoVisualizacaoEmpresaAtivo,
 } from '@/services/api'
+import {
+  formatarDataBrasileira,
+  rotuloFrequenciaSemanalBeachTennis,
+  rotuloNivelBeachTennis,
+  rotuloPerfilBeachTennis,
+  rotuloPlanoBeachTennis,
+} from '@/utils/beachTennis'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const clientes = ref([])
@@ -34,7 +41,65 @@ function criarClienteInicial() {
     telefone: '',
     email: '',
     observacao: '',
+    dataNascimento: '',
+    perfilBeachTennis: '',
+    nivelBeachTennis: '',
+    frequenciaSemanalBeachTennis: '',
+    planoBeachTennis: '',
+    observacaoBeachTennis: '',
   }
+}
+
+function normalizarClienteFormulario(clienteItem = {}) {
+  return {
+    nome: clienteItem.nome || '',
+    telefone: clienteItem.telefone || '',
+    email: clienteItem.email || '',
+    observacao: clienteItem.observacao || '',
+    dataNascimento: clienteItem.dataNascimento || clienteItem.nascimento || '',
+    perfilBeachTennis: clienteItem.perfilBeachTennis || '',
+    nivelBeachTennis: clienteItem.nivelBeachTennis || '',
+    frequenciaSemanalBeachTennis: clienteItem.frequenciaSemanalBeachTennis || '',
+    planoBeachTennis: clienteItem.planoBeachTennis || '',
+    observacaoBeachTennis: clienteItem.observacaoBeachTennis || '',
+  }
+}
+
+function montarPayloadCliente() {
+  return {
+    empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
+    ...normalizarClienteFormulario(cliente.value),
+  }
+}
+
+function temDadosBeachTennis(clienteItem = {}) {
+  return Boolean(
+    clienteItem.dataNascimento ||
+      clienteItem.nascimento ||
+      clienteItem.perfilBeachTennis ||
+      clienteItem.nivelBeachTennis ||
+      clienteItem.frequenciaSemanalBeachTennis ||
+      clienteItem.planoBeachTennis ||
+      clienteItem.observacaoBeachTennis,
+  )
+}
+
+function listaResumoBeachTennis(clienteItem = {}) {
+  const itens = []
+
+  const perfil = rotuloPerfilBeachTennis(clienteItem.perfilBeachTennis)
+  const nivel = rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)
+  const frequencia = rotuloFrequenciaSemanalBeachTennis(clienteItem.frequenciaSemanalBeachTennis)
+  const plano = rotuloPlanoBeachTennis(clienteItem.planoBeachTennis)
+  const nascimento = formatarDataBrasileira(clienteItem.dataNascimento || clienteItem.nascimento)
+
+  if (perfil) itens.push(`Perfil: ${perfil}`)
+  if (nivel) itens.push(`Nível: ${nivel}`)
+  if (frequencia) itens.push(`Frequência: ${frequencia}`)
+  if (plano) itens.push(`Plano: ${plano}`)
+  if (nascimento) itens.push(`Nascimento: ${nascimento}`)
+
+  return itens
 }
 
 async function carregarClientes() {
@@ -100,24 +165,17 @@ async function salvarCliente() {
       return
     }
 
-    const dadosCliente = {
-      empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
-      nome: cliente.value.nome,
-      telefone: cliente.value.telefone,
-      email: cliente.value.email,
-      observacao: cliente.value.observacao,
-    }
+    const dadosCliente = montarPayloadCliente()
 
     if (clienteEditandoId.value) {
       await atualizarCliente(clienteEditandoId.value, dadosCliente)
       mensagemSucessoCliente.value = 'Cliente atualizado com sucesso.'
     } else {
-      await cadastrarCliente(cliente.value)
+      await cadastrarCliente(dadosCliente)
       mensagemSucessoCliente.value = 'Cliente cadastrado com sucesso.'
     }
 
     cancelarEdicaoCliente(false)
-
     await carregarClientes()
   } catch (error) {
     erro.value = obterMensagemErro(
@@ -188,12 +246,7 @@ function editarCliente(clienteItem) {
   erro.value = ''
   mensagemSucessoCliente.value = ''
   clienteEditandoId.value = clienteItem.id
-  cliente.value = {
-    nome: clienteItem.nome || '',
-    telefone: clienteItem.telefone || '',
-    email: clienteItem.email || '',
-    observacao: clienteItem.observacao || '',
-  }
+  cliente.value = normalizarClienteFormulario(clienteItem)
 }
 
 function cancelarEdicaoCliente(limparMensagens = true) {
@@ -250,6 +303,13 @@ async function alterarTamanhoPagina() {
   await carregarClientes()
 }
 
+function atualizarModoVisualizacao() {
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  cancelarEdicaoCliente(false)
+  carregarClientes()
+  carregarStatusFinanceiro()
+}
+
 onMounted(() => {
   carregarClientes()
   carregarStatusFinanceiro()
@@ -259,11 +319,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
 })
-
-function atualizarModoVisualizacao() {
-  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
-  carregarClientes()
-}
 </script>
 
 <template>
@@ -315,9 +370,20 @@ function atualizarModoVisualizacao() {
 
       <section v-else class="lista-clientes">
         <article v-for="clienteItem in clientes" :key="clienteItem.id" class="card cliente-card">
-          <div>
-            <h3>{{ clienteItem.nome }}</h3>
-            <p class="email">{{ exibirValor(clienteItem.email) }}</p>
+          <div class="cabecalho-cliente">
+            <div>
+              <h3>{{ clienteItem.nome }}</h3>
+              <p class="email">{{ exibirValor(clienteItem.email) }}</p>
+            </div>
+
+            <div v-if="temDadosBeachTennis(clienteItem)" class="chips-beach">
+              <span v-if="rotuloPerfilBeachTennis(clienteItem.perfilBeachTennis)" class="chip beach">
+                {{ rotuloPerfilBeachTennis(clienteItem.perfilBeachTennis) }}
+              </span>
+              <span v-if="rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)" class="chip beach sutileza">
+                {{ rotuloNivelBeachTennis(clienteItem.nivelBeachTennis) }}
+              </span>
+            </div>
           </div>
 
           <div class="detalhes">
@@ -325,6 +391,21 @@ function atualizarModoVisualizacao() {
             <p><strong>E-mail:</strong> {{ exibirValor(clienteItem.email) }}</p>
             <p><strong>Observação:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
           </div>
+
+          <details v-if="temDadosBeachTennis(clienteItem)" class="beach-resumo">
+            <summary>Dados do aluno - Beach Tennis</summary>
+            <div class="beach-resumo-grid">
+              <p><strong>Data de nascimento:</strong> {{ exibirValor(formatarDataBrasileira(clienteItem.dataNascimento || clienteItem.nascimento)) }}</p>
+              <p><strong>Perfil:</strong> {{ exibirValor(rotuloPerfilBeachTennis(clienteItem.perfilBeachTennis)) }}</p>
+              <p><strong>Nível:</strong> {{ exibirValor(rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)) }}</p>
+              <p><strong>Frequência:</strong> {{ exibirValor(rotuloFrequenciaSemanalBeachTennis(clienteItem.frequenciaSemanalBeachTennis)) }}</p>
+              <p><strong>Plano:</strong> {{ exibirValor(rotuloPlanoBeachTennis(clienteItem.planoBeachTennis)) }}</p>
+              <p><strong>Observações:</strong> {{ exibirValor(clienteItem.observacaoBeachTennis) }}</p>
+            </div>
+            <ul v-if="listaResumoBeachTennis(clienteItem).length" class="lista-resumo">
+              <li v-for="item in listaResumoBeachTennis(clienteItem)" :key="item">{{ item }}</li>
+            </ul>
+          </details>
 
           <div v-if="!modoVisualizacaoEmpresa" class="acoes">
             <button class="botao secundario" @click="editarCliente(clienteItem)">Editar</button>
@@ -436,6 +517,13 @@ function atualizarModoVisualizacao() {
   gap: 14px;
 }
 
+.cabecalho-cliente {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
 .cliente-card h3 {
   margin: 0;
   color: #111827;
@@ -450,14 +538,69 @@ function atualizarModoVisualizacao() {
   word-break: break-word;
 }
 
-.detalhes p {
+.chips-beach {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chip {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chip.beach {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.chip.sutileza {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.detalhes p,
+.beach-resumo-grid p {
   margin: 6px 0;
   color: #374151;
   word-break: break-word;
 }
 
-.detalhes strong {
+.detalhes strong,
+.beach-resumo-grid strong {
   font-weight: 800;
+}
+
+.beach-resumo {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #f8fbff;
+}
+
+.beach-resumo summary {
+  cursor: pointer;
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.beach-resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+}
+
+.lista-resumo {
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  display: grid;
+  gap: 4px;
 }
 
 .acoes {
@@ -593,7 +736,9 @@ function atualizarModoVisualizacao() {
   font-size: 14px;
 }
 
-:deep(input) {
+:deep(input),
+:deep(select),
+:deep(textarea) {
   width: 100%;
   min-width: 0;
   border: 1px solid #d1d5db;
@@ -604,7 +749,14 @@ function atualizarModoVisualizacao() {
   box-sizing: border-box;
 }
 
-:deep(input:focus) {
+:deep(textarea) {
+  resize: vertical;
+  min-height: 96px;
+}
+
+:deep(input:focus),
+:deep(select:focus),
+:deep(textarea:focus) {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
@@ -621,6 +773,26 @@ function atualizarModoVisualizacao() {
   flex-wrap: wrap;
 }
 
+.bloco-beach-tennis {
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 16px;
+  background: #f8fbff;
+}
+
+.bloco-beach-tennis summary {
+  cursor: pointer;
+  color: #1d4ed8;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.ajuda-bloco {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
 .erro {
   border-color: #fecaca;
   background: #fef2f2;
@@ -635,14 +807,20 @@ function atualizarModoVisualizacao() {
 
 @media (max-width: 900px) {
   .cabecalho-pagina,
-  .cabecalho-lista {
+  .cabecalho-lista,
+  .cabecalho-cliente {
     flex-direction: column;
     align-items: flex-start;
   }
 
   .lista-clientes,
-  :deep(.campos) {
+  :deep(.campos),
+  .beach-resumo-grid {
     grid-template-columns: 1fr;
+  }
+
+  .chips-beach {
+    justify-content: flex-start;
   }
 }
 </style>

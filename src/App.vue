@@ -49,6 +49,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Clientes',
     descricao: 'Gerencie os clientes cadastrados na sua operação.',
   },
+  'beach-tennis-turmas': {
+    subtitulo: 'Beach Tennis',
+    titulo: 'Turmas Beach Tennis',
+    descricao: 'Cadastre turmas, acompanhe níveis e vincule alunos manualmente.',
+  },
   servicos: {
     subtitulo: 'Catálogo operacional',
     titulo: 'Serviços',
@@ -221,6 +226,7 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   dashboard: 'dashboard',
   agenda: 'agenda',
   clientes: 'clientes',
+  'beach-tennis-turmas': 'clientes',
   servicos: 'servicos',
   funcionarios: 'funcionarios',
   disponibilidade: 'disponibilidade',
@@ -688,6 +694,9 @@ onBeforeUnmount(() => {
             <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
             <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
             <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
+            <RouterLink v-if="podeGerenciarUsuarios" to="/beach-tennis/turmas" @click="fecharMenuMobile">
+              Turmas Beach Tennis
+            </RouterLink>
           </div>
         </section>
 
