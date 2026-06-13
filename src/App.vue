@@ -54,6 +54,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Turmas Beach Tennis',
     descricao: 'Cadastre turmas, acompanhe níveis e vincule alunos manualmente.',
   },
+  'beach-tennis-financeiro': {
+    subtitulo: 'Beach Tennis',
+    titulo: 'Financeiro Beach Tennis',
+    descricao: 'Gerencie acordos, mensalidades, cobranças e a configuração do PIX.',
+  },
   servicos: {
     subtitulo: 'Catálogo operacional',
     titulo: 'Serviços',
@@ -227,6 +232,7 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   agenda: 'agenda',
   clientes: 'clientes',
   'beach-tennis-turmas': 'clientes',
+  'beach-tennis-financeiro': 'faturas-meu-plano',
   servicos: 'servicos',
   funcionarios: 'funcionarios',
   disponibilidade: 'disponibilidade',
@@ -694,9 +700,17 @@ onBeforeUnmount(() => {
             <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
             <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
             <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/beach-tennis/turmas" @click="fecharMenuMobile">
-              Turmas Beach Tennis
-            </RouterLink>
+          </div>
+        </section>
+
+        <section v-if="podeGerenciarUsuarios" class="grupo-menu">
+          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('beachTennis')">
+            <span>Beach Tennis</span>
+            <span>{{ grupoMenuAberto('beachTennis') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('beachTennis')" class="submenu">
+            <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">Turmas Beach Tennis</RouterLink>
+            <RouterLink to="/beach-tennis/financeiro" @click="fecharMenuMobile">Financeiro Beach Tennis</RouterLink>
           </div>
         </section>
 
