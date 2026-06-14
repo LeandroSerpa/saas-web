@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   EVENTO_EMPRESA_VISUALIZACAO,
   buscarAlunosTurmaBeachTennis,
@@ -44,12 +45,22 @@ const filtroNivelAluno = ref('')
 const statusFinanceiro = ref(null)
 const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const turma = ref(criarTurmaInicial())
+const router = useRouter()
+const nomeCampoRef = ref(null)
+const nivelCampoRef = ref(null)
+const horarioCampoRef = ref(null)
+const duracaoCampoRef = ref(null)
+const vagasCampoRef = ref(null)
+const diasCampoRef = ref(null)
+const professorCampoRef = ref(null)
+const ativoCampoRef = ref(null)
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
 const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
 const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Participante')
 const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Participantes')
 const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'Profissional')
+const termoResponsavelPlural = computed(() => contextoEsportivo.value?.termoResponsavelPlural || 'Profissionais')
 const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
 const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const termoAtividadeSingular = computed(() => contextoEsportivo.value?.termoAtividadeSingular || 'Atividade')
@@ -85,6 +96,7 @@ const professoresDisponiveis = computed(() =>
     .filter((item) => item && item.ativo !== false)
     .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')),
 )
+const temProfessoresDisponiveis = computed(() => professoresDisponiveis.value.length > 0)
 const alunosDisponiveis = computed(() =>
   [...clientes.value]
     .filter((aluno) => filtrarAlunoDisponivel(aluno))
@@ -122,17 +134,22 @@ function normalizarTurmaFormulario(item = {}) {
   }
 }
 
-function montarPayloadTurma() {
-  const duracao = Number.parseInt(turma.value.duracaoMinutos, 10)
-  const vagas = turma.value.vagas === '' || turma.value.vagas === null ? '' : Number.parseInt(turma.value.vagas, 10)
+function montarPayloadTurma(base = turma.value, overrides = {}) {
+  const dados = {
+    ...base,
+    ...overrides,
+  }
 
   return {
-    ...normalizarTurmaFormulario(turma.value),
-    duracaoMinutos: Number.isFinite(duracao) && duracao > 0 ? duracao : 60,
-    vagas: Number.isFinite(vagas) && vagas > 0 ? vagas : '',
-    professorResponsavelId: turma.value.professorResponsavelId || '',
-    diasSemana: [...turma.value.diasSemana],
-    ativo: Boolean(turma.value.ativo),
+    nome: String(dados.nome || '').trim(),
+    nivel: String(dados.nivelBeachTennis || dados.nivel || '').trim().toUpperCase() || null,
+    diasSemana: normalizarDiasSemanaPayload(dados.diasSemana),
+    horarioInicio: normalizarHorarioPayload(dados.horarioInicio),
+    duracaoMinutos: normalizarInteiroPositivo(dados.duracaoMinutos, 60),
+    vagas: normalizarInteiroPositivo(dados.vagas, null),
+    funcionarioId: normalizarIdOpcional(dados.professorResponsavelId || dados.funcionarioId),
+    ativo: dados.ativo !== false,
+    observacoes: normalizarTextoOpcional(dados.observacoes),
   }
 }
 
@@ -388,23 +405,11 @@ async function salvarTurma() {
     return
   }
 
-  if (!turma.value.nome.trim()) {
-    erro.value = `Informe o nome da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`
-    return
-  }
-
-  if (turma.value.horarioInicio && !horarioValido(turma.value.horarioInicio)) {
-    erro.value = 'Informe um horário de início válido no formato HH:mm.'
-    return
-  }
-
-  if (!numeroPositivoOuVazio(turma.value.duracaoMinutos)) {
-    erro.value = 'Informe uma duração válida em minutos.'
-    return
-  }
-
-  if (!numeroPositivoOuVazio(turma.value.vagas)) {
-    erro.value = 'Informe uma quantidade de vagas válida.'
+  const validacao = validarTurmaFormulario()
+  if (validacao) {
+    erro.value = validacao.mensagem
+    await nextTick()
+    focarCampoFormulario(validacao.campo)
     return
   }
 
@@ -454,10 +459,7 @@ async function alternarAtivoTurma(item) {
   try {
     erro.value = ''
     mensagemSucesso.value = ''
-    await atualizarTurmaBeachTennis(item.id, {
-      ...normalizarTurmaFormulario(item),
-      ativo: !estaAtiva(item),
-    })
+    await atualizarTurmaBeachTennis(item.id, montarPayloadTurma(normalizarTurmaFormulario(item), { ativo: !estaAtiva(item) }))
     mensagemSucesso.value = estaAtiva(item)
       ? `${termoGrupoSingular.value} inativada com sucesso.`
       : `${termoGrupoSingular.value} ativada com sucesso.`
@@ -605,12 +607,127 @@ function numeroPositivoOuVazio(valor) {
   }
 
   const numero = Number(texto)
-  return Number.isFinite(numero) && numero > 0
+  return Number.isInteger(numero) && numero > 0
+}
+
+function normalizarInteiroPositivo(valor, fallback = null) {
+  const texto = String(valor ?? '').trim()
+  if (!texto) {
+    return fallback
+  }
+
+  const numero = Number(texto)
+  return Number.isInteger(numero) && numero > 0 ? numero : fallback
+}
+
+function normalizarIdOpcional(valor) {
+  const texto = String(valor ?? '').trim()
+  if (!texto) {
+    return null
+  }
+
+  const numero = Number(texto)
+  return Number.isInteger(numero) && numero > 0 ? numero : null
+}
+
+function normalizarTextoOpcional(valor) {
+  const texto = String(valor ?? '').trim()
+  return texto || null
+}
+
+function normalizarHorarioPayload(valor) {
+  const texto = String(valor ?? '').trim()
+  return horarioValido(texto) ? texto : null
+}
+
+function normalizarDiasSemanaPayload(lista = []) {
+  return normalizarArrayBeachTennis(lista).join(',')
+}
+
+function validarTurmaFormulario() {
+  const nome = String(turma.value.nome || '').trim()
+  if (!nome) {
+    return {
+      campo: 'nome',
+      mensagem: `Informe o nome da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
+    }
+  }
+
+  const nivel = String(turma.value.nivelBeachTennis || '').trim()
+  if (!nivel) {
+    return {
+      campo: 'nivel',
+      mensagem: `Selecione o nível da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
+    }
+  }
+
+  const horario = String(turma.value.horarioInicio || '').trim()
+  if (!horario) {
+    return {
+      campo: 'horario',
+      mensagem: 'Informe o horário de início.',
+    }
+  }
+
+  if (!horarioValido(horario)) {
+    return {
+      campo: 'horario',
+      mensagem: 'Informe um horário de início válido no formato HH:mm.',
+    }
+  }
+
+  if (!numeroPositivoOuVazio(turma.value.duracaoMinutos)) {
+    return {
+      campo: 'duracao',
+      mensagem: 'Informe uma duração maior que zero.',
+    }
+  }
+
+  if (!numeroPositivoOuVazio(turma.value.vagas)) {
+    return {
+      campo: 'vagas',
+      mensagem: 'Informe uma quantidade de vagas maior que zero.',
+    }
+  }
+
+  return null
+}
+
+function focarCampoFormulario(campo) {
+  const mapa = {
+    nome: nomeCampoRef,
+    nivel: nivelCampoRef,
+    horario: horarioCampoRef,
+    duracao: duracaoCampoRef,
+    vagas: vagasCampoRef,
+    dias: diasCampoRef,
+    professor: professorCampoRef,
+    ativo: ativoCampoRef,
+  }
+
+  const alvo = mapa[campo]
+  if (!alvo?.value) {
+    return
+  }
+
+  const foco = alvo.value.querySelector?.('input, select, textarea, button')
+  if (typeof foco?.focus === 'function') {
+    foco.focus()
+    return
+  }
+
+  if (typeof alvo.value.focus === 'function') {
+    alvo.value.focus()
+  }
 }
 
 function obterMensagemErro(error, fallback) {
   const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
   return mensagem || fallback
+}
+
+function irParaFuncionarios() {
+  router.push('/funcionarios')
 }
 
 function normalizarTexto(valor) {
@@ -678,12 +795,12 @@ onBeforeUnmount(() => {
         <div class="campos">
           <label class="campo-grande">
             Nome *
-            <input v-model="turma.nome" type="text" :placeholder="`Ex: ${termoGrupoSingular} principal`" />
+            <input ref="nomeCampoRef" v-model="turma.nome" type="text" :placeholder="`Ex: ${termoGrupoSingular} principal`" />
           </label>
 
           <label>
             Nível
-            <select v-model="turma.nivelBeachTennis">
+            <select ref="nivelCampoRef" v-model="turma.nivelBeachTennis">
               <option value="">Selecione</option>
               <option v-for="opcao in OPCOES_NIVEL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
                 {{ opcao.rotulo }}
@@ -693,32 +810,45 @@ onBeforeUnmount(() => {
 
           <label>
             Horário de início
-            <input v-model="turma.horarioInicio" type="time" />
+            <input ref="horarioCampoRef" v-model="turma.horarioInicio" type="time" />
           </label>
 
           <label>
             Duração em minutos
-            <input v-model="turma.duracaoMinutos" type="number" min="15" step="15" />
+            <input ref="duracaoCampoRef" v-model="turma.duracaoMinutos" type="number" min="15" step="15" />
           </label>
 
           <label>
             Vagas
-            <input v-model="turma.vagas" type="number" min="1" step="1" />
+            <input ref="vagasCampoRef" v-model="turma.vagas" type="number" min="1" step="1" />
           </label>
 
-          <label>
+          <label v-if="temProfessoresDisponiveis">
             {{ termoResponsavelSingular }} responsável
-            <select v-model="turma.professorResponsavelId">
+            <select ref="professorCampoRef" v-model="turma.professorResponsavelId">
               <option value="">Sem vínculo</option>
               <option v-for="professor in professoresDisponiveis" :key="professor.id" :value="String(professor.id)">
                 {{ obterNomeResponsavel(professor) || 'Funcionário' }}
               </option>
             </select>
+            <p class="ajuda-campo">Cadastre os {{ termoResponsavelPlural.toLocaleLowerCase('pt-BR') }} em Operação → Funcionários.</p>
           </label>
+          <div v-else class="campo-grande estado-professor-vazio">
+            <p>Nenhum {{ termoResponsavelSingular.toLocaleLowerCase('pt-BR') }} cadastrado nesta empresa.</p>
+            <button class="botao secundario" type="button" @click="irParaFuncionarios">
+              Cadastrar {{ termoResponsavelSingular.toLocaleLowerCase('pt-BR') }}
+            </button>
+            <p class="ajuda-campo">Cadastre os {{ termoResponsavelPlural.toLocaleLowerCase('pt-BR') }} em Operação → Funcionários.</p>
+          </div>
 
-          <fieldset class="campo-grande dias-campo">
+          <fieldset ref="diasCampoRef" class="campo-grande dias-campo">
             <legend>Dias da semana</legend>
-            <label v-for="opcao in OPCOES_DIAS_SEMANA_BEACH_TENNIS" :key="opcao.valor" class="checkbox-dia">
+            <label
+              v-for="opcao in OPCOES_DIAS_SEMANA_BEACH_TENNIS"
+              :key="opcao.valor"
+              class="dia-opcao"
+              :class="{ selecionado: turma.diasSemana.includes(opcao.valor) }"
+            >
               <input v-model="turma.diasSemana" type="checkbox" :value="opcao.valor" />
               <span>{{ opcao.rotulo }}</span>
             </label>
@@ -733,9 +863,12 @@ onBeforeUnmount(() => {
             ></textarea>
           </label>
 
-          <label class="campo-checkbox">
+          <label ref="ativoCampoRef" class="campo-checkbox turma-ativa-card" :class="{ ativa: turma.ativo }">
             <input v-model="turma.ativo" type="checkbox" />
-            {{ termoGrupoSingular }} ativa
+            <span>
+              <strong>Turma ativa</strong>
+              <small>Turmas inativas ficam preservadas, mas não devem ser usadas em novos vínculos.</small>
+            </span>
           </label>
         </div>
 
@@ -1089,17 +1222,6 @@ textarea:focus {
   font-weight: 800;
 }
 
-.checkbox-dia {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-}
-
-.checkbox-dia input {
-  width: auto;
-}
-
 .campo-checkbox {
   display: flex;
   align-items: center;
@@ -1109,6 +1231,82 @@ textarea:focus {
 
 .campo-checkbox input {
   width: auto;
+}
+
+.dias-campo .dias-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.dia-opcao {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dia-opcao input {
+  width: auto;
+  margin: 0;
+}
+
+.dia-opcao.selecionado {
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+}
+
+.dia-opcao:focus-within {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+}
+
+.turma-ativa-card {
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.turma-ativa-card.ativa {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.turma-ativa-card span {
+  display: grid;
+  gap: 4px;
+}
+
+.turma-ativa-card small {
+  color: #475569;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.turma-ativa-card:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
+.estado-professor-vazio {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.estado-professor-vazio p {
+  margin: 0;
 }
 
 .rodape-formulario,
@@ -1470,7 +1668,7 @@ textarea:focus {
   .campos,
   .grid-resumo,
   .filtros-alunos,
-  .dias-campo {
+  .dias-campo .dias-grade {
     grid-template-columns: 1fr;
   }
 
