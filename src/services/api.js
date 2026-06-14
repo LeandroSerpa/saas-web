@@ -26,6 +26,7 @@ const CHAVE_EMPRESA_VISUALIZACAO = 'empresaVisualizacao'
 export const EVENTO_EMPRESA_VISUALIZACAO = 'empresa-visualizacao-atualizada'
 export const EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS = 'unidades-estoque-atualizadas'
 const CAMINHOS_PUBLICOS_FRONTEND = ['/cadastro', '/cadastro-empresa', '/comece-agora', '/termos', '/privacidade', '/sobre']
+const CAMINHOS_NEUTROS_PARA_NOTIFICACOES = ['/login', '/cadastro-pendente', '/alterar-senha']
 
 function normalizarUrlBase(url, fallback = '') {
   const valor = String(url || '').trim()
@@ -130,6 +131,40 @@ function rotaAtualEhPublicaFrontend() {
   }
 
   return caminhoEhRotaPublicaFrontend(window.location?.pathname || '')
+}
+
+function caminhoEvitaNotificacoesAutenticadas(caminho) {
+  const caminhoNormalizado = String(caminho || '').trim()
+
+  if (!caminhoNormalizado) {
+    return true
+  }
+
+  if (
+    caminhoEhRotaPublicaFrontend(caminhoNormalizado) ||
+    CAMINHOS_NEUTROS_PARA_NOTIFICACOES.includes(caminhoNormalizado)
+  ) {
+    return true
+  }
+
+  return (
+    caminhoNormalizado.startsWith('/agendar/') ||
+    caminhoNormalizado.startsWith('/catalogo/') ||
+    caminhoNormalizado.startsWith('/cardapio/')
+  )
+}
+
+export function temSessaoAutenticada() {
+  const token = localStorage.getItem('token')
+
+  return Boolean(token && carregarUsuarioSessao())
+}
+
+export function podeConsultarNotificacoesAutenticadas(caminho = '') {
+  const caminhoAtual =
+    String(caminho || '').trim() || (typeof window !== 'undefined' ? window.location?.pathname || '' : '')
+
+  return temSessaoAutenticada() && !caminhoEvitaNotificacoesAutenticadas(caminhoAtual)
 }
 
 function normalizarBooleano(valor) {
@@ -3633,6 +3668,10 @@ export async function restaurarAgendamento(id) {
 }
 
 export async function buscarNotificacoes(filtros = {}) {
+  if (!podeConsultarNotificacoesAutenticadas()) {
+    return []
+  }
+
   const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
   const response = await executarFetch(`${API_URL}/notificacoes${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
@@ -3642,6 +3681,10 @@ export async function buscarNotificacoes(filtros = {}) {
 }
 
 export async function buscarResumoNotificacoes() {
+  if (!podeConsultarNotificacoesAutenticadas()) {
+    return {}
+  }
+
   const filtrosConsulta = aplicarEmpresaVisualizacao({})
   const response = await executarFetch(`${API_URL}/notificacoes/resumo${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),

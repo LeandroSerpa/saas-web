@@ -276,6 +276,7 @@ const rotaSemLayout = computed(() =>
   rotaCadastroPendente.value ||
   (route.path === '/alterar-senha' && trocaSenhaObrigatoria.value),
 )
+const mostrarNotificacoes = computed(() => Boolean(usuario.value) && !rotaSemLayout.value)
 const empresaLogada = computed(() => {
   if (usuario.value?.empresaNome) {
     return `Empresa: ${usuario.value.empresaNome}`
@@ -486,7 +487,8 @@ function atualizarUsuarioLogado() {
     rotaAgendamentoPublico.value ||
     rotaCatalogoPublico.value ||
     rotaCadastroPublico.value ||
-    rotaInstitucionalPublica.value
+    rotaInstitucionalPublica.value ||
+    rotaCadastroPendente.value
   ) {
     usuario.value = null
     statusFinanceiro.value = null
@@ -915,6 +917,7 @@ onBeforeUnmount(() => {
         :empresa-logada="empresaLogada"
         :nome-usuario="nomeUsuario"
         :identificacao-conta="identificacaoConta"
+        :mostrar-notificacoes="mostrarNotificacoes"
         :acao-rotulo="cabecalhoPagina.acaoRotulo"
         :acao-disponivel="cabecalhoPagina.acaoDisponivel"
         :acao-desabilitada="cabecalhoPagina.acaoDesabilitada"

@@ -18,6 +18,10 @@ defineProps({
     type: String,
     required: true,
   },
+  mostrarNotificacoes: {
+    type: Boolean,
+    default: true,
+  },
   acaoRotulo: {
     type: String,
     default: '',
@@ -56,7 +60,7 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
       </div>
 
       <div class="app-user-actions">
-        <NotificacoesBell />
+        <NotificacoesBell v-if="mostrarNotificacoes" />
 
         <div class="app-account-card">
           <strong>{{ empresaLogada }}</strong>

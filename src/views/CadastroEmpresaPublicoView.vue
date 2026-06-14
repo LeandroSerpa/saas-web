@@ -411,6 +411,20 @@ function obterCampo(item, ...campos) {
   return ''
 }
 
+function obterLimitePlano(plano, campo, ...aliases) {
+  if (!plano || typeof plano !== 'object') {
+    return undefined
+  }
+
+  for (const chave of [campo, ...aliases]) {
+    if (chave && Object.prototype.hasOwnProperty.call(plano, chave)) {
+      return plano[chave]
+    }
+  }
+
+  return undefined
+}
+
 function obterMensagemErro(errorAtual, fallback) {
   return String(errorAtual?.message || '').trim() || fallback
 }
@@ -534,7 +548,6 @@ function exibirLimite(valor) {
   const numero = Number(valor)
   if (!Number.isFinite(numero)) return 'Ilimitado'
   if (numero === 0 || numero < 0) return 'Não incluído'
-  if (numero >= 999999) return 'Ilimitado'
   return new Intl.NumberFormat('pt-BR').format(numero)
 }
 
@@ -580,7 +593,36 @@ function compararSegmentosPublico(a, b) {
 }
 
 function limiteProdutosPlano(plano) {
-  return exibirLimite(obterLimitePlano(plano, 'limiteProdutos'))
+  return exibirLimite(obterLimitePlano(plano, 'limiteProdutos', 'limiteEstoque', 'limiteProdutosEstoque'))
+}
+
+function estoqueIncluido(plano) {
+  if (!plano || typeof plano !== 'object') {
+    return false
+  }
+
+  const temPermissaoEstoque = plano.permiteEstoque === true || Object.prototype.hasOwnProperty.call(plano, 'permiteEstoque')
+  const limiteProdutos = obterLimitePlano(plano, 'limiteProdutos', 'limiteEstoque', 'limiteProdutosEstoque')
+
+  if (limiteProdutos === 0 || limiteProdutos === '0') {
+    return false
+  }
+
+  if (limiteProdutos === null || limiteProdutos === undefined || limiteProdutos === '') {
+    return temPermissaoEstoque
+  }
+
+  const numero = Number(limiteProdutos)
+
+  if (!Number.isFinite(numero)) {
+    return temPermissaoEstoque
+  }
+
+  return numero > 0
+}
+
+function recursoDisponivel(valor) {
+  return valor === true || valor === 'true' || valor === 1 ? 'Sim' : 'Não'
 }
 
 function recursosPrincipaisPlano(plano, limite = 4) {
@@ -607,7 +649,7 @@ function recursosPrincipaisPlano(plano, limite = 4) {
     { ativo: plano.permitePersonalizacao, rotulo: 'Personalização' },
     { ativo: plano.permiteRelatorios, rotulo: 'Relatórios' },
     { ativo: plano.permiteAgendamentoPublico, rotulo: 'Agendamento público' },
-    { ativo: plano.permiteEstoque && limiteProdutosPlano(plano) !== 'Não incluído', rotulo: `Estoque (${limiteProdutosPlano(plano)} produtos)` },
+    { ativo: estoqueIncluido(plano), rotulo: `Estoque (${limiteProdutosPlano(plano)} produtos)` },
     { ativo: plano.permiteSuportePrioritario, rotulo: 'Suporte prioritário' },
   ]
     .filter((recurso) => recurso && recurso.ativo === true)
