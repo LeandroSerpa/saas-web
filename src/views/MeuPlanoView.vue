@@ -4,18 +4,23 @@ import {
   EVENTO_EMPRESA_VISUALIZACAO,
   buscarMinhaAssinatura,
   buscarUsoPlano,
+  carregarUsuarioSessao,
   obterEmpresaVisualizacao,
 } from '@/services/api'
+import { ehSuperAdmin } from '@/utils/permissoes'
 
 const assinatura = ref(null)
 const usoPlano = ref(null)
 const carregando = ref(true)
 const erro = ref('')
 const empresaSelecionada = ref(obterEmpresaVisualizacao())
+const usuario = computed(() => carregarUsuarioSessao())
 
 const plano = computed(() => assinatura.value?.plano || assinatura.value || {})
 const status = computed(() => assinatura.value?.status || '-')
 const empresaSelecionadaId = computed(() => String(empresaSelecionada.value?.id || '').trim())
+const superAdmin = computed(() => ehSuperAdmin(usuario.value))
+const aguardandoEmpresa = computed(() => superAdmin.value && !empresaSelecionadaId.value)
 const contextoEmpresa = computed(() =>
   empresaSelecionada.value?.id ? `Você está operando na empresa ${empresaSelecionada.value.nome} como SUPER_ADMIN.` : '',
 )
@@ -81,6 +86,14 @@ function sincronizarEmpresaSelecionada() {
 
 async function carregarMeuPlano() {
   try {
+    if (aguardandoEmpresa.value) {
+      assinatura.value = null
+      usoPlano.value = null
+      erro.value = ''
+      carregando.value = false
+      return
+    }
+
     carregando.value = true
     erro.value = ''
     assinatura.value = null
@@ -100,14 +113,14 @@ async function carregarMeuPlano() {
 
 function criarItemUso(rotulo, camposUso, limite) {
   const uso = obterPrimeiroNumero(usoPlano.value, camposUso)
-  const percentual = limite === null ? 0 : Math.min(100, Math.round((uso / Math.max(limite, 1)) * 100))
+  const percentual = limite === null || limite === 0 ? null : Math.min(100, Math.round((uso / Math.max(limite, 1)) * 100))
 
   return {
     rotulo,
     uso,
     limite,
     percentual,
-    alerta: limite !== null && percentual >= 80,
+    alerta: limite !== null && limite > 0 && percentual !== null && percentual >= 80,
   }
 }
 
@@ -152,7 +165,15 @@ function rotuloTipoPlano(tipo) {
 }
 
 function exibirLimite(limite) {
-  return limite === null ? 'Ilimitado' : limite
+  if (limite === null) {
+    return 'Ilimitado'
+  }
+
+  if (limite === 0) {
+    return 'Não incluído'
+  }
+
+  return limite
 }
 
 function formatarPreco(preco) {
@@ -209,7 +230,11 @@ function atualizarContextoEmpresa() {
       <p>{{ contextoEmpresa }}</p>
     </section>
 
-    <section v-if="carregando" class="card">
+    <section v-if="aguardandoEmpresa" class="card alerta informativo">
+      <p>Selecione uma empresa operacional para visualizar o plano, os limites e o uso atual.</p>
+    </section>
+
+    <section v-else-if="carregando" class="card">
       <p>Carregando plano...</p>
     </section>
 
@@ -283,7 +308,7 @@ function atualizarContextoEmpresa() {
             </div>
 
             <div class="barra">
-              <span :style="{ width: `${item.percentual}%` }"></span>
+              <span :style="{ width: item.percentual === null ? '0%' : `${item.percentual}%` }"></span>
             </div>
           </article>
         </div>

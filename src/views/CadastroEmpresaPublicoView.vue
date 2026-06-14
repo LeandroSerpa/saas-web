@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
@@ -19,7 +19,7 @@ import {
   validarLoginCurto,
 } from '@/utils/validacoes'
 
-const etapas = [{ titulo: 'Empresa' }, { titulo: 'Responsável' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'Revisão' }]
+const etapas = [{ titulo: 'Empresa' }, { titulo: 'ResponsÃ¡vel' }, { titulo: 'Interesse' }, { titulo: 'Plano' }, { titulo: 'RevisÃ£o' }]
 const ufs = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 const aoColarDocumento = criarManipuladorPasteNumerico(sanitizarDocumento)
 const route = useRoute()
@@ -38,41 +38,83 @@ const errosCampos = ref(criarErrosCamposIniciais())
 
 const segmentoSelecionado = computed(() => segmentos.value.find((segmento) => String(segmento.id) === String(formulario.value.segmentoNegocioId)) || null)
 const planoSelecionado = computed(() => planosExibidos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null)
+const segmentosExibidos = computed(() =>
+  [...segmentos.value]
+    .sort(compararSegmentosPublico)
+    .map((segmento) => ({
+      ...segmento,
+      nomeExibicao: obterNomeSegmento(segmento),
+      modalidadeEsportiva: segmentoEhEsportivo(segmento),
+    })),
+)
+const segmentosAgrupados = computed(() => {
+  const esportivos = segmentosExibidos.value.filter((segmento) => segmento.modalidadeEsportiva)
+  const outros = segmentosExibidos.value.filter((segmento) => !segmento.modalidadeEsportiva)
+
+  return [
+    { titulo: 'Modalidades esportivas', itens: esportivos },
+    { titulo: 'Outros segmentos', itens: outros },
+  ].filter((grupo) => grupo.itens.length)
+})
 const planosExibidos = computed(() =>
   [...planos.value]
+    .filter(ehPlanoExibivelNoCadastro)
     .sort(compararPlanosPublicos)
     .map((plano) => ({
       ...plano,
       destaqueComercial: obterDestaqueComercialPlano(plano),
     })),
 )
+const ajudaSegmentoEsportivo = computed(() =>
+  segmentoEhEsportivo(segmentoSelecionado.value)
+    ? 'A GestÃ£o Esportiva serÃ¡ configurada de acordo com a modalidade escolhida.'
+    : '',
+)
 const destacarPlanos = computed(() => route.hash === '#planos')
 
 const destaquePlanoPadrao = {
-  selo: 'Plano real',
-  chamada: 'Uma opção clara para pequenos negócios, com nome, proposta e limites vindos da API.',
-  destaque: 'Selecione o cartão que melhor representa o momento da sua empresa.',
-  recursos: ['Dados reais da API', 'Seleção preservada no formulário', 'Visual responsivo para mobile'],
+  selo: '',
+  publicoAlvo: '',
+  resumoComercial: 'Uma opÃ§Ã£o clara para sua empresa crescer com o essencial certo para o momento atual.',
+  textoBotao: 'Escolher este plano',
+  recursos: ['Dados reais da API', 'SeleÃ§Ã£o preservada no formulÃ¡rio', 'Visual responsivo para mobile'],
 }
 
 const destaquePlanosPublicos = {
   vitrine: {
-    selo: 'Vitrine',
-    chamada: 'Catálogo, cardápio e vitrine pública para divulgar produtos e receber pedidos pelo WhatsApp.',
-    destaque: 'Ideal para quem quer mostrar produtos com link público e vender com mais organização.',
-    recursos: ['Catálogo/cardápio público', 'Fotos, preços e disponibilidade', 'Link público para divulgar'],
+    selo: '',
+    publicoAlvo: 'Para divulgar produtos e receber pedidos',
+    resumoComercial: 'Crie sua vitrine, catÃ¡logo ou cardÃ¡pio digital e compartilhe o link com seus clientes.',
+    textoBotao: 'Criar minha vitrine',
+    recursos: ['CatÃ¡logo pÃºblico', 'CardÃ¡pio digital', 'Link para compartilhar'],
   },
   agenda: {
-    selo: 'Agenda',
-    chamada: 'Agenda online para horários, serviços, clientes e atendimento com mais controle.',
-    destaque: 'Perfeito para quem agenda horários e quer organizar a operação do dia a dia.',
-    recursos: ['Agenda online', 'Clientes, serviços e funcionários', 'Organização de horários'],
+    selo: '',
+    publicoAlvo: 'Para organizar horÃ¡rios e receber agendamentos',
+    resumoComercial: 'Organize clientes, serviÃ§os, profissionais e agendamentos em um Ãºnico lugar.',
+    textoBotao: 'Organizar minha agenda',
+    recursos: ['Agenda online', 'Clientes e serviÃ§os', 'Profissionais e horÃ¡rios'],
   },
   completo: {
-    selo: 'Completo',
-    chamada: 'Catálogo/cardápio + agenda em um só plano, para vender e atender no mesmo sistema.',
-    destaque: 'Reúne vitrine e agenda para negócios que precisam dos dois fluxos juntos.',
-    recursos: ['Catálogo/cardápio + agenda', 'Estoque do dia', 'Operação completa em um só lugar'],
+    selo: 'RECOMENDADO',
+    complemento: 'Melhor custo-benefÃ­cio',
+    resumoComercial: 'Centralize agenda, clientes, produtos, estoque e divulgaÃ§Ã£o em uma Ãºnica plataforma.',
+    textoBotao: 'Escolher o Completo',
+    recursos: ['Agenda', 'CatÃ¡logo pÃºblico', 'Estoque'],
+  },
+  profissional: {
+    selo: '',
+    publicoAlvo: 'Para empresas com equipe e maior movimento',
+    resumoComercial: 'Mais capacidade para acompanhar clientes, profissionais, agendamentos e a operaÃ§Ã£o diÃ¡ria.',
+    textoBotao: 'Escolher o Profissional',
+    recursos: ['Equipe maior', 'OperaÃ§Ã£o em movimento', 'Acompanhamento diÃ¡rio'],
+  },
+  premium: {
+    selo: '',
+    publicoAlvo: 'Para operaÃ§Ãµes que precisam de mais capacidade',
+    resumoComercial: 'Limites ampliados, mais liberdade para crescer e suporte prioritÃ¡rio.',
+    textoBotao: 'Escolher o Premium',
+    recursos: ['Limites ampliados', 'Mais liberdade', 'Suporte prioritÃ¡rio'],
   },
 }
 
@@ -91,6 +133,15 @@ watch(
     secaoPlanosRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   },
   { immediate: true },
+)
+
+watch(
+  () => planosExibidos.value.map((plano) => String(plano.id)).join('|'),
+  () => {
+    if (formulario.value.planoId && !planosExibidos.value.some((plano) => String(plano.id) === String(formulario.value.planoId))) {
+      formulario.value.planoId = ''
+    }
+  },
 )
 
 function criarFormularioInicial() {
@@ -149,7 +200,7 @@ async function carregarOpcoes() {
   } catch (errorAtual) {
     erro.value = obterMensagemErro(
       errorAtual,
-      'Não foi possível carregar os planos agora. Verifique sua conexão e tente novamente em instantes.',
+      'NÃ£o foi possÃ­vel carregar os planos agora. Verifique sua conexÃ£o e tente novamente em instantes.',
     )
     console.error(errorAtual)
   } finally {
@@ -176,12 +227,12 @@ async function enviarCadastro() {
     erro.value = ''
     const resposta = await cadastrarEmpresaInteressadaPublico(montarPayload())
     protocolo.value = obterCampo(resposta, 'protocolo', 'numeroProtocolo', 'id')
-    sucesso.value = 'Cadastro enviado com sucesso. Nossa equipe analisará sua solicitação.'
+    sucesso.value = 'Cadastro enviado com sucesso. Nossa equipe analisarÃ¡ sua solicitaÃ§Ã£o.'
     formulario.value = criarFormularioInicial()
     errosCampos.value = criarErrosCamposIniciais()
     etapaAtual.value = 0
   } catch (errorAtual) {
-    erro.value = obterMensagemErro(errorAtual, 'Não foi possível enviar o cadastro.')
+    erro.value = obterMensagemErro(errorAtual, 'NÃ£o foi possÃ­vel enviar o cadastro.')
     console.error(errorAtual)
   } finally {
     enviando.value = false
@@ -190,21 +241,21 @@ async function enviarCadastro() {
 
 function validarCampoDocumento() {
   if (!formulario.value.documento.trim()) return falharValidacao('Informe o documento da empresa.', 'documento')
-  if (!documentoBasicoValido(formulario.value.documento)) return falharValidacao('Informe um CPF ou CNPJ válido, usando apenas números.', 'documento')
+  if (!documentoBasicoValido(formulario.value.documento)) return falharValidacao('Informe um CPF ou CNPJ vÃ¡lido, usando apenas nÃºmeros.', 'documento')
   errosCampos.value.documento = ''
   return true
 }
 
 function validarCampoTelefone(campo, obrigatorio = false) {
-  const rotulo = campo === 'telefoneResponsavel' ? 'do responsável' : 'da empresa'
+  const rotulo = campo === 'telefoneResponsavel' ? 'do responsÃ¡vel' : 'da empresa'
   if (obrigatorio && !formulario.value[campo].trim()) return falharValidacao(`Informe o telefone ${rotulo}.`, campo)
-  if (formulario.value[campo] && !telefoneBasicoValido(formulario.value[campo])) return falharValidacao('Informe um telefone válido, usando apenas números com DDD.', campo)
+  if (formulario.value[campo] && !telefoneBasicoValido(formulario.value[campo])) return falharValidacao('Informe um telefone vÃ¡lido, usando apenas nÃºmeros com DDD.', campo)
   errosCampos.value[campo] = ''
   return true
 }
 
 function validarCampoEmail(campo) {
-  if (!emailBasicoValido(formulario.value[campo])) return falharValidacao('Informe um e-mail válido.', campo)
+  if (!emailBasicoValido(formulario.value[campo])) return falharValidacao('Informe um e-mail vÃ¡lido.', campo)
   errosCampos.value[campo] = ''
   return true
 }
@@ -230,27 +281,27 @@ function validarEtapaAtual() {
   }
 
   if (etapaAtual.value === 1) {
-    if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsável.')
+    if (!formulario.value.nomeResponsavel.trim()) return falharValidacao('Informe o nome do responsÃ¡vel.')
     if (!validarCampoEmail('emailResponsavel')) return false
     if (!validarCampoLoginResponsavel()) return false
     if (!validarCampoTelefone('telefoneResponsavel', true)) return false
-    if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsável.')
-    if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no mínimo 6 caracteres.')
-    if (formulario.value.confirmarSenhaResponsavel !== formulario.value.senhaResponsavel) return falharValidacao('A confirmação de senha deve ser igual à senha informada.')
+    if (!formulario.value.senhaResponsavel) return falharValidacao('Informe a senha do responsÃ¡vel.')
+    if (formulario.value.senhaResponsavel.length < 6) return falharValidacao('A senha deve ter no mÃ­nimo 6 caracteres.')
+    if (formulario.value.confirmarSenhaResponsavel !== formulario.value.senhaResponsavel) return falharValidacao('A confirmaÃ§Ã£o de senha deve ser igual Ã  senha informada.')
   }
 
   if (etapaAtual.value === 2) {
     if (!formulario.value.segmentoNegocioId) return falharValidacao('Selecione o segmento.')
     if (!formulario.value.interesse.trim()) {
-      return falharValidacao('Informe o principal objetivo da sua empresa ao usar o NuvemMais Gestão.', 'interesse')
+      return falharValidacao('Informe o principal objetivo da sua empresa ao usar o NuvemMais GestÃ£o.', 'interesse')
     }
   }
 
   if (etapaAtual.value === 3 && !planos.value.length) {
-    return falharValidacao('No momento não há planos disponíveis para cadastro público. Entre em contato com a equipe NuvemMais para receber orientação.')
+    return falharValidacao('No momento nÃ£o hÃ¡ planos disponÃ­veis para cadastro pÃºblico. Entre em contato com a equipe NuvemMais para receber orientaÃ§Ã£o.')
   }
   if (etapaAtual.value === 3 && !formulario.value.planoId) return falharValidacao('Selecione o plano desejado.')
-  if (etapaAtual.value === 4 && !formulario.value.aceiteTermos) return falharValidacao('Confirme a leitura dos Termos de Uso e da Política de Privacidade.')
+  if (etapaAtual.value === 4 && !formulario.value.aceiteTermos) return falharValidacao('Confirme a leitura dos Termos de Uso e da PolÃ­tica de Privacidade.')
   return true
 }
 
@@ -369,10 +420,22 @@ function selecionarPlano(plano) {
 
 function obterDestaqueComercialPlano(plano) {
   const chave = identificarPlanoPublico(plano)
+  const padrao = destaquePlanosPublicos[chave] || destaquePlanoPadrao
 
-  return destaquePlanosPublicos[chave] || {
+  return {
     ...destaquePlanoPadrao,
-    recursos: plano?.nome ? [`Plano disponível na base: ${plano.nome}`] : destaquePlanoPadrao.recursos,
+    ...padrao,
+    selo: obterCampo(plano, 'selo') || padrao.selo || '',
+    publicoAlvo: obterCampo(plano, 'publicoAlvo') || padrao.publicoAlvo || '',
+    resumoComercial: obterCampo(plano, 'resumoComercial', 'resumo', 'descricao') || padrao.resumoComercial || '',
+    textoBotao: obterCampo(plano, 'textoBotao') || padrao.textoBotao || destaquePlanoPadrao.textoBotao,
+    complemento: obterCampo(plano, 'complemento') || padrao.complemento || '',
+    recursos:
+      Array.isArray(padrao.recursos) && padrao.recursos.length
+        ? padrao.recursos
+        : plano?.nome
+          ? [`Plano disponível na base: ${plano.nome}`]
+          : destaquePlanoPadrao.recursos,
   }
 }
 
@@ -397,17 +460,31 @@ function identificarPlanoPublico(plano) {
     return 'completo'
   }
 
-  return ''
+  if (nome.includes('profissional')) {
+    return 'profissional'
+  }
+
+  if (nome.includes('premium')) {
+    return 'premium'
+  }
+
+  return nome.includes('basico') ? 'basico' : ''
 }
 
 function compararPlanosPublicos(planoA, planoB) {
-  const ordem = { vitrine: 0, agenda: 1, completo: 2 }
-  const chaveA = identificarPlanoPublico(planoA)
-  const chaveB = identificarPlanoPublico(planoB)
-  const pesoA = ordem[chaveA] ?? 99
-  const pesoB = ordem[chaveB] ?? 99
+  const ordemA = inteiroOuNulo(obterCampo(planoA, 'ordemExibicao', 'ordem', 'ordemVisualizacao'))
+  const ordemB = inteiroOuNulo(obterCampo(planoB, 'ordemExibicao', 'ordem', 'ordemVisualizacao'))
 
-  if (pesoA !== pesoB) return pesoA - pesoB
+  if (ordemA !== null || ordemB !== null) {
+    if (ordemA === null) return 1
+    if (ordemB === null) return -1
+    if (ordemA !== ordemB) return ordemA - ordemB
+  }
+
+  const precoA = precoPlano(planoA)
+  const precoB = precoPlano(planoB)
+
+  if (precoA !== precoB) return precoA - precoB
 
   return String(obterCampo(planoA, 'nome', 'titulo') || '').localeCompare(
     String(obterCampo(planoB, 'nome', 'titulo') || ''),
@@ -429,32 +506,63 @@ function precoPlano(plano) {
 }
 
 function descricaoPlano(plano) {
-  return plano?.descricao || plano?.resumo || plano?.destaqueComercial?.chamada || 'Uma opção para organizar sua operação com mais clareza, controle e previsibilidade.'
+  return (
+    plano?.resumoComercial ||
+    plano?.descricao ||
+    plano?.resumo ||
+    plano?.destaqueComercial?.resumoComercial ||
+    'Uma opção para organizar sua operação com mais clareza, controle e previsibilidade.'
+  )
 }
 
 function exibirLimite(valor) {
   if (valor === null || valor === undefined || valor === '') return 'Ilimitado'
   const numero = Number(valor)
-  if (!Number.isFinite(numero) || numero <= 0) return 'Ilimitado'
+  if (!Number.isFinite(numero)) return 'Ilimitado'
+  if (numero === 0 || numero < 0) return 'Não incluído'
+  if (numero >= 999999) return 'Ilimitado'
   return new Intl.NumberFormat('pt-BR').format(numero)
 }
 
-function obterLimitePlano(plano, ...campos) {
-  for (const campo of campos) {
-    if (plano?.[campo] !== null && plano?.[campo] !== undefined && plano?.[campo] !== '') {
-      return plano[campo]
-    }
-  }
+function inteiroOuNulo(valor) {
+  if (valor === null || valor === undefined || valor === '') return null
 
-  return null
+  const numero = Number(valor)
+  return Number.isFinite(numero) ? Math.trunc(numero) : null
 }
 
-function recursoDisponivel(valor) {
-  return valor === true ? 'Sim' : 'Não'
+function planoExibeCadastroPublico(plano) {
+  if (plano?.exibirCadastroPublico === false) return false
+  if (plano?.exibirCadastroPublico === true) return true
+
+  return !identificarPlanoPublico(plano).includes('basico')
 }
 
-function estoqueIncluido(plano) {
-  return plano?.permiteEstoque === true
+function ehPlanoExibivelNoCadastro(plano) {
+  return planoExibeCadastroPublico(plano)
+}
+
+function segmentoEhEsportivo(segmento = {}) {
+  const nome = gerarSlug(obterNomeSegmento(segmento))
+
+  return [
+    'artes-marciais',
+    'basquete',
+    'beach-tennis',
+    'futebol',
+    'futsal',
+    'natacao',
+    'tenis',
+    'volei',
+  ].includes(nome)
+}
+
+function obterNomeSegmento(segmento = {}) {
+  return String(obterCampo(segmento, 'nome', 'descricao') || '').trim()
+}
+
+function compararSegmentosPublico(a, b) {
+  return obterNomeSegmento(a).localeCompare(obterNomeSegmento(b), 'pt-BR')
 }
 
 function limiteProdutosPlano(plano) {
@@ -468,11 +576,24 @@ function recursosPrincipaisPlano(plano, limite = 4) {
     return plano.destaqueComercial.recursos.slice(0, limite)
   }
 
+  const tipoIdentificado = identificarPlanoPublico(plano)
+  const recursosPorTipo = {
+    vitrine: ['Vitrine / catálogo público', 'Produtos', 'Link para compartilhar'],
+    agenda: ['Agenda online', 'Clientes', 'Profissionais', 'Serviços', 'Agendamentos'],
+    completo: ['Agenda online', 'Clientes', 'Profissionais', 'Serviços', 'Agendamentos', 'Produtos / estoque'],
+    profissional: ['Clientes', 'Profissionais', 'Serviços', 'Agendamentos', 'Operação ampliada'],
+    premium: ['Recursos ampliados', 'Capacidade maior', 'Suporte prioritário'],
+  }
+
+  if (recursosPorTipo[tipoIdentificado]) {
+    return recursosPorTipo[tipoIdentificado].slice(0, limite)
+  }
+
   return [
     { ativo: plano.permitePersonalizacao, rotulo: 'Personalização' },
     { ativo: plano.permiteRelatorios, rotulo: 'Relatórios' },
     { ativo: plano.permiteAgendamentoPublico, rotulo: 'Agendamento público' },
-    { ativo: plano.permiteEstoque, rotulo: `Estoque (${limiteProdutosPlano(plano)} produtos)` },
+    { ativo: plano.permiteEstoque && limiteProdutosPlano(plano) !== 'Não incluído', rotulo: `Estoque (${limiteProdutosPlano(plano)} produtos)` },
     { ativo: plano.permiteSuportePrioritario, rotulo: 'Suporte prioritário' },
   ]
     .filter((recurso) => recurso.ativo === true)
@@ -487,21 +608,21 @@ onMounted(carregarOpcoes)
   <main class="pagina-publica">
     <section class="conteudo">
       <header class="cabecalho">
-        <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
-        <span class="marca">NuvemMais Gestão</span>
+        <RouterLink class="link-login" to="/login">JÃ¡ tenho acesso</RouterLink>
+        <span class="marca">NuvemMais GestÃ£o</span>
         <h1>Cadastre sua empresa</h1>
-        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitação de entrada na plataforma.</p>
+        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitaÃ§Ã£o de entrada na plataforma.</p>
       </header>
 
       <section v-if="sucesso" class="card confirmacao">
-        <span class="selo">Solicitação pendente</span>
+        <span class="selo">SolicitaÃ§Ã£o pendente</span>
         <h2>{{ sucesso }}</h2>
         <p v-if="protocolo"><strong>Protocolo:</strong> {{ protocolo }}</p>
-        <p>O responsável já pode tentar acessar com e-mail/usuário e senha cadastrados, mas a empresa ficará pendente até aprovação.</p>
+        <p>O responsÃ¡vel jÃ¡ pode tentar acessar com e-mail/usuÃ¡rio e senha cadastrados, mas a empresa ficarÃ¡ pendente atÃ© aprovaÃ§Ã£o.</p>
         <div class="acoes"><RouterLink class="botao principal" to="/login">Voltar para login</RouterLink></div>
       </section>
 
-      <template v-else>
+      <div v-else>
         <section class="etapas">
           <button v-for="(etapa, indice) in etapas" :key="etapa.titulo" :class="['etapa', { ativa: etapaAtual === indice, concluida: etapaAtual > indice }]" type="button" @click="indice < etapaAtual && (etapaAtual = indice)">
             <span>{{ indice + 1 }}</span>{{ etapa.titulo }}
@@ -509,7 +630,7 @@ onMounted(carregarOpcoes)
         </section>
 
         <section v-if="erro" class="feedback erro"><p>{{ erro }}</p></section>
-        <section v-if="carregando" class="card"><p>Carregando opções do cadastro...</p></section>
+        <section v-if="carregando" class="card"><p>Carregando opÃ§Ãµes do cadastro...</p></section>
 
         <form v-else class="card formulario" @submit.prevent="etapaAtual === etapas.length - 1 ? enviarCadastro() : proximaEtapa()">
           <div v-if="etapaAtual === 0" class="campos">
@@ -529,7 +650,7 @@ onMounted(carregarOpcoes)
               <input :value="formulario.emailEmpresa" type="text" inputmode="email" @input="aplicarEmail('emailEmpresa', $event.target.value)" @blur="validarCampoEmail('emailEmpresa')" />
               <small v-if="errosCampos.emailEmpresa" class="erro-campo">{{ errosCampos.emailEmpresa }}</small>
             </label>
-            <label class="campo-grande">Endereço<input v-model="formulario.endereco" type="text" /></label>
+            <label class="campo-grande">EndereÃ§o<input v-model="formulario.endereco" type="text" /></label>
             <label>Cidade *<input v-model="formulario.cidade" type="text" /></label>
             <label>
               UF *
@@ -542,16 +663,16 @@ onMounted(carregarOpcoes)
           </div>
 
           <div v-else-if="etapaAtual === 1" class="campos">
-            <label>Nome do responsável *<input v-model="formulario.nomeResponsavel" type="text" /></label>
+            <label>Nome do responsÃ¡vel *<input v-model="formulario.nomeResponsavel" type="text" /></label>
             <label>
-              E-mail do responsável *
+              E-mail do responsÃ¡vel *
               <input :value="formulario.emailResponsavel" type="text" inputmode="email" @input="aplicarEmail('emailResponsavel', $event.target.value)" @blur="validarCampoEmail('emailResponsavel')" />
               <small v-if="errosCampos.emailResponsavel" class="erro-campo">{{ errosCampos.emailResponsavel }}</small>
             </label>
             <label>
-              Usuário/Login
+              UsuÃ¡rio/Login
               <input v-model="formulario.loginResponsavel" type="text" placeholder="Ex: responsavel.empresa" @blur="validarCampoLoginResponsavel" />
-              <small>Você poderá usar este usuário para entrar no sistema no lugar do e-mail.</small>
+              <small>VocÃª poderÃ¡ usar este usuÃ¡rio para entrar no sistema no lugar do e-mail.</small>
               <small v-if="errosCampos.loginResponsavel" class="erro-campo">{{ errosCampos.loginResponsavel }}</small>
             </label>
             <label>
@@ -569,16 +690,31 @@ onMounted(carregarOpcoes)
               Segmento *
               <select v-model="formulario.segmentoNegocioId">
                 <option value="">Selecione</option>
-                <option v-for="segmento in segmentos" :key="segmento.id" :value="segmento.id">{{ segmento.nome || segmento.descricao || 'Segmento sem nome' }}</option>
+                <optgroup
+                  v-for="grupo in segmentosAgrupados"
+                  :key="grupo.titulo"
+                  :label="grupo.titulo"
+                >
+                  <option
+                    v-for="segmento in grupo.itens"
+                    :key="segmento.id"
+                    :value="segmento.id"
+                  >
+                    {{ segmento.nomeExibicao || 'Segmento sem nome' }}
+                  </option>
+                </optgroup>
               </select>
               <small v-if="!segmentos.length">Nenhum segmento disponível no momento. Nossa equipe poderá orientar você após o envio.</small>
+              <small v-if="ajudaSegmentoEsportivo" class="ajuda-segmento-esportivo">
+                {{ ajudaSegmentoEsportivo }}
+              </small>
             </label>
             <label class="campo-grande">
-              Qual é o principal objetivo da sua empresa ao usar o NuvemMais Gestão? *
+              Qual Ã© o principal objetivo da sua empresa ao usar o NuvemMais GestÃ£o? *
               <textarea
                 v-model="formulario.interesse"
                 rows="4"
-                placeholder="Ex: organizar agenda, controlar clientes, acompanhar serviços, receber agendamentos pelo link público..."
+                placeholder="Ex: organizar agenda, controlar clientes, acompanhar serviÃ§os, receber agendamentos pelo link pÃºblico..."
               ></textarea>
               <small v-if="errosCampos.interesse" class="erro-campo">{{ errosCampos.interesse }}</small>
             </label>
@@ -592,13 +728,9 @@ onMounted(carregarOpcoes)
           >
             <div class="cabecalho-planos">
               <span class="selo">Escolha seu plano</span>
-              <h2>Compare os planos reais da API</h2>
-              <p>Os cartões abaixo já trazem a proposta comercial e os dados reais do cadastro público. Basta escolher a opção que faz mais sentido para a sua empresa.</p>
+              <h2>Escolha o plano ideal para o seu negócio</h2>
+              <p>Comece com o essencial e evolua conforme sua empresa crescer. Você poderá mudar de plano quando precisar.</p>
             </div>
-
-            <p class="aviso-planos">
-              Vitrine = catálogo/cardápio/vitrine pública. Agenda = agenda online. Completo = catálogo/cardápio + agenda.
-            </p>
 
             <section v-if="!planosExibidos.length" class="sem-planos">
               <h3>Nenhum plano disponível agora</h3>
@@ -618,39 +750,49 @@ onMounted(carregarOpcoes)
               >
                 <div class="plano-topo">
                   <div class="plano-badges">
-                    <span class="selo">{{ plano.destaqueComercial.selo }}</span>
-                    <span class="plano-badge">{{ plano.destaqueComercial.destaque }}</span>
+                    <span v-if="plano.destaqueComercial.selo" class="selo">{{ plano.destaqueComercial.selo }}</span>
+                    <span v-if="plano.destaqueComercial.complemento" class="plano-badge">{{ plano.destaqueComercial.complemento }}</span>
                   </div>
                   <h3>{{ plano.nome || plano.titulo || 'Plano sem nome' }}</h3>
                   <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mês</span></strong>
                 </div>
 
+                <p v-if="plano.destaqueComercial.publicoAlvo" class="plano-publico-alvo">
+                  {{ plano.destaqueComercial.publicoAlvo }}
+                </p>
                 <p class="plano-descricao">{{ descricaoPlano(plano) }}</p>
 
-                <ul class="plano-resumo-comercial">
-                  <li v-for="recurso in plano.destaqueComercial.recursos" :key="recurso">{{ recurso }}</li>
+                <p v-if="plano.destaqueComercial.resumoComercial" class="plano-resumo-comercial">
+                  {{ plano.destaqueComercial.resumoComercial }}
+                </p>
+
+                <ul v-if="recursosPrincipaisPlano(plano, 6).length" class="plano-resumo-comercial lista-pontos">
+                  <li v-for="recurso in recursosPrincipaisPlano(plano, 6)" :key="recurso">{{ recurso }}</li>
                 </ul>
 
-                <dl class="lista-limites">
-                  <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
-                  <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
-                  <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
-                  <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
-                  <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
-                  <div><dt>Produtos no estoque</dt><dd>{{ estoqueIncluido(plano) ? limiteProdutosPlano(plano) : 'Não incluso' }}</dd></div>
-                </dl>
+                <details class="detalhes-plano">
+                  <summary>Ver todos os recursos e limites</summary>
+                  <dl class="lista-limites">
+                    <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
+                    <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
+                    <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
+                    <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
+                    <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
+                    <div><dt>Produtos no estoque</dt><dd>{{ estoqueIncluido(plano) ? limiteProdutosPlano(plano) : 'Não incluso' }}</dd></div>
+                  </dl>
 
-                <ul class="recursos-plano">
-                  <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
-                  <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
-                  <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
-                  <li><span>Estoque</span><strong>{{ estoqueIncluido(plano) ? 'Sim' : 'Não' }}</strong></li>
-                  <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
-                </ul>
+                  <ul class="recursos-plano">
+                    <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
+                    <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
+                    <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
+                    <li><span>Estoque</span><strong>{{ estoqueIncluido(plano) ? 'Sim' : 'Não' }}</strong></li>
+                    <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
+                  </ul>
+                </details>
 
                 <div class="plano-acao">
                   <span :class="['botao-plano', { selecionado: String(formulario.planoId) === String(plano.id) }]">
-                    {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : 'Clique para escolher' }}
+                    {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : (plano.destaqueComercial.textoBotao || 'Escolher este plano') }}
                   </span>
                 </div>
               </article>
@@ -682,14 +824,14 @@ onMounted(carregarOpcoes)
             <button v-else class="botao principal" type="submit" :disabled="enviando">{{ enviando ? 'Enviando...' : 'Enviar cadastro' }}</button>
           </div>
         </form>
-      </template>
 
-      <nav class="links-institucionais" aria-label="Páginas públicas">
+      <nav class="links-institucionais" aria-label="PÃ¡ginas pÃºblicas">
         <RouterLink to="/sobre">Sobre</RouterLink>
         <RouterLink to="/termos">Termos de Uso</RouterLink>
-        <RouterLink to="/privacidade">Política de Privacidade</RouterLink>
+        <RouterLink to="/privacidade">PolÃ­tica de Privacidade</RouterLink>
       </nav>
-    </section>
+    </div>
+  </section>
   </main>
 </template>
 

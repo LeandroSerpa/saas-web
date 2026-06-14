@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
@@ -23,54 +23,54 @@ const MODO_RESUMO = 'resumo'
 const MODO_PASSO_A_PASSO = 'passo-a-passo'
 
 const roteiroRecomendado = [
-  'Cadastre os serviços oferecidos.',
-  'Cadastre os funcionários.',
+  'Cadastre os serviÃ§os oferecidos.',
+  'Cadastre os funcionÃ¡rios.',
   'Cadastre ou importe os clientes.',
-  'Confira os horários e disponibilidades.',
-  'Faça um agendamento interno de teste.',
-  'Copie o link público e teste um agendamento como cliente.',
+  'Confira os horÃ¡rios e disponibilidades.',
+  'FaÃ§a um agendamento interno de teste.',
+  'Copie o link pÃºblico e teste um agendamento como cliente.',
 ]
 
 const perguntasFrequentes = [
   {
-    pergunta: 'Como faço um novo agendamento?',
+    pergunta: 'Como faÃ§o um novo agendamento?',
     resposta:
-      'Abra a Agenda, clique para criar um novo agendamento e preencha cliente, serviço, funcionário, data e horário. Depois confirme para salvar.',
+      'Abra a Agenda, clique para criar um novo agendamento e preencha cliente, serviÃ§o, funcionÃ¡rio, data e horÃ¡rio. Depois confirme para salvar.',
   },
   {
-    pergunta: 'Como o cliente agenda pelo link público?',
+    pergunta: 'Como o cliente agenda pelo link pÃºblico?',
     resposta:
-      'Com o link público ativo, o cliente abre a página da sua empresa, escolhe o serviço, o horário disponível e conclui o agendamento sozinho.',
+      'Com o link pÃºblico ativo, o cliente abre a pÃ¡gina da sua empresa, escolhe o serviÃ§o, o horÃ¡rio disponÃ­vel e conclui o agendamento sozinho.',
   },
   {
-    pergunta: 'Onde vejo os agendamentos recebidos pelo link público?',
+    pergunta: 'Onde vejo os agendamentos recebidos pelo link pÃºblico?',
     resposta:
-      'Os agendamentos recebidos pelo link público aparecem na Agenda e também podem gerar aviso nas Notificações para facilitar o acompanhamento.',
+      'Os agendamentos recebidos pelo link pÃºblico aparecem na Agenda e tambÃ©m podem gerar aviso nas NotificaÃ§Ãµes para facilitar o acompanhamento.',
   },
   {
-    pergunta: 'Como cadastro um novo serviço?',
+    pergunta: 'Como cadastro um novo serviÃ§o?',
     resposta:
-      'Entre em Serviços, crie um novo cadastro e informe nome, preço, duração, descrição e se o serviço está ativo.',
+      'Entre em ServiÃ§os, crie um novo cadastro e informe nome, preÃ§o, duraÃ§Ã£o, descriÃ§Ã£o e se o serviÃ§o estÃ¡ ativo.',
   },
   {
-    pergunta: 'Como cadastro um funcionário?',
+    pergunta: 'Como cadastro um funcionÃ¡rio?',
     resposta:
-      'Acesse Funcionários, faça o cadastro do profissional e depois organize dias, horários e serviços atendidos, quando esse vínculo estiver disponível.',
+      'Acesse FuncionÃ¡rios, faÃ§a o cadastro do profissional e depois organize dias, horÃ¡rios e serviÃ§os atendidos, quando esse vÃ­nculo estiver disponÃ­vel.',
   },
   {
-    pergunta: 'Como vejo minhas notificações?',
+    pergunta: 'Como vejo minhas notificaÃ§Ãµes?',
     resposta:
-      'Clique no sino no topo do sistema ou entre na tela de Notificações para ver avisos recentes e acompanhar novidades importantes.',
+      'Clique no sino no topo do sistema ou entre na tela de NotificaÃ§Ãµes para ver avisos recentes e acompanhar novidades importantes.',
   },
   {
     pergunta: 'Como alterno entre Modo Essencial e Modo Completo?',
     resposta:
-      'Use o seletor de modo no topo da tela. O Modo Essencial deixa o menu mais simples. O Modo Completo libera todas as áreas permitidas para o seu perfil.',
+      'Use o seletor de modo no topo da tela. O Modo Essencial deixa o menu mais simples. O Modo Completo libera todas as Ã¡reas permitidas para o seu perfil.',
   },
   {
     pergunta: 'Como troco o tema da tela?',
     resposta:
-      'Use o seletor de tema no topo da tela e escolha Claro, Escuro ou NuvemMais. A mudança é rápida e ajuda a leitura no dia a dia.',
+      'Use o seletor de tema no topo da tela e escolha Claro, Escuro ou NuvemMais. A mudanÃ§a Ã© rÃ¡pida e ajuda a leitura no dia a dia.',
   },
   {
     pergunta: 'Como altero minha senha?',
@@ -80,177 +80,177 @@ const perguntasFrequentes = [
   {
     pergunta: 'Como controlo meu estoque?',
     resposta:
-      'Entre em Estoque, cadastre seus produtos, informe a quantidade atual e o estoque mínimo. Depois use Entrada, Saída ou Ajuste para manter as quantidades atualizadas.',
+      'Entre em Estoque, cadastre seus produtos, informe a quantidade atual e o estoque mÃ­nimo. Depois use Entrada, SaÃ­da ou Ajuste para manter as quantidades atualizadas.',
   },
   {
     pergunta: 'Como funciona o catalogo publico?',
     resposta:
-      'O catálogo público e o cardápio funcionam como uma vitrine simples dos produtos da empresa. O cliente vê o que está disponível e fala com você pelo botão de WhatsApp, sem carrinho, pedido, checkout ou pagamento.',
+      'O catÃ¡logo pÃºblico e o cardÃ¡pio funcionam como uma vitrine simples dos produtos da empresa. O cliente vÃª o que estÃ¡ disponÃ­vel e fala com vocÃª pelo botÃ£o de WhatsApp, sem carrinho, pedido, checkout ou pagamento.',
   },
   {
     pergunta: 'Como funciona o estoque do dia?',
     resposta:
-      'O estoque do dia foi pensado para doces, lanches, cupcakes, marmitas e produtos artesanais. A empresa prepara a quantidade do dia, atualiza esse saldo no Estoque do dia e o cliente acompanha a disponibilidade no catálogo público ou cardápio. Nesta fase, a venda continua pelo WhatsApp, sem pedido, carrinho ou pagamento online.',
+      'O estoque do dia foi pensado para doces, lanches, cupcakes, marmitas e produtos artesanais. A empresa prepara a quantidade do dia, atualiza esse saldo no Estoque do dia e o cliente acompanha a disponibilidade no catÃ¡logo pÃºblico ou cardÃ¡pio. Nesta fase, a venda continua pelo WhatsApp, sem pedido, carrinho ou pagamento online.',
   },
   {
-    pergunta: 'Qual a diferença entre Desativar e Excluir?',
+    pergunta: 'Qual a diferenÃ§a entre Desativar e Excluir?',
     resposta:
-      'Desativar mantém o cadastro no sistema, mas tira o registro do uso operacional. Excluir envia o registro para a lixeira, onde ele pode ser restaurado por quem tem permissão.',
+      'Desativar mantÃ©m o cadastro no sistema, mas tira o registro do uso operacional. Excluir envia o registro para a lixeira, onde ele pode ser restaurado por quem tem permissÃ£o.',
   },
   {
     pergunta: 'O que acontece ao excluir definitivamente um registro?',
     resposta:
-      'Excluir definitivamente remove o registro da lixeira de forma irreversível, preservando auditoria e a integridade dos dados. Essa ação não pode ser desfeita.',
+      'Excluir definitivamente remove o registro da lixeira de forma irreversÃ­vel, preservando auditoria e a integridade dos dados. Essa aÃ§Ã£o nÃ£o pode ser desfeita.',
   },
   {
-    pergunta: 'As ações de exclusão ficam registradas?',
+    pergunta: 'As aÃ§Ãµes de exclusÃ£o ficam registradas?',
     resposta:
-      'Sim. Exclusões, restaurações e exclusões definitivas ficam registradas em auditoria/log para acompanhamento administrativo.',
+      'Sim. ExclusÃµes, restauraÃ§Ãµes e exclusÃµes definitivas ficam registradas em auditoria/log para acompanhamento administrativo.',
   },
   {
-    pergunta: 'Onde encontro o link público da minha empresa?',
+    pergunta: 'Onde encontro o link pÃºblico da minha empresa?',
     resposta:
-      'O link público fica na área Minha empresa. Ali você pode consultar, copiar e usar o endereço que seus clientes acessam para agendar.',
+      'O link pÃºblico fica na Ã¡rea Minha empresa. Ali vocÃª pode consultar, copiar e usar o endereÃ§o que seus clientes acessam para agendar.',
   },
   {
     pergunta: 'Como acompanho as empresas da plataforma?',
     resposta:
-      'Entre no Dashboard NuvemMais e use a seleção de empresa para visualizar os principais dados operacionais.',
+      'Entre no Dashboard NuvemMais e use a seleÃ§Ã£o de empresa para visualizar os principais dados operacionais.',
   },
 ]
 
 const topicos = [
   {
     id: 'comecando',
-    titulo: 'Começando no NuvemMais Gestão',
-    resumo: 'Uma visão geral do sistema e do que você consegue organizar no dia a dia.',
-    palavrasChave: ['inicio', 'primeiros passos', 'clientes', 'serviços', 'agenda'],
+    titulo: 'ComeÃ§ando no NuvemMais GestÃ£o',
+    resumo: 'Uma visÃ£o geral do sistema e do que vocÃª consegue organizar no dia a dia.',
+    palavrasChave: ['inicio', 'primeiros passos', 'clientes', 'serviÃ§os', 'agenda'],
     introducao:
-      'O NuvemMais Gestão ajuda sua empresa a manter a operação organizada em um só lugar. Com ele, você acompanha clientes, serviços, funcionários, agenda, notificações, relatórios e o link público para agendamentos.',
+      'O NuvemMais GestÃ£o ajuda sua empresa a manter a operaÃ§Ã£o organizada em um sÃ³ lugar. Com ele, vocÃª acompanha clientes, serviÃ§os, funcionÃ¡rios, agenda, notificaÃ§Ãµes, relatÃ³rios e o link pÃºblico para agendamentos.',
     pontos: [
-      'Use o menu lateral para acessar rapidamente cada área da empresa.',
-      'Comece cadastrando serviços, funcionários e clientes para deixar a agenda pronta para uso.',
-      'Depois ajuste dados da empresa, horários e página pública para facilitar o atendimento.',
+      'Use o menu lateral para acessar rapidamente cada Ã¡rea da empresa.',
+      'Comece cadastrando serviÃ§os, funcionÃ¡rios e clientes para deixar a agenda pronta para uso.',
+      'Depois ajuste dados da empresa, horÃ¡rios e pÃ¡gina pÃºblica para facilitar o atendimento.',
     ],
-    destaque: 'Bom ponto de partida para quem está começando a usar o sistema.',
+    destaque: 'Bom ponto de partida para quem estÃ¡ comeÃ§ando a usar o sistema.',
     roteiro: roteiroRecomendado,
   },
   {
     id: 'modo-temas',
-    titulo: 'Modo Essencial e aparência',
+    titulo: 'Modo Essencial e aparÃªncia',
     resumo: 'Como simplificar o menu e mudar o visual da tela.',
-    palavrasChave: ['modo essencial', 'modo completo', 'tema', 'aparência', 'claro', 'escuro', 'nuvemmais'],
+    palavrasChave: ['modo essencial', 'modo completo', 'tema', 'aparÃªncia', 'claro', 'escuro', 'nuvemmais'],
     introducao:
-      'O Modo Essencial deixa a navegação mais simples, ideal para o uso do dia a dia. O Modo Completo libera todas as áreas permitidas para o seu perfil. No topo da tela, você também pode trocar o tema para deixar a leitura mais confortável.',
+      'O Modo Essencial deixa a navegaÃ§Ã£o mais simples, ideal para o uso do dia a dia. O Modo Completo libera todas as Ã¡reas permitidas para o seu perfil. No topo da tela, vocÃª tambÃ©m pode trocar o tema para deixar a leitura mais confortÃ¡vel.',
     pontos: [
-      'Use o Modo Essencial quando quiser focar só no que é mais importante.',
+      'Use o Modo Essencial quando quiser focar sÃ³ no que Ã© mais importante.',
       'Use o Modo Completo quando precisar acessar todos os recursos permitidos.',
-      'Troque o tema entre Claro, Escuro e NuvemMais conforme a sua preferência.',
-      'O visual muda sem alterar seus dados, permissões ou rotas públicas.',
+      'Troque o tema entre Claro, Escuro e NuvemMais conforme a sua preferÃªncia.',
+      'O visual muda sem alterar seus dados, permissÃµes ou rotas pÃºblicas.',
     ],
     destaque: 'Bom para deixar o sistema mais leve para quem prefere poucos atalhos e leitura simples.',
   },
   {
     id: 'dashboard',
     titulo: 'Dashboard',
-    resumo: 'Resumo rápido da empresa com números e movimentações importantes.',
-    palavrasChave: ['indicadores', 'resumo', 'visão geral', 'agendamentos do dia'],
+    resumo: 'Resumo rÃ¡pido da empresa com nÃºmeros e movimentaÃ§Ãµes importantes.',
+    palavrasChave: ['indicadores', 'resumo', 'visÃ£o geral', 'agendamentos do dia'],
     introducao:
-      'O Dashboard mostra uma visão geral da empresa. Ele reúne agendamentos do dia, próximos compromissos, notificações e indicadores que ajudam no acompanhamento da operação.',
+      'O Dashboard mostra uma visÃ£o geral da empresa. Ele reÃºne agendamentos do dia, prÃ³ximos compromissos, notificaÃ§Ãµes e indicadores que ajudam no acompanhamento da operaÃ§Ã£o.',
     pontos: [
       'Veja rapidamente o movimento do dia e da semana.',
-      'Acompanhe próximos agendamentos sem precisar abrir outras telas.',
-      'Use essa área para ter uma leitura rápida da rotina da empresa.',
+      'Acompanhe prÃ³ximos agendamentos sem precisar abrir outras telas.',
+      'Use essa Ã¡rea para ter uma leitura rÃ¡pida da rotina da empresa.',
     ],
-    destaque: 'Ideal para começar o dia e acompanhar o andamento da operação.',
+    destaque: 'Ideal para comeÃ§ar o dia e acompanhar o andamento da operaÃ§Ã£o.',
     rota: '/dashboard',
   },
   {
     id: 'agenda',
     titulo: 'Agenda',
-    resumo: 'Criação, acompanhamento e filtros dos agendamentos da empresa.',
-    palavrasChave: ['agendamento', 'horário', 'cliente', 'status', 'origem'],
+    resumo: 'CriaÃ§Ã£o, acompanhamento e filtros dos agendamentos da empresa.',
+    palavrasChave: ['agendamento', 'horÃ¡rio', 'cliente', 'status', 'origem'],
     introducao:
-      'Na Agenda você cria agendamentos internos e acompanha tudo o que foi marcado. É aqui que a rotina diária costuma acontecer.',
+      'Na Agenda vocÃª cria agendamentos internos e acompanha tudo o que foi marcado. Ã‰ aqui que a rotina diÃ¡ria costuma acontecer.',
     pontos: [
-      'Crie um agendamento escolhendo cliente, serviço, funcionário, data e horário.',
-      'Filtre a visualização por status, origem e outros critérios disponíveis na tela.',
-      'Acompanhe também os agendamentos recebidos pelo link público da empresa.',
+      'Crie um agendamento escolhendo cliente, serviÃ§o, funcionÃ¡rio, data e horÃ¡rio.',
+      'Filtre a visualizaÃ§Ã£o por status, origem e outros critÃ©rios disponÃ­veis na tela.',
+      'Acompanhe tambÃ©m os agendamentos recebidos pelo link pÃºblico da empresa.',
     ],
-    destaque: 'É a área principal para organizar horários e acompanhar atendimentos.',
+    destaque: 'Ã‰ a Ã¡rea principal para organizar horÃ¡rios e acompanhar atendimentos.',
     rota: '/agenda',
   },
   {
     id: 'clientes',
     titulo: 'Clientes',
-    resumo: 'Cadastro e gestão dos clientes atendidos pela empresa.',
-    palavrasChave: ['cadastro', 'contato', 'histórico', 'cliente'],
+    resumo: 'Cadastro e gestÃ£o dos clientes atendidos pela empresa.',
+    palavrasChave: ['cadastro', 'contato', 'histÃ³rico', 'cliente'],
     introducao:
-      'A tela de Clientes serve para cadastrar e consultar as pessoas atendidas pela empresa. Manter esse cadastro em dia ajuda muito na organização.',
+      'A tela de Clientes serve para cadastrar e consultar as pessoas atendidas pela empresa. Manter esse cadastro em dia ajuda muito na organizaÃ§Ã£o.',
     pontos: [
-      'Cadastre novos clientes com as informações necessárias para contato.',
-      'Consulte clientes já registrados sempre que precisar localizar dados.',
-      'Use essa base para facilitar a criação de novos agendamentos.',
+      'Cadastre novos clientes com as informaÃ§Ãµes necessÃ¡rias para contato.',
+      'Consulte clientes jÃ¡ registrados sempre que precisar localizar dados.',
+      'Use essa base para facilitar a criaÃ§Ã£o de novos agendamentos.',
     ],
-    destaque: 'Um cadastro bem organizado deixa a agenda mais rápida e confiável.',
+    destaque: 'Um cadastro bem organizado deixa a agenda mais rÃ¡pida e confiÃ¡vel.',
     rota: '/clientes',
   },
   {
     id: 'servicos',
-    titulo: 'Serviços',
+    titulo: 'ServiÃ§os',
     resumo: 'Cadastro do que a empresa oferece e dos detalhes de cada atendimento.',
-    palavrasChave: ['preço', 'duração', 'descrição', 'ativo', 'inativo'],
+    palavrasChave: ['preÃ§o', 'duraÃ§Ã£o', 'descriÃ§Ã£o', 'ativo', 'inativo'],
     introducao:
-      'Na área de Serviços você registra o que a empresa oferece. Cada serviço pode ter seu próprio preço, duração, descrição e situação.',
+      'Na Ã¡rea de ServiÃ§os vocÃª registra o que a empresa oferece. Cada serviÃ§o pode ter seu prÃ³prio preÃ§o, duraÃ§Ã£o, descriÃ§Ã£o e situaÃ§Ã£o.',
     pontos: [
-      'Cadastre os serviços com nome claro e fácil de identificar.',
-      'Defina preço e duração para ajudar na organização da agenda.',
-      'Use o status ativo ou inativo para controlar o que continua disponível.',
+      'Cadastre os serviÃ§os com nome claro e fÃ¡cil de identificar.',
+      'Defina preÃ§o e duraÃ§Ã£o para ajudar na organizaÃ§Ã£o da agenda.',
+      'Use o status ativo ou inativo para controlar o que continua disponÃ­vel.',
     ],
-    destaque: 'Essa configuração ajuda o sistema a montar agendamentos com mais consistência.',
+    destaque: 'Essa configuraÃ§Ã£o ajuda o sistema a montar agendamentos com mais consistÃªncia.',
     rota: '/servicos',
   },
   {
     id: 'funcionarios',
-    titulo: 'Funcionários',
-    resumo: 'Organização dos profissionais e da rotina de atendimento.',
-    palavrasChave: ['profissionais', 'dias', 'horários', 'serviços'],
+    titulo: 'FuncionÃ¡rios',
+    resumo: 'OrganizaÃ§Ã£o dos profissionais e da rotina de atendimento.',
+    palavrasChave: ['profissionais', 'dias', 'horÃ¡rios', 'serviÃ§os'],
     introducao:
-      'A tela de Funcionários é usada para cadastrar os profissionais da empresa e organizar como cada um atende no dia a dia.',
+      'A tela de FuncionÃ¡rios Ã© usada para cadastrar os profissionais da empresa e organizar como cada um atende no dia a dia.',
     pontos: [
       'Cadastre os profissionais que atendem na empresa.',
-      'Organize horários e dias de atendimento de cada pessoa.',
-      'Quando existir esse vínculo, associe os serviços que cada profissional pode atender.',
+      'Organize horÃ¡rios e dias de atendimento de cada pessoa.',
+      'Quando existir esse vÃ­nculo, associe os serviÃ§os que cada profissional pode atender.',
     ],
-    destaque: 'Muito útil para distribuir a agenda e evitar conflitos de atendimento.',
+    destaque: 'Muito Ãºtil para distribuir a agenda e evitar conflitos de atendimento.',
     rota: '/funcionarios',
   },
   {
     id: 'disponibilidade',
     titulo: 'Disponibilidade',
-    resumo: 'Controle de bloqueios, folgas e períodos indisponíveis.',
-    palavrasChave: ['bloqueio', 'folga', 'indisponibilidade', 'horários'],
+    resumo: 'Controle de bloqueios, folgas e perÃ­odos indisponÃ­veis.',
+    palavrasChave: ['bloqueio', 'folga', 'indisponibilidade', 'horÃ¡rios'],
     introducao:
-      'A área de Disponibilidade ajuda a controlar quando a empresa, um funcionário ou um serviço não pode ser agendado.',
+      'A Ã¡rea de Disponibilidade ajuda a controlar quando a empresa, um funcionÃ¡rio ou um serviÃ§o nÃ£o pode ser agendado.',
     pontos: [
-      'Registre bloqueios de horário para evitar marcações indevidas.',
-      'Organize folgas e períodos em que não haverá atendimento.',
-      'Use essa área para manter a agenda alinhada com a realidade da operação.',
+      'Registre bloqueios de horÃ¡rio para evitar marcaÃ§Ãµes indevidas.',
+      'Organize folgas e perÃ­odos em que nÃ£o haverÃ¡ atendimento.',
+      'Use essa Ã¡rea para manter a agenda alinhada com a realidade da operaÃ§Ã£o.',
     ],
-    destaque: 'Ajuda a reduzir conflitos e horários que não podem ser usados.',
+    destaque: 'Ajuda a reduzir conflitos e horÃ¡rios que nÃ£o podem ser usados.',
     rota: '/disponibilidade',
   },
   {
     id: 'estoque',
     titulo: 'Estoque',
-    resumo: 'Cadastro de produtos, controle de quantidades e alertas de reposição.',
-    palavrasChave: ['estoque', 'produtos', 'entrada', 'saída', 'ajuste', 'baixo estoque'],
+    resumo: 'Cadastro de produtos, controle de quantidades e alertas de reposiÃ§Ã£o.',
+    palavrasChave: ['estoque', 'produtos', 'entrada', 'saÃ­da', 'ajuste', 'baixo estoque'],
     introducao:
-      'Na tela de Estoque você cadastra produtos, acompanha as quantidades disponíveis e registra cada movimentação para manter o saldo atualizado.',
+      'Na tela de Estoque vocÃª cadastra produtos, acompanha as quantidades disponÃ­veis e registra cada movimentaÃ§Ã£o para manter o saldo atualizado.',
     pontos: [
-      'Cadastre produtos com nome, categoria, código, unidade, preços e estoque mínimo.',
-      'Use Entrada para somar quantidade, Saída para registrar consumo ou venda e Ajuste para definir um novo saldo final.',
-      'Acompanhe os alertas de baixo estoque para saber quando um produto precisa de reposição.',
+      'Cadastre produtos com nome, categoria, cÃ³digo, unidade, preÃ§os e estoque mÃ­nimo.',
+      'Use Entrada para somar quantidade, SaÃ­da para registrar consumo ou venda e Ajuste para definir um novo saldo final.',
+      'Acompanhe os alertas de baixo estoque para saber quando um produto precisa de reposiÃ§Ã£o.',
       'Use a aba Estoque do dia para fazer atualizacoes rapidas de quantidade no celular quando os produtos do dia forem acabando.',
       'O recurso pode depender do plano contratado pela empresa.',
     ],
@@ -296,55 +296,55 @@ const topicos = [
     resumo: 'Acompanhamento administrativo das empresas da plataforma.',
     palavrasChave: ['super admin', 'dashboard nuvemmais', 'empresas da plataforma', 'visualizar empresa'],
     introducao:
-      'O Dashboard NuvemMais ajuda o SUPER_ADMIN a acompanhar a saúde geral da plataforma e visualizar os principais dados operacionais de cada empresa sem trocar de login.',
+      'O Dashboard NuvemMais ajuda o SUPER_ADMIN a acompanhar a saÃºde geral da plataforma e visualizar os principais dados operacionais de cada empresa sem trocar de login.',
     pontos: [
-      'Use a visão geral para acompanhar empresas, usuários, agenda, receitas e alertas importantes.',
-      'Na seleção de empresa, escolha uma empresa para visualizar os dados operacionais dela como acompanhamento administrativo.',
-      'Essa visualização serve para consulta e apoio, sem ações perigosas em massa nesta primeira fase.',
+      'Use a visÃ£o geral para acompanhar empresas, usuÃ¡rios, agenda, receitas e alertas importantes.',
+      'Na seleÃ§Ã£o de empresa, escolha uma empresa para visualizar os dados operacionais dela como acompanhamento administrativo.',
+      'Essa visualizaÃ§Ã£o serve para consulta e apoio, sem aÃ§Ãµes perigosas em massa nesta primeira fase.',
     ],
-    destaque: 'Muito útil para acompanhar o movimento das empresas de forma centralizada.',
+    destaque: 'Muito Ãºtil para acompanhar o movimento das empresas de forma centralizada.',
     rota: '/admin-dashboard',
   },
   {
     id: 'link-publico',
-    titulo: 'Link público de agendamento',
-    resumo: 'Canal para o cliente final agendar sozinho pela página pública.',
-    palavrasChave: ['link', 'agendamento público', 'cliente final', 'página pública'],
+    titulo: 'Link pÃºblico de agendamento',
+    resumo: 'Canal para o cliente final agendar sozinho pela pÃ¡gina pÃºblica.',
+    palavrasChave: ['link', 'agendamento pÃºblico', 'cliente final', 'pÃ¡gina pÃºblica'],
     introducao:
-      'O link público permite que o cliente final marque um horário sozinho, sem precisar entrar em contato direto com a empresa para cada agendamento.',
+      'O link pÃºblico permite que o cliente final marque um horÃ¡rio sozinho, sem precisar entrar em contato direto com a empresa para cada agendamento.',
     pontos: [
-      'Compartilhe o link público com seus clientes em mensagens, redes sociais ou site.',
-      'O cliente escolhe serviço e horário disponível na página da empresa.',
+      'Compartilhe o link pÃºblico com seus clientes em mensagens, redes sociais ou site.',
+      'O cliente escolhe serviÃ§o e horÃ¡rio disponÃ­vel na pÃ¡gina da empresa.',
       'Os agendamentos recebidos passam a fazer parte da rotina de acompanhamento no sistema.',
     ],
-    destaque: 'Ótimo para facilitar o autoatendimento e ganhar agilidade.',
+    destaque: 'Ã“timo para facilitar o autoatendimento e ganhar agilidade.',
   },
   {
     id: 'notificacoes',
-    titulo: 'Notificações',
-    resumo: 'Avisos importantes no sino e na tela de notificações.',
-    palavrasChave: ['sino', 'avisos', 'novos agendamentos públicos'],
+    titulo: 'NotificaÃ§Ãµes',
+    resumo: 'Avisos importantes no sino e na tela de notificaÃ§Ãµes.',
+    palavrasChave: ['sino', 'avisos', 'novos agendamentos pÃºblicos'],
     introducao:
-      'As Notificações ajudam você a acompanhar acontecimentos importantes dentro do sistema, como novos agendamentos públicos e outros avisos relevantes.',
+      'As NotificaÃ§Ãµes ajudam vocÃª a acompanhar acontecimentos importantes dentro do sistema, como novos agendamentos pÃºblicos e outros avisos relevantes.',
     pontos: [
       'Veja alertas pelo sino no topo do sistema.',
-      'Abra a tela de Notificações para consultar os avisos com mais calma.',
-      'Acompanhe especialmente os novos agendamentos recebidos pelo link público.',
+      'Abra a tela de NotificaÃ§Ãµes para consultar os avisos com mais calma.',
+      'Acompanhe especialmente os novos agendamentos recebidos pelo link pÃºblico.',
     ],
-    destaque: 'Uma boa forma de não perder acontecimentos importantes da rotina.',
+    destaque: 'Uma boa forma de nÃ£o perder acontecimentos importantes da rotina.',
     rota: '/notificacoes',
   },
   {
     id: 'relatorios',
-    titulo: 'Relatórios',
-    resumo: 'Acompanhamento de agendamentos, receita, serviços e desempenho.',
+    titulo: 'RelatÃ³rios',
+    resumo: 'Acompanhamento de agendamentos, receita, serviÃ§os e desempenho.',
     palavrasChave: ['receita', 'desempenho', 'acompanhamento', 'resultados'],
     introducao:
-      'Na área de Relatórios você acompanha informações que ajudam a entender melhor o desempenho da empresa ao longo do tempo.',
+      'Na Ã¡rea de RelatÃ³rios vocÃª acompanha informaÃ§Ãµes que ajudam a entender melhor o desempenho da empresa ao longo do tempo.',
     pontos: [
-      'Consulte dados de agendamentos e movimentação da operação.',
-      'Acompanhe receita e desempenho dos serviços.',
-      'Use os relatórios para tomar decisões com mais clareza.',
+      'Consulte dados de agendamentos e movimentaÃ§Ã£o da operaÃ§Ã£o.',
+      'Acompanhe receita e desempenho dos serviÃ§os.',
+      'Use os relatÃ³rios para tomar decisÃµes com mais clareza.',
     ],
     destaque: 'Ideal para analisar resultados e enxergar oportunidades de melhoria.',
     rota: '/relatorios',
@@ -352,44 +352,44 @@ const topicos = [
   {
     id: 'minha-empresa',
     titulo: 'Minha empresa',
-    resumo: 'Configuração dos dados principais da empresa.',
-    palavrasChave: ['dados da empresa', 'horários', 'endereço', 'telefone', 'link público'],
+    resumo: 'ConfiguraÃ§Ã£o dos dados principais da empresa.',
+    palavrasChave: ['dados da empresa', 'horÃ¡rios', 'endereÃ§o', 'telefone', 'link pÃºblico'],
     introducao:
-      'Em Minha empresa você ajusta as informações principais da empresa, incluindo dados de contato, horários e configurações importantes da operação.',
+      'Em Minha empresa vocÃª ajusta as informaÃ§Ãµes principais da empresa, incluindo dados de contato, horÃ¡rios e configuraÃ§Ãµes importantes da operaÃ§Ã£o.',
     pontos: [
-      'Atualize nome, endereço, telefone e outras informações da empresa.',
-      'Configure horários de funcionamento para apoiar a rotina de atendimento.',
-      'Consulte e organize o link público da empresa nessa área.',
+      'Atualize nome, endereÃ§o, telefone e outras informaÃ§Ãµes da empresa.',
+      'Configure horÃ¡rios de funcionamento para apoiar a rotina de atendimento.',
+      'Consulte e organize o link pÃºblico da empresa nessa Ã¡rea.',
     ],
     destaque: 'Essa tela concentra dados essenciais para o funcionamento da empresa.',
     rota: '/minha-empresa',
   },
   {
     id: 'personalizacao',
-    titulo: 'Personalização',
-    resumo: 'Ajustes da página pública da empresa.',
-    palavrasChave: ['cores', 'textos', 'política de cancelamento', 'página pública'],
+    titulo: 'PersonalizaÃ§Ã£o',
+    resumo: 'Ajustes da pÃ¡gina pÃºblica da empresa.',
+    palavrasChave: ['cores', 'textos', 'polÃ­tica de cancelamento', 'pÃ¡gina pÃºblica'],
     introducao:
-      'A área de Personalização permite deixar a página pública da empresa com a sua identidade e com orientações importantes para o cliente.',
+      'A Ã¡rea de PersonalizaÃ§Ã£o permite deixar a pÃ¡gina pÃºblica da empresa com a sua identidade e com orientaÃ§Ãµes importantes para o cliente.',
     pontos: [
-      'Ajuste cores e textos da página pública.',
-      'Inclua política de cancelamento e informações úteis para o cliente.',
-      'Use essa área para deixar a experiência mais alinhada com a sua empresa.',
+      'Ajuste cores e textos da pÃ¡gina pÃºblica.',
+      'Inclua polÃ­tica de cancelamento e informaÃ§Ãµes Ãºteis para o cliente.',
+      'Use essa Ã¡rea para deixar a experiÃªncia mais alinhada com a sua empresa.',
     ],
     destaque: 'Ajuda a apresentar a empresa com mais clareza para o cliente final.',
     rota: '/personalizacao',
   },
   {
     id: 'usuarios',
-    titulo: 'Usuários',
-    resumo: 'Gestão de acessos ao sistema.',
-    palavrasChave: ['acessos', 'permissões', 'usuários do sistema'],
+    titulo: 'UsuÃ¡rios',
+    resumo: 'GestÃ£o de acessos ao sistema.',
+    palavrasChave: ['acessos', 'permissÃµes', 'usuÃ¡rios do sistema'],
     introducao:
-      'Na tela de Usuários você gerencia quem pode entrar no sistema e acompanhar a rotina da empresa.',
+      'Na tela de UsuÃ¡rios vocÃª gerencia quem pode entrar no sistema e acompanhar a rotina da empresa.',
     pontos: [
-      'Cadastre ou acompanhe os usuários com acesso liberado.',
-      'Use essa área para organizar a gestão dos acessos.',
-      'Mantenha os dados dos usuários atualizados para facilitar o uso diário.',
+      'Cadastre ou acompanhe os usuÃ¡rios com acesso liberado.',
+      'Use essa Ã¡rea para organizar a gestÃ£o dos acessos.',
+      'Mantenha os dados dos usuÃ¡rios atualizados para facilitar o uso diÃ¡rio.',
     ],
     destaque: 'Importante para controlar quem acessa o sistema da empresa.',
     rota: '/usuarios',
@@ -397,60 +397,60 @@ const topicos = [
   {
     id: 'lixeira-global',
     titulo: 'Lixeira Global',
-    resumo: 'Restauração e exclusão definitiva de registros removidos logicamente.',
-    palavrasChave: ['lixeira', 'excluir', 'restaurar', 'exclusão definitiva', 'auditoria', 'logs'],
+    resumo: 'RestauraÃ§Ã£o e exclusÃ£o definitiva de registros removidos logicamente.',
+    palavrasChave: ['lixeira', 'excluir', 'restaurar', 'exclusÃ£o definitiva', 'auditoria', 'logs'],
     introducao:
-      'A Lixeira Global reúne registros enviados para a lixeira nos cadastros principais, como clientes, serviços, funcionários, usuários e produtos de estoque.',
+      'A Lixeira Global reÃºne registros enviados para a lixeira nos cadastros principais, como clientes, serviÃ§os, funcionÃ¡rios, usuÃ¡rios e produtos de estoque.',
     pontos: [
-      'Excluir envia o registro para a lixeira e permite restauração posterior por quem tem permissão.',
+      'Excluir envia o registro para a lixeira e permite restauraÃ§Ã£o posterior por quem tem permissÃ£o.',
       'Desativar apenas bloqueia o uso operacional do cadastro, sem enviar o registro para a lixeira.',
-      'Excluir definitivamente é irreversível e deve ser usado apenas quando não houver necessidade de recuperação, preservando auditoria e integridade dos dados.',
-      'As ações de exclusão, restauração e exclusão definitiva ficam registradas em auditoria/log.',
+      'Excluir definitivamente Ã© irreversÃ­vel e deve ser usado apenas quando nÃ£o houver necessidade de recuperaÃ§Ã£o, preservando auditoria e integridade dos dados.',
+      'As aÃ§Ãµes de exclusÃ£o, restauraÃ§Ã£o e exclusÃ£o definitiva ficam registradas em auditoria/log.',
     ],
-    destaque: 'Use essa área para recuperar registros removidos por engano ou concluir exclusões permanentes com cuidado.',
+    destaque: 'Use essa Ã¡rea para recuperar registros removidos por engano ou concluir exclusÃµes permanentes com cuidado.',
     rota: '/lixeira',
   },
   {
     id: 'minha-conta',
     titulo: 'Minha conta',
-    resumo: 'Atualização dos seus dados pessoais.',
+    resumo: 'AtualizaÃ§Ã£o dos seus dados pessoais.',
     palavrasChave: ['nome', 'e-mail', 'login', 'dados pessoais'],
     introducao:
-      'A área Minha conta foi criada para você manter seus dados pessoais atualizados dentro do sistema.',
+      'A Ã¡rea Minha conta foi criada para vocÃª manter seus dados pessoais atualizados dentro do sistema.',
     pontos: [
-      'Altere nome, e-mail, usuário ou login quando necessário.',
+      'Altere nome, e-mail, usuÃ¡rio ou login quando necessÃ¡rio.',
       'Revise seus dados para manter o acesso organizado.',
-      'Use essa área sempre que precisar atualizar suas informações pessoais.',
+      'Use essa Ã¡rea sempre que precisar atualizar suas informaÃ§Ãµes pessoais.',
     ],
-    destaque: 'É o lugar certo para cuidar dos seus dados de acesso.',
+    destaque: 'Ã‰ o lugar certo para cuidar dos seus dados de acesso.',
     rota: '/minha-conta',
   },
   {
     id: 'alterar-senha',
     titulo: 'Alterar senha',
     resumo: 'Troca de senha para manter o acesso seguro.',
-    palavrasChave: ['senha', 'trocar senha', 'segurança'],
+    palavrasChave: ['senha', 'trocar senha', 'seguranÃ§a'],
     introducao:
-      'Na tela Alterar senha você pode atualizar sua senha de acesso sempre que precisar.',
+      'Na tela Alterar senha vocÃª pode atualizar sua senha de acesso sempre que precisar.',
     pontos: [
       'Informe a senha atual e a nova senha.',
-      'Escolha uma senha fácil para você lembrar, mas difícil para outras pessoas adivinharem.',
-      'Depois de confirmar, use a nova senha nos próximos acessos.',
+      'Escolha uma senha fÃ¡cil para vocÃª lembrar, mas difÃ­cil para outras pessoas adivinharem.',
+      'Depois de confirmar, use a nova senha nos prÃ³ximos acessos.',
     ],
-    destaque: 'Recomendado sempre que você quiser reforçar a segurança do acesso.',
+    destaque: 'Recomendado sempre que vocÃª quiser reforÃ§ar a seguranÃ§a do acesso.',
     rota: '/alterar-senha',
   },
   {
     id: 'faturas-plano',
     titulo: 'Faturas e Meu plano',
-    resumo: 'Acompanhamento do plano, das cobranças e da situação financeira.',
-    palavrasChave: ['financeiro', 'assinatura', 'cobranças', 'faturas', 'plano'],
+    resumo: 'Acompanhamento do plano, das cobranÃ§as e da situaÃ§Ã£o financeira.',
+    palavrasChave: ['financeiro', 'assinatura', 'cobranÃ§as', 'faturas', 'plano'],
     introducao:
-      'As áreas Meu plano e Faturas ajudam a acompanhar a assinatura da empresa e a situação financeira relacionada ao uso do sistema.',
+      'As Ã¡reas Meu plano e Faturas ajudam a acompanhar a assinatura da empresa e a situaÃ§Ã£o financeira relacionada ao uso do sistema.',
     pontos: [
       'Consulte detalhes do plano atual da empresa.',
-      'Acompanhe faturas, pagamentos e pendências quando houver.',
-      'Use essas informações para manter a assinatura em dia.',
+      'Acompanhe faturas, pagamentos e pendÃªncias quando houver.',
+      'Use essas informaÃ§Ãµes para manter a assinatura em dia.',
     ],
     destaque: 'Essas telas ajudam no controle financeiro da assinatura da empresa.',
     rota: '/meu-plano',
@@ -458,16 +458,16 @@ const topicos = [
   {
     id: 'perguntas-frequentes',
     titulo: 'Perguntas frequentes',
-    resumo: 'Respostas rápidas para dúvidas comuns do dia a dia.',
-    palavrasChave: ['faq', 'dúvidas', 'perguntas', 'ajuda rápida'],
+    resumo: 'Respostas rÃ¡pidas para dÃºvidas comuns do dia a dia.',
+    palavrasChave: ['faq', 'dÃºvidas', 'perguntas', 'ajuda rÃ¡pida'],
     introducao:
-      'Aqui você encontra respostas simples para as dúvidas mais comuns no uso do sistema.',
+      'Aqui vocÃª encontra respostas simples para as dÃºvidas mais comuns no uso do sistema.',
     pontos: [
-      'Use a busca para localizar uma dúvida específica.',
-      'Abra as perguntas para ver respostas rápidas e diretas.',
-      'Essa área é útil para consultas do dia a dia.',
+      'Use a busca para localizar uma dÃºvida especÃ­fica.',
+      'Abra as perguntas para ver respostas rÃ¡pidas e diretas.',
+      'Essa Ã¡rea Ã© Ãºtil para consultas do dia a dia.',
     ],
-    destaque: 'Boa opção para resolver dúvidas rápidas sem sair da tela de Ajuda.',
+    destaque: 'Boa opÃ§Ã£o para resolver dÃºvidas rÃ¡pidas sem sair da tela de Ajuda.',
     perguntas: perguntasFrequentes,
   },
 ]
@@ -480,141 +480,141 @@ const conteudoDetalhadoPorTopico = {
   comecando: [
     '1. Entre no sistema com seu login e sua senha.',
     '2. Veja o menu lateral e escolha a tela que quer usar.',
-    '3. Comece cadastrando clientes, serviços e funcionários.',
-    '4. Depois confira a agenda, o estoque e o link público.',
-    '5. Se errar, volte para a Ajuda e leia o tópico de novo com calma.',
+    '3. Comece cadastrando clientes, serviÃ§os e funcionÃ¡rios.',
+    '4. Depois confira a agenda, o estoque e o link pÃºblico.',
+    '5. Se errar, volte para a Ajuda e leia o tÃ³pico de novo com calma.',
   ],
   'modo-temas': [
     '1. Use o seletor de modo no topo da tela.',
-    '2. Escolha Modo Essencial para ver menos opções e ficar mais simples.',
-    '3. Escolha Modo Completo quando quiser ver todas as áreas permitidas.',
+    '2. Escolha Modo Essencial para ver menos opÃ§Ãµes e ficar mais simples.',
+    '3. Escolha Modo Completo quando quiser ver todas as Ã¡reas permitidas.',
     '4. No mesmo topo, troque o tema entre Claro, Escuro e NuvemMais.',
-    '5. Confira se a tela ficou mais fácil de ler para você.',
+    '5. Confira se a tela ficou mais fÃ¡cil de ler para vocÃª.',
   ],
   dashboard: [
     '1. Entre no Dashboard logo ao abrir o sistema.',
-    '2. Olhe os números principais para entender como está o dia.',
+    '2. Olhe os nÃºmeros principais para entender como estÃ¡ o dia.',
     '3. Veja os agendamentos e avisos mais importantes sem sair da tela.',
     '4. Use os blocos resumidos para achar o que precisa com rapidez.',
-    '5. Se quiser se aprofundar, abra as telas específicas pela lateral.',
+    '5. Se quiser se aprofundar, abra as telas especÃ­ficas pela lateral.',
   ],
   agenda: [
-    '1. Entre na Agenda para ver os horários marcados.',
+    '1. Entre na Agenda para ver os horÃ¡rios marcados.',
     '2. Clique para criar um novo agendamento.',
-    '3. Preencha cliente, serviço, funcionário, data e hora.',
+    '3. Preencha cliente, serviÃ§o, funcionÃ¡rio, data e hora.',
     '4. Salve o agendamento e confira se ele apareceu na lista.',
-    '5. Use os filtros para localizar marcações por status ou origem.',
+    '5. Use os filtros para localizar marcaÃ§Ãµes por status ou origem.',
   ],
   clientes: [
     '1. Entre em Clientes para ver o cadastro das pessoas atendidas.',
-    '2. Clique em Novo cliente quando precisar incluir alguém.',
+    '2. Clique em Novo cliente quando precisar incluir alguÃ©m.',
     '3. Preencha nome, contato e os dados que a empresa usa no dia a dia.',
     '4. Salve e confira se a pessoa apareceu na lista.',
-    '5. Quando for marcar um horário, procure o cliente já cadastrado.',
+    '5. Quando for marcar um horÃ¡rio, procure o cliente jÃ¡ cadastrado.',
   ],
   servicos: [
-    '1. Entre em Serviços para cadastrar o que a empresa oferece.',
-    '2. Clique em Novo serviço para abrir o formulário.',
-    '3. Preencha nome, preço, duração e descrição simples.',
-    '4. Marque o serviço como ativo para ele poder ser usado.',
-    '5. Salve e confira se ele apareceu entre os serviços cadastrados.',
+    '1. Entre em ServiÃ§os para cadastrar o que a empresa oferece.',
+    '2. Clique em Novo serviÃ§o para abrir o formulÃ¡rio.',
+    '3. Preencha nome, preÃ§o, duraÃ§Ã£o e descriÃ§Ã£o simples.',
+    '4. Marque o serviÃ§o como ativo para ele poder ser usado.',
+    '5. Salve e confira se ele apareceu entre os serviÃ§os cadastrados.',
   ],
   funcionarios: [
-    '1. Entre em Funcionários para organizar quem atende na empresa.',
-    '2. Clique em Novo funcionário para iniciar o cadastro.',
-    '3. Preencha nome, contato e as informações que a sua empresa usa.',
-    '4. Ajuste dias e horários de atendimento quando essa opção estiver disponível.',
+    '1. Entre em FuncionÃ¡rios para organizar quem atende na empresa.',
+    '2. Clique em Novo funcionÃ¡rio para iniciar o cadastro.',
+    '3. Preencha nome, contato e as informaÃ§Ãµes que a sua empresa usa.',
+    '4. Ajuste dias e horÃ¡rios de atendimento quando essa opÃ§Ã£o estiver disponÃ­vel.',
     '5. Salve e confira se o profissional apareceu na lista.',
   ],
   disponibilidade: [
-    '1. Entre em Disponibilidade para bloquear horários que não podem ser usados.',
-    '2. Clique em Novo bloqueio ou em uma ação parecida da tela.',
-    '3. Escolha quem ou o que não poderá atender naquele período.',
-    '4. Informe a data e o horário com cuidado.',
+    '1. Entre em Disponibilidade para bloquear horÃ¡rios que nÃ£o podem ser usados.',
+    '2. Clique em Novo bloqueio ou em uma aÃ§Ã£o parecida da tela.',
+    '3. Escolha quem ou o que nÃ£o poderÃ¡ atender naquele perÃ­odo.',
+    '4. Informe a data e o horÃ¡rio com cuidado.',
     '5. Salve e confira se o bloqueio apareceu na lista.',
   ],
   estoque: [
     '1. Entre em Estoque para ver seus produtos.',
     '2. Clique em Novo produto quando quiser cadastrar um item.',
-    '3. Preencha nome, categoria, unidade, preço e quantidade inicial.',
-    '4. Use Entrada, Saída ou Ajuste para mudar o saldo.',
-    '5. Confira o alerta de baixo estoque para não faltar produto.',
+    '3. Preencha nome, categoria, unidade, preÃ§o e quantidade inicial.',
+    '4. Use Entrada, SaÃ­da ou Ajuste para mudar o saldo.',
+    '5. Confira o alerta de baixo estoque para nÃ£o faltar produto.',
   ],
   'estoque-do-dia': [
-    '1. Entre na área de Estoque do dia quando quiser atualizar a quantidade disponível para hoje.',
-    '2. Escolha os produtos que vão participar da venda do dia.',
-    '3. Informe quantas unidades estão prontas para vender.',
+    '1. Entre na Ã¡rea de Estoque do dia quando quiser atualizar a quantidade disponÃ­vel para hoje.',
+    '2. Escolha os produtos que vÃ£o participar da venda do dia.',
+    '3. Informe quantas unidades estÃ£o prontas para vender.',
     '4. Diminua o saldo quando os itens forem saindo.',
-    '5. Confira se o catálogo público está mostrando o que ainda existe.',
+    '5. Confira se o catÃ¡logo pÃºblico estÃ¡ mostrando o que ainda existe.',
   ],
   'catalogo-publico': [
-    '1. Entre na área de catálogo ou vitrine da empresa.',
+    '1. Entre na Ã¡rea de catÃ¡logo ou vitrine da empresa.',
     '2. Marque os produtos que devem aparecer para o cliente.',
-    '3. Ajuste imagem, descrição, preço e texto do botão, se quiser.',
-    '4. Atualize o Estoque do dia para mostrar o que está disponível.',
-    '5. Copie o link público e veja a tela como o cliente verá.',
+    '3. Ajuste imagem, descriÃ§Ã£o, preÃ§o e texto do botÃ£o, se quiser.',
+    '4. Atualize o Estoque do dia para mostrar o que estÃ¡ disponÃ­vel.',
+    '5. Copie o link pÃºblico e veja a tela como o cliente verÃ¡.',
   ],
   'dashboard-nuvemmais': [
-    '1. Entre no Dashboard NuvemMais com perfil de administração.',
+    '1. Entre no Dashboard NuvemMais com perfil de administraÃ§Ã£o.',
     '2. Escolha uma empresa para acompanhar os dados dela.',
-    '3. Veja os números principais sem trocar de login.',
-    '4. Use a visão geral para orientar suporte e conferência.',
-    '5. Volte para a empresa seguinte quando terminar a análise.',
+    '3. Veja os nÃºmeros principais sem trocar de login.',
+    '4. Use a visÃ£o geral para orientar suporte e conferÃªncia.',
+    '5. Volte para a empresa seguinte quando terminar a anÃ¡lise.',
   ],
   'link-publico': [
-    '1. Copie o link público de agendamento da empresa.',
+    '1. Copie o link pÃºblico de agendamento da empresa.',
     '2. Envie esse link para o cliente por mensagem, site ou rede social.',
-    '3. Peça para a pessoa escolher o serviço e o horário livre.',
+    '3. PeÃ§a para a pessoa escolher o serviÃ§o e o horÃ¡rio livre.',
     '4. Confira se o agendamento entrou na agenda da empresa.',
     '5. Use o link sempre que quiser facilitar o autoatendimento.',
   ],
   notificacoes: [
     '1. Toque no sino no topo da tela quando aparecer um aviso.',
-    '2. Abra a tela de Notificações para ler com calma.',
+    '2. Abra a tela de NotificaÃ§Ãµes para ler com calma.',
     '3. Veja os lembretes e os avisos de agendamentos novos.',
     '4. Marque como lido ou revise depois, conforme a tela permitir.',
     '5. Volte sempre que quiser conferir o que mudou no sistema.',
   ],
   relatorios: [
-    '1. Entre em Relatórios para ver os resultados da empresa.',
-    '2. Escolha o período que quer analisar.',
-    '3. Confira os números de agendamentos, serviços e funcionários.',
-    '4. Use os gráficos e as listas para entender melhor o movimento.',
+    '1. Entre em RelatÃ³rios para ver os resultados da empresa.',
+    '2. Escolha o perÃ­odo que quer analisar.',
+    '3. Confira os nÃºmeros de agendamentos, serviÃ§os e funcionÃ¡rios.',
+    '4. Use os grÃ¡ficos e as listas para entender melhor o movimento.',
     '5. Baixe ou copie os dados quando precisar mostrar para outra pessoa.',
   ],
   'minha-empresa': [
-    '1. Entre em Minha empresa para rever os dados principais do negócio.',
-    '2. Confira nome, contato, endereço e horário de funcionamento.',
-    '3. Ajuste as informações que o cliente precisa enxergar com clareza.',
-    '4. Salve as mudanças e confira se o link público continua correto.',
+    '1. Entre em Minha empresa para rever os dados principais do negÃ³cio.',
+    '2. Confira nome, contato, endereÃ§o e horÃ¡rio de funcionamento.',
+    '3. Ajuste as informaÃ§Ãµes que o cliente precisa enxergar com clareza.',
+    '4. Salve as mudanÃ§as e confira se o link pÃºblico continua correto.',
     '5. Volte aqui sempre que algum dado da empresa mudar.',
   ],
   personalizacao: [
-    '1. Entre em Personalização para cuidar da página pública.',
-    '2. Escolha cores, textos e orientações simples para o cliente.',
-    '3. Preencha as mensagens importantes com palavras fáceis de entender.',
-    '4. Salve e confira a prévia da página pública.',
-    '5. Ajuste de novo se quiser deixar a apresentação mais bonita.',
+    '1. Entre em PersonalizaÃ§Ã£o para cuidar da pÃ¡gina pÃºblica.',
+    '2. Escolha cores, textos e orientaÃ§Ãµes simples para o cliente.',
+    '3. Preencha as mensagens importantes com palavras fÃ¡ceis de entender.',
+    '4. Salve e confira a prÃ©via da pÃ¡gina pÃºblica.',
+    '5. Ajuste de novo se quiser deixar a apresentaÃ§Ã£o mais bonita.',
   ],
   usuarios: [
-    '1. Entre em Usuários para ver quem pode acessar o sistema.',
-    '2. Clique em Novo usuário quando precisar liberar um acesso.',
+    '1. Entre em UsuÃ¡rios para ver quem pode acessar o sistema.',
+    '2. Clique em Novo usuÃ¡rio quando precisar liberar um acesso.',
     '3. Preencha nome, login e os dados pedidos pela tela.',
-    '4. Salve e confira se a pessoa apareceu na lista de usuários.',
-    '5. Revise os acessos quando alguém entrar ou sair da empresa.',
+    '4. Salve e confira se a pessoa apareceu na lista de usuÃ¡rios.',
+    '5. Revise os acessos quando alguÃ©m entrar ou sair da empresa.',
   ],
   'lixeira-global': [
     '1. Entre na Lixeira Global quando precisar recuperar um registro.',
     '2. Procure o item que foi enviado para a lixeira.',
-    '3. Escolha Restaurar se o cadastro ainda for útil.',
-    '4. Use exclusão definitiva só quando tiver certeza de que não precisa mais do dado.',
+    '3. Escolha Restaurar se o cadastro ainda for Ãºtil.',
+    '4. Use exclusÃ£o definitiva sÃ³ quando tiver certeza de que nÃ£o precisa mais do dado.',
     '5. Confira a auditoria quando quiser saber o que foi feito.',
   ],
   'minha-conta': [
     '1. Entre em Minha conta para atualizar seus dados pessoais.',
     '2. Confira nome, e-mail e login.',
     '3. Ajuste o que estiver desatualizado com cuidado.',
-    '4. Salve e teste o acesso novamente, se necessário.',
+    '4. Salve e teste o acesso novamente, se necessÃ¡rio.',
     '5. Volte aqui sempre que mudar seu contato ou seu nome de uso.',
   ],
   'alterar-senha': [
@@ -622,38 +622,35 @@ const conteudoDetalhadoPorTopico = {
     '2. Digite a senha atual no primeiro campo.',
     '3. Escreva a nova senha nos campos seguintes.',
     '4. Confirme a troca e aguarde a mensagem de sucesso.',
-    '5. Use a nova senha no próximo login.',
+    '5. Use a nova senha no prÃ³ximo login.',
   ],
   'faturas-plano': [
-    '1. Entre em Meu plano ou Faturas para ver a situação da assinatura.',
+    '1. Entre em Meu plano ou Faturas para ver a situaÃ§Ã£o da assinatura.',
     '2. Confira o nome do plano e o que ele libera para a empresa.',
     '3. Veja se existe alguma fatura em aberto ou vencida.',
-    '4. Faça a conferência antes de pedir ajuda para o financeiro.',
-    '5. Use essa área para manter a assinatura em dia.',
+    '4. FaÃ§a a conferÃªncia antes de pedir ajuda para o financeiro.',
+    '5. Use essa Ã¡rea para manter a assinatura em dia.',
   ],
   'perguntas-frequentes': [
-    '1. Leia a pergunta que mais parece com a sua dúvida.',
-    '2. Abra a resposta para ver a orientação completa.',
-    '3. Use a busca da Ajuda se quiser achar um tema mais rápido.',
-    '4. Volte para os tópicos quando precisar ver uma tela específica.',
-    '5. Se ainda ficar em dúvida, siga o passo a passo do tópico relacionado.',
+    '1. Leia a pergunta que mais parece com a sua dÃºvida.',
+    '2. Abra a resposta para ver a orientaÃ§Ã£o completa.',
+    '3. Use a busca da Ajuda se quiser achar um tema mais rÃ¡pido.',
+    '4. Volte para os tÃ³picos quando precisar ver uma tela especÃ­fica.',
+    '5. Se ainda ficar em dÃºvida, siga o passo a passo do tÃ³pico relacionado.',
   ],
 }
 
 const historicoAtualizacoes = [
   {
-    versao: '1.2.2',
-    dataPublicacao: '2026-06-09',
+    versao: '1.3.0',
+    dataPublicacao: '2026-06-14',
     itens: [
-      'Upload próprio de imagens para logo, banner e produtos.',
-      'Imagens convertidas e padronizadas em WebP.',
-      'Cadastro de produto com imagem antes de salvar.',
-      'Edição segura de imagem com cancelamento restaurando a original.',
-      'Texto padrão global do botão dos produtos do catálogo/cardápio.',
-      'Melhorias nos campos de descrição e categoria da vitrine pública.',
-      'CTA de WhatsApp mais visível na aba Catálogo Público.',
-      'Ajustes visuais e correções de português no Estoque, Personalização e Catálogo Público.',
-      'Preservação de logo/banner ao salvar personalização.',
+      'Gestão Esportiva para diferentes modalidades.',
+      'Turmas, profissionais, participantes e mensalidades.',
+      'Planos apresentados de forma mais clara.',
+      'Melhorias no modo operacional do SUPER_ADMIN.',
+      'Correções no uso do plano por empresa.',
+      'Melhorias visuais e mensagens de validação.',
     ],
   },
   {
@@ -661,10 +658,10 @@ const historicoAtualizacoes = [
     dataPublicacao: '2026-06-06',
     itens: [
       'Planos comerciais NuvemMais Vitrine, Agenda e Completo.',
-      'Bloco público “Quer ter uma página como esta?” com CTA para cadastro e planos em nova aba.',
-      'Melhorias visuais no catálogo e cardápio público.',
-      'Ajustes no Estoque, Estoque do dia e Catálogo público interno.',
-      'Open Graph dinâmico para compartilhamento por cliente no WhatsApp.',
+      'Bloco pÃºblico â€œQuer ter uma pÃ¡gina como esta?â€ com CTA para cadastro e planos em nova aba.',
+      'Melhorias visuais no catÃ¡logo e cardÃ¡pio pÃºblico.',
+      'Ajustes no Estoque, Estoque do dia e CatÃ¡logo pÃºblico interno.',
+      'Open Graph dinÃ¢mico para compartilhamento por cliente no WhatsApp.',
       'Fallback NuvemMais para links do site principal.',
     ],
   },
@@ -672,15 +669,15 @@ const historicoAtualizacoes = [
     versao: '1.2.0-hml',
     dataPublicacao: '2026-06-04',
     itens: [
-      'Modo Essencial para navegação simplificada.',
+      'Modo Essencial para navegaÃ§Ã£o simplificada.',
       'Modo Completo para acesso a todos os recursos.',
       'Temas Claro, Escuro e NuvemMais.',
       'Central de Ajuda com modo Resumo e passo a passo.',
       'Links "Ajuda desta tela" nas principais telas do sistema.',
-      'Dashboard Essencial com ações rápidas.',
-      'Catálogo público/Cardápio com vitrine de produtos.',
-      'Estoque do dia integrado ao catálogo.',
-      'Melhorias visuais no menu, topo, cards, botões e formulários.',
+      'Dashboard Essencial com aÃ§Ãµes rÃ¡pidas.',
+      'CatÃ¡logo pÃºblico/CardÃ¡pio com vitrine de produtos.',
+      'Estoque do dia integrado ao catÃ¡logo.',
+      'Melhorias visuais no menu, topo, cards, botÃµes e formulÃ¡rios.',
     ],
   },
   {
@@ -688,20 +685,20 @@ const historicoAtualizacoes = [
     dataPublicacao: '2026-05-31',
     itens: [
       'Lixeira Global integrada aos cadastros principais.',
-      'Restauração de clientes, serviços, funcionários, usuários e produtos de estoque.',
-      'Exclusão definitiva segura pela Lixeira Global.',
+      'RestauraÃ§Ã£o de clientes, serviÃ§os, funcionÃ¡rios, usuÃ¡rios e produtos de estoque.',
+      'ExclusÃ£o definitiva segura pela Lixeira Global.',
       'Cards/resumo da Lixeira Global corrigidos.',
       'Produtos de estoque integrados ao fluxo de lixeira.',
-      'Auditoria/log nas ações de exclusão, restauração e exclusão definitiva.',
-      'Versão do menu lateral sincronizada com Ajuda.',
+      'Auditoria/log nas aÃ§Ãµes de exclusÃ£o, restauraÃ§Ã£o e exclusÃ£o definitiva.',
+      'VersÃ£o do menu lateral sincronizada com Ajuda.',
     ],
   },
 ]
 
 const estatisticas = computed(() => [
-  { rotulo: 'Tópicos principais', valor: topicos.length - 1 },
+  { rotulo: 'TÃ³picos principais', valor: topicos.length - 1 },
   { rotulo: 'Perguntas frequentes', valor: perguntasFrequentes.length },
-  { rotulo: 'Busca rápida', valor: 'Disponível' },
+  { rotulo: 'Busca rÃ¡pida', valor: 'DisponÃ­vel' },
 ])
 
 const topicoExibido = computed(() => topicosFiltrados.value.find((topico) => topico.id === topicoAtivoId.value) || null)
@@ -958,11 +955,11 @@ onBeforeUnmount(() => {
       <div>
         <p class="subtitulo">Ajuda interna</p>
         <h1>Central de Ajuda</h1>
-        <p class="descricao">Aprenda a usar as principais funcionalidades do NuvemMais Gestão.</p>
+        <p class="descricao">Aprenda a usar as principais funcionalidades do NuvemMais GestÃ£o.</p>
       </div>
     </header>
 
-    <nav class="abas-ajuda" role="tablist" aria-label="Navegação interna da Ajuda">
+    <nav class="abas-ajuda" role="tablist" aria-label="NavegaÃ§Ã£o interna da Ajuda">
       <button
       type="button"
       id="ajuda-tutoriais-tab"
@@ -987,7 +984,7 @@ onBeforeUnmount(() => {
         :class="{ ativa: abaAtiva === ABA_NOVIDADES }"
         @click="selecionarAba(ABA_NOVIDADES)"
       >
-        Novidades / Versão
+        Novidades / VersÃ£o
       </button>
     </nav>
 
@@ -1008,21 +1005,21 @@ onBeforeUnmount(() => {
 
       <section v-if="mostrarTopoResumo" class="ferramentas-ajuda" aria-label="Busca de ajuda">
         <label class="campo-busca">
-          <span>Buscar tópico</span>
+          <span>Buscar tÃ³pico</span>
           <input
             v-model="busca"
             type="search"
-            placeholder="Ex: agenda, clientes, senha, link público"
+            placeholder="Ex: agenda, clientes, senha, link pÃºblico"
           />
         </label>
 
         <p class="resultado-busca">
-          {{ topicosFiltrados.length }} tópico(s) encontrado(s)
+          {{ topicosFiltrados.length }} tÃ³pico(s) encontrado(s)
         </p>
       </section>
 
       <section class="layout-ajuda">
-        <aside v-show="!isViewportMobile || mostrarListaTopicos" id="lista-topicos-ajuda" class="lista-topicos" aria-label="Tópicos da central de ajuda">
+        <aside v-show="!isViewportMobile || mostrarListaTopicos" id="lista-topicos-ajuda" class="lista-topicos" aria-label="TÃ³picos da central de ajuda">
           <div class="lista-topicos-conteudo">
             <button
               v-for="topico in topicosFiltrados"
@@ -1037,7 +1034,7 @@ onBeforeUnmount(() => {
             </button>
 
             <p v-if="!topicosFiltrados.length" class="estado-vazio">
-              Nenhum tópico encontrado. Tente buscar por outro termo.
+              Nenhum tÃ³pico encontrado. Tente buscar por outro termo.
             </p>
           </div>
         </aside>
@@ -1046,7 +1043,7 @@ onBeforeUnmount(() => {
           <article v-if="topicoAtivo" :id="`topico-${topicoAtivo.id}`" class="topico-detalhe">
             <header class="topico-cabecalho">
               <div>
-                <p class="subtitulo">Tópico selecionado</p>
+                <p class="subtitulo">TÃ³pico selecionado</p>
                 <h2>{{ topicoAtivo.titulo }}</h2>
               </div>
               <div class="acoes-topico">
@@ -1057,7 +1054,7 @@ onBeforeUnmount(() => {
                   aria-controls="lista-topicos-ajuda"
                   @click="abrirListaTopicos"
                 >
-                  Voltar aos tópicos
+                  Voltar aos tÃ³picos
                 </button>
                 <RouterLink v-if="topicoAtivo.rota" class="botao-tela" :to="topicoAtivo.rota">
                   Ir para esta tela
@@ -1071,7 +1068,7 @@ onBeforeUnmount(() => {
 
             <section class="modo-detalhe">
               <span>Modo de ajuda</span>
-              <div class="modo-detalhe-botoes" role="tablist" aria-label="Nível de detalhe da ajuda">
+              <div class="modo-detalhe-botoes" role="tablist" aria-label="NÃ­vel de detalhe da ajuda">
                 <button
                   type="button"
                   class="modo-detalhe-botao"
@@ -1103,7 +1100,7 @@ onBeforeUnmount(() => {
             <section class="secao-texto">
               <h3>{{ modoAjudaAtual }}</h3>
               <p class="texto-ajuda-secundario">
-                {{ modoDetalhe === MODO_PASSO_A_PASSO ? 'Siga na ordem para não se perder.' : 'Leia primeiro o resumo e use o passo a passo quando precisar de mais ajuda.' }}
+                {{ modoDetalhe === MODO_PASSO_A_PASSO ? 'Siga na ordem para nÃ£o se perder.' : 'Leia primeiro o resumo e use o passo a passo quando precisar de mais ajuda.' }}
               </p>
               <ol v-if="modoDetalhe === MODO_PASSO_A_PASSO" class="lista-passos">
                 <li v-for="passo in conteudoTopicoExibidoFormatado" :key="passo">{{ passo }}</li>
@@ -1135,8 +1132,8 @@ onBeforeUnmount(() => {
           </article>
 
           <article v-else class="topico-vazio">
-            <h2>Nenhum tópico selecionado</h2>
-            <p>Use a busca ou escolha um tópico na lista para visualizar as orientações.</p>
+            <h2>Nenhum tÃ³pico selecionado</h2>
+            <p>Use a busca ou escolha um tÃ³pico na lista para visualizar as orientaÃ§Ãµes.</p>
             <button
               v-if="isViewportMobile && !mostrarListaTopicos"
               type="button"
@@ -1144,7 +1141,7 @@ onBeforeUnmount(() => {
               aria-controls="lista-topicos-ajuda"
               @click="abrirListaTopicos"
             >
-              Ver outros tópicos
+              Ver outros tÃ³picos
             </button>
           </article>
         </section>
@@ -1162,25 +1159,25 @@ onBeforeUnmount(() => {
     >
       <section class="novidades-cabecalho">
         <div>
-          <p class="subtitulo">Versão e mudanças</p>
-          <h2>Novidades / Versão</h2>
+          <p class="subtitulo">VersÃ£o e mudanÃ§as</p>
+          <h2>Novidades / VersÃ£o</h2>
           <p class="descricao-secao">
-            Aqui ficam a versão atual, o histórico de atualizações e os principais lançamentos da plataforma.
+            Aqui ficam a versÃ£o atual, o histÃ³rico de atualizaÃ§Ãµes e os principais lanÃ§amentos da plataforma.
           </p>
         </div>
       </section>
 
       <SystemVersionPanel
-        titulo="Versão do sistema"
+        titulo="VersÃ£o do sistema"
         discreto
         :novidades-padrao="[]"
         :mostrar-novidades="false"
       />
 
-      <section class="historico-atualizacoes" aria-label="Histórico de atualizações">
+      <section class="historico-atualizacoes" aria-label="HistÃ³rico de atualizaÃ§Ãµes">
         <header class="historico-cabecalho">
-          <h3>Histórico de atualizações</h3>
-          <p>Novas versões podem ser adicionadas aqui sem remover o histórico anterior.</p>
+          <h3>HistÃ³rico de atualizaÃ§Ãµes</h3>
+          <p>Novas versÃµes podem ser adicionadas aqui sem remover o histÃ³rico anterior.</p>
         </header>
 
         <article v-for="versao in historicoAtualizacoes" :key="versao.versao" class="historico-item">

@@ -1,4 +1,4 @@
-import { debugLog } from '@/utils/devDebug'
+﻿import { debugLog } from '@/utils/devDebug'
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
 
 const PUBLIC_APP_URL_HOMOLOGACAO = 'https://gestao-hml.nuvemmais.com.br'
@@ -7,20 +7,20 @@ export const TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO = 'Pedir pelo WhatsApp'
 
 const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
 const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : PUBLIC_APP_URL_PRODUCAO
-export const APP_NAME = String(import.meta.env.VITE_APP_NAME || 'NuvemMais Gestão').trim() || 'NuvemMais Gestão'
+export const APP_NAME = String(import.meta.env.VITE_APP_NAME || 'NuvemMais GestÃ£o').trim() || 'NuvemMais GestÃ£o'
 export const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || '').trim()
 const MENSAGENS_PADRAO = {
-  sessaoExpirada: 'Sessão expirada. Faça login novamente.',
-  acessoNegado: 'Acesso negado. Você não tem permissão para acessar esta área.',
-  rotaInexistente: 'Rota inexistente. Verifique o endereço e tente novamente.',
-  recursoNaoEncontrado: 'Não foi possível localizar o conteúdo solicitado.',
-  redeApiIndisponivel: 'Não foi possível conectar. Verifique sua internet e tente novamente.',
-  apiIndisponivel: 'Serviço temporariamente indisponível. Tente novamente em instantes.',
-  erroCarregarDados: 'Não foi possível carregar os dados. Tente novamente.',
-  erroOperacao: 'Não foi possível concluir a operação. Tente novamente.',
+  sessaoExpirada: 'SessÃ£o expirada. FaÃ§a login novamente.',
+  acessoNegado: 'Acesso negado. VocÃª nÃ£o tem permissÃ£o para acessar esta Ã¡rea.',
+  rotaInexistente: 'Rota inexistente. Verifique o endereÃ§o e tente novamente.',
+  recursoNaoEncontrado: 'NÃ£o foi possÃ­vel localizar o conteÃºdo solicitado.',
+  redeApiIndisponivel: 'NÃ£o foi possÃ­vel conectar. Verifique sua internet e tente novamente.',
+  apiIndisponivel: 'ServiÃ§o temporariamente indisponÃ­vel. Tente novamente em instantes.',
+  erroCarregarDados: 'NÃ£o foi possÃ­vel carregar os dados. Tente novamente.',
+  erroOperacao: 'NÃ£o foi possÃ­vel concluir a operaÃ§Ã£o. Tente novamente.',
 }
 export const MENSAGEM_CADASTRO_PENDENTE =
-  'Seu cadastro foi recebido e está aguardando aprovação. Assim que for aprovado, o acesso ao sistema será liberado.'
+  'Seu cadastro foi recebido e estÃ¡ aguardando aprovaÃ§Ã£o. Assim que for aprovado, o acesso ao sistema serÃ¡ liberado.'
 
 const CHAVE_EMPRESA_VISUALIZACAO = 'empresaVisualizacao'
 export const EVENTO_EMPRESA_VISUALIZACAO = 'empresa-visualizacao-atualizada'
@@ -48,21 +48,19 @@ const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PU
 export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
-const VERSAO_PRODUCAO_PADRAO = '1.2.2'
-const VERSAO_HML_MINIMA = '1.2.2-hml'
+const VERSAO_PRODUCAO_PADRAO = '1.3.0'
+const VERSAO_HML_MINIMA = '1.3.0-hml'
 const DATA_PUBLICACAO_VERSAO_PADRAO =
-  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-09').trim() || '2026-06-09'
+  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-14').trim() || '2026-06-14'
 const NOVIDADES_VERSAO_PADRAO = Object.freeze([
-  'Upload próprio de imagens para logo, banner e produtos.',
-  'Imagens convertidas e padronizadas em WebP.',
-  'Cadastro de produto com imagem antes de salvar.',
-  'Edição segura de imagem com cancelamento restaurando a original.',
-  'Texto padrão global do botão dos produtos do catálogo/cardápio.',
-  'Melhorias nos campos de descrição e categoria da vitrine pública.',
-  'CTA de WhatsApp mais visível na aba Catálogo Público.',
-  'Ajustes visuais e correções de português no Estoque, Personalização e Catálogo Público.',
-  'Preservação de logo/banner ao salvar personalização.',
+  'Gestão Esportiva para diferentes modalidades.',
+  'Turmas, profissionais, participantes e mensalidades.',
+  'Planos apresentados de forma mais clara.',
+  'Melhorias no modo operacional do SUPER_ADMIN.',
+  'Correções no uso do plano por empresa.',
+  'Melhorias visuais e mensagens de validação.',
 ])
+
 
 export function obterUrlPublicaFrontend() {
   const origemAtual =
@@ -147,11 +145,11 @@ export function normalizarAmbienteAplicacao(valor) {
     return 'production'
   }
 
-  if (['prod', 'producao', 'produção', 'production'].includes(ambiente)) {
+  if (['prod', 'producao', 'produÃ§Ã£o', 'production'].includes(ambiente)) {
     return 'production'
   }
 
-  if (['hml', 'homolog', 'homologacao', 'homologação', 'staging'].includes(ambiente)) {
+  if (['hml', 'homolog', 'homologacao', 'homologaÃ§Ã£o', 'staging'].includes(ambiente)) {
     return 'homologacao'
   }
 
@@ -268,11 +266,11 @@ export function formatarRotuloAmbiente(valor) {
   const ambiente = normalizarAmbienteAplicacao(valor)
 
   if (ambiente === 'production') {
-    return 'Produção'
+    return 'ProduÃ§Ã£o'
   }
 
   if (ambiente === 'homologacao') {
-    return 'Homologação'
+    return 'HomologaÃ§Ã£o'
   }
 
   if (ambiente === 'dev') {
@@ -551,7 +549,7 @@ export function obterEmpresaVisualizacao() {
     }
   }
 
-  // Compatibilidade com sessões antigas que armazenavam apenas as chaves separadas.
+  // Compatibilidade com sessÃµes antigas que armazenavam apenas as chaves separadas.
   const empresaVisualizacaoId =
     localStorage.getItem('empresaVisualizacaoId') || sessionStorage.getItem('empresaVisualizacaoId')
   const empresaVisualizacaoNome =
@@ -1044,7 +1042,7 @@ export function obterMensagemAmigavelErro(error, fallback = MENSAGENS_PADRAO.err
 
 const OPCOES_EXCLUSAO_LOGICA = {
   emitir403: false,
-  mensagem403: 'Você não tem permissão para excluir este registro.',
+  mensagem403: 'VocÃª nÃ£o tem permissÃ£o para excluir este registro.',
 }
 
 async function extrairMensagemResposta(response) {
@@ -1532,7 +1530,7 @@ export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionar
 
   if (!response.ok) {
     const respostaBackend = await lerCorpoResposta(response)
-    const mensagem = extrairMensagemJson(respostaBackend) || 'Não foi possível concluir a operação.'
+    const mensagem = extrairMensagemJson(respostaBackend) || 'NÃ£o foi possÃ­vel concluir a operaÃ§Ã£o.'
     const erro = new Error(mensagem)
 
     erro.detalhes = {
@@ -1876,7 +1874,7 @@ export function mensagemIndicaBloqueioPlanoEstoque(mensagem) {
       texto.includes('modulo') ||
       texto.includes('recurso') ||
       texto.includes('nao disponivel') ||
-      texto.includes('não disponivel') ||
+      texto.includes('nÃ£o disponivel') ||
       texto.includes('superior')
     )
   )
@@ -2515,7 +2513,7 @@ export async function baixarRelatorioAgendamentosCsv(filtros = {}) {
     const mensagem = [401, 403].includes(response.status)
       ? mensagemPadraoPorStatus(response.status)
       : mensagemBackend
-    const erro = new Error(mensagem || 'Não foi possível exportar o relatório.')
+    const erro = new Error(mensagem || 'NÃ£o foi possÃ­vel exportar o relatÃ³rio.')
     erro.status = response.status
 
     if (response.status === 401) {
@@ -2655,7 +2653,7 @@ function normalizarBooleanoFlexivelEstoque(valor, padrao = false) {
       return true
     }
 
-    if (['false', '0', 'nao', 'não', 'no'].includes(texto)) {
+    if (['false', '0', 'nao', 'nÃ£o', 'no'].includes(texto)) {
       return false
     }
   }
@@ -3929,7 +3927,7 @@ export async function login(email, senha) {
       cadastroPendente
         ? MENSAGEM_CADASTRO_PENDENTE
         : response.status === 401
-          ? 'Não foi possível fazer login. Confira e-mail e senha.'
+          ? 'NÃ£o foi possÃ­vel fazer login. Confira e-mail e senha.'
           : mensagem
     const erro = new Error(mensagemTratada)
     erro.status = response.status
