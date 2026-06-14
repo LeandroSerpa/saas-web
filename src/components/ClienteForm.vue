@@ -18,7 +18,7 @@ const cliente = defineModel({
   required: true,
 })
 
-defineProps({
+const props = defineProps({
   mensagemSucesso: {
     type: String,
     default: '',
@@ -26,6 +26,10 @@ defineProps({
   modoEdicao: {
     type: Boolean,
     default: false,
+  },
+  contextoEsportivo: {
+    type: Object,
+    default: () => ({}),
   },
 })
 
@@ -45,6 +49,13 @@ const temDadosBeachTennis = computed(() =>
       cliente.value?.planoBeachTennis ||
       cliente.value?.observacaoBeachTennis,
   ),
+)
+const moduloEsportivoAtivo = computed(() => props.contextoEsportivo?.ativo === true)
+const nomeModalidade = computed(() => props.contextoEsportivo?.nomeModalidade || 'Esporte')
+const tituloSecaoEsportiva = computed(() =>
+  nomeModalidade.value === 'Beach Tennis'
+    ? 'Dados de Beach Tennis'
+    : `Dados esportivos - ${nomeModalidade.value}`,
 )
 
 function limparErroCampo(campo) {
@@ -151,10 +162,10 @@ function solicitarSalvamento() {
       </label>
     </div>
 
-    <details class="bloco-beach-tennis" :open="temDadosBeachTennis">
-      <summary>Dados do aluno - Beach Tennis</summary>
+    <details v-if="moduloEsportivoAtivo" class="bloco-beach-tennis" :open="temDadosBeachTennis">
+      <summary>{{ tituloSecaoEsportiva }}</summary>
       <p class="ajuda-bloco">
-        Se esta pessoa também participa das aulas ou dos plays, preencha só os campos que fizerem sentido.
+        Use estes campos apenas quando a pessoa também participar da rotina esportiva desta modalidade.
       </p>
 
       <div class="campos">
@@ -164,7 +175,7 @@ function solicitarSalvamento() {
         </label>
 
         <label>
-          Perfil Beach Tennis
+          Perfil esportivo
           <select v-model="cliente.perfilBeachTennis">
             <option value="">Selecione</option>
             <option v-for="opcao in OPCOES_PERFIL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
@@ -174,7 +185,7 @@ function solicitarSalvamento() {
         </label>
 
         <label>
-          Nível
+          Nível/Categoria
           <select v-model="cliente.nivelBeachTennis">
             <option value="">Selecione</option>
             <option v-for="opcao in OPCOES_NIVEL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
@@ -198,7 +209,7 @@ function solicitarSalvamento() {
         </label>
 
         <label>
-          Plano Beach Tennis
+          Plano esportivo
           <select v-model="cliente.planoBeachTennis">
             <option value="">Selecione</option>
             <option v-for="opcao in OPCOES_PLANO_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
@@ -208,11 +219,11 @@ function solicitarSalvamento() {
         </label>
 
         <label class="campo-grande">
-          Observações do aluno/participante
+          Observações esportivas
           <textarea
             v-model="cliente.observacaoBeachTennis"
             rows="3"
-            placeholder="Ex: Prefere treinos noturnos, participa dos plays aos sábados..."
+            placeholder="Ex: Prefere treinos noturnos, participa de jogos livres aos sábados..."
           ></textarea>
         </label>
       </div>

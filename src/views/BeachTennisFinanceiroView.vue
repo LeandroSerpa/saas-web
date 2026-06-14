@@ -4,6 +4,7 @@ import {
   EVENTO_EMPRESA_VISUALIZACAO,
   buscarAcordoBeachTennis,
   buscarAcordosBeachTennis,
+  buscarAlunosAcordoBeachTennis,
   buscarClientes,
   buscarConfiguracaoBeachTennisFinanceira,
   buscarMensalidadesBeachTennis,
@@ -21,12 +22,29 @@ import {
   atualizarAcordoBeachTennis,
   cancelarMensalidadeBeachTennis,
 } from '@/services/api'
+import {
+  carregarContextoGestaoEsportiva,
+  contextoGestaoEsportiva,
+  recarregarContextoGestaoEsportiva,
+} from '@/utils/gestaoEsportiva'
 
 const ABAS = [
   { id: 'acordos', rotulo: 'Acordos' },
   { id: 'mensalidades', rotulo: 'Mensalidades' },
   { id: 'resumo', rotulo: 'Resumo financeiro' },
   { id: 'configuracao', rotulo: 'Configuração e PIX' },
+]
+
+const OPCOES_MODALIDADE = [
+  { valor: 'BEACH_TENNIS', rotulo: 'Beach Tennis' },
+  { valor: 'FUTEBOL', rotulo: 'Futebol' },
+  { valor: 'FUTSAL', rotulo: 'Futsal' },
+  { valor: 'VOLEI', rotulo: 'Volei' },
+  { valor: 'TENIS', rotulo: 'Tenis' },
+  { valor: 'BASQUETE', rotulo: 'Basquete' },
+  { valor: 'NATACAO', rotulo: 'Natacao' },
+  { valor: 'ARTES_MARCIAIS', rotulo: 'Artes marciais' },
+  { valor: 'OUTRO', rotulo: 'Outro' },
 ]
 
 const TIPO_CHAVE_PIX = [
@@ -110,6 +128,24 @@ const mensalidadeManual = ref(criarMensalidadeManualPadrao())
 const pagamentoMensalidade = ref(criarPagamentoPadrao())
 const cobrancaWhatsapp = ref(criarCobrancaWhatsappPadrao())
 let janelaWhatsapp = null
+const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
+const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
+const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
+const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Participante')
+const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Participantes')
+const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'Responsável')
+const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
+const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
+const termoAtividadeSingular = computed(() => contextoEsportivo.value?.termoAtividadeSingular || 'Atividade')
+const termoAtividadePlural = computed(() => contextoEsportivo.value?.termoAtividadePlural || 'Atividades')
+const termoLocalSingular = computed(() => contextoEsportivo.value?.termoLocalSingular || 'Local')
+const termoLocalPlural = computed(() => contextoEsportivo.value?.termoLocalPlural || 'Locais')
+const nomeEventoLivre = computed(() => contextoEsportivo.value?.nomeEventoLivre || configuracao.value.nomePlay || 'Jogo livre')
+const tituloPagina = computed(() => `Financeiro - ${nomeModalidade.value}`)
+const descricaoPagina = computed(() =>
+  `Centralize acordos, mensalidades, cobrancas no WhatsApp e a configuracao de PIX para ${nomeModalidade.value}.`,
+)
+const nomeAcordoExemplo = computed(() => `Acordo ${nomeModalidade.value}`)
 
 const alunosSelecionadosIds = computed({
   get: () => acordoFormulario.value.alunoIds || [],
@@ -222,7 +258,7 @@ const atrasosResumo = computed(() => {
 const previewMensagemConfiguracao = computed(() =>
   montarMensagemPreviewConfiguracao({
     nomeResponsavel: 'Maria Souza',
-    nomeAcordo: 'Acordo Beach Tennis',
+    nomeAcordo: nomeAcordoExemplo.value,
     competencia: competenciaSelecionada.value,
     valor: 250,
     vencimento: '10/06/2026',
@@ -272,6 +308,18 @@ function criarPagamentoPadrao() {
 
 function criarConfiguracaoPadrao() {
   return {
+    modalidadeCodigo: '',
+    nomeModalidade: '',
+    termoParticipanteSingular: '',
+    termoParticipantePlural: '',
+    termoResponsavelSingular: '',
+    termoResponsavelPlural: '',
+    termoGrupoSingular: '',
+    termoGrupoPlural: '',
+    termoAtividadeSingular: '',
+    termoAtividadePlural: '',
+    termoLocalSingular: '',
+    termoLocalPlural: '',
     tipoChavePix: '',
     chavePix: '',
     nomeRecebedor: '',
@@ -292,8 +340,10 @@ function criarCobrancaWhatsappPadrao() {
   }
 }
 
-function carregarTudo() {
-  if (modoVisualizacaoEmpresa.value) {
+async function carregarTudo() {
+  await carregarContextoGestaoEsportiva()
+
+  if (modoVisualizacaoEmpresa.value || !moduloEsportivoAtivo.value) {
     limparDadosTela()
     carregando.value = false
     return
@@ -305,7 +355,7 @@ function carregarTudo() {
 
   return Promise.all([carregarBase(), carregarAcordos(), carregarMensalidades(), carregarResumo(), carregarConfiguracao()])
     .catch((exception) => {
-      erro.value = obterMensagemErro(exception, 'Não foi possível carregar a área financeira do Beach Tennis.')
+      erro.value = obterMensagemErro(exception, `Não foi possível carregar a área financeira de ${nomeModalidade.value}.`)
       console.error(exception)
     })
     .finally(() => {
@@ -526,6 +576,18 @@ function normalizarMensalidade(item = {}) {
 
 function normalizarConfiguracao(item = {}) {
   return {
+    modalidadeCodigo: String(item.modalidadeCodigo || contextoEsportivo.value?.modalidadeCodigo || '').trim().toUpperCase(),
+    nomeModalidade: item.nomeModalidade || contextoEsportivo.value?.nomeModalidade || '',
+    termoParticipanteSingular: item.termoParticipanteSingular || contextoEsportivo.value?.termoParticipanteSingular || '',
+    termoParticipantePlural: item.termoParticipantePlural || contextoEsportivo.value?.termoParticipantePlural || '',
+    termoResponsavelSingular: item.termoResponsavelSingular || contextoEsportivo.value?.termoResponsavelSingular || '',
+    termoResponsavelPlural: item.termoResponsavelPlural || contextoEsportivo.value?.termoResponsavelPlural || '',
+    termoGrupoSingular: item.termoGrupoSingular || contextoEsportivo.value?.termoGrupoSingular || '',
+    termoGrupoPlural: item.termoGrupoPlural || contextoEsportivo.value?.termoGrupoPlural || '',
+    termoAtividadeSingular: item.termoAtividadeSingular || contextoEsportivo.value?.termoAtividadeSingular || '',
+    termoAtividadePlural: item.termoAtividadePlural || contextoEsportivo.value?.termoAtividadePlural || '',
+    termoLocalSingular: item.termoLocalSingular || contextoEsportivo.value?.termoLocalSingular || '',
+    termoLocalPlural: item.termoLocalPlural || contextoEsportivo.value?.termoLocalPlural || '',
     tipoChavePix: String(item.tipoChavePix || item.tipoPix || '').trim().toUpperCase(),
     chavePix: item.chavePix || item.pixChave || item.pix || '',
     nomeRecebedor: item.nomeRecebedorPix || item.nomeRecebedor || item.recebedorNome || '',
@@ -535,6 +597,103 @@ function normalizarConfiguracao(item = {}) {
       item.mensagemTemplate ||
       criarConfiguracaoPadrao().templateMensagem,
     nomePlay: item.nomePlay || item.playNome || 'PLAY',
+  }
+}
+
+function obterSugestaoModalidade(codigo) {
+  const chave = String(codigo || '').trim().toUpperCase()
+
+  const sugestoes = {
+    BEACH_TENNIS: {
+      nomeModalidade: 'Beach Tennis',
+      termoParticipanteSingular: 'Aluno',
+      termoParticipantePlural: 'Alunos',
+      termoResponsavelSingular: 'Professor',
+      termoResponsavelPlural: 'Professores',
+      termoGrupoSingular: 'Turma',
+      termoGrupoPlural: 'Turmas',
+      termoAtividadeSingular: 'Aula',
+      termoAtividadePlural: 'Aulas',
+      termoLocalSingular: 'Quadra',
+      termoLocalPlural: 'Quadras',
+      nomePlay: 'PLAY',
+    },
+    FUTEBOL: {
+      nomeModalidade: 'Futebol',
+      termoParticipanteSingular: 'Atleta',
+      termoParticipantePlural: 'Atletas',
+      termoResponsavelSingular: 'Treinador',
+      termoResponsavelPlural: 'Treinadores',
+      termoGrupoSingular: 'Equipe',
+      termoGrupoPlural: 'Equipes',
+      termoAtividadeSingular: 'Treino',
+      termoAtividadePlural: 'Treinos',
+      termoLocalSingular: 'Campo',
+      termoLocalPlural: 'Campos',
+      nomePlay: 'Pelada',
+    },
+    FUTSAL: {
+      nomeModalidade: 'Futsal',
+      termoParticipanteSingular: 'Atleta',
+      termoParticipantePlural: 'Atletas',
+      termoResponsavelSingular: 'Treinador',
+      termoResponsavelPlural: 'Treinadores',
+      termoGrupoSingular: 'Equipe',
+      termoGrupoPlural: 'Equipes',
+      termoAtividadeSingular: 'Treino',
+      termoAtividadePlural: 'Treinos',
+      termoLocalSingular: 'Quadra',
+      termoLocalPlural: 'Quadras',
+      nomePlay: 'Racha',
+    },
+    VOLEI: {
+      nomeModalidade: 'Volei',
+      termoParticipanteSingular: 'Atleta',
+      termoParticipantePlural: 'Atletas',
+      termoResponsavelSingular: 'Treinador',
+      termoResponsavelPlural: 'Treinadores',
+      termoGrupoSingular: 'Equipe',
+      termoGrupoPlural: 'Equipes',
+      termoAtividadeSingular: 'Treino',
+      termoAtividadePlural: 'Treinos',
+      termoLocalSingular: 'Quadra',
+      termoLocalPlural: 'Quadras',
+      nomePlay: 'Jogo livre',
+    },
+    TENIS: {
+      nomeModalidade: 'Tenis',
+      termoParticipanteSingular: 'Aluno',
+      termoParticipantePlural: 'Alunos',
+      termoResponsavelSingular: 'Professor',
+      termoResponsavelPlural: 'Professores',
+      termoGrupoSingular: 'Turma',
+      termoGrupoPlural: 'Turmas',
+      termoAtividadeSingular: 'Aula',
+      termoAtividadePlural: 'Aulas',
+      termoLocalSingular: 'Quadra',
+      termoLocalPlural: 'Quadras',
+      nomePlay: 'Jogo livre',
+    },
+  }
+
+  return sugestoes[chave] || null
+}
+
+function aplicarSugestoesModalidade() {
+  const sugestao = obterSugestaoModalidade(configuracao.value.modalidadeCodigo)
+  if (!sugestao) {
+    erro.value = 'Selecione uma modalidade com sugestoes disponiveis antes de aplicar os termos.'
+    return
+  }
+
+  const confirmou = window.confirm('Aplicar os termos sugeridos para a modalidade selecionada?')
+  if (!confirmou) {
+    return
+  }
+
+  configuracao.value = {
+    ...configuracao.value,
+    ...sugestao,
   }
 }
 
@@ -601,7 +760,7 @@ async function salvarAcordo() {
   } catch (exception) {
     const mensagem = obterMensagemErro(exception, 'Não foi possível salvar o acordo.')
     erro.value = detectarConflitoAlunoAcordo(mensagem)
-      ? 'Um dos alunos selecionados já possui um acordo ativo. Revise os integrantes ou encerre o acordo atual.'
+      ? `Um dos ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} selecionados já possui um acordo ativo. Revise os integrantes ou encerre o acordo atual.`
       : mensagem
     console.error(exception)
   } finally {
@@ -615,15 +774,15 @@ function validarAcordo() {
   }
 
   if (!alunosSelecionadosIds.value.length) {
-    return 'Selecione ao menos um aluno para este acordo.'
+    return `Selecione ao menos um ${termoParticipanteSingular.value.toLocaleLowerCase('pt-BR')} para este acordo.`
   }
 
   if (!String(acordoFormulario.value.responsavelAlunoId || '').trim()) {
-    return 'Selecione o responsável pelo pagamento entre os alunos do acordo.'
+    return `Selecione o ${termoResponsavelSingular.value.toLocaleLowerCase('pt-BR')} pelo pagamento entre os ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} do acordo.`
   }
 
   if (!alunosSelecionadosIds.value.includes(String(acordoFormulario.value.responsavelAlunoId || ''))) {
-    return 'O responsável precisa estar entre os alunos selecionados.'
+    return `O ${termoResponsavelSingular.value.toLocaleLowerCase('pt-BR')} precisa estar entre os ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} selecionados.`
   }
 
   if (!String(acordoFormulario.value.valorMensal || '').trim()) {
@@ -940,7 +1099,7 @@ function orientarCobrancaWhatsApp(mensalidade) {
 
   const telefone = extrairTelefoneResponsavel(mensalidade)
   if (!telefone) {
-    return 'Este acordo não tem telefone válido para o responsável. Atualize o cadastro do aluno ou escolha outro responsável.'
+    return `Este acordo não tem telefone válido para o ${termoResponsavelSingular.value.toLocaleLowerCase('pt-BR')}. Atualize o cadastro do ${termoParticipanteSingular.value.toLocaleLowerCase('pt-BR')} ou escolha outro responsável.`
   }
 
   return 'A cobrança é manual. O WhatsApp será aberto em nova aba com a mensagem pronta para revisão e envio.'
@@ -948,7 +1107,7 @@ function orientarCobrancaWhatsApp(mensalidade) {
 
 function montarMensagemPreviewLocal(mensalidade) {
   return montarMensagemPreviewConfiguracao({
-    nomeResponsavel: mensalidade.clienteResponsavelNome || mensalidade.responsavelNome || 'Responsável',
+    nomeResponsavel: mensalidade.clienteResponsavelNome || mensalidade.responsavelNome || termoResponsavelSingular.value,
     nomeAcordo: mensalidade.nomeAcordo || 'Acordo sem nome',
     competencia: mensalidade.competencia || competenciaSelecionada.value,
     valor: mensalidade.valor || 0,
@@ -986,6 +1145,18 @@ async function salvarConfiguracao() {
     sucesso.value = ''
 
     await salvarConfiguracaoBeachTennisFinanceira({
+      modalidadeCodigo: String(configuracao.value.modalidadeCodigo || '').trim().toUpperCase(),
+      nomeModalidade: String(configuracao.value.nomeModalidade || '').trim(),
+      termoParticipanteSingular: String(configuracao.value.termoParticipanteSingular || '').trim(),
+      termoParticipantePlural: String(configuracao.value.termoParticipantePlural || '').trim(),
+      termoResponsavelSingular: String(configuracao.value.termoResponsavelSingular || '').trim(),
+      termoResponsavelPlural: String(configuracao.value.termoResponsavelPlural || '').trim(),
+      termoGrupoSingular: String(configuracao.value.termoGrupoSingular || '').trim(),
+      termoGrupoPlural: String(configuracao.value.termoGrupoPlural || '').trim(),
+      termoAtividadeSingular: String(configuracao.value.termoAtividadeSingular || '').trim(),
+      termoAtividadePlural: String(configuracao.value.termoAtividadePlural || '').trim(),
+      termoLocalSingular: String(configuracao.value.termoLocalSingular || '').trim(),
+      termoLocalPlural: String(configuracao.value.termoLocalPlural || '').trim(),
       chavePix: String(configuracao.value.chavePix || '').trim(),
       tipoChavePix: String(configuracao.value.tipoChavePix || '').trim().toUpperCase(),
       nomeRecebedorPix: String(configuracao.value.nomeRecebedor || '').trim(),
@@ -995,8 +1166,9 @@ async function salvarConfiguracao() {
 
     sucesso.value = 'Configuração salva com sucesso.'
     await carregarConfiguracao()
+    await recarregarContextoGestaoEsportiva()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'Não foi possível salvar a configuração do Beach Tennis.')
+    erro.value = obterMensagemErro(exception, `Não foi possível salvar a configuração de ${nomeModalidade.value}.`)
     console.error(exception)
   } finally {
     salvandoConfiguracao.value = false
@@ -1090,7 +1262,7 @@ function normalizarAluno(item = {}) {
   return {
     ...item,
     id: item.id ?? item.alunoId ?? item.clienteId ?? item.pessoaId ?? '',
-    nome: item.nome || item.nomeCompleto || item.clienteNome || 'Aluno',
+    nome: item.nome || item.nomeCompleto || item.clienteNome || termoParticipanteSingular.value,
     telefone: item.telefone || item.celular || '',
     email: item.email || '',
     perfilBeachTennis: item.perfilBeachTennis || '',
@@ -1102,7 +1274,7 @@ function normalizarTurma(item = {}) {
   return {
     ...item,
     id: item.id ?? item.turmaId ?? '',
-    nome: item.nome || item.descricao || 'Turma',
+    nome: item.nome || item.descricao || termoGrupoSingular.value,
     nivelBeachTennis: item.nivelBeachTennis || item.nivel || '',
     professorResponsavelNome: item.professorResponsavelNome || item.professorNome || item.responsavelNome || '',
   }
@@ -1452,7 +1624,7 @@ function obterRotuloFormaPagamento(codigo) {
 }
 
 watch(competenciaSelecionada, async () => {
-  if (modoVisualizacaoEmpresa.value) return
+  if (modoVisualizacaoEmpresa.value || !moduloEsportivoAtivo.value) return
   await Promise.all([carregarMensalidades(), carregarResumo()])
 }, { immediate: false })
 
@@ -1475,14 +1647,16 @@ watch(
   },
 )
 
-function atualizarContextoEmpresa() {
+async function atualizarContextoEmpresa() {
+  await recarregarContextoGestaoEsportiva()
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
   limparDadosTela()
-  carregarTudo()
+  await carregarTudo()
 }
 
-onMounted(() => {
-  carregarTudo()
+onMounted(async () => {
+  await carregarContextoGestaoEsportiva()
+  await carregarTudo()
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
 })
 
@@ -1500,10 +1674,10 @@ onBeforeUnmount(() => {
   <main class="pagina">
     <header class="cabecalho-pagina beach-financeiro">
       <div>
-        <p class="subtitulo">Beach Tennis</p>
-        <h1>Financeiro Beach Tennis</h1>
+        <p class="subtitulo">{{ nomeModalidade }}</p>
+        <h1>{{ tituloPagina }}</h1>
         <p class="descricao">
-          Centralize acordos, mensalidades, cobranças no WhatsApp e a configuração de PIX em uma tela única.
+          {{ descricaoPagina }}
         </p>
       </div>
 
@@ -1524,12 +1698,12 @@ onBeforeUnmount(() => {
 
     <section v-if="modoVisualizacaoEmpresa" class="card aviso-empresa">
       <p>
-        Selecione uma empresa no seletor superior para operar o financeiro do Beach Tennis como SUPER_ADMIN.
+        {{ `Selecione uma empresa no seletor superior para operar o financeiro de ${nomeModalidade} como SUPER_ADMIN.` }}
       </p>
     </section>
 
     <section v-else class="painel-financeiro">
-      <nav class="abas" role="tablist" aria-label="Navegação financeira do Beach Tennis">
+      <nav class="abas" role="tablist" :aria-label="`Navegação financeira de ${nomeModalidade}`">
         <button
           v-for="aba in ABAS"
           :key="aba.id"
@@ -1550,7 +1724,7 @@ onBeforeUnmount(() => {
             <div>
               <h2>{{ acordoEditandoId ? 'Editar acordo' : 'Novo acordo' }}</h2>
               <p>
-                O pagamento é único por acordo. Não fazemos divisão por aluno nesta etapa.
+                {{ `O pagamento é único por acordo. Não fazemos divisão por ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} nesta etapa.` }}
               </p>
             </div>
             <button v-if="acordoEditandoId" class="botao secundario" type="button" @click="cancelarEdicaoAcordo">
@@ -1561,7 +1735,7 @@ onBeforeUnmount(() => {
           <div class="campos">
             <label class="campo-grande">
               Nome do acordo *
-              <input v-model="acordoFormulario.nome" type="text" placeholder="Ex: Mensalidade Beach Tennis Adulto" />
+              <input v-model="acordoFormulario.nome" type="text" :placeholder="`Ex: ${nomeAcordoExemplo} Adulto`" />
             </label>
 
             <label>
@@ -1644,12 +1818,14 @@ onBeforeUnmount(() => {
           <div class="grade-selecao">
             <section class="bloco-selecao">
               <div class="cabecalho-mini">
-                <h3>Alunos do acordo</h3>
+                <h3>{{ `${termoParticipantePlural} do acordo` }}</h3>
                 <span>{{ alunosSelecionadosIds.length }} selecionado(s)</span>
               </div>
-              <p class="ajuda-campo">Selecione um ou vários alunos. O responsável pelo pagamento precisa estar nesta lista.</p>
+              <p class="ajuda-campo">
+                {{ `Selecione um ou vários ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. O ${termoResponsavelSingular.toLocaleLowerCase('pt-BR')} pelo pagamento precisa estar nesta lista.` }}
+              </p>
               <label class="campo-busca">
-                Buscar aluno
+                {{ `Buscar ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}` }}
                 <input v-model="filtrosAcordo.buscaAluno" type="text" placeholder="Nome, telefone ou e-mail" />
               </label>
               <div class="lista-checkboxes">
@@ -1669,12 +1845,14 @@ onBeforeUnmount(() => {
 
             <section class="bloco-selecao">
               <div class="cabecalho-mini">
-                <h3>Responsável pelo pagamento</h3>
+                <h3>{{ `${termoResponsavelSingular} pelo pagamento` }}</h3>
                 <span v-if="responsavelSelecionado">{{ responsavelSelecionado.nome }}</span>
               </div>
-              <p class="ajuda-campo">O pagamento é sempre único por acordo, sem rateio entre alunos.</p>
+              <p class="ajuda-campo">
+                {{ `O pagamento é sempre único por acordo, sem rateio entre ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}.` }}
+              </p>
               <label>
-                Responsável
+                {{ termoResponsavelSingular }}
                 <select
                   v-model="acordoFormulario.responsavelAlunoId"
                   :disabled="!alunosSelecionadosIds.length"
@@ -1693,12 +1871,12 @@ onBeforeUnmount(() => {
 
             <section class="bloco-selecao">
               <div class="cabecalho-mini">
-                <h3>Turmas vinculadas</h3>
+                <h3>{{ `${termoGrupoPlural} vinculadas` }}</h3>
                 <span>{{ turmasSelecionadasIds.length }} selecionada(s)</span>
               </div>
               <label class="campo-busca">
-                Buscar turma
-                <input v-model="filtrosAcordo.buscaTurma" type="text" placeholder="Nome ou professor" />
+                {{ `Buscar ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
+                <input v-model="filtrosAcordo.buscaTurma" type="text" :placeholder="`Nome ou ${termoResponsavelSingular.toLocaleLowerCase('pt-BR')}`" />
               </label>
               <div class="lista-checkboxes">
                 <label v-for="turma in turmasDisponiveis" :key="turma.id" class="item-checkbox">
@@ -1752,9 +1930,9 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="resumo-card">
-                <p><strong>Responsável:</strong> {{ acordo.responsavelNome }}</p>
-                <p><strong>Integrantes:</strong> {{ nomesDosIds(acordo.alunos) || 'Sem integrantes' }}</p>
-                <p><strong>Turmas:</strong> {{ nomesDosIds(acordo.turmas) || 'Sem turmas' }}</p>
+                <p><strong>{{ termoResponsavelSingular }}:</strong> {{ acordo.responsavelNome }}</p>
+                <p><strong>{{ termoParticipantePlural }}:</strong> {{ nomesDosIds(acordo.alunos) || `Sem ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}` }}</p>
+                <p><strong>{{ termoGrupoPlural }}:</strong> {{ nomesDosIds(acordo.turmas) || `Sem ${termoGrupoPlural.toLocaleLowerCase('pt-BR')}` }}</p>
                 <p><strong>Vencimento:</strong> Dia {{ acordo.diaVencimento || '-' }}</p>
                 <p><strong>Frequência:</strong> {{ acordo.frequenciaSemanal ? `${acordo.frequenciaSemanal}x por semana` : '-' }}</p>
                 <p><strong>Período:</strong> {{ formatarData(acordo.dataInicio) }} {{ acordo.dataFinal ? `até ${formatarData(acordo.dataFinal)}` : '' }}</p>
@@ -1775,7 +1953,7 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Mensalidades</h2>
-              <p>Filtros por competência, status, acordo e aluno. A cobrança pelo WhatsApp é individual, uma por vez.</p>
+              <p>{{ `Filtros por competência, status, acordo e ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}. A cobrança pelo WhatsApp é individual, uma por vez.` }}</p>
             </div>
             <div class="acoes-cabecalho">
               <button class="botao principal" type="button" :disabled="processandoAcaoId === 'gerar-mensalidades'" @click="gerarMensalidades">
@@ -1811,7 +1989,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Aluno
+              {{ termoParticipanteSingular }}
               <select v-model="filtrosMensalidades.alunoId">
                 <option value="">Todos</option>
                 <option v-for="aluno in alunosDisponiveis" :key="aluno.id" :value="String(aluno.id)">
@@ -1822,7 +2000,11 @@ onBeforeUnmount(() => {
 
             <label class="campo-grande">
               Busca livre
-              <input v-model="filtrosMensalidades.busca" type="text" placeholder="Acordo, responsável, integrante ou turma" />
+              <input
+                v-model="filtrosMensalidades.busca"
+                type="text"
+                :placeholder="`Acordo, ${termoResponsavelSingular.toLocaleLowerCase('pt-BR')}, ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} ou ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}`"
+              />
             </label>
           </div>
         </section>
@@ -1834,8 +2016,8 @@ onBeforeUnmount(() => {
                 <tr>
                   <th>Competência</th>
                   <th>Acordo</th>
-                  <th>Responsável</th>
-                  <th>Integrantes</th>
+                  <th>{{ termoResponsavelSingular }}</th>
+                  <th>{{ termoParticipantePlural }}</th>
                   <th>Vencimento</th>
                   <th>Valor</th>
                   <th>Status</th>
@@ -1997,14 +2179,84 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Configuração e PIX</h2>
-              <p>Defina a chave PIX, o nome do recebedor e o template da mensagem usada na cobrança.</p>
+              <p>Defina a identidade esportiva, a chave PIX, o nome do recebedor e o template da mensagem usada na cobrança.</p>
             </div>
-            <button class="botao principal" type="button" :disabled="salvandoConfiguracao" @click="salvarConfiguracao">
-              {{ salvandoConfiguracao ? 'Salvando...' : 'Salvar' }}
-            </button>
+            <div class="acoes-cabecalho">
+              <button class="botao secundario" type="button" @click="aplicarSugestoesModalidade">
+                Aplicar termos sugeridos
+              </button>
+              <button class="botao principal" type="button" :disabled="salvandoConfiguracao" @click="salvarConfiguracao">
+                {{ salvandoConfiguracao ? 'Salvando...' : 'Salvar' }}
+              </button>
+            </div>
           </div>
 
           <div class="campos">
+            <label>
+              Codigo da modalidade
+              <select v-model="configuracao.modalidadeCodigo">
+                <option value="">Selecione</option>
+                <option v-for="opcao in OPCOES_MODALIDADE" :key="opcao.valor" :value="opcao.valor">
+                  {{ opcao.rotulo }}
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Nome exibido da modalidade
+              <input v-model="configuracao.nomeModalidade" type="text" placeholder="Ex: Futebol" />
+            </label>
+
+            <label>
+              Participante singular
+              <input v-model="configuracao.termoParticipanteSingular" type="text" placeholder="Ex: Atleta" />
+            </label>
+
+            <label>
+              Participantes plural
+              <input v-model="configuracao.termoParticipantePlural" type="text" placeholder="Ex: Atletas" />
+            </label>
+
+            <label>
+              Responsavel singular
+              <input v-model="configuracao.termoResponsavelSingular" type="text" placeholder="Ex: Treinador" />
+            </label>
+
+            <label>
+              Responsaveis plural
+              <input v-model="configuracao.termoResponsavelPlural" type="text" placeholder="Ex: Treinadores" />
+            </label>
+
+            <label>
+              Grupo singular
+              <input v-model="configuracao.termoGrupoSingular" type="text" placeholder="Ex: Equipe" />
+            </label>
+
+            <label>
+              Grupos plural
+              <input v-model="configuracao.termoGrupoPlural" type="text" placeholder="Ex: Equipes" />
+            </label>
+
+            <label>
+              Atividade singular
+              <input v-model="configuracao.termoAtividadeSingular" type="text" placeholder="Ex: Treino" />
+            </label>
+
+            <label>
+              Atividades plural
+              <input v-model="configuracao.termoAtividadePlural" type="text" placeholder="Ex: Treinos" />
+            </label>
+
+            <label>
+              Local singular
+              <input v-model="configuracao.termoLocalSingular" type="text" placeholder="Ex: Campo" />
+            </label>
+
+            <label>
+              Locais plural
+              <input v-model="configuracao.termoLocalPlural" type="text" placeholder="Ex: Campos" />
+            </label>
+
             <label>
               Tipo da chave PIX
               <select v-model="configuracao.tipoChavePix">
@@ -2025,8 +2277,8 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Nome do PLAY
-              <input v-model="configuracao.nomePlay" type="text" placeholder="PLAY" />
+              Nome do evento livre
+              <input v-model="configuracao.nomePlay" type="text" :placeholder="nomeEventoLivre" />
             </label>
 
             <label class="campo-grande">

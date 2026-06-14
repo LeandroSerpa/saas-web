@@ -24,6 +24,7 @@ import {
   rotuloPerfilBeachTennis,
   rotuloPlanoBeachTennis,
 } from '@/utils/beachTennis'
+import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
 
 const turmas = ref([])
 const clientes = ref([])
@@ -43,6 +44,30 @@ const filtroNivelAluno = ref('')
 const statusFinanceiro = ref(null)
 const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const turma = ref(criarTurmaInicial())
+const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
+const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
+const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
+const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Participante')
+const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Participantes')
+const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'Profissional')
+const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
+const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
+const termoAtividadeSingular = computed(() => contextoEsportivo.value?.termoAtividadeSingular || 'Atividade')
+const nomeEventoLivre = computed(() => contextoEsportivo.value?.nomeEventoLivre || 'Jogo livre')
+const tituloPagina = computed(() =>
+  nomeModalidade.value === 'Beach Tennis'
+    ? 'Turmas Beach Tennis'
+    : `${termoGrupoPlural.value} de ${nomeModalidade.value}`,
+)
+const descricaoPagina = computed(() =>
+  `Organize ${termoGrupoPlural.value.toLocaleLowerCase('pt-BR')}, acompanhe vagas e faça o vinculo manual de ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')}.`,
+)
+const descricaoFormulario = computed(() =>
+  `Cadastre ${termoGrupoPlural.value.toLocaleLowerCase('pt-BR')}, horarios e ${termoResponsavelSingular.value.toLocaleLowerCase('pt-BR')}s sem alterar a estrutura atual do modulo.`,
+)
+const descricaoLista = computed(() =>
+  `Cards por ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} com situacao, nivel e quantidade de ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} vinculados.`,
+)
 
 const turmaSelecionada = computed(() =>
   turmas.value.find((item) => String(item.id) === String(turmaSelecionadaId.value)) || null,
@@ -127,7 +152,7 @@ function normalizarAluno(aluno = {}) {
   return {
     ...aluno,
     id: aluno.id ?? aluno.alunoId ?? aluno.clienteId ?? aluno.pessoaId ?? '',
-    nome: aluno.nome || aluno.nomeCompleto || aluno.clienteNome || aluno.alunoNome || 'Aluno',
+    nome: aluno.nome || aluno.nomeCompleto || aluno.clienteNome || aluno.alunoNome || termoParticipanteSingular.value,
     telefone: aluno.telefone || '',
     email: aluno.email || '',
     dataNascimento: aluno.dataNascimento || aluno.nascimento || '',
@@ -148,7 +173,7 @@ function obterChaveAluno(aluno = {}) {
 }
 
 function obterNomeResponsavel(item = {}) {
-  return item.nome || item.nomeCompleto || item.apelido || item.cargo || 'Funcionário'
+  return item.nome || item.nomeCompleto || item.apelido || item.cargo || termoResponsavelSingular.value
 }
 
 function obterQuantidadeAlunos(item = {}) {
@@ -214,9 +239,17 @@ function agruparAlunos(lista = []) {
   }
 
   return [
-    { chave: 'ALUNO_AULA', titulo: 'Alunos de aula', items: grupos.ALUNO_AULA },
-    { chave: 'PARTICIPANTE_PLAY', titulo: 'Participantes de play', items: grupos.PARTICIPANTE_PLAY },
-    { chave: 'ALUNO_E_PLAY', titulo: 'Alunos e play', items: grupos.ALUNO_E_PLAY },
+    {
+      chave: 'ALUNO_AULA',
+      titulo: `${termoParticipantePlural.value} de ${termoAtividadeSingular.value.toLocaleLowerCase('pt-BR')}`,
+      items: grupos.ALUNO_AULA,
+    },
+    {
+      chave: 'PARTICIPANTE_PLAY',
+      titulo: `${termoParticipantePlural.value} de ${nomeEventoLivre.value}`,
+      items: grupos.PARTICIPANTE_PLAY,
+    },
+    { chave: 'ALUNO_E_PLAY', titulo: `${termoParticipantePlural.value} mistos`, items: grupos.ALUNO_E_PLAY },
     { chave: 'SEM_PERFIL', titulo: 'Sem perfil informado', items: grupos.SEM_PERFIL },
   ]
 }
@@ -322,7 +355,9 @@ async function carregarBase() {
 }
 
 async function carregarTudo() {
-  if (modoVisualizacaoEmpresa.value) {
+  await carregarContextoGestaoEsportiva()
+
+  if (modoVisualizacaoEmpresa.value || !moduloEsportivoAtivo.value) {
     turmas.value = []
     clientes.value = []
     funcionarios.value = []
@@ -354,7 +389,7 @@ async function salvarTurma() {
   }
 
   if (!turma.value.nome.trim()) {
-    erro.value = 'Informe o nome da turma.'
+    erro.value = `Informe o nome da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`
     return
   }
 
@@ -387,10 +422,10 @@ async function salvarTurma() {
 
     if (turmaEditandoId.value) {
       await atualizarTurmaBeachTennis(turmaEditandoId.value, payload)
-      mensagemSucesso.value = 'Turma atualizada com sucesso.'
+      mensagemSucesso.value = `${termoGrupoSingular.value} atualizada com sucesso.`
     } else {
       const resposta = await criarTurmaBeachTennis(payload)
-      mensagemSucesso.value = 'Turma cadastrada com sucesso.'
+      mensagemSucesso.value = `${termoGrupoSingular.value} cadastrada com sucesso.`
       const novaTurmaId = resposta?.id || resposta?.turmaId
       if (novaTurmaId) {
         turmaSelecionadaId.value = String(novaTurmaId)
@@ -405,7 +440,9 @@ async function salvarTurma() {
   } catch (error) {
     erro.value = obterMensagemErro(
       error,
-      turmaEditandoId.value ? 'Não foi possível atualizar a turma.' : 'Não foi possível cadastrar a turma.',
+      turmaEditandoId.value
+        ? `Não foi possível atualizar a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`
+        : `Não foi possível cadastrar a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
     )
     console.error(error)
   } finally {
@@ -421,16 +458,23 @@ async function alternarAtivoTurma(item) {
       ...normalizarTurmaFormulario(item),
       ativo: !estaAtiva(item),
     })
-    mensagemSucesso.value = estaAtiva(item) ? 'Turma inativada com sucesso.' : 'Turma ativada com sucesso.'
+    mensagemSucesso.value = estaAtiva(item)
+      ? `${termoGrupoSingular.value} inativada com sucesso.`
+      : `${termoGrupoSingular.value} ativada com sucesso.`
     await carregarTurmas()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível alterar o status da turma.')
+    erro.value = obterMensagemErro(
+      error,
+      `Não foi possível alterar o status da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
+    )
     console.error(error)
   }
 }
 
 async function removerTurma(item) {
-  const confirmou = window.confirm(`Deseja excluir a turma "${item?.nome || ''}"?`)
+  const confirmou = window.confirm(
+    `Deseja excluir ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} "${item?.nome || ''}"?`,
+  )
   if (!confirmou) {
     return
   }
@@ -444,7 +488,7 @@ async function removerTurma(item) {
     erro.value = ''
     mensagemSucesso.value = ''
     await excluirTurmaBeachTennis(item.id, String(motivo || '').trim())
-    mensagemSucesso.value = 'Turma enviada para a lixeira com sucesso.'
+    mensagemSucesso.value = `${termoGrupoSingular.value} enviada para a lixeira com sucesso.`
 
     if (String(turmaSelecionadaId.value) === String(item.id)) {
       turmaSelecionadaId.value = ''
@@ -457,7 +501,10 @@ async function removerTurma(item) {
 
     await carregarTurmas()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível excluir a turma.')
+    erro.value = obterMensagemErro(
+      error,
+      `Não foi possível excluir a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
+    )
     console.error(error)
   }
 }
@@ -480,7 +527,10 @@ async function carregarAlunosTurma(turmaId, { silencioso = false } = {}) {
     alunosSelecionadosIds.value = lista.map((aluno) => obterChaveAluno(aluno)).filter(Boolean)
   } catch (error) {
     if (!silencioso) {
-      erro.value = obterMensagemErro(error, 'Não foi possível carregar os alunos vinculados.')
+      erro.value = obterMensagemErro(
+        error,
+        `Não foi possível carregar os ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} vinculados.`,
+      )
     }
     console.error(error)
   } finally {
@@ -505,7 +555,7 @@ function alternarAlunoSelecionado(aluno, selecionado) {
 
 async function salvarVinculos() {
   if (!turmaSelecionadaId.value) {
-    erro.value = 'Selecione uma turma para vincular os alunos.'
+    erro.value = `Selecione ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} para vincular ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')}.`
     return
   }
 
@@ -515,11 +565,14 @@ async function salvarVinculos() {
     mensagemSucesso.value = ''
 
     await salvarAlunosTurmaBeachTennis(turmaSelecionadaId.value, alunosSelecionadosIds.value)
-    mensagemSucesso.value = 'Vínculos da turma salvos com sucesso.'
+    mensagemSucesso.value = `Vínculos de ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} salvos com sucesso.`
     await carregarAlunosTurma(turmaSelecionadaId.value)
     await carregarTurmas()
   } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível salvar os vínculos da turma.')
+    erro.value = obterMensagemErro(
+      error,
+      `Não foi possível salvar os vínculos de ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
+    )
     console.error(error)
   } finally {
     salvandoVinculos.value = false
@@ -568,7 +621,8 @@ function normalizarTexto(valor) {
     .trim()
 }
 
-function atualizarContextoEmpresa() {
+async function atualizarContextoEmpresa() {
+  await recarregarContextoGestaoEsportiva()
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
   erro.value = ''
   mensagemSucesso.value = ''
@@ -577,7 +631,8 @@ function atualizarContextoEmpresa() {
   carregarTudo()
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await carregarContextoGestaoEsportiva()
   carregarTudo()
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
 })
@@ -591,11 +646,9 @@ onBeforeUnmount(() => {
   <main class="pagina">
     <header class="cabecalho-pagina beach">
       <div>
-        <p class="subtitulo">Beach Tennis</p>
-        <h1>Turmas Beach Tennis</h1>
-        <p class="descricao">
-          Organize turmas por nível, acompanhe vagas e faça o vínculo manual de alunos e participantes.
-        </p>
+        <p class="subtitulo">{{ nomeModalidade }}</p>
+        <h1>{{ tituloPagina }}</h1>
+        <p class="descricao">{{ descricaoPagina }}</p>
       </div>
 
       <div class="acoes-cabecalho">
@@ -618,14 +671,14 @@ onBeforeUnmount(() => {
     <section v-else class="grade-principal">
       <section class="card formulario-card">
         <div class="titulo-card">
-          <h2>{{ turmaEditandoId ? 'Editar turma' : 'Nova turma' }}</h2>
-          <p>Cadastre turmas, horários e professores sem amarrar o aluno à escolha manual de nível.</p>
+          <h2>{{ turmaEditandoId ? `Editar ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` : `Nova ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}</h2>
+          <p>{{ descricaoFormulario }}</p>
         </div>
 
         <div class="campos">
           <label class="campo-grande">
-            Nome da turma *
-            <input v-model="turma.nome" type="text" placeholder="Ex: Intermediário noite" />
+            Nome *
+            <input v-model="turma.nome" type="text" :placeholder="`Ex: ${termoGrupoSingular} principal`" />
           </label>
 
           <label>
@@ -654,7 +707,7 @@ onBeforeUnmount(() => {
           </label>
 
           <label>
-            Professor responsável
+            {{ termoResponsavelSingular }} responsável
             <select v-model="turma.professorResponsavelId">
               <option value="">Sem vínculo</option>
               <option v-for="professor in professoresDisponiveis" :key="professor.id" :value="String(professor.id)">
@@ -673,18 +726,22 @@ onBeforeUnmount(() => {
 
           <label class="campo-grande">
             Observações
-            <textarea v-model="turma.observacoes" rows="3" placeholder="Ex: Priorizar nivelamento, turma mista apenas em exceção..."></textarea>
+            <textarea
+              v-model="turma.observacoes"
+              rows="3"
+              :placeholder="`Ex: Priorizar nivelamento e ajustar ${termoParticipantePlural.toLocaleLowerCase('pt-BR')} quando necessário.`"
+            ></textarea>
           </label>
 
           <label class="campo-checkbox">
             <input v-model="turma.ativo" type="checkbox" />
-            Turma ativa
+            {{ termoGrupoSingular }} ativa
           </label>
         </div>
 
         <div class="rodape-formulario">
           <button class="botao principal" type="button" :disabled="salvandoTurma" @click="salvarTurma">
-            {{ salvandoTurma ? 'Salvando...' : 'Salvar turma' }}
+            {{ salvandoTurma ? 'Salvando...' : `Salvar ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
           </button>
           <button v-if="turmaEditandoId" class="botao secundario" type="button" @click="cancelarEdicao">
             Cancelar edição
@@ -695,18 +752,18 @@ onBeforeUnmount(() => {
       <section class="turmas-area">
         <div class="cabecalho-lista">
           <div>
-            <h2>Turmas cadastradas</h2>
-            <p>Cards por turma com situação, nível e quantidade de alunos vinculados.</p>
+            <h2>{{ termoGrupoPlural }}</h2>
+            <p>{{ descricaoLista }}</p>
           </div>
-          <span class="contador">{{ turmas.length }} turma(s)</span>
+          <span class="contador">{{ turmas.length }} {{ termoGrupoPlural.toLocaleLowerCase('pt-BR') }}</span>
         </div>
 
         <section v-if="carregando" class="card estado-vazio">
-          <p>Carregando turmas e bases auxiliares...</p>
+          <p>{{ `Carregando ${termoGrupoPlural.toLocaleLowerCase('pt-BR')} e bases auxiliares...` }}</p>
         </section>
 
         <section v-else-if="!turmas.length" class="card estado-vazio">
-          <p>Nenhuma turma cadastrada ainda.</p>
+          <p>Nenhuma {{ termoGrupoSingular.toLocaleLowerCase('pt-BR') }} cadastrada ainda.</p>
         </section>
 
         <div v-else class="lista-turmas">
@@ -722,12 +779,12 @@ onBeforeUnmount(() => {
                 <p class="subinfo">
                   <span v-if="rotuloNivel(item)" class="badge nivel">{{ rotuloNivel(item) }}</span>
                   <span v-if="!estaAtiva(item)" class="badge inativo">Inativa</span>
-                  <span v-if="turmaCheiaParaCard(item)" class="badge cheia">Turma cheia</span>
+                  <span v-if="turmaCheiaParaCard(item)" class="badge cheia">{{ termoGrupoSingular }} cheia</span>
                 </p>
               </div>
               <div class="badge-vagas">
                 <strong>{{ obterQuantidadeAlunos(item) }}</strong>
-                <span>/ {{ item.vagas || '∞' }} alunos</span>
+                <span>/ {{ item.vagas || '∞' }} {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }}</span>
               </div>
             </div>
 
@@ -735,13 +792,13 @@ onBeforeUnmount(() => {
               <p><strong>Dias:</strong> {{ rotuloDias(item).join(', ') || '-' }}</p>
               <p><strong>Horário:</strong> {{ formatarHorario(item.horarioInicio) }}</p>
               <p><strong>Duração:</strong> {{ item.duracaoMinutos || 60 }} min</p>
-              <p><strong>Professor:</strong> {{ item.professorResponsavelNome || obterNomeResponsavel(item.professorResponsavel || {}) || '-' }}</p>
+              <p><strong>{{ termoResponsavelSingular }}:</strong> {{ item.professorResponsavelNome || obterNomeResponsavel(item.professorResponsavel || {}) || '-' }}</p>
             </div>
 
             <p v-if="item.observacoes" class="observacoes">{{ item.observacoes }}</p>
 
             <div class="acoes-card">
-              <button class="botao secundario" type="button" @click="selecionarTurma(item)">Ver alunos</button>
+              <button class="botao secundario" type="button" @click="selecionarTurma(item)">Ver {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }}</button>
               <button class="botao secundario" type="button" @click="editarTurma(item)">Editar</button>
               <button class="botao secundario" type="button" @click="alternarAtivoTurma(item)">
                 {{ estaAtiva(item) ? 'Inativar' : 'Ativar' }}
@@ -755,11 +812,11 @@ onBeforeUnmount(() => {
       <section v-if="turmaSelecionada" class="painel-vinculos">
         <article class="card painel-detalhe">
           <div class="titulo-card">
-            <h2>Alunos vinculados</h2>
+            <h2>{{ termoParticipantePlural }} vinculados</h2>
             <p>
               {{ turmaSelecionada.nome }}
-              <span v-if="turmaCheia" class="badge cheia">Turma cheia</span>
-              <span class="badge nivel">{{ quantidadeAlunosVinculados }} aluno(s) vinculados</span>
+              <span v-if="turmaCheia" class="badge cheia">{{ termoGrupoSingular }} cheia</span>
+              <span class="badge nivel">{{ quantidadeAlunosVinculados }} {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }} vinculados</span>
             </p>
           </div>
 
@@ -768,7 +825,7 @@ onBeforeUnmount(() => {
           </section>
 
           <section v-else-if="!alunosTurmaSelecionada.length" class="estado-vazio compacto">
-            <p>Nenhum aluno vinculado ainda.</p>
+            <p>{{ `Nenhum ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} vinculado ainda.` }}</p>
           </section>
 
           <div v-else class="grupos-alunos">
@@ -782,7 +839,7 @@ onBeforeUnmount(() => {
                       {{ rotuloNivelBeachTennis(aluno.nivelBeachTennis) }}
                     </span>
                     <span v-if="nivelIncompatível(aluno)" class="micro-badge alerta">
-                      Nível diferente da turma
+                      {{ `Nível diferente da ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
                     </span>
                   </div>
                   <small>
@@ -798,9 +855,11 @@ onBeforeUnmount(() => {
 
         <article class="card painel-selecao">
           <div class="titulo-card">
-            <h2>Vincular alunos</h2>
+            <h2>{{ `Vincular ${termoParticipantePlural}` }}</h2>
             <p>
-              Use os checkboxes para incluir ou remover alunos. Se houver nível diferente da turma, o alerta é apenas visual.
+              {{
+                `Use os checkboxes para incluir ou remover ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. Se houver nível diferente da ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}, o alerta é apenas visual.`
+              }}
             </p>
           </div>
 
@@ -822,7 +881,7 @@ onBeforeUnmount(() => {
           </div>
 
           <section v-if="!alunosDisponiveis.length" class="estado-vazio compacto">
-            <p>Nenhum aluno disponível para vínculo.</p>
+            <p>{{ `Nenhum ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} disponível para vínculo.` }}</p>
           </section>
 
           <div v-else class="grupos-alunos vinculo">
@@ -843,7 +902,7 @@ onBeforeUnmount(() => {
                         {{ rotuloNivelBeachTennis(aluno.nivelBeachTennis) }}
                       </span>
                       <span v-if="nivelIncompatível(aluno)" class="micro-badge alerta">
-                        Nível diferente da turma
+                        {{ `Nível diferente da ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
                       </span>
                     </div>
                   </label>
@@ -863,7 +922,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="rodape-vinculos">
-            <p class="resumo-vinculos">{{ quantidadeAlunosSelecionados }} aluno(s) selecionado(s)</p>
+            <p class="resumo-vinculos">
+              {{ `${quantidadeAlunosSelecionados} ${termoParticipantePlural.toLocaleLowerCase('pt-BR')} selecionados` }}
+            </p>
             <button
               class="botao principal"
               type="button"
@@ -877,7 +938,9 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-else class="card estado-vazio detalhe-aguardando">
-        <p>Selecione uma turma para ver e alterar os alunos vinculados.</p>
+        <p>
+          {{ `Selecione ${termoGrupoSingular.toLocaleLowerCase('pt-BR')} para ver e alterar ${termoParticipantePlural.toLocaleLowerCase('pt-BR')} vinculados.` }}
+        </p>
       </section>
     </section>
   </main>

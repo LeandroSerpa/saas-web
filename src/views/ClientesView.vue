@@ -18,6 +18,7 @@ import {
   rotuloPerfilBeachTennis,
   rotuloPlanoBeachTennis,
 } from '@/utils/beachTennis'
+import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const clientes = ref([])
@@ -34,6 +35,13 @@ const cliente = ref(criarClienteInicial())
 const paginaAtualHumana = computed(() => paginacao.value.page + 1)
 const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
 const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
+const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
+const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
+const tituloSecaoEsportiva = computed(() =>
+  contextoEsportivo.value?.nomeModalidade === 'Beach Tennis'
+    ? 'Dados de Beach Tennis'
+    : `Dados esportivos - ${contextoEsportivo.value?.nomeModalidade || 'Esporte'}`,
+)
 
 function criarClienteInicial() {
   return {
@@ -66,13 +74,34 @@ function normalizarClienteFormulario(clienteItem = {}) {
 }
 
 function montarPayloadCliente() {
-  return {
+  const payload = {
     empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
-    ...normalizarClienteFormulario(cliente.value),
+    nome: cliente.value.nome || '',
+    telefone: cliente.value.telefone || '',
+    email: cliente.value.email || '',
+    observacao: cliente.value.observacao || '',
   }
+
+  if (moduloEsportivoAtivo.value) {
+    return {
+      ...payload,
+      dataNascimento: cliente.value.dataNascimento || '',
+      perfilBeachTennis: cliente.value.perfilBeachTennis || '',
+      nivelBeachTennis: cliente.value.nivelBeachTennis || '',
+      frequenciaSemanalBeachTennis: cliente.value.frequenciaSemanalBeachTennis || '',
+      planoBeachTennis: cliente.value.planoBeachTennis || '',
+      observacaoBeachTennis: cliente.value.observacaoBeachTennis || '',
+    }
+  }
+
+  return payload
 }
 
 function temDadosBeachTennis(clienteItem = {}) {
+  if (!moduloEsportivoAtivo.value) {
+    return false
+  }
+
   return Boolean(
     clienteItem.dataNascimento ||
       clienteItem.nascimento ||
@@ -303,7 +332,8 @@ async function alterarTamanhoPagina() {
   await carregarClientes()
 }
 
-function atualizarModoVisualizacao() {
+async function atualizarModoVisualizacao() {
+  await recarregarContextoGestaoEsportiva()
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
   cancelarEdicaoCliente(false)
   carregarClientes()
@@ -311,6 +341,7 @@ function atualizarModoVisualizacao() {
 }
 
 onMounted(() => {
+  carregarContextoGestaoEsportiva()
   carregarClientes()
   carregarStatusFinanceiro()
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
@@ -344,6 +375,7 @@ onBeforeUnmount(() => {
     <ClienteForm
       v-if="!modoVisualizacaoEmpresa"
       v-model="cliente"
+      :contexto-esportivo="contextoEsportivo"
       :mensagem-sucesso="mensagemSucessoCliente"
       :modo-edicao="Boolean(clienteEditandoId)"
       @salvar="salvarCliente"
@@ -393,7 +425,7 @@ onBeforeUnmount(() => {
           </div>
 
           <details v-if="temDadosBeachTennis(clienteItem)" class="beach-resumo">
-            <summary>Dados do aluno - Beach Tennis</summary>
+            <summary>{{ tituloSecaoEsportiva }}</summary>
             <div class="beach-resumo-grid">
               <p><strong>Data de nascimento:</strong> {{ exibirValor(formatarDataBrasileira(clienteItem.dataNascimento || clienteItem.nascimento)) }}</p>
               <p><strong>Perfil:</strong> {{ exibirValor(rotuloPerfilBeachTennis(clienteItem.perfilBeachTennis)) }}</p>

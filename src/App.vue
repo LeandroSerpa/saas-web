@@ -17,6 +17,13 @@ import {
   obterTipoSeloAmbiente,
 } from '@/services/api'
 import {
+  carregarContextoGestaoEsportiva,
+  contextoGestaoEsportiva,
+  formatarNomeModalidadeEmCaixaAlta,
+  limparContextoGestaoEsportiva,
+  recarregarContextoGestaoEsportiva,
+} from '@/utils/gestaoEsportiva'
+import {
   aplicarTemaAparenciaNoDocumento,
   salvarTemaAparencia,
   sincronizarTemaAparencia,
@@ -305,8 +312,13 @@ const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usua
 const modoNavegacaoAtual = computed(() => modoNavegacao.value)
 const temaAparenciaAtual = computed(() => temaAparencia.value)
 const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
+const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
+const moduloGestaoEsportivaVisivel = computed(() => podeGerenciarUsuarios.value && contextoEsportivo.value?.ativo === true)
+const tituloMenuGestaoEsportiva = computed(() => formatarNomeModalidadeEmCaixaAlta(contextoEsportivo.value?.nomeModalidade))
+const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const gruposMenuAbertos = ref({
   principal: true,
+  beachTennis: true,
   operacao: true,
   financeiro: true,
   configuracoes: true,
@@ -361,6 +373,24 @@ function criarCabecalhoPagina() {
 }
 
 function obterCabecalhoPadrao(nomeRota) {
+  if (contextoEsportivo.value?.ativo === true) {
+    if (nomeRota === 'beach-tennis-turmas') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: `${contextoEsportivo.value.termoGrupoPlural} - ${contextoEsportivo.value.nomeModalidade}`,
+        descricao: `Gerencie ${normalizarTextoCabecalho(contextoEsportivo.value.termoGrupoPlural)} e vínculos da modalidade.`,
+      }
+    }
+
+    if (nomeRota === 'beach-tennis-financeiro') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: `Financeiro - ${contextoEsportivo.value.nomeModalidade}`,
+        descricao: 'Acompanhe acordos, mensalidades e a configuração financeira da modalidade.',
+      }
+    }
+  }
+
   return (
     CABECALHOS_PADRAO[nomeRota] || {
       subtitulo: superAdmin.value ? 'Administração NuvemMais' : 'Painel interno',
@@ -380,6 +410,12 @@ function formatarNomeRota(nomeRota) {
     .filter(Boolean)
     .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
     .join(' ')
+}
+
+function normalizarTextoCabecalho(valor) {
+  return String(valor || '')
+    .trim()
+    .toLocaleLowerCase('pt-BR')
 }
 
 function obterTextoCabecalho(elemento) {
@@ -420,6 +456,7 @@ function atualizarUsuarioLogado() {
   ) {
     usuario.value = null
     statusFinanceiro.value = null
+    limparContextoGestaoEsportiva()
     return
   }
 
@@ -427,6 +464,9 @@ function atualizarUsuarioLogado() {
 
   if (usuario.value) {
     sincronizarModoNavegacao(usuario.value)
+    carregarContextoGestaoEsportiva()
+  } else {
+    limparContextoGestaoEsportiva()
   }
 
   carregarStatusFinanceiro()
@@ -437,6 +477,7 @@ async function atualizarVisualizacaoEmpresaGlobal() {
     return
   }
 
+  await recarregarContextoGestaoEsportiva()
   recarregamentoVisualizacaoEmpresa.value += 1
   await nextTick()
   observarCabecalhoPagina()
@@ -598,6 +639,23 @@ watch(
 )
 
 watch(
+  () => [routeName.value, contextoEsportivo.value?.carregado, contextoEsportivo.value?.ativo],
+  ([nomeRota, carregado, ativo]) => {
+    if (!carregado) {
+      return
+    }
+
+    if (
+      String(nomeRota || '').startsWith('beach-tennis') &&
+      ativo !== true &&
+      route.name !== 'acesso-negado'
+    ) {
+      router.replace({ name: 'acesso-negado', query: { motivo: 'gestao-esportiva' } })
+    }
+  },
+)
+
+watch(
   temaAparencia,
   (tema) => {
     aplicarTemaAparenciaNoDocumento(tema)
@@ -625,6 +683,7 @@ onMounted(() => {
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.addEventListener('mensagem-global', exibirMensagemGlobal)
   carregarAmbienteAplicacao()
+  carregarContextoGestaoEsportiva()
   sincronizarTemaAparencia()
   observarCabecalhoPagina()
   sincronizarCabecalhoPagina()
@@ -703,14 +762,14 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <section v-if="podeGerenciarUsuarios" class="grupo-menu">
+        <section v-if="moduloGestaoEsportivaVisivel" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('beachTennis')">
-            <span>Beach Tennis</span>
+            <span>{{ tituloMenuGestaoEsportiva }}</span>
             <span>{{ grupoMenuAberto('beachTennis') ? '−' : '+' }}</span>
           </button>
           <div v-if="grupoMenuAberto('beachTennis')" class="submenu">
-            <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">Turmas Beach Tennis</RouterLink>
-            <RouterLink to="/beach-tennis/financeiro" @click="fecharMenuMobile">Financeiro Beach Tennis</RouterLink>
+            <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">{{ rotuloGrupoEsportivoPlural }}</RouterLink>
+            <RouterLink to="/beach-tennis/financeiro" @click="fecharMenuMobile">Financeiro</RouterLink>
           </div>
         </section>
 
