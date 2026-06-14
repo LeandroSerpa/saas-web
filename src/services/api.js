@@ -896,13 +896,23 @@ function extrairMensagemJson(dados) {
 
   const mensagens = [
     dados.message,
+    dados.mensagem,
     dados.detail,
+    dados.detalhe,
     dados.error,
+    dados.erro,
+    dados.title,
+    dados.titulo,
     dados.titulo,
     dados.descricao,
   ]
 
-  return mensagens.map(normalizarMensagemErro).find(Boolean) || ''
+  const mensagemDireta = mensagens.map(normalizarMensagemErro).find(Boolean)
+  if (mensagemDireta) {
+    return mensagemDireta
+  }
+
+  return extrairMensagemEstruturada(dados)
 }
 
 function normalizarMensagemErro(mensagem) {
@@ -913,6 +923,77 @@ function normalizarMensagemErro(mensagem) {
   }
 
   return sanitizarMensagemUsuario(texto, '')
+}
+
+function extrairMensagemEstruturada(valor, visitados = new Set()) {
+  if (valor === null || valor === undefined) {
+    return ''
+  }
+
+  if (typeof valor === 'string') {
+    return normalizarMensagemErro(valor)
+  }
+
+  if (typeof valor !== 'object') {
+    return ''
+  }
+
+  if (visitados.has(valor)) {
+    return ''
+  }
+
+  visitados.add(valor)
+
+  if (Array.isArray(valor)) {
+    for (const item of valor) {
+      const mensagem = extrairMensagemEstruturada(item, visitados)
+      if (mensagem) {
+        return mensagem
+      }
+    }
+    return ''
+  }
+
+  const camposPrioritarios = [
+    'message',
+    'mensagem',
+    'detail',
+    'detalhe',
+    'error',
+    'erro',
+    'title',
+    'titulo',
+    'descricao',
+    'description',
+  ]
+
+  for (const campo of camposPrioritarios) {
+    const mensagem = extrairMensagemEstruturada(valor[campo], visitados)
+    if (mensagem) {
+      return mensagem
+    }
+  }
+
+  const colecoes = [valor.errors, valor.violations, valor.violation, valor.violacao, valor.violacoes]
+  for (const colecao of colecoes) {
+    const mensagem = extrairMensagemEstruturada(colecao, visitados)
+    if (mensagem) {
+      return mensagem
+    }
+  }
+
+  for (const chave of Object.keys(valor)) {
+    if (camposPrioritarios.includes(chave)) {
+      continue
+    }
+
+    const mensagem = extrairMensagemEstruturada(valor[chave], visitados)
+    if (mensagem) {
+      return mensagem
+    }
+  }
+
+  return ''
 }
 
 function mensagemGenerica(mensagem) {

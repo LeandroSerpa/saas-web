@@ -140,6 +140,7 @@ const termoAtividadeSingular = computed(() => contextoEsportivo.value?.termoAtiv
 const termoAtividadePlural = computed(() => contextoEsportivo.value?.termoAtividadePlural || 'Atividades')
 const termoLocalSingular = computed(() => contextoEsportivo.value?.termoLocalSingular || 'Local')
 const termoLocalPlural = computed(() => contextoEsportivo.value?.termoLocalPlural || 'Locais')
+const rotuloResponsavelPagamento = 'Responsável pelo pagamento'
 const nomeEventoLivre = computed(() => contextoEsportivo.value?.nomeEventoLivre || configuracao.value.nomePlay || 'Jogo livre')
 const tituloPagina = computed(() => `Financeiro - ${nomeModalidade.value}`)
 const descricaoPagina = computed(() =>
@@ -778,11 +779,11 @@ function validarAcordo() {
   }
 
   if (!String(acordoFormulario.value.responsavelAlunoId || '').trim()) {
-    return `Selecione o ${termoResponsavelSingular.value.toLocaleLowerCase('pt-BR')} pelo pagamento entre os ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} do acordo.`
+    return `Selecione o responsável pelo pagamento entre os ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} do acordo.`
   }
 
   if (!alunosSelecionadosIds.value.includes(String(acordoFormulario.value.responsavelAlunoId || ''))) {
-    return `O ${termoResponsavelSingular.value.toLocaleLowerCase('pt-BR')} precisa estar entre os ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} selecionados.`
+    return 'O responsável pelo pagamento precisa estar entre os participantes selecionados.'
   }
 
   if (!String(acordoFormulario.value.valorMensal || '').trim()) {
@@ -1099,7 +1100,7 @@ function orientarCobrancaWhatsApp(mensalidade) {
 
   const telefone = extrairTelefoneResponsavel(mensalidade)
   if (!telefone) {
-    return `Este acordo não tem telefone válido para o ${termoResponsavelSingular.value.toLocaleLowerCase('pt-BR')}. Atualize o cadastro do ${termoParticipanteSingular.value.toLocaleLowerCase('pt-BR')} ou escolha outro responsável.`
+    return `Este acordo não tem telefone válido para o responsável pelo pagamento. Atualize o cadastro do ${termoParticipanteSingular.value.toLocaleLowerCase('pt-BR')} ou escolha outro responsável.`
   }
 
   return 'A cobrança é manual. O WhatsApp será aberto em nova aba com a mensagem pronta para revisão e envio.'
@@ -1107,7 +1108,7 @@ function orientarCobrancaWhatsApp(mensalidade) {
 
 function montarMensagemPreviewLocal(mensalidade) {
   return montarMensagemPreviewConfiguracao({
-    nomeResponsavel: mensalidade.clienteResponsavelNome || mensalidade.responsavelNome || termoResponsavelSingular.value,
+    nomeResponsavel: mensalidade.clienteResponsavelNome || mensalidade.responsavelNome || rotuloResponsavelPagamento,
     nomeAcordo: mensalidade.nomeAcordo || 'Acordo sem nome',
     competencia: mensalidade.competencia || competenciaSelecionada.value,
     valor: mensalidade.valor || 0,
@@ -1822,7 +1823,7 @@ onBeforeUnmount(() => {
                 <span>{{ alunosSelecionadosIds.length }} selecionado(s)</span>
               </div>
               <p class="ajuda-campo">
-                {{ `Selecione um ou vários ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. O ${termoResponsavelSingular.toLocaleLowerCase('pt-BR')} pelo pagamento precisa estar nesta lista.` }}
+                {{ `Selecione um ou vários ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. O responsável pelo pagamento precisa estar nesta lista.` }}
               </p>
               <label class="campo-busca">
                 {{ `Buscar ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}` }}
@@ -1845,14 +1846,14 @@ onBeforeUnmount(() => {
 
             <section class="bloco-selecao">
               <div class="cabecalho-mini">
-                <h3>{{ `${termoResponsavelSingular} pelo pagamento` }}</h3>
+                <h3>{{ rotuloResponsavelPagamento }}</h3>
                 <span v-if="responsavelSelecionado">{{ responsavelSelecionado.nome }}</span>
               </div>
               <p class="ajuda-campo">
                 {{ `O pagamento é sempre único por acordo, sem rateio entre ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}.` }}
               </p>
               <label>
-                {{ termoResponsavelSingular }}
+                {{ rotuloResponsavelPagamento }}
                 <select
                   v-model="acordoFormulario.responsavelAlunoId"
                   :disabled="!alunosSelecionadosIds.length"
@@ -1906,7 +1907,7 @@ onBeforeUnmount(() => {
           <div class="cabecalho-lista">
             <div>
               <h2>Acordos cadastrados</h2>
-              <p>Mostre os integrantes e o responsável sem dividir o valor por pessoa.</p>
+              <p>Mostre os integrantes e o responsável pelo pagamento sem dividir o valor por pessoa.</p>
             </div>
             <span class="contador">{{ acordosOrdenados.length }} acordo(s)</span>
           </div>
@@ -1930,7 +1931,7 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="resumo-card">
-                <p><strong>{{ termoResponsavelSingular }}:</strong> {{ acordo.responsavelNome }}</p>
+                <p><strong>Responsável pelo pagamento:</strong> {{ acordo.responsavelNome }}</p>
                 <p><strong>{{ termoParticipantePlural }}:</strong> {{ nomesDosIds(acordo.alunos) || `Sem ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}` }}</p>
                 <p><strong>{{ termoGrupoPlural }}:</strong> {{ nomesDosIds(acordo.turmas) || `Sem ${termoGrupoPlural.toLocaleLowerCase('pt-BR')}` }}</p>
                 <p><strong>Vencimento:</strong> Dia {{ acordo.diaVencimento || '-' }}</p>
@@ -2003,7 +2004,7 @@ onBeforeUnmount(() => {
               <input
                 v-model="filtrosMensalidades.busca"
                 type="text"
-                :placeholder="`Acordo, ${termoResponsavelSingular.toLocaleLowerCase('pt-BR')}, ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} ou ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}`"
+                placeholder="Acordo, responsável, participante ou grupo"
               />
             </label>
           </div>
@@ -2016,7 +2017,7 @@ onBeforeUnmount(() => {
                 <tr>
                   <th>Competência</th>
                   <th>Acordo</th>
-                  <th>{{ termoResponsavelSingular }}</th>
+                  <th>Responsável</th>
                   <th>{{ termoParticipantePlural }}</th>
                   <th>Vencimento</th>
                   <th>Valor</th>
