@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '../views/DashboardView.vue'
 import HomeView from '../views/HomeView.vue'
 import ClientesView from '../views/ClientesView.vue'
+import BeachTennisTurmasView from '../views/BeachTennisTurmasView.vue'
+import BeachTennisFinanceiroView from '../views/BeachTennisFinanceiroView.vue'
 import ServicosView from '../views/ServicosView.vue'
 import FuncionariosView from '../views/FuncionariosView.vue'
 import DisponibilidadeView from '../views/DisponibilidadeView.vue'
@@ -114,6 +116,18 @@ const router = createRouter({
       name: 'clientes',
       component: ClientesView,
       meta: rotasProtegidas,
+    },
+    {
+      path: '/beach-tennis/turmas',
+      name: 'beach-tennis-turmas',
+      component: BeachTennisTurmasView,
+      meta: rotasAdmin,
+    },
+    {
+      path: '/beach-tennis/financeiro',
+      name: 'beach-tennis-financeiro',
+      component: BeachTennisFinanceiroView,
+      meta: rotasAdmin,
     },
     {
       path: '/servicos',

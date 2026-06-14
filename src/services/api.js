@@ -4061,6 +4061,291 @@ export async function excluirCliente(id, motivo = '') {
   return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
 }
 
+export async function buscarTurmasBeachTennis(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas${montarQueryEmpresaOperacional(filtros)}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function buscarTurmaBeachTennis(id) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas/${id}${montarQueryEmpresaOperacional()}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarTurmaBeachTennis(turma) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(turma)),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarTurmaBeachTennis(id, turma) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas/${id}${montarQueryEmpresaOperacional()}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(turma)),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function excluirTurmaBeachTennis(id, motivo = '') {
+  const response = await executarFetch(
+    `${API_URL}/beach-tennis/turmas/${id}${montarQueryEmpresaOperacional({ motivo })}`,
+    {
+      method: 'DELETE',
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
+}
+
+export async function buscarAlunosTurmaBeachTennis(turmaId) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas/${turmaId}/alunos${montarQueryEmpresaOperacional()}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function salvarAlunosTurmaBeachTennis(turmaId, alunoIds) {
+  const payload = aplicarEmpresaSelecionadaNoPayload({ alunoIds })
+  const response = await executarFetch(
+    `${API_URL}/beach-tennis/turmas/${turmaId}/alunos${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'PUT',
+      headers: montarHeaders(true),
+      body: JSON.stringify(payload),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+function montarUrlBeachTennisAcordos(caminho = '', filtros = {}) {
+  return `${API_URL}/beach-tennis/acordos${caminho}${montarQueryEmpresaOperacional(filtros)}`
+}
+
+function montarUrlBeachTennisMensalidades(caminho = '', filtros = {}) {
+  return `${API_URL}/beach-tennis/mensalidades${caminho}${montarQueryEmpresaOperacional(filtros)}`
+}
+
+function montarUrlBeachTennisConfiguracao(caminho = '', filtros = {}) {
+  return `${API_URL}/beach-tennis/configuracao${caminho}${montarQueryEmpresaOperacional(filtros)}`
+}
+
+function montarUrlBeachTennisResumo(filtros = {}) {
+  return `${API_URL}/beach-tennis/financeiro/resumo${montarQueryEmpresaOperacional(filtros)}`
+}
+
+function normalizarDataHoraBeachTennis(valor) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) {
+    return ''
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(texto)) {
+    return texto
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    return `${texto}T00:00:00`
+  }
+
+  return texto
+}
+
+async function executarRecursoBeachTennis(url, { method = 'GET', payload, opcional = false } = {}) {
+  const response = await executarFetch(url, {
+    method,
+    headers: montarHeaders(payload !== undefined),
+    body: payload === undefined ? undefined : JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload)),
+  })
+
+  return opcional ? tratarRespostaOpcional(response) : tratarResposta(response)
+}
+
+export async function buscarAcordosBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos('', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarAcordoBeachTennis(id) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${id}`))
+}
+
+export async function criarAcordoBeachTennis(acordo) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(), {
+    method: 'POST',
+    payload: acordo,
+  })
+}
+
+export async function atualizarAcordoBeachTennis(id, acordo) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${id}`), {
+    method: 'PUT',
+    payload: acordo,
+  })
+}
+
+export async function buscarAlunosAcordoBeachTennis(acordoId) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos(`/${acordoId}/alunos`), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function salvarAlunosAcordoBeachTennis(acordoId, alunoIds) {
+  const clienteIds = (Array.isArray(alunoIds) ? alunoIds : [alunoIds])
+    .map((id) => Number.parseInt(String(id).trim(), 10))
+    .filter((id) => Number.isFinite(id))
+
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${acordoId}/alunos`), {
+    method: 'PUT',
+    payload: { clienteIds },
+  })
+}
+
+export async function buscarTurmasAcordoBeachTennis(acordoId) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos(`/${acordoId}/turmas`), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function salvarTurmasAcordoBeachTennis(acordoId, turmaIds) {
+  const ids = (Array.isArray(turmaIds) ? turmaIds : [turmaIds])
+    .map((id) => Number.parseInt(String(id).trim(), 10))
+    .filter((id) => Number.isFinite(id))
+
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${acordoId}/turmas`), {
+    method: 'PUT',
+    payload: { turmaIds: ids },
+  })
+}
+
+export async function buscarMensalidadesBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisMensalidades('', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarMensalidadeBeachTennis(id) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisMensalidades(`/${id}`))
+}
+
+export async function criarMensalidadeBeachTennis(mensalidade) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisMensalidades(), {
+    method: 'POST',
+    payload: mensalidade,
+  })
+}
+
+export async function gerarMensalidadesBeachTennis(dados = {}) {
+  const filtros = {
+    competencia: dados?.competencia,
+    acordoId: dados?.acordoId,
+  }
+
+  const response = await executarFetch(montarUrlBeachTennisMensalidades('/gerar', filtros), {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarMensalidadePagaBeachTennis(id, dados = {}) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisMensalidades(`/${id}/pagar`), {
+    method: 'PATCH',
+    payload: {
+      ...dados,
+      dataPagamento: normalizarDataHoraBeachTennis(dados?.dataPagamento),
+      observacoes: dados?.observacoes ?? dados?.observacao,
+    },
+  })
+}
+
+export async function cancelarMensalidadeBeachTennis(id, motivo = '') {
+  const response = await executarFetch(
+    `${API_URL}/beach-tennis/mensalidades/${id}/cancelar${montarQueryEmpresaOperacional({ observacoes: motivo })}`,
+    {
+      method: 'PATCH',
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function reabrirMensalidadeBeachTennis(id) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/mensalidades/${id}/reabrir${montarQueryEmpresaOperacional()}`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cobrarMensalidadeWhatsappBeachTennis(id) {
+  const response = await executarFetch(montarUrlBeachTennisMensalidades(`/${id}/mensagem-whatsapp`), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarConfiguracaoBeachTennisFinanceira() {
+  return executarRecursoBeachTennis(montarUrlBeachTennisConfiguracao())
+}
+
+export async function salvarConfiguracaoBeachTennisFinanceira(payload) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisConfiguracao(), {
+    method: 'PUT',
+    payload,
+  })
+}
+
+export async function buscarResumoFinanceiroBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisResumo(filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
 export async function cadastrarServico(servico) {
   const response = await executarFetch(`${API_URL}/servicos`, {
     method: 'POST',
