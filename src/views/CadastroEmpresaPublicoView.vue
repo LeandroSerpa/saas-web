@@ -37,7 +37,15 @@ const formulario = ref(criarFormularioInicial())
 const errosCampos = ref(criarErrosCamposIniciais())
 
 const segmentoSelecionado = computed(() => segmentos.value.find((segmento) => String(segmento.id) === String(formulario.value.segmentoNegocioId)) || null)
-const planoSelecionado = computed(() => planosExibidos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null)
+const planoSelecionado = computed(() => {
+  const id = Number(formulario.value.planoId)
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return null
+  }
+
+  return planosExibidos.value.find((plano) => Number(plano?.id) === id) || null
+})
 const segmentosExibidos = computed(() =>
   [...segmentos.value]
     .sort(compararSegmentosPublico)
@@ -63,7 +71,7 @@ const planosExibidos = computed(() =>
     .sort(compararPlanosPublicos)
     .map((plano) => ({
       ...plano,
-      id: obterIdentificadorPlano(plano) || String(plano.id || ''),
+      id: obterIdPlano(plano),
       destaqueComercial: obterDestaqueComercialPlano(plano),
     })),
 )
@@ -181,6 +189,11 @@ function criarErrosCamposIniciais() {
     telefoneResponsavel: '',
     interesse: '',
   }
+}
+
+function obterIdPlano(plano) {
+  const id = Number(obterCampo(plano, 'id', 'planoId'))
+  return Number.isInteger(id) && id > 0 ? id : ''
 }
 
 function limparErroCampo(campo) {
@@ -302,7 +315,7 @@ function validarEtapaAtual() {
   if (etapaAtual.value === 3 && !planos.value.length) {
     return falharValidacao('No momento não há planos disponíveis para cadastro público. Entre em contato com a equipe NuvemMais para receber orientação.')
   }
-  if (etapaAtual.value === 3 && !formulario.value.planoId) return falharValidacao('Selecione o plano desejado.')
+  if (etapaAtual.value === 3 && !planoSelecionado.value) return falharValidacao('Selecione um plano para continuar.')
   if (etapaAtual.value === 4 && !formulario.value.aceiteTermos) return falharValidacao('Confirme a leitura dos Termos de Uso e da Política de Privacidade.')
   return true
 }
@@ -430,7 +443,14 @@ function obterMensagemErro(errorAtual, fallback) {
 }
 
 function selecionarPlano(plano) {
-  formulario.value.planoId = identificarPlanoPublico(plano) || String(plano?.id || '')
+  const id = Number(obterCampo(plano, 'id', 'planoId'))
+
+  if (!Number.isInteger(id) || id <= 0) {
+    erro.value = 'Não foi possível selecionar este plano.'
+    return
+  }
+
+  formulario.value.planoId = id
   erro.value = ''
 }
 
@@ -440,10 +460,6 @@ function normalizarTexto(valor) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim()
-}
-
-function obterIdentificadorPlano(plano) {
-  return String(obterCampo(plano, 'id', 'planoId', 'codigo', 'slug', 'nome', 'titulo') || '').trim()
 }
 
 function obterDestaqueComercialPlano(plano) {
@@ -549,6 +565,13 @@ function exibirLimite(valor) {
   if (!Number.isFinite(numero)) return 'Ilimitado'
   if (numero === 0 || numero < 0) return 'Não incluído'
   return new Intl.NumberFormat('pt-BR').format(numero)
+}
+
+function planoEstaSelecionado(plano) {
+  const idPlano = Number(obterCampo(plano, 'id', 'planoId'))
+  const idSelecionado = Number(formulario.value.planoId)
+
+  return Number.isInteger(idPlano) && idPlano > 0 && Number.isInteger(idSelecionado) && idSelecionado > 0 && idPlano === idSelecionado
 }
 
 function inteiroOuNulo(valor) {
@@ -797,7 +820,7 @@ onMounted(carregarOpcoes)
               <article
                 v-for="plano in planosExibidos"
                 :key="plano.id"
-                :class="['plano-card', { selecionado: String(formulario.planoId) === String(plano.id) }]"
+                :class="['plano-card', { selecionado: planoEstaSelecionado(plano) }]"
                 role="button"
                 tabindex="0"
                 @click="selecionarPlano(plano)"
@@ -847,9 +870,15 @@ onMounted(carregarOpcoes)
                 </details>
 
                 <div class="plano-acao">
-                  <span :class="['botao-plano', { selecionado: String(formulario.planoId) === String(plano.id) }]">
-                    {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : (plano.destaqueComercial.textoBotao || 'Escolher este plano') }}
-                  </span>
+                  <button
+                    type="button"
+                    class="botao-plano"
+                    :class="{ selecionado: planoEstaSelecionado(plano) }"
+                    :aria-pressed="planoEstaSelecionado(plano)"
+                    @click.stop="selecionarPlano(plano)"
+                  >
+                    {{ planoEstaSelecionado(plano) ? 'Plano selecionado' : (plano.destaqueComercial.textoBotao || 'Escolher este plano') }}
+                  </button>
                 </div>
               </article>
             </section>
@@ -862,11 +891,11 @@ onMounted(carregarOpcoes)
             <article><h2>Interesse</h2><p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p><p><strong>Mensagem:</strong> {{ formulario.interesse }}</p></article>
             <article>
               <h2>Plano escolhido</h2>
-              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
-              <p><strong>Preço mensal:</strong> {{ planoSelecionado ? formatarMoeda(precoPlano(planoSelecionado)) : '-' }}</p>
-              <p><strong>Resumo:</strong> {{ planoSelecionado ? descricaoPlano(planoSelecionado) : '-' }}</p>
-              <p><strong>Estoque:</strong> {{ planoSelecionado ? (estoqueIncluido(planoSelecionado) ? 'Incluido' : 'Nao incluso') : '-' }}</p>
-              <p><strong>Produtos no estoque:</strong> {{ planoSelecionado ? (estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Nao incluso') : '-' }}</p>
+              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || 'Plano sem nome' }}</p>
+              <p><strong>Preço mensal:</strong> {{ formatarMoeda(precoPlano(planoSelecionado)) }}</p>
+              <p><strong>Resumo:</strong> {{ descricaoPlano(planoSelecionado) }}</p>
+              <p><strong>Estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? 'Incluido' : 'Nao incluso' }}</p>
+              <p><strong>Produtos no estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Nao incluso' }}</p>
               <ul v-if="recursosPrincipaisPlano(planoSelecionado).length" class="recursos-revisao">
                 <li v-for="recurso in recursosPrincipaisPlano(planoSelecionado)" :key="recurso">{{ recurso }}</li>
               </ul>
