@@ -338,6 +338,7 @@ const recarregamentoVisualizacaoEmpresa = ref(0)
 let timeoutMensagemGlobal = null
 let observadorCabecalhoPagina = null
 let elementoAcaoCabecalhoPagina = null
+const MENSAGEM_ERRO_GLOBAL_PADRAO = 'Ocorreu um erro inesperado. Recarregue a página para continuar.'
 
 const cabecalhoExibido = computed(() => {
   const fallback = obterCabecalhoPadrao(routeName.value)
@@ -429,6 +430,39 @@ function sair() {
   statusFinanceiro.value = null
   menuMobileAberto.value = false
   router.push('/login')
+}
+
+function obterMensagemErroGlobal(erro) {
+  if (typeof erro === 'string') {
+    return erro
+  }
+
+  return String(erro?.message || erro?.reason?.message || erro?.reason || '').trim()
+}
+
+function erroGlobalIgnoravel(erro) {
+  const mensagem = obterMensagemErroGlobal(erro).toLowerCase()
+  const nome = String(erro?.name || erro?.reason?.name || '').trim()
+
+  return (
+    nome === 'AbortError' ||
+    mensagem.includes('abort') ||
+    mensagem.includes('cancel') ||
+    mensagem.includes('sessão expirada') ||
+    mensagem.includes('session expired') ||
+    mensagem.includes('faça login novamente')
+  )
+}
+
+function registrarErroGlobal(erro) {
+  if (erroGlobalIgnoravel(erro)) {
+    return
+  }
+
+  console.error(erro)
+  erroInesperado.value = true
+  mensagemGlobal.value = MENSAGEM_ERRO_GLOBAL_PADRAO
+  tipoMensagemGlobal.value = 'erro'
 }
 
 function alterarModoNavegacao(novoModo) {
@@ -670,18 +704,27 @@ watch(menuMobileAberto, (aberto) => {
 })
 
 onErrorCaptured((error) => {
-  console.error(error)
-  erroInesperado.value = true
-  mensagemGlobal.value = 'Ocorreu um erro inesperado. Recarregue a página para continuar.'
-  tipoMensagemGlobal.value = 'erro'
+  registrarErroGlobal(error)
   return false
 })
+
+function aoReceberErroJanela(evento) {
+  if (evento?.error) {
+    registrarErroGlobal(evento.error)
+  }
+}
+
+function aoReceberRejeicaoNaoTratada(evento) {
+  registrarErroGlobal(evento?.reason || evento)
+}
 
 onMounted(() => {
   window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarVisualizacaoEmpresaGlobal)
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.addEventListener('mensagem-global', exibirMensagemGlobal)
+  window.addEventListener('error', aoReceberErroJanela)
+  window.addEventListener('unhandledrejection', aoReceberRejeicaoNaoTratada)
   carregarAmbienteAplicacao()
   carregarContextoGestaoEsportiva()
   sincronizarTemaAparencia()
@@ -694,6 +737,8 @@ onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarVisualizacaoEmpresaGlobal)
   window.removeEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.removeEventListener('mensagem-global', exibirMensagemGlobal)
+  window.removeEventListener('error', aoReceberErroJanela)
+  window.removeEventListener('unhandledrejection', aoReceberRejeicaoNaoTratada)
 
   if (timeoutMensagemGlobal) {
     clearTimeout(timeoutMensagemGlobal)

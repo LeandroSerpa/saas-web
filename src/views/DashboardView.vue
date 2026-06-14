@@ -691,7 +691,9 @@ async function processarAtualizacaoCompartilhada(detalhe) {
 }
 
 function aoReceberAtualizacaoEmpresa(evento) {
-  processarAtualizacaoCompartilhada(evento?.detail)
+  void processarAtualizacaoCompartilhada(evento?.detail).catch((error) => {
+    console.error(error)
+  })
 }
 
 function aoReceberAtualizacaoEmpresaStorage(evento) {
@@ -701,7 +703,9 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
     return
   }
 
-  processarAtualizacaoCompartilhada(detalhe)
+  void processarAtualizacaoCompartilhada(detalhe).catch((error) => {
+    console.error(error)
+  })
 }
 
 onMounted(() => {
