@@ -41,6 +41,8 @@ const UFS = [
   'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
+const CODIGO_MODULO_GESTAO_ESPORTIVA = 'GESTAO_ESPORTIVA'
+const CODIGO_SEGMENTO_BEACH_TENNIS = 'BEACH_TENNIS'
 const etapaAtual = ref(0)
 const carregando = ref(true)
 const salvando = ref(false)
@@ -50,7 +52,7 @@ const sucesso = ref('')
 const aviso = ref('')
 const infoCopia = ref('')
 const empresaCriada = ref(null)
-const opcoes = ref({ planos: [] })
+const opcoes = ref({ planos: [], segmentos: [], modulos: [] })
 const errosCampos = ref({})
 const emailEmpresaTocado = ref(false)
 const emailAdminTocado = ref(false)
@@ -64,9 +66,23 @@ const validacaoRemota = ref({
 const formulario = ref(criarFormularioInicial())
 
 const planosDisponiveis = computed(() => extrairLista(opcoes.value.planos).filter((plano) => plano?.ativo !== false))
+const segmentosDisponiveis = computed(() => extrairLista(opcoes.value.segmentos).filter((segmento) => segmento?.ativo !== false))
+const modulosDisponiveis = computed(() => extrairLista(opcoes.value.modulos))
 const planoSelecionado = computed(() =>
   planosDisponiveis.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null,
 )
+const segmentoSelecionado = computed(() =>
+  segmentosDisponiveis.value.find((segmento) => String(segmento.id) === String(formulario.value.empresa.segmentoId || '')) || null,
+)
+const moduloGestaoEsportivaDisponivel = computed(() => {
+  if (!modulosDisponiveis.value.length) {
+    return true
+  }
+
+  return modulosDisponiveis.value.some(
+    (modulo) => String(modulo?.codigo || '').trim().toUpperCase() === CODIGO_MODULO_GESTAO_ESPORTIVA,
+  )
+})
 const linkPublicoPrevisto = computed(() => montarLinkPublico(formulario.value.empresa.slugPublico))
 const validandoRemoto = computed(() => validacaoRemota.value.slug.carregando || validacaoRemota.value.emailAdmin.carregando)
 const senhaTemporariaResultado = computed(() =>
@@ -156,6 +172,15 @@ watch(
   },
 )
 
+watch(
+  () => formulario.value.empresa.segmentoId,
+  () => {
+    if (segmentoEhBeachTennis(segmentoSelecionado.value)) {
+      marcarGestaoEsportiva(true)
+    }
+  },
+)
+
 onMounted(carregarOpcoes)
 
 function criarFormularioInicial() {
@@ -169,7 +194,10 @@ function criarFormularioInicial() {
       cidade: '',
       estado: '',
       slugPublico: '',
+      segmentoId: '',
       permitirAgendamentoPublico: true,
+      modulosAtivos: [],
+      gestaoEsportivaAtivo: false,
     },
     funcionamento: {
       horaAbertura: '',
@@ -223,7 +251,27 @@ function normalizarOpcoes(resposta) {
   const dados = normalizarObjeto(resposta)
   return {
     planos: extrairLista(dados.planos ?? dados),
+    segmentos: extrairLista(dados.segmentos),
+    modulos: extrairLista(dados.modulos),
   }
+}
+
+function segmentoEhBeachTennis(segmento = {}) {
+  return String(segmento?.codigo || '').trim().toUpperCase() === CODIGO_SEGMENTO_BEACH_TENNIS
+}
+
+function normalizarModulosAtivos(lista = []) {
+  return [...new Set((lista || []).map((item) => String(item || '').trim().toUpperCase()).filter(Boolean))]
+}
+
+function marcarGestaoEsportiva(ativo) {
+  const modulosAtuais = normalizarModulosAtivos(formulario.value.empresa.modulosAtivos)
+  const modulosSemGestaoEsportiva = modulosAtuais.filter((codigo) => codigo !== CODIGO_MODULO_GESTAO_ESPORTIVA)
+
+  formulario.value.empresa.gestaoEsportivaAtivo = Boolean(ativo)
+  formulario.value.empresa.modulosAtivos = ativo
+    ? [...modulosSemGestaoEsportiva, CODIGO_MODULO_GESTAO_ESPORTIVA]
+    : modulosSemGestaoEsportiva
 }
 
 function atualizarDocumento(evento) {
@@ -300,6 +348,10 @@ async function validarSlugBlur() {
   await validarSlugRemotoSeNecessario()
 }
 
+function atualizarGestaoEsportiva(evento) {
+  marcarGestaoEsportiva(Boolean(evento?.target?.checked))
+}
+
 function definirErroCampo(campo, mensagem) {
   errosCampos.value = {
     ...errosCampos.value,
@@ -355,6 +407,9 @@ function montarPayload() {
       uf: textoOuNulo(formulario.value.empresa.estado),
       slug: textoOuNulo(formulario.value.empresa.slugPublico),
       slugPublico: textoOuNulo(formulario.value.empresa.slugPublico),
+      segmentoId: formulario.value.empresa.segmentoId ? Number(formulario.value.empresa.segmentoId) : null,
+      modulosAtivos: normalizarModulosAtivos(formulario.value.empresa.modulosAtivos),
+      gestaoEsportivaAtivo: Boolean(formulario.value.empresa.gestaoEsportivaAtivo),
       permitirAgendamentoPublico: Boolean(formulario.value.empresa.permitirAgendamentoPublico),
       agendamentoPublicoAtivo: Boolean(formulario.value.empresa.permitirAgendamentoPublico),
     },
@@ -1089,6 +1144,16 @@ function obterCampoProfundo(objeto, caminho) {
           <small v-if="errosCampos['empresa.slugPublico']" class="mensagem-erro">{{ errosCampos['empresa.slugPublico'] }}</small>
         </label>
 
+        <label>
+          Segmento
+          <select v-model="formulario.empresa.segmentoId">
+            <option value="">Sem segmento</option>
+            <option v-for="segmento in segmentosDisponiveis" :key="segmento.id" :value="segmento.id">
+              {{ segmento.nome }}
+            </option>
+          </select>
+        </label>
+
         <label class="checkbox campo-grande">
           <input v-model="formulario.empresa.permitirAgendamentoPublico" type="checkbox" />
           Permitir agendamento público
@@ -1137,6 +1202,15 @@ function obterCampoProfundo(objeto, caminho) {
       </div>
 
       <div v-else-if="etapaAtual === 2" class="campos">
+        <label v-if="moduloGestaoEsportivaDisponivel" class="checkbox campo-grande">
+          <input
+            :checked="formulario.empresa.gestaoEsportivaAtivo"
+            type="checkbox"
+            @change="atualizarGestaoEsportiva"
+          />
+          Ativar Gestao Esportiva para esta empresa
+        </label>
+
         <label class="campo-grande">
           Plano ativo *
           <select v-model="formulario.planoId">
@@ -1216,7 +1290,9 @@ function obterCampoProfundo(objeto, caminho) {
           <p><strong>Documento (CPF/CNPJ):</strong> {{ formulario.empresa.documento || 'Não aplicável' }}</p>
           <p><strong>Telefone:</strong> {{ formulario.empresa.telefone || 'Não aplicável' }}</p>
           <p><strong>E-mail:</strong> {{ formulario.empresa.email || 'Não aplicável' }}</p>
+          <p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || 'Não definido' }}</p>
           <p><strong>Agendamento público:</strong> {{ formulario.empresa.permitirAgendamentoPublico ? 'Sim' : 'Não' }}</p>
+          <p><strong>Gestão Esportiva:</strong> {{ formulario.empresa.gestaoEsportivaAtivo ? 'Ativa' : 'Inativa' }}</p>
         </article>
 
         <article>

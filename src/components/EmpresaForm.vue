@@ -51,6 +51,10 @@ defineProps({
     type: Array,
     default: () => [],
   },
+  exibirControleGestaoEsportiva: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 defineEmits(['salvar', 'cancelar'])
@@ -115,6 +119,11 @@ defineEmits(['salvar', 'cancelar'])
       <label class="campo-checkbox">
         <input v-model="empresa.ativo" type="checkbox" />
         Ativa
+      </label>
+
+      <label v-if="exibirControleGestaoEsportiva" class="campo-checkbox">
+        <input v-model="empresa.gestaoEsportivaAtivo" type="checkbox" />
+        Gestão Esportiva
       </label>
     </div>
 

@@ -46,6 +46,7 @@ import SobreView from '../views/SobreView.vue'
 import AjudaView from '../views/AjudaView.vue'
 import EstoqueView from '../views/EstoqueView.vue'
 import { caminhoEhRotaPublicaFrontend, carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
+import { carregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -121,13 +122,13 @@ const router = createRouter({
       path: '/beach-tennis/turmas',
       name: 'beach-tennis-turmas',
       component: BeachTennisTurmasView,
-      meta: rotasAdmin,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {
       path: '/beach-tennis/financeiro',
       name: 'beach-tennis-financeiro',
       component: BeachTennisFinanceiroView,
-      meta: rotasAdmin,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {
       path: '/servicos',
@@ -481,7 +482,7 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.matched.some((registro) => registro.meta?.publico) || caminhoEhRotaPublicaFrontend(to.path)) {
     return true
   }
@@ -524,6 +525,14 @@ router.beforeEach((to) => {
   if (to.meta.requiresSuperAdmin) {
     if (!ehSuperAdmin(usuario)) {
       return { name: 'acesso-negado' }
+    }
+  }
+
+  if (to.matched.some((registro) => registro.meta?.requiresGestaoEsportiva)) {
+    const contexto = await carregarContextoGestaoEsportiva()
+
+    if (contexto?.ativo !== true) {
+      return { name: 'acesso-negado', query: { motivo: 'gestao-esportiva' } }
     }
   }
 

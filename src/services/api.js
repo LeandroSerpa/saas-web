@@ -4071,6 +4071,17 @@ export async function buscarTurmasBeachTennis(filtros = {}) {
   return normalizarColecaoResposta(dados)
 }
 
+export async function buscarContextoGestaoEsportiva() {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/contexto${montarQueryEmpresaOperacional()}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarRespostaCustomizada(response, {
+    emitir403: false,
+  })
+}
+
 export async function buscarTurmaBeachTennis(id) {
   const response = await executarFetch(`${API_URL}/beach-tennis/turmas/${id}${montarQueryEmpresaOperacional()}`, {
     headers: montarHeaders(),
