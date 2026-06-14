@@ -1,50 +1,50 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import DashboardView from '../views/DashboardView.vue'
-import HomeView from '../views/HomeView.vue'
-import ClientesView from '../views/ClientesView.vue'
-import BeachTennisTurmasView from '../views/BeachTennisTurmasView.vue'
-import BeachTennisFinanceiroView from '../views/BeachTennisFinanceiroView.vue'
-import ServicosView from '../views/ServicosView.vue'
-import FuncionariosView from '../views/FuncionariosView.vue'
-import DisponibilidadeView from '../views/DisponibilidadeView.vue'
-import LoginView from '../views/LoginView.vue'
-import CadastroPendenteView from '../views/CadastroPendenteView.vue'
-import AlterarSenhaView from '../views/AlterarSenhaView.vue'
-import MinhaContaView from '../views/MinhaContaView.vue'
-import UsuariosView from '../views/UsuariosView.vue'
-import EmpresasView from '../views/EmpresasView.vue'
-import EmpresaOnboardingAdminView from '../views/EmpresaOnboardingAdminView.vue'
-import MinhaEmpresaView from '../views/MinhaEmpresaView.vue'
-import RelatoriosView from '../views/RelatoriosView.vue'
-import PersonalizacaoPublicaView from '../views/PersonalizacaoPublicaView.vue'
-import AgendamentoPublicoView from '../views/AgendamentoPublicoView.vue'
-import CatalogoPublicoView from '../views/CatalogoPublicoView.vue'
-import AuditoriaView from '../views/AuditoriaView.vue'
-import LixeiraView from '../views/LixeiraView.vue'
-import PlanosView from '../views/PlanosView.vue'
-import AssinaturasView from '../views/AssinaturasView.vue'
-import MeuPlanoView from '../views/MeuPlanoView.vue'
-import AdminDashboardView from '../views/AdminDashboardView.vue'
-import SegmentosView from '../views/SegmentosView.vue'
-import CadastroEmpresaPublicoView from '../views/CadastroEmpresaPublicoView.vue'
-import SolicitacoesCadastroView from '../views/SolicitacoesCadastroView.vue'
-import FaturasView from '../views/FaturasView.vue'
-import OnboardingView from '../views/OnboardingView.vue'
-import InadimplenciaView from '../views/InadimplenciaView.vue'
-import FaturasRecorrentesView from '../views/FaturasRecorrentesView.vue'
-import ConfiguracoesPagamentoView from '../views/ConfiguracoesPagamentoView.vue'
-import NotificacoesView from '../views/NotificacoesView.vue'
-import AdminNotificacoesView from '../views/AdminNotificacoesView.vue'
-import ConfiguracoesNotificacoesView from '../views/ConfiguracoesNotificacoesView.vue'
-import AdminAutomacoesView from '../views/AdminAutomacoesView.vue'
-import AdminEstoqueView from '../views/AdminEstoqueView.vue'
-import AcessoNegadoView from '../views/AcessoNegadoView.vue'
-import NaoEncontradoView from '../views/NaoEncontradoView.vue'
-import TermosView from '../views/TermosView.vue'
-import PrivacidadeView from '../views/PrivacidadeView.vue'
-import SobreView from '../views/SobreView.vue'
-import AjudaView from '../views/AjudaView.vue'
-import EstoqueView from '../views/EstoqueView.vue'
+const DashboardView = () => import('../views/DashboardView.vue')
+const HomeView = () => import('../views/HomeView.vue')
+const ClientesView = () => import('../views/ClientesView.vue')
+const BeachTennisTurmasView = () => import('../views/BeachTennisTurmasView.vue')
+const BeachTennisFinanceiroView = () => import('../views/BeachTennisFinanceiroView.vue')
+const ServicosView = () => import('../views/ServicosView.vue')
+const FuncionariosView = () => import('../views/FuncionariosView.vue')
+const DisponibilidadeView = () => import('../views/DisponibilidadeView.vue')
+const LoginView = () => import('../views/LoginView.vue')
+const CadastroPendenteView = () => import('../views/CadastroPendenteView.vue')
+const AlterarSenhaView = () => import('../views/AlterarSenhaView.vue')
+const MinhaContaView = () => import('../views/MinhaContaView.vue')
+const UsuariosView = () => import('../views/UsuariosView.vue')
+const EmpresasView = () => import('../views/EmpresasView.vue')
+const EmpresaOnboardingAdminView = () => import('../views/EmpresaOnboardingAdminView.vue')
+const MinhaEmpresaView = () => import('../views/MinhaEmpresaView.vue')
+const RelatoriosView = () => import('../views/RelatoriosView.vue')
+const PersonalizacaoPublicaView = () => import('../views/PersonalizacaoPublicaView.vue')
+const AgendamentoPublicoView = () => import('../views/AgendamentoPublicoView.vue')
+const CatalogoPublicoView = () => import('../views/CatalogoPublicoView.vue')
+const AuditoriaView = () => import('../views/AuditoriaView.vue')
+const LixeiraView = () => import('../views/LixeiraView.vue')
+const PlanosView = () => import('../views/PlanosView.vue')
+const AssinaturasView = () => import('../views/AssinaturasView.vue')
+const MeuPlanoView = () => import('../views/MeuPlanoView.vue')
+const AdminDashboardView = () => import('../views/AdminDashboardView.vue')
+const SegmentosView = () => import('../views/SegmentosView.vue')
+const CadastroEmpresaPublicoView = () => import('../views/CadastroEmpresaPublicoView.vue')
+const SolicitacoesCadastroView = () => import('../views/SolicitacoesCadastroView.vue')
+const FaturasView = () => import('../views/FaturasView.vue')
+const OnboardingView = () => import('../views/OnboardingView.vue')
+const InadimplenciaView = () => import('../views/InadimplenciaView.vue')
+const FaturasRecorrentesView = () => import('../views/FaturasRecorrentesView.vue')
+const ConfiguracoesPagamentoView = () => import('../views/ConfiguracoesPagamentoView.vue')
+const NotificacoesView = () => import('../views/NotificacoesView.vue')
+const AdminNotificacoesView = () => import('../views/AdminNotificacoesView.vue')
+const ConfiguracoesNotificacoesView = () => import('../views/ConfiguracoesNotificacoesView.vue')
+const AdminAutomacoesView = () => import('../views/AdminAutomacoesView.vue')
+const AdminEstoqueView = () => import('../views/AdminEstoqueView.vue')
+const AcessoNegadoView = () => import('../views/AcessoNegadoView.vue')
+const NaoEncontradoView = () => import('../views/NaoEncontradoView.vue')
+const TermosView = () => import('../views/TermosView.vue')
+const PrivacidadeView = () => import('../views/PrivacidadeView.vue')
+const SobreView = () => import('../views/SobreView.vue')
+const AjudaView = () => import('../views/AjudaView.vue')
+const EstoqueView = () => import('../views/EstoqueView.vue')
 import { caminhoEhRotaPublicaFrontend, carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
 import { carregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'

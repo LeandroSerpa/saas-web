@@ -57,13 +57,13 @@ const CABECALHOS_PADRAO = {
     descricao: 'Gerencie os clientes cadastrados na sua operação.',
   },
   'beach-tennis-turmas': {
-    subtitulo: 'Beach Tennis',
-    titulo: 'Turmas Beach Tennis',
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Turmas',
     descricao: 'Cadastre turmas, acompanhe níveis e vincule alunos manualmente.',
   },
   'beach-tennis-financeiro': {
-    subtitulo: 'Beach Tennis',
-    titulo: 'Financeiro Beach Tennis',
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Financeiro esportivo',
     descricao: 'Gerencie acordos, mensalidades, cobranças e a configuração do PIX.',
   },
   servicos: {
@@ -313,7 +313,7 @@ const modoNavegacaoAtual = computed(() => modoNavegacao.value)
 const temaAparenciaAtual = computed(() => temaAparencia.value)
 const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
-const moduloGestaoEsportivaVisivel = computed(() => podeGerenciarUsuarios.value && contextoEsportivo.value?.ativo === true)
+const moduloGestaoEsportivaVisivel = computed(() => contextoEsportivo.value?.ativo === true)
 const tituloMenuGestaoEsportiva = computed(() => formatarNomeModalidadeEmCaixaAlta(contextoEsportivo.value?.nomeModalidade))
 const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const gruposMenuAbertos = ref({
@@ -357,7 +357,7 @@ const descricaoSeloAmbienteTopo = computed(() =>
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.2.2'
+  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.3.0'
   return `v${versaoBase}`
 })
 

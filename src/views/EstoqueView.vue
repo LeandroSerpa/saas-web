@@ -2503,6 +2503,7 @@ function atualizarContextoEstoque() {
   abaAtiva.value = obterAbaInicial()
   paginacaoProdutos.value.page = 1
   paginacaoMovimentacoes.value.page = 1
+  cancelarEdicaoProduto(false)
   carregarTela()
 }
 

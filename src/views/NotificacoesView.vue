@@ -54,10 +54,10 @@ async function carregarDados() {
     erro.value = ''
     sucesso.value = ''
     modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+    notificacoes.value = []
+    resumo.value = {}
 
     if (modoVisualizacaoEmpresa.value) {
-      notificacoes.value = []
-      resumo.value = {}
       return
     }
 
