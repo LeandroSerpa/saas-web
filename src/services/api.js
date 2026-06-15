@@ -4213,6 +4213,30 @@ export async function buscarTurmaBeachTennis(id) {
   return tratarResposta(response)
 }
 
+export async function buscarTurmaBeachTennisOuLista(id, filtros = {}) {
+  const turmaId = String(id || '').trim()
+
+  if (!turmaId) {
+    return null
+  }
+
+  try {
+    const detalhe = await buscarTurmaBeachTennis(turmaId)
+    if (detalhe) {
+      return detalhe
+    }
+  } catch (error) {
+    if (error?.status !== 404) {
+      throw error
+    }
+  }
+
+  const turmas = await buscarTurmasBeachTennis(filtros)
+  return Array.isArray(turmas)
+    ? turmas.find((item) => String(item?.id || '') === turmaId) || null
+    : null
+}
+
 export async function criarTurmaBeachTennis(turma) {
   const response = await executarFetch(`${API_URL}/beach-tennis/turmas${montarQueryEmpresaOperacional()}`, {
     method: 'POST',
@@ -4255,6 +4279,15 @@ export async function buscarAlunosTurmaBeachTennis(turmaId) {
   return normalizarColecaoResposta(dados)
 }
 
+export async function buscarClientesDisponiveisBeachTennis(filtros = {}) {
+  const possuiFiltroAtivo = Object.prototype.hasOwnProperty.call(filtros, 'ativo')
+
+  return buscarClientes({
+    ...filtros,
+    ativo: possuiFiltroAtivo ? filtros.ativo : true,
+  })
+}
+
 export async function salvarAlunosTurmaBeachTennis(turmaId, alunoIds) {
   const payload = aplicarEmpresaSelecionadaNoPayload({ alunoIds })
   const response = await executarFetch(
@@ -4263,6 +4296,23 @@ export async function salvarAlunosTurmaBeachTennis(turmaId, alunoIds) {
       method: 'PUT',
       headers: montarHeaders(true),
       body: JSON.stringify(payload),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function salvarClientesTurmaBeachTennis(turmaId, clienteIds) {
+  const ids = (Array.isArray(clienteIds) ? clienteIds : [clienteIds])
+    .map((id) => Number.parseInt(String(id).trim(), 10))
+    .filter((id) => Number.isFinite(id))
+
+  const response = await executarFetch(
+    `${API_URL}/beach-tennis/turmas/${turmaId}/alunos${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'PUT',
+      headers: montarHeaders(true),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({ clienteIds: ids })),
     },
   )
 

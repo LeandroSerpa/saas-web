@@ -59,7 +59,12 @@ const CABECALHOS_PADRAO = {
   'beach-tennis-turmas': {
     subtitulo: 'Gestão Esportiva',
     titulo: 'Turmas',
-    descricao: 'Cadastre turmas, acompanhe níveis e vincule alunos manualmente.',
+    descricao: 'Cadastre turmas, acompanhe níveis e acesse a gestão de participantes.',
+  },
+  'beach-tennis-turma-alunos': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Gerenciar participantes',
+    descricao: 'Gerencie os participantes da turma em lote, com experiência otimizada para celular.',
   },
   'beach-tennis-financeiro': {
     subtitulo: 'Gestão Esportiva',
@@ -239,6 +244,7 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   agenda: 'agenda',
   clientes: 'clientes',
   'beach-tennis-turmas': 'clientes',
+  'beach-tennis-turma-alunos': 'clientes',
   'beach-tennis-financeiro': 'faturas-meu-plano',
   servicos: 'servicos',
   funcionarios: 'funcionarios',
@@ -380,7 +386,15 @@ function obterCabecalhoPadrao(nomeRota) {
       return {
         subtitulo: contextoEsportivo.value.nomeModalidade,
         titulo: `${contextoEsportivo.value.termoGrupoPlural} - ${contextoEsportivo.value.nomeModalidade}`,
-        descricao: `Gerencie ${normalizarTextoCabecalho(contextoEsportivo.value.termoGrupoPlural)} e vínculos da modalidade.`,
+        descricao: `Gerencie ${normalizarTextoCabecalho(contextoEsportivo.value.termoGrupoPlural)} e acesse a gestão de participantes.`,
+      }
+    }
+
+    if (nomeRota === 'beach-tennis-turma-alunos') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: `Gerenciar ${normalizarTextoCabecalho(contextoEsportivo.value.termoParticipantePlural)}`,
+        descricao: `Organize participantes da ${normalizarTextoCabecalho(contextoEsportivo.value.termoGrupoSingular)} em lotes pequenos e amigáveis para celular.`,
       }
     }
 

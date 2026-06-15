@@ -1,10 +1,8 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   EVENTO_EMPRESA_VISUALIZACAO,
-  buscarAlunosTurmaBeachTennis,
-  buscarClientes,
   buscarFuncionarios,
   buscarStatusFinanceiroMinhaEmpresa,
   buscarTurmasBeachTennis,
@@ -12,40 +10,32 @@ import {
   atualizarTurmaBeachTennis,
   excluirTurmaBeachTennis,
   modoVisualizacaoEmpresaAtivo,
-  salvarAlunosTurmaBeachTennis,
 } from '@/services/api'
 import {
   OPCOES_DIAS_SEMANA_BEACH_TENNIS,
   OPCOES_NIVEL_BEACH_TENNIS,
-  formatarDataBrasileira,
   normalizarArrayBeachTennis,
   rotuloDiaBeachTennis,
-  rotuloFrequenciaSemanalBeachTennis,
   rotuloNivelBeachTennis,
-  rotuloPerfilBeachTennis,
-  rotuloPlanoBeachTennis,
 } from '@/utils/beachTennis'
-import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
+import {
+  carregarContextoGestaoEsportiva,
+  contextoGestaoEsportiva,
+  recarregarContextoGestaoEsportiva,
+} from '@/utils/gestaoEsportiva'
 
+const router = useRouter()
+const EVENTO_TURMAS_BEACH_TENNIS_ATUALIZADAS = 'beach-tennis-turmas-atualizadas'
 const turmas = ref([])
-const clientes = ref([])
 const funcionarios = ref([])
-const alunosTurmaSelecionada = ref([])
-const alunosSelecionadosIds = ref([])
 const carregando = ref(true)
-const carregandoVinculos = ref(false)
 const salvandoTurma = ref(false)
-const salvandoVinculos = ref(false)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const turmaEditandoId = ref(null)
-const turmaSelecionadaId = ref('')
-const filtroBuscaAluno = ref('')
-const filtroNivelAluno = ref('')
 const statusFinanceiro = ref(null)
 const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const turma = ref(criarTurmaInicial())
-const router = useRouter()
 const nomeCampoRef = ref(null)
 const nivelCampoRef = ref(null)
 const horarioCampoRef = ref(null)
@@ -63,47 +53,26 @@ const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoRe
 const termoResponsavelPlural = computed(() => contextoEsportivo.value?.termoResponsavelPlural || 'Profissionais')
 const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
 const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
-const termoAtividadeSingular = computed(() => contextoEsportivo.value?.termoAtividadeSingular || 'Atividade')
-const nomeEventoLivre = computed(() => contextoEsportivo.value?.nomeEventoLivre || 'Jogo livre')
 const tituloPagina = computed(() =>
   nomeModalidade.value === 'Beach Tennis'
     ? 'Turmas Beach Tennis'
     : `${termoGrupoPlural.value} de ${nomeModalidade.value}`,
 )
 const descricaoPagina = computed(() =>
-  `Organize ${termoGrupoPlural.value.toLocaleLowerCase('pt-BR')}, acompanhe vagas e faça o vinculo manual de ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')}.`,
+  `Cadastre e edite ${termoGrupoPlural.value.toLocaleLowerCase('pt-BR')} sem misturar a gestão de participantes.`,
 )
 const descricaoFormulario = computed(() =>
-  `Cadastre ${termoGrupoPlural.value.toLocaleLowerCase('pt-BR')}, horarios e ${termoResponsavelSingular.value.toLocaleLowerCase('pt-BR')}s sem alterar a estrutura atual do modulo.`,
+  `Mantenha aqui o cadastro da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}. A gestão de participantes agora fica na tela dedicada.`,
 )
 const descricaoLista = computed(() =>
-  `Cards por ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} com situacao, nivel e quantidade de ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} vinculados.`,
+  `Cards enxutos com quantidade de ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} e responsável informado pela API.`,
 )
-
-const turmaSelecionada = computed(() =>
-  turmas.value.find((item) => String(item.id) === String(turmaSelecionadaId.value)) || null,
-)
-
-const nivelTurmaSelecionada = computed(() => String(turmaSelecionada.value?.nivelBeachTennis || '').trim())
-const quantidadeAlunosSelecionados = computed(() => alunosSelecionadosIds.value.length)
-const quantidadeAlunosVinculados = computed(() => alunosTurmaSelecionada.value.length || obterQuantidadeAlunos(turmaSelecionada.value))
-const turmaCheia = computed(() => {
-  const vagas = Number(turmaSelecionada.value?.vagas || 0)
-  return Boolean(vagas > 0 && quantidadeAlunosVinculados.value >= vagas)
-})
 const professoresDisponiveis = computed(() =>
   [...funcionarios.value]
     .filter((item) => item && item.ativo !== false)
     .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')),
 )
 const temProfessoresDisponiveis = computed(() => professoresDisponiveis.value.length > 0)
-const alunosDisponiveis = computed(() =>
-  [...clientes.value]
-    .filter((aluno) => filtrarAlunoDisponivel(aluno))
-    .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR')),
-)
-const gruposAlunosVinculados = computed(() => agruparAlunos(alunosTurmaSelecionada.value))
-const gruposAlunosDisponiveis = computed(() => agruparAlunos(alunosDisponiveis.value))
 
 function criarTurmaInicial() {
   return {
@@ -165,32 +134,8 @@ function normalizarTurmas(lista = []) {
   })
 }
 
-function normalizarAluno(aluno = {}) {
-  return {
-    ...aluno,
-    id: aluno.id ?? aluno.alunoId ?? aluno.clienteId ?? aluno.pessoaId ?? '',
-    nome: aluno.nome || aluno.nomeCompleto || aluno.clienteNome || aluno.alunoNome || termoParticipanteSingular.value,
-    telefone: aluno.telefone || '',
-    email: aluno.email || '',
-    dataNascimento: aluno.dataNascimento || aluno.nascimento || '',
-    perfilBeachTennis: aluno.perfilBeachTennis || '',
-    nivelBeachTennis: aluno.nivelBeachTennis || '',
-    frequenciaSemanalBeachTennis: aluno.frequenciaSemanalBeachTennis || '',
-    planoBeachTennis: aluno.planoBeachTennis || '',
-    observacaoBeachTennis: aluno.observacaoBeachTennis || '',
-  }
-}
-
-function normalizarListaAlunos(lista = []) {
-  return lista.map((item) => normalizarAluno(typeof item === 'object' ? item : { id: item }))
-}
-
-function obterChaveAluno(aluno = {}) {
-  return String(aluno.id || aluno.alunoId || aluno.clienteId || '').trim()
-}
-
-function obterNomeResponsavel(item = {}) {
-  return item.nome || item.nomeCompleto || item.apelido || item.cargo || termoResponsavelSingular.value
+function estaAtiva(item = {}) {
+  return item.ativo !== false
 }
 
 function obterQuantidadeAlunos(item = {}) {
@@ -207,83 +152,9 @@ function obterQuantidadeAlunos(item = {}) {
   return Number.isFinite(Number(numero)) ? Number(numero) : 0
 }
 
-function estaAtiva(item = {}) {
-  return item.ativo !== false
-}
-
-function estaCheia(item = {}) {
+function turmaCheiaParaCard(item = {}) {
   const vagas = Number(item.vagas || 0)
   return Boolean(vagas > 0 && obterQuantidadeAlunos(item) >= vagas)
-}
-
-function filtrarAlunoDisponivel(aluno = {}) {
-  const termoBusca = normalizarTexto(filtroBuscaAluno.value)
-  const nivelFiltro = String(filtroNivelAluno.value || '').trim().toUpperCase()
-
-  if (nivelFiltro && String(aluno.nivelBeachTennis || '').trim().toUpperCase() !== nivelFiltro) {
-    return false
-  }
-
-  if (!termoBusca) {
-    return true
-  }
-
-  const campos = [
-    aluno.nome,
-    aluno.email,
-    aluno.telefone,
-    rotuloPerfilBeachTennis(aluno.perfilBeachTennis),
-    rotuloNivelBeachTennis(aluno.nivelBeachTennis),
-    rotuloFrequenciaSemanalBeachTennis(aluno.frequenciaSemanalBeachTennis),
-    rotuloPlanoBeachTennis(aluno.planoBeachTennis),
-  ]
-
-  return campos.some((valor) => normalizarTexto(valor).includes(termoBusca))
-}
-
-function agruparAlunos(lista = []) {
-  const grupos = {
-    ALUNO_AULA: [],
-    PARTICIPANTE_PLAY: [],
-    ALUNO_E_PLAY: [],
-    SEM_PERFIL: [],
-  }
-
-  for (const aluno of lista) {
-    const perfil = String(aluno.perfilBeachTennis || '').trim().toUpperCase()
-    const chave = grupos[perfil] ? perfil : 'SEM_PERFIL'
-    grupos[chave].push(aluno)
-  }
-
-  return [
-    {
-      chave: 'ALUNO_AULA',
-      titulo: `${termoParticipantePlural.value} de ${termoAtividadeSingular.value.toLocaleLowerCase('pt-BR')}`,
-      items: grupos.ALUNO_AULA,
-    },
-    {
-      chave: 'PARTICIPANTE_PLAY',
-      titulo: `${termoParticipantePlural.value} de ${nomeEventoLivre.value}`,
-      items: grupos.PARTICIPANTE_PLAY,
-    },
-    { chave: 'ALUNO_E_PLAY', titulo: `${termoParticipantePlural.value} mistos`, items: grupos.ALUNO_E_PLAY },
-    { chave: 'SEM_PERFIL', titulo: 'Sem perfil informado', items: grupos.SEM_PERFIL },
-  ]
-}
-
-function nivelIncompatível(aluno = {}) {
-  const nivelTurma = String(nivelTurmaSelecionada.value || '').trim().toUpperCase()
-  const nivelAluno = String(aluno.nivelBeachTennis || '').trim().toUpperCase()
-
-  if (!nivelTurma || !nivelAluno) {
-    return false
-  }
-
-  return nivelTurma !== nivelAluno
-}
-
-function turmaCheiaParaCard(item = {}) {
-  return estaCheia(item)
 }
 
 function rotuloNivel(item = {}) {
@@ -299,17 +170,24 @@ function formatarHorario(valor) {
   return String(valor || '').trim() || '-'
 }
 
-function selecionarTurma(item = {}) {
-  turmaSelecionadaId.value = String(item.id || '')
-  carregarAlunosTurma(String(item.id || ''))
+function obterNomeResponsavel(item = {}) {
+  return item.nome || item.nomeCompleto || item.apelido || item.cargo || termoResponsavelSingular.value
 }
 
-function editarTurma(item = {}) {
+function selecionarTurma(item = {}) {
   turmaEditandoId.value = item.id
   mensagemSucesso.value = ''
   erro.value = ''
   turma.value = normalizarTurmaFormulario(item)
-  selecionarTurma(item)
+}
+
+function irParaGerenciarAlunos(item = {}) {
+  const turmaId = String(item.id || '').trim()
+  if (!turmaId) {
+    return
+  }
+
+  router.push(`/beach-tennis/turmas/${turmaId}/alunos`)
 }
 
 function cancelarEdicao(limparMensagens = true) {
@@ -319,295 +197,6 @@ function cancelarEdicao(limparMensagens = true) {
   if (limparMensagens) {
     mensagemSucesso.value = ''
   }
-}
-
-function limparSelecaoAlunos() {
-  alunosTurmaSelecionada.value = []
-  alunosSelecionadosIds.value = []
-}
-
-async function carregarTurmas() {
-  try {
-    const resposta = await buscarTurmasBeachTennis()
-    turmas.value = normalizarTurmas(Array.isArray(resposta) ? resposta : [])
-
-    if (turmaSelecionadaId.value && !turmas.value.some((item) => String(item.id) === String(turmaSelecionadaId.value))) {
-      turmaSelecionadaId.value = ''
-      limparSelecaoAlunos()
-    }
-  } catch (error) {
-    erro.value = obterMensagemErro(error, 'Não foi possível carregar as turmas.')
-    console.error(error)
-  }
-}
-
-async function carregarBase() {
-  try {
-    const [clientesResp, funcionariosResp, statusResp] = await Promise.allSettled([
-      buscarClientes(),
-      buscarFuncionarios(),
-      buscarStatusFinanceiroMinhaEmpresa(),
-    ])
-
-    if (clientesResp.status === 'fulfilled') {
-      clientes.value = normalizarListaAlunos(Array.isArray(clientesResp.value) ? clientesResp.value : [])
-    } else if (!clientes.value.length) {
-      erro.value = obterMensagemErro(clientesResp.reason, 'Não foi possível carregar os clientes.')
-    }
-
-    if (funcionariosResp.status === 'fulfilled') {
-      funcionarios.value = Array.isArray(funcionariosResp.value) ? funcionariosResp.value : []
-    } else if (!funcionarios.value.length && !erro.value) {
-      erro.value = obterMensagemErro(funcionariosResp.reason, 'Não foi possível carregar os funcionários.')
-    }
-
-    if (statusResp.status === 'fulfilled') {
-      statusFinanceiro.value = statusResp.value
-    } else {
-      statusFinanceiro.value = null
-    }
-  } finally {
-    // Sem ação adicional: os erros parciais já são tratados acima.
-  }
-}
-
-async function carregarTudo() {
-  await carregarContextoGestaoEsportiva()
-
-  if (modoVisualizacaoEmpresa.value || !moduloEsportivoAtivo.value) {
-    turmas.value = []
-    clientes.value = []
-    funcionarios.value = []
-    statusFinanceiro.value = null
-    limparSelecaoAlunos()
-    carregando.value = false
-    return
-  }
-
-  carregando.value = true
-  erro.value = ''
-  mensagemSucesso.value = ''
-
-  try {
-    await Promise.all([carregarTurmas(), carregarBase()])
-
-    if (turmaSelecionadaId.value) {
-      await carregarAlunosTurma(turmaSelecionadaId.value, { silencioso: true })
-    }
-  } finally {
-    carregando.value = false
-  }
-}
-
-async function salvarTurma() {
-  if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
-    return
-  }
-
-  const validacao = validarTurmaFormulario()
-  if (validacao) {
-    erro.value = validacao.mensagem
-    await nextTick()
-    focarCampoFormulario(validacao.campo)
-    return
-  }
-
-  try {
-    salvandoTurma.value = true
-    erro.value = ''
-    mensagemSucesso.value = ''
-
-    if (!turmaEditandoId.value && empresaBloqueadaFinanceiro()) {
-      erro.value = 'Sua empresa está temporariamente bloqueada por pendência financeira. Acesse Faturas para regularizar.'
-      return
-    }
-
-    const payload = montarPayloadTurma()
-
-    if (turmaEditandoId.value) {
-      await atualizarTurmaBeachTennis(turmaEditandoId.value, payload)
-      mensagemSucesso.value = `${termoGrupoSingular.value} atualizada com sucesso.`
-    } else {
-      const resposta = await criarTurmaBeachTennis(payload)
-      mensagemSucesso.value = `${termoGrupoSingular.value} cadastrada com sucesso.`
-      const novaTurmaId = resposta?.id || resposta?.turmaId
-      if (novaTurmaId) {
-        turmaSelecionadaId.value = String(novaTurmaId)
-      }
-    }
-
-    cancelarEdicao(false)
-    await carregarTurmas()
-    if (turmaSelecionadaId.value) {
-      await carregarAlunosTurma(turmaSelecionadaId.value, { silencioso: true })
-    }
-  } catch (error) {
-    erro.value = obterMensagemErro(
-      error,
-      turmaEditandoId.value
-        ? `Não foi possível atualizar a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`
-        : `Não foi possível cadastrar a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
-    )
-    console.error(error)
-  } finally {
-    salvandoTurma.value = false
-  }
-}
-
-async function alternarAtivoTurma(item) {
-  try {
-    erro.value = ''
-    mensagemSucesso.value = ''
-    await atualizarTurmaBeachTennis(item.id, montarPayloadTurma(normalizarTurmaFormulario(item), { ativo: !estaAtiva(item) }))
-    mensagemSucesso.value = estaAtiva(item)
-      ? `${termoGrupoSingular.value} inativada com sucesso.`
-      : `${termoGrupoSingular.value} ativada com sucesso.`
-    await carregarTurmas()
-  } catch (error) {
-    erro.value = obterMensagemErro(
-      error,
-      `Não foi possível alterar o status da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
-    )
-    console.error(error)
-  }
-}
-
-async function removerTurma(item) {
-  const confirmou = window.confirm(
-    `Deseja excluir ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} "${item?.nome || ''}"?`,
-  )
-  if (!confirmou) {
-    return
-  }
-
-  const motivo = window.prompt('Motivo da exclusão (opcional):', '')
-  if (motivo === null) {
-    return
-  }
-
-  try {
-    erro.value = ''
-    mensagemSucesso.value = ''
-    await excluirTurmaBeachTennis(item.id, String(motivo || '').trim())
-    mensagemSucesso.value = `${termoGrupoSingular.value} enviada para a lixeira com sucesso.`
-
-    if (String(turmaSelecionadaId.value) === String(item.id)) {
-      turmaSelecionadaId.value = ''
-      limparSelecaoAlunos()
-    }
-
-    if (String(turmaEditandoId.value) === String(item.id)) {
-      cancelarEdicao(false)
-    }
-
-    await carregarTurmas()
-  } catch (error) {
-    erro.value = obterMensagemErro(
-      error,
-      `Não foi possível excluir a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
-    )
-    console.error(error)
-  }
-}
-
-async function carregarAlunosTurma(turmaId, { silencioso = false } = {}) {
-  if (!turmaId) {
-    limparSelecaoAlunos()
-    return
-  }
-
-  try {
-    carregandoVinculos.value = !silencioso
-    if (!silencioso) {
-      erro.value = ''
-    }
-
-    const resposta = await buscarAlunosTurmaBeachTennis(turmaId)
-    const lista = normalizarListaAlunos(Array.isArray(resposta) ? resposta : [])
-    alunosTurmaSelecionada.value = lista
-    alunosSelecionadosIds.value = lista.map((aluno) => obterChaveAluno(aluno)).filter(Boolean)
-  } catch (error) {
-    if (!silencioso) {
-      erro.value = obterMensagemErro(
-        error,
-        `Não foi possível carregar os ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} vinculados.`,
-      )
-    }
-    console.error(error)
-  } finally {
-    carregandoVinculos.value = false
-  }
-}
-
-function alternarAlunoSelecionado(aluno, selecionado) {
-  const chave = obterChaveAluno(aluno)
-  if (!chave) {
-    return
-  }
-
-  const conjunto = new Set(alunosSelecionadosIds.value.map((item) => String(item)))
-  if (selecionado) {
-    conjunto.add(chave)
-  } else {
-    conjunto.delete(chave)
-  }
-  alunosSelecionadosIds.value = [...conjunto]
-}
-
-async function salvarVinculos() {
-  if (!turmaSelecionadaId.value) {
-    erro.value = `Selecione ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} para vincular ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')}.`
-    return
-  }
-
-  try {
-    salvandoVinculos.value = true
-    erro.value = ''
-    mensagemSucesso.value = ''
-
-    await salvarAlunosTurmaBeachTennis(turmaSelecionadaId.value, alunosSelecionadosIds.value)
-    mensagemSucesso.value = `Vínculos de ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} salvos com sucesso.`
-    await carregarAlunosTurma(turmaSelecionadaId.value)
-    await carregarTurmas()
-  } catch (error) {
-    erro.value = obterMensagemErro(
-      error,
-      `Não foi possível salvar os vínculos de ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
-    )
-    console.error(error)
-  } finally {
-    salvandoVinculos.value = false
-  }
-}
-
-function aplicarFiltroNivel(valor) {
-  filtroNivelAluno.value = valor
-}
-
-function limparFiltrosAlunos() {
-  filtroBuscaAluno.value = ''
-  filtroNivelAluno.value = ''
-}
-
-function empresaBloqueadaFinanceiro() {
-  return String(statusFinanceiro.value?.statusFinanceiro || statusFinanceiro.value?.status || '')
-    .trim()
-    .toUpperCase() === 'BLOQUEADA_FINANCEIRO'
-}
-
-function horarioValido(valor) {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(valor || '').trim())
-}
-
-function numeroPositivoOuVazio(valor) {
-  const texto = String(valor ?? '').trim()
-  if (!texto) {
-    return true
-  }
-
-  const numero = Number(texto)
-  return Number.isInteger(numero) && numero > 0
 }
 
 function normalizarInteiroPositivo(valor, fallback = null) {
@@ -665,32 +254,30 @@ function validarTurmaFormulario() {
   if (!horario) {
     return {
       campo: 'horario',
-      mensagem: 'Informe o horário de início.',
+      mensagem: `Informe o horário de início da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
     }
   }
 
   if (!horarioValido(horario)) {
     return {
       campo: 'horario',
-      mensagem: 'Informe um horário de início válido no formato HH:mm.',
+      mensagem: 'Informe um horário válido no formato HH:mm.',
     }
   }
 
-  if (!numeroPositivoOuVazio(turma.value.duracaoMinutos)) {
+  const duracao = normalizarInteiroPositivo(turma.value.duracaoMinutos, null)
+  if (!duracao) {
     return {
       campo: 'duracao',
-      mensagem: 'Informe uma duração maior que zero.',
-    }
-  }
-
-  if (!numeroPositivoOuVazio(turma.value.vagas)) {
-    return {
-      campo: 'vagas',
-      mensagem: 'Informe uma quantidade de vagas maior que zero.',
+      mensagem: 'Informe a duração em minutos.',
     }
   }
 
   return null
+}
+
+function horarioValido(valor) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(valor || '').trim())
 }
 
 function focarCampoFormulario(campo) {
@@ -713,11 +300,6 @@ function focarCampoFormulario(campo) {
   const foco = alvo.value.querySelector?.('input, select, textarea, button')
   if (typeof foco?.focus === 'function') {
     foco.focus()
-    return
-  }
-
-  if (typeof alvo.value.focus === 'function') {
-    alvo.value.focus()
   }
 }
 
@@ -726,36 +308,187 @@ function obterMensagemErro(error, fallback) {
   return mensagem || fallback
 }
 
+async function carregarTurmas() {
+  try {
+    const resposta = await buscarTurmasBeachTennis()
+    turmas.value = normalizarTurmas(Array.isArray(resposta) ? resposta : [])
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível carregar as turmas.')
+    console.error(error)
+  }
+}
+
+async function carregarStatusFinanceiro() {
+  try {
+    statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
+  } catch (error) {
+    statusFinanceiro.value = null
+    console.error(error)
+  }
+}
+
+async function carregarFuncionarios() {
+  try {
+    const resposta = await buscarFuncionarios()
+    funcionarios.value = Array.isArray(resposta) ? resposta : []
+  } catch (error) {
+    funcionarios.value = []
+    console.error(error)
+  }
+}
+
+async function carregarTudo() {
+  await carregarContextoGestaoEsportiva()
+
+  if (modoVisualizacaoEmpresa.value || !moduloEsportivoAtivo.value) {
+    turmas.value = []
+    statusFinanceiro.value = null
+    carregando.value = false
+    return
+  }
+
+  carregando.value = true
+  erro.value = ''
+  mensagemSucesso.value = ''
+
+  try {
+    await Promise.all([carregarTurmas(), carregarStatusFinanceiro(), carregarFuncionarios()])
+  } finally {
+    carregando.value = false
+  }
+}
+
+function atualizarTurmasAposParticipantes() {
+  carregarTurmas().catch((error) => {
+    erro.value = obterMensagemErro(error, 'Não foi possível atualizar as turmas.')
+    console.error(error)
+  })
+}
+
+async function salvarTurma() {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
+  const validacao = validarTurmaFormulario()
+  if (validacao) {
+    erro.value = validacao.mensagem
+    await nextTick()
+    focarCampoFormulario(validacao.campo)
+    return
+  }
+
+  try {
+    salvandoTurma.value = true
+    erro.value = ''
+    mensagemSucesso.value = ''
+
+    const payload = montarPayloadTurma()
+
+    if (turmaEditandoId.value) {
+      await atualizarTurmaBeachTennis(turmaEditandoId.value, payload)
+      mensagemSucesso.value = `${termoGrupoSingular.value} atualizada com sucesso.`
+    } else {
+      const resposta = await criarTurmaBeachTennis(payload)
+      mensagemSucesso.value = `${termoGrupoSingular.value} cadastrada com sucesso.`
+      const novaTurmaId = resposta?.id || resposta?.turmaId
+      if (novaTurmaId) {
+        turmaEditandoId.value = String(novaTurmaId)
+      }
+    }
+
+    cancelarEdicao(false)
+    await carregarTurmas()
+  } catch (error) {
+    erro.value = obterMensagemErro(
+      error,
+      turmaEditandoId.value
+        ? `Não foi possível atualizar a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`
+        : `Não foi possível cadastrar a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
+    )
+    console.error(error)
+  } finally {
+    salvandoTurma.value = false
+  }
+}
+
+async function alternarAtivoTurma(item) {
+  try {
+    erro.value = ''
+    mensagemSucesso.value = ''
+    await atualizarTurmaBeachTennis(item.id, montarPayloadTurma(normalizarTurmaFormulario(item), { ativo: !estaAtiva(item) }))
+    mensagemSucesso.value = estaAtiva(item)
+      ? `${termoGrupoSingular.value} inativada com sucesso.`
+      : `${termoGrupoSingular.value} ativada com sucesso.`
+    await carregarTurmas()
+  } catch (error) {
+    erro.value = obterMensagemErro(
+      error,
+      `Não foi possível alterar o status da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
+    )
+    console.error(error)
+  }
+}
+
+async function removerTurma(item) {
+  const confirmou = window.confirm(
+    `Deseja excluir ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} "${item?.nome || ''}"?`,
+  )
+  if (!confirmou) {
+    return
+  }
+
+  const motivo = window.prompt('Motivo da exclusão (opcional):', '')
+  if (motivo === null) {
+    return
+  }
+
+  try {
+    erro.value = ''
+    mensagemSucesso.value = ''
+    await excluirTurmaBeachTennis(item.id, String(motivo || '').trim())
+    mensagemSucesso.value = `${termoGrupoSingular.value} enviada para a lixeira com sucesso.`
+
+    if (String(turmaEditandoId.value) === String(item.id)) {
+      cancelarEdicao(false)
+    }
+
+    await carregarTurmas()
+  } catch (error) {
+    erro.value = obterMensagemErro(
+      error,
+      `Não foi possível excluir a ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')}.`,
+    )
+    console.error(error)
+  }
+}
+
 function irParaFuncionarios() {
   router.push('/funcionarios')
 }
 
-function normalizarTexto(valor) {
-  return String(valor || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-}
-
-async function atualizarContextoEmpresa() {
-  await recarregarContextoGestaoEsportiva()
-  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
-  erro.value = ''
-  mensagemSucesso.value = ''
-  cancelarEdicao(false)
-  limparSelecaoAlunos()
-  carregarTudo()
+function atualizarContextoEmpresa() {
+  recarregarContextoGestaoEsportiva()
+    .then(() => {
+      modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+      return carregarTudo()
+    })
+    .catch((error) => {
+      erro.value = obterMensagemErro(error, 'Não foi possível atualizar o contexto da empresa.')
+    })
 }
 
 onMounted(async () => {
   await carregarContextoGestaoEsportiva()
   carregarTudo()
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
+  window.addEventListener(EVENTO_TURMAS_BEACH_TENNIS_ATUALIZADAS, atualizarTurmasAposParticipantes)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
+  window.removeEventListener(EVENTO_TURMAS_BEACH_TENNIS_ATUALIZADAS, atualizarTurmasAposParticipantes)
 })
 </script>
 
@@ -931,8 +664,10 @@ onBeforeUnmount(() => {
             <p v-if="item.observacoes" class="observacoes">{{ item.observacoes }}</p>
 
             <div class="acoes-card">
-              <button class="botao secundario" type="button" @click="selecionarTurma(item)">Ver {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }}</button>
-              <button class="botao secundario" type="button" @click="editarTurma(item)">Editar</button>
+              <button class="botao secundario" type="button" @click="irParaGerenciarAlunos(item)">
+                Gerenciar alunos
+              </button>
+              <button class="botao secundario" type="button" @click="selecionarTurma(item)">Editar</button>
               <button class="botao secundario" type="button" @click="alternarAtivoTurma(item)">
                 {{ estaAtiva(item) ? 'Inativar' : 'Ativar' }}
               </button>
@@ -940,140 +675,6 @@ onBeforeUnmount(() => {
             </div>
           </article>
         </div>
-      </section>
-
-      <section v-if="turmaSelecionada" class="painel-vinculos">
-        <article class="card painel-detalhe">
-          <div class="titulo-card">
-            <h2>{{ termoParticipantePlural }} vinculados</h2>
-            <p>
-              {{ turmaSelecionada.nome }}
-              <span v-if="turmaCheia" class="badge cheia">{{ termoGrupoSingular }} cheia</span>
-              <span class="badge nivel">{{ quantidadeAlunosVinculados }} {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }} vinculados</span>
-            </p>
-          </div>
-
-          <section v-if="carregandoVinculos" class="estado-vazio compacto">
-            <p>Carregando alunos vinculados...</p>
-          </section>
-
-          <section v-else-if="!alunosTurmaSelecionada.length" class="estado-vazio compacto">
-            <p>{{ `Nenhum ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} vinculado ainda.` }}</p>
-          </section>
-
-          <div v-else class="grupos-alunos">
-            <article v-for="grupo in gruposAlunosVinculados" :key="grupo.chave" class="grupo-alunos">
-              <h3>{{ grupo.titulo }} <span>{{ grupo.items.length }}</span></h3>
-              <ul class="lista-alunos">
-                <li v-for="aluno in grupo.items" :key="obterChaveAluno(aluno)" class="aluno-item">
-                  <div class="aluno-info">
-                    <strong>{{ aluno.nome }}</strong>
-                    <span v-if="rotuloNivelBeachTennis(aluno.nivelBeachTennis)" class="micro-badge">
-                      {{ rotuloNivelBeachTennis(aluno.nivelBeachTennis) }}
-                    </span>
-                    <span v-if="nivelIncompatível(aluno)" class="micro-badge alerta">
-                      {{ `Nível diferente da ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
-                    </span>
-                  </div>
-                  <small>
-                    {{ rotuloPerfilBeachTennis(aluno.perfilBeachTennis) || 'Sem perfil informado' }}
-                    <span v-if="aluno.email"> · {{ aluno.email }}</span>
-                    <span v-if="formatarDataBrasileira(aluno.dataNascimento)"> · {{ formatarDataBrasileira(aluno.dataNascimento) }}</span>
-                  </small>
-                </li>
-              </ul>
-            </article>
-          </div>
-        </article>
-
-        <article class="card painel-selecao">
-          <div class="titulo-card">
-            <h2>{{ `Vincular ${termoParticipantePlural}` }}</h2>
-            <p>
-              {{
-                `Use os checkboxes para incluir ou remover ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. Se houver nível diferente da ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}, o alerta é apenas visual.`
-              }}
-            </p>
-          </div>
-
-          <div class="filtros-alunos">
-            <label>
-              Buscar
-              <input v-model="filtroBuscaAluno" type="text" placeholder="Nome, e-mail, perfil..." />
-            </label>
-            <label>
-              Filtrar por nível
-              <select v-model="filtroNivelAluno">
-                <option value="">Todos</option>
-                <option v-for="opcao in OPCOES_NIVEL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
-                  {{ opcao.rotulo }}
-                </option>
-              </select>
-            </label>
-            <button class="botao secundario limpar-filtros" type="button" @click="limparFiltrosAlunos">Limpar filtros</button>
-          </div>
-
-          <section v-if="!alunosDisponiveis.length" class="estado-vazio compacto">
-            <p>{{ `Nenhum ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} disponível para vínculo.` }}</p>
-          </section>
-
-          <div v-else class="grupos-alunos vinculo">
-            <article v-for="grupo in gruposAlunosDisponiveis" :key="grupo.chave" class="grupo-alunos">
-              <h3>{{ grupo.titulo }} <span>{{ grupo.items.length }}</span></h3>
-
-              <ul class="lista-alunos">
-                <li v-for="aluno in grupo.items" :key="obterChaveAluno(aluno)" class="aluno-item selecionavel" :class="{ alerta: nivelIncompatível(aluno) }">
-                  <label class="aluno-checkbox">
-                    <input
-                      type="checkbox"
-                      :checked="alunosSelecionadosIds.includes(obterChaveAluno(aluno))"
-                      @change="alternarAlunoSelecionado(aluno, $event.target.checked)"
-                    />
-                    <div class="aluno-info">
-                      <strong>{{ aluno.nome }}</strong>
-                      <span v-if="rotuloNivelBeachTennis(aluno.nivelBeachTennis)" class="micro-badge">
-                        {{ rotuloNivelBeachTennis(aluno.nivelBeachTennis) }}
-                      </span>
-                      <span v-if="nivelIncompatível(aluno)" class="micro-badge alerta">
-                        {{ `Nível diferente da ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
-                      </span>
-                    </div>
-                  </label>
-                  <small>
-                    {{ rotuloPerfilBeachTennis(aluno.perfilBeachTennis) || 'Sem perfil informado' }}
-                    <span v-if="aluno.email"> · {{ aluno.email }}</span>
-                    <span v-if="aluno.telefone"> · {{ aluno.telefone }}</span>
-                    <span v-if="formatarDataBrasileira(aluno.dataNascimento)"> · {{ formatarDataBrasileira(aluno.dataNascimento) }}</span>
-                  </small>
-                  <small v-if="aluno.frequenciaSemanalBeachTennis || aluno.planoBeachTennis" class="meta-aluno">
-                    {{ rotuloFrequenciaSemanalBeachTennis(aluno.frequenciaSemanalBeachTennis) || '-' }}
-                    <span v-if="rotuloPlanoBeachTennis(aluno.planoBeachTennis)"> · {{ rotuloPlanoBeachTennis(aluno.planoBeachTennis) }}</span>
-                  </small>
-                </li>
-              </ul>
-            </article>
-          </div>
-
-          <div class="rodape-vinculos">
-            <p class="resumo-vinculos">
-              {{ `${quantidadeAlunosSelecionados} ${termoParticipantePlural.toLocaleLowerCase('pt-BR')} selecionados` }}
-            </p>
-            <button
-              class="botao principal"
-              type="button"
-              :disabled="salvandoVinculos || !turmaSelecionadaId"
-              @click="salvarVinculos"
-            >
-              {{ salvandoVinculos ? 'Salvando vínculos...' : 'Salvar vínculos' }}
-            </button>
-          </div>
-        </article>
-      </section>
-
-      <section v-else class="card estado-vazio detalhe-aguardando">
-        <p>
-          {{ `Selecione ${termoGrupoSingular.toLocaleLowerCase('pt-BR')} para ver e alterar ${termoParticipantePlural.toLocaleLowerCase('pt-BR')} vinculados.` }}
-        </p>
       </section>
     </section>
   </main>
@@ -1248,8 +849,6 @@ textarea:focus {
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   background: #ffffff;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .dia-opcao input {
@@ -1260,43 +859,6 @@ textarea:focus {
 .dia-opcao.selecionado {
   border-color: #0ea5e9;
   background: #e0f2fe;
-}
-
-.dia-opcao:focus-within {
-  outline: none;
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
-}
-
-.turma-ativa-card {
-  justify-content: flex-start;
-  align-items: flex-start;
-  padding: 14px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 14px;
-  background: #ffffff;
-  cursor: pointer;
-}
-
-.turma-ativa-card.ativa {
-  border-color: #22c55e;
-  background: #f0fdf4;
-}
-
-.turma-ativa-card span {
-  display: grid;
-  gap: 4px;
-}
-
-.turma-ativa-card small {
-  color: #475569;
-  font-weight: 500;
-  line-height: 1.35;
-}
-
-.turma-ativa-card:focus-within {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
 }
 
 .estado-professor-vazio {
@@ -1318,8 +880,7 @@ textarea:focus {
   justify-content: space-between;
 }
 
-.turmas-area,
-.painel-vinculos {
+.turmas-area {
   display: grid;
   gap: 18px;
 }
@@ -1348,10 +909,6 @@ textarea:focus {
 
 .estado-vazio {
   color: #64748b;
-}
-
-.estado-vazio.compacto {
-  padding: 14px 0 0;
 }
 
 .lista-turmas {
@@ -1467,133 +1024,6 @@ textarea:focus {
   gap: 8px;
 }
 
-.painel-detalhe,
-.painel-selecao {
-  display: grid;
-  gap: 16px;
-}
-
-.grupos-alunos {
-  display: grid;
-  gap: 14px;
-}
-
-.grupo-alunos {
-  display: grid;
-  gap: 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 14px;
-  background: #fff;
-}
-
-.grupo-alunos h3 {
-  margin: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 900;
-}
-
-.grupo-alunos h3 span {
-  font-size: 12px;
-  color: #1d4ed8;
-  background: #dbeafe;
-  border-radius: 999px;
-  padding: 4px 8px;
-}
-
-.lista-alunos {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.aluno-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 12px 14px;
-  background: #f8fafc;
-  display: grid;
-  gap: 6px;
-}
-
-.aluno-item.selecionavel {
-  background: #fff;
-}
-
-.aluno-item.alerta {
-  border-color: #fbbf24;
-  background: #fffbeb;
-}
-
-.aluno-checkbox {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 10px;
-  align-items: start;
-  cursor: pointer;
-}
-
-.aluno-checkbox input {
-  width: auto;
-  margin-top: 3px;
-}
-
-.aluno-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.aluno-info strong {
-  font-size: 15px;
-}
-
-.micro-badge {
-  border-radius: 999px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 900;
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.micro-badge.alerta {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.meta-aluno {
-  color: #475569;
-}
-
-.filtros-alunos {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  align-items: end;
-}
-
-.limpar-filtros {
-  min-width: 0;
-}
-
-.resumo-vinculos {
-  margin: 0;
-  color: #475569;
-  font-weight: 800;
-}
-
-.detalhe-aguardando {
-  color: #64748b;
-}
-
 .botao,
 :deep(.botao) {
   border: none;
@@ -1649,25 +1079,19 @@ textarea:focus {
   .lista-turmas {
     grid-template-columns: 1fr;
   }
-
-  .painel-vinculos {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 900px) {
   .cabecalho-pagina,
   .cabecalho-lista,
   .cabecalho-turma,
-  .rodape-formulario,
-  .rodape-vinculos {
+  .rodape-formulario {
     flex-direction: column;
     align-items: flex-start;
   }
 
   .campos,
   .grid-resumo,
-  .filtros-alunos,
   .dias-campo .dias-grade {
     grid-template-columns: 1fr;
   }
