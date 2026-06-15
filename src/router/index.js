@@ -3,6 +3,7 @@ const DashboardView = () => import('../views/DashboardView.vue')
 const HomeView = () => import('../views/HomeView.vue')
 const ClientesView = () => import('../views/ClientesView.vue')
 const BeachTennisTurmasView = () => import('../views/BeachTennisTurmasView.vue')
+const BeachTennisTurmaAlunosView = () => import('../views/BeachTennisTurmaAlunosView.vue')
 const BeachTennisFinanceiroView = () => import('../views/BeachTennisFinanceiroView.vue')
 const ServicosView = () => import('../views/ServicosView.vue')
 const FuncionariosView = () => import('../views/FuncionariosView.vue')
@@ -122,6 +123,12 @@ const router = createRouter({
       path: '/beach-tennis/turmas',
       name: 'beach-tennis-turmas',
       component: BeachTennisTurmasView,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
+    },
+    {
+      path: '/beach-tennis/turmas/:turmaId/alunos',
+      name: 'beach-tennis-turma-alunos',
+      component: BeachTennisTurmaAlunosView,
       meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {
