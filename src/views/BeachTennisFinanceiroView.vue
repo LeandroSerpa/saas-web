@@ -1,15 +1,12 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   EVENTO_EMPRESA_VISUALIZACAO,
-  buscarAcordoBeachTennis,
   buscarAcordosBeachTennis,
-  buscarAlunosAcordoBeachTennis,
   buscarClientes,
   buscarConfiguracaoBeachTennisFinanceira,
   buscarMensalidadesBeachTennis,
   buscarResumoFinanceiroBeachTennis,
-  buscarTurmasAcordoBeachTennis,
   buscarTurmasBeachTennis,
   cobrarMensalidadeWhatsappBeachTennis,
   criarAcordoBeachTennis,
@@ -101,6 +98,7 @@ const salvandoConfiguracao = ref(false)
 const salvandoMensalidade = ref(false)
 const processandoAcaoId = ref('')
 const acordoEditandoId = ref('')
+const inicializandoAcordoFormulario = ref(false)
 const mensalidadeManualAberta = ref(false)
 const mensalidadePagamentoAberta = ref(false)
 const erro = ref('')
@@ -157,8 +155,11 @@ const nomeAcordoExemplo = computed(() => `Acordo ${nomeModalidade.value}`)
 const alunosSelecionadosIds = computed({
   get: () => acordoFormulario.value.alunoIds || [],
   set: (valor) => {
-    acordoFormulario.value.alunoIds = [...new Set((valor || []).map((item) => String(item)).filter(Boolean))]
-    if (!acordoFormulario.value.alunoIds.includes(String(acordoFormulario.value.responsavelAlunoId || ''))) {
+    acordoFormulario.value.alunoIds = [...new Set((valor || []).map((item) => normalizarId(item)).filter(Boolean))]
+    if (
+      !inicializandoAcordoFormulario.value &&
+      !acordoFormulario.value.alunoIds.includes(normalizarId(acordoFormulario.value.responsavelAlunoId))
+    ) {
       acordoFormulario.value.responsavelAlunoId = ''
     }
   },
@@ -167,7 +168,7 @@ const alunosSelecionadosIds = computed({
 const turmasSelecionadasIds = computed({
   get: () => acordoFormulario.value.turmaIds || [],
   set: (valor) => {
-    acordoFormulario.value.turmaIds = [...new Set((valor || []).map((item) => String(item)).filter(Boolean))]
+    acordoFormulario.value.turmaIds = [...new Set((valor || []).map((item) => normalizarId(item)).filter(Boolean))]
   },
 })
 
@@ -187,16 +188,28 @@ const turmasDisponiveis = computed(() =>
 
 const alunosSelecionadosNoAcordo = computed(() =>
   alunosSelecionadosIds.value
-    .map((id) => alunosDisponiveis.value.find((item) => String(item.id) === String(id)) || clientes.value.find((item) => String(item.id) === String(id)))
-    .filter(Boolean)
-    .map((item) => normalizarAluno(item)),
+    .map((id) => {
+      const encontrado =
+        alunosDisponiveis.value.find((item) => normalizarId(item.id) === normalizarId(id)) ||
+        clientes.value.find((item) => normalizarId(item.id) === normalizarId(id)) ||
+        acordoFormulario.value.alunos?.find((item) => normalizarId(item.clienteId ?? item.id ?? item.alunoId ?? item.pessoaId) === normalizarId(id))
+
+      return encontrado ? normalizarAluno(encontrado) : criarAlunoSelecionadoFallback(id)
+    })
+    .filter(Boolean),
 )
 
 const turmasSelecionadasNoAcordo = computed(() =>
   turmasSelecionadasIds.value
-    .map((id) => turmasDisponiveis.value.find((item) => String(item.id) === String(id)) || turmas.value.find((item) => String(item.id) === String(id)))
-    .filter(Boolean)
-    .map((item) => normalizarTurma(item)),
+    .map((id) => {
+      const encontrado =
+        turmasDisponiveis.value.find((item) => normalizarId(item.id) === normalizarId(id)) ||
+        turmas.value.find((item) => normalizarId(item.id) === normalizarId(id)) ||
+        acordoFormulario.value.turmas?.find((item) => normalizarId(item.turmaId ?? item.id ?? item.alunoId ?? item.pessoaId) === normalizarId(id))
+
+      return encontrado ? normalizarTurma(encontrado) : criarTurmaSelecionadaFallback(id)
+    })
+    .filter(Boolean),
 )
 const alunosSelecionadosResumo = computed(() => alunosSelecionadosNoAcordo.value.slice(0, 6))
 const turmasSelecionadasResumo = computed(() => turmasSelecionadasNoAcordo.value.slice(0, 6))
@@ -204,10 +217,14 @@ const alunosSelecionadosExtras = computed(() => Math.max(alunosSelecionadosNoAco
 const turmasSelecionadasExtras = computed(() => Math.max(turmasSelecionadasNoAcordo.value.length - turmasSelecionadasResumo.value.length, 0))
 
 const responsavelSelecionado = computed(() =>
-  alunosSelecionadosNoAcordo.value.find((item) => String(item.id) === String(acordoFormulario.value.responsavelAlunoId || '')) || null,
+  alunosSelecionadosNoAcordo.value.find((item) => normalizarId(item.id) === normalizarId(acordoFormulario.value.responsavelAlunoId)) || null,
 )
 const avisoResponsavelSelecionado = computed(
-  () => alunosSelecionadosIds.value.length > 0 && !responsavelSelecionado.value && !String(acordoFormulario.value.responsavelAlunoId || '').trim(),
+  () =>
+    !inicializandoAcordoFormulario.value &&
+    alunosSelecionadosIds.value.length > 0 &&
+    !responsavelSelecionado.value &&
+    !String(acordoFormulario.value.responsavelAlunoId || '').trim(),
 )
 
 const acordosOrdenados = computed(() =>
@@ -286,16 +303,20 @@ function criarAcordoPadrao() {
     valorMensal: '',
     frequenciaSemanal: '',
     diaVencimento: '',
-    geracao: 'AUTOMATICA',
-    primeiroMes: 'INTEGRAL',
+    modoGeracao: 'AUTOMATICA',
+    tipoPrimeiroMes: 'INTEGRAL',
     valorPrimeiroMesManual: '',
     dataInicio: '',
-    dataFinal: '',
+    dataFim: '',
     status: 'ATIVO',
     observacoes: '',
     responsavelAlunoId: '',
+    clienteResponsavelId: '',
+    clienteResponsavelNome: '',
     alunoIds: [],
     turmaIds: [],
+    alunos: [],
+    turmas: [],
   }
 }
 
@@ -429,6 +450,7 @@ function limparDadosTela() {
   clientes.value = []
   turmas.value = []
   acordoEditandoId.value = ''
+  inicializandoAcordoFormulario.value = false
   mensalidadeManualAberta.value = false
   mensalidadePagamentoAberta.value = false
   cobrancaWhatsapp.value = criarCobrancaWhatsappPadrao()
@@ -450,6 +472,7 @@ async function recarregarTudo() {
 
 function abrirNovaAcordo() {
   acordoEditandoId.value = ''
+  inicializandoAcordoFormulario.value = false
   acordoFormulario.value = criarAcordoPadrao()
   buscaAlunoAcordoDigitada.value = ''
   buscaAlunoAcordoDebounced.value = ''
@@ -460,37 +483,29 @@ function abrirNovaAcordo() {
 
 async function abrirEdicaoAcordo(item) {
   acordoEditandoId.value = String(item.id || '')
+  inicializandoAcordoFormulario.value = true
   acordoFormulario.value = criarAcordoPadrao()
   erro.value = ''
   sucesso.value = ''
 
   try {
-    const [detalheResp, alunosResp, turmasResp] = await Promise.allSettled([
-      buscarAcordoBeachTennis(item.id),
-      buscarAlunosAcordoBeachTennis(item.id),
-      buscarTurmasAcordoBeachTennis(item.id),
-    ])
-
-    const base = detalheResp.status === 'fulfilled' ? normalizarAcordo(detalheResp.value) : normalizarAcordo(item)
-    const alunos = alunosResp.status === 'fulfilled' ? alunosResp.value : base.alunoIds
-    const turmasAcordo = turmasResp.status === 'fulfilled' ? turmasResp.value : base.turmaIds
-
-    acordoFormulario.value = normalizarAcordoFormulario({
-      ...base,
-      alunoIds: normalizarIds(alunos),
-      turmaIds: normalizarIds(turmasAcordo),
-    })
+    const base = normalizarAcordo(item)
+    acordoFormulario.value = normalizarAcordoFormulario(base)
     acordoEditandoId.value = String(base.id || item.id || '')
     mudarAba('acordos')
   } catch (exception) {
-    acordoFormulario.value = normalizarAcordoFormulario(item)
+    acordoFormulario.value = normalizarAcordoFormulario(normalizarAcordo(item))
     acordoEditandoId.value = String(item.id || '')
     console.error(exception)
+  } finally {
+    await nextTick()
+    inicializandoAcordoFormulario.value = false
   }
 }
 
 function cancelarEdicaoAcordo(limparMensagens = true) {
   acordoEditandoId.value = ''
+  inicializandoAcordoFormulario.value = false
   acordoFormulario.value = criarAcordoPadrao()
   buscaAlunoAcordoDigitada.value = ''
   buscaAlunoAcordoDebounced.value = ''
@@ -503,56 +518,67 @@ function cancelarEdicaoAcordo(limparMensagens = true) {
 }
 
 function normalizarAcordoFormulario(item = {}) {
+  const acordo = normalizarAcordo(item)
   const status = normalizarStatusAcordoBeachTennis(item.status || 'ATIVO')
 
   return {
-    nome: item.nome || '',
-    valorMensal: valorParaEntrada(item.valorMensal ?? item.valor ?? item.valorAcordo),
+    nome: acordo.nome || item.nome || '',
+    valorMensal: valorParaEntrada(acordo.valorMensal ?? item.valorMensal ?? item.valor ?? item.valorAcordo),
     frequenciaSemanal: String(item.frequenciaSemanal || item.frequencia || ''),
     diaVencimento: String(item.diaVencimento || item.vencimentoDia || ''),
-    geracao: String(item.modoGeracao || item.geracao || item.tipoGeracao || 'AUTOMATICA').toUpperCase(),
-    primeiroMes: String(item.primeiroMes || item.primeiroMesCobranca || 'INTEGRAL').toUpperCase(),
-    dataInicio: dataParaInput(item.dataInicio || item.inicio || item.dataInicioVigencia),
-    dataFinal: dataParaInput(item.dataFim || item.dataFinal || item.fim),
+    modoGeracao: String(acordo.modoGeracao || item.modoGeracao || item.geracao || item.tipoGeracao || 'AUTOMATICA').toUpperCase(),
+    tipoPrimeiroMes: String(acordo.tipoPrimeiroMes || item.tipoPrimeiroMes || item.primeiroMes || item.primeiroMesCobranca || 'INTEGRAL').toUpperCase(),
+    dataInicio: dataParaInput(acordo.dataInicio || item.dataInicio || item.inicio || item.dataInicioVigencia),
+    dataFim: dataParaInput(acordo.dataFim || item.dataFim || item.dataFinal || item.fim),
     status,
-    observacoes: item.observacoes || item.observacao || '',
-    responsavelAlunoId: String(
-      item.clienteResponsavelId || item.responsavelAlunoId || item.responsavelId || item.responsavelAcordoId || '',
+    observacoes: item.observacoes || item.observacao || acordo.observacoes || '',
+    responsavelAlunoId: normalizarId(
+      item.clienteResponsavelId || item.responsavelAlunoId || item.responsavelId || item.responsavelAcordoId || acordo.clienteResponsavelId,
     ),
-    valorPrimeiroMesManual: valorParaEntrada(item.valorPrimeiroMesManual ?? item.primeiroMesValorManual ?? ''),
-    alunoIds: normalizarIds(item.clienteIds || item.alunoIds || item.alunos || item.integrantes || []),
-    turmaIds: normalizarIds(item.turmaIds || item.turmas || []),
+    clienteResponsavelId: normalizarId(acordo.clienteResponsavelId || item.clienteResponsavelId || item.responsavelId || ''),
+    clienteResponsavelNome: acordo.clienteResponsavelNome || item.clienteResponsavelNome || item.responsavelNome || '',
+    valorPrimeiroMesManual: valorParaEntrada(acordo.valorPrimeiroMesManual ?? item.valorPrimeiroMesManual ?? item.primeiroMesValorManual ?? ''),
+    alunoIds: [...(acordo.alunoIds || normalizarIds(item.clienteIds || item.alunoIds || []))],
+    turmaIds: [...(acordo.turmaIds || normalizarIds(item.turmaIds || []))],
+    alunos: [...(acordo.alunos || [])],
+    turmas: [...(acordo.turmas || [])],
   }
 }
 
 function normalizarAcordo(item = {}) {
-  const alunos = normalizarIds(item.alunos || item.integrantes || item.alunoIds || item.clienteIds || [])
-  const turmasAcordo = normalizarIds(item.turmas || item.turmaIds || [])
+  const alunos = normalizarAlunosAcordo(item.alunos || item.integrantes || item.alunoIds || item.clienteIds || [])
+  const turmasAcordo = normalizarTurmasAcordo(item.turmas || item.turmaIds || [])
   const status = normalizarStatusAcordoBeachTennis(item.status)
+  const clienteResponsavelId = normalizarId(item.clienteResponsavelId || item.responsavelAlunoId || item.responsavelId || item.responsavelAcordoId || '')
+  const clienteResponsavelNome =
+    item.clienteResponsavelNome ||
+    item.responsavelNome ||
+    item.responsavel ||
+    alunos.find((aluno) => aluno.clienteId === clienteResponsavelId)?.clienteNome ||
+    'Responsável não informado'
 
   return {
     ...item,
-    id: item.id ?? item.acordoId ?? item.acordoBeachTennisId ?? '',
+    id: normalizarId(item.id ?? item.acordoId ?? item.acordoBeachTennisId ?? ''),
     nome: item.nome || item.descricao || item.titulo || 'Acordo sem nome',
     valorMensal: numeroSeguro(item.valorMensal ?? item.valor ?? item.valorAcordo),
     frequenciaSemanal: String(item.frequenciaSemanal || item.frequencia || ''),
     diaVencimento: String(item.diaVencimento || item.vencimentoDia || ''),
-    geracao: String(item.modoGeracao || item.geracao || item.tipoGeracao || '').trim().toUpperCase(),
-    primeiroMes: String(item.primeiroMes || item.primeiroMesCobranca || '').trim().toUpperCase(),
+    modoGeracao: String(item.modoGeracao || item.geracao || item.tipoGeracao || '').trim().toUpperCase(),
+    tipoPrimeiroMes: String(item.tipoPrimeiroMes || item.primeiroMes || item.primeiroMesCobranca || '').trim().toUpperCase(),
     valorPrimeiroMesManual: numeroSeguro(item.valorPrimeiroMesManual ?? item.primeiroMesValorManual),
     dataInicio: item.dataInicio || item.inicio || '',
-    dataFinal: item.dataFim || item.dataFinal || item.fim || '',
+    dataFim: item.dataFim || item.dataFinal || item.fim || '',
     status,
     observacoes: item.observacoes || item.observacao || '',
-    responsavelAlunoId: String(item.clienteResponsavelId || item.responsavelAlunoId || item.responsavelId || ''),
-    responsavelNome:
-      item.clienteResponsavelNome ||
-      item.responsavelNome ||
-      item.responsavel ||
-      alunosSelecionadosNoNome(item, alunos) ||
-      'Responsável não informado',
+    clienteResponsavelId,
+    clienteResponsavelNome,
+    responsavelAlunoId: clienteResponsavelId,
+    responsavelNome: clienteResponsavelNome,
     alunos,
     turmas: turmasAcordo,
+    alunoIds: alunos.map((aluno) => aluno.clienteId).filter(Boolean),
+    turmaIds: turmasAcordo.map((turma) => turma.turmaId).filter(Boolean),
     whatsappUrl: item.whatsappUrl || item.urlWhatsapp || item.linkWhatsapp || '',
   }
 }
@@ -730,8 +756,8 @@ function gerarPayloadAcordo() {
   const turmaIds = normalizarIds(turmasSelecionadasIds.value)
     .map((id) => Number.parseInt(id, 10))
     .filter((id) => Number.isFinite(id))
-  const modoGeracao = String(acordoFormulario.value.geracao || 'AUTOMATICA').trim().toUpperCase()
-  const tipoPrimeiroMes = String(acordoFormulario.value.primeiroMes || 'INTEGRAL').trim().toUpperCase()
+  const modoGeracao = String(acordoFormulario.value.modoGeracao || 'AUTOMATICA').trim().toUpperCase()
+  const tipoPrimeiroMes = String(acordoFormulario.value.tipoPrimeiroMes || 'INTEGRAL').trim().toUpperCase()
   const status = normalizarStatusAcordoBeachTennis(acordoFormulario.value.status || 'ATIVO')
 
   return {
@@ -744,7 +770,7 @@ function gerarPayloadAcordo() {
     valorPrimeiroMesManual:
       tipoPrimeiroMes === 'MANUAL' ? numeroSeguro(acordoFormulario.value.valorPrimeiroMesManual) : undefined,
     dataInicio: acordoFormulario.value.dataInicio || '',
-    dataFim: acordoFormulario.value.dataFinal || '',
+    dataFim: acordoFormulario.value.dataFim || '',
     status,
     observacoes: String(acordoFormulario.value.observacoes || '').trim(),
     clienteResponsavelId: Number.parseInt(String(acordoFormulario.value.responsavelAlunoId || '').trim(), 10) || undefined,
@@ -815,7 +841,7 @@ function validarAcordo() {
     return 'Informe o valor mensal do acordo.'
   }
 
-  if (String(acordoFormulario.value.primeiroMes || '').trim().toUpperCase() === 'MANUAL' &&
+  if (String(acordoFormulario.value.tipoPrimeiroMes || '').trim().toUpperCase() === 'MANUAL' &&
     !String(acordoFormulario.value.valorPrimeiroMesManual || '').trim()) {
     return 'Informe o valor do primeiro mês manual.'
   }
@@ -1316,7 +1342,9 @@ function mudarAba(aba) {
 function normalizarAluno(item = {}) {
   return {
     ...item,
-    id: item.id ?? item.alunoId ?? item.clienteId ?? item.pessoaId ?? '',
+    id: normalizarId(item.id ?? item.alunoId ?? item.clienteId ?? item.pessoaId ?? ''),
+    clienteId: normalizarId(item.clienteId ?? item.id ?? item.alunoId ?? item.pessoaId ?? ''),
+    clienteNome: item.clienteNome || item.nome || item.nomeCompleto || termoParticipanteSingular.value,
     nome: item.nome || item.nomeCompleto || item.clienteNome || termoParticipanteSingular.value,
     telefone: item.telefone || item.celular || '',
     email: item.email || '',
@@ -1328,11 +1356,75 @@ function normalizarAluno(item = {}) {
 function normalizarTurma(item = {}) {
   return {
     ...item,
-    id: item.id ?? item.turmaId ?? '',
-    nome: item.nome || item.descricao || termoGrupoSingular.value,
+    id: normalizarId(item.id ?? item.turmaId ?? ''),
+    turmaId: normalizarId(item.turmaId ?? item.id ?? ''),
+    turmaNome: item.turmaNome || item.nome || item.descricao || termoGrupoSingular.value,
+    nome: item.nome || item.descricao || item.turmaNome || termoGrupoSingular.value,
     nivelBeachTennis: item.nivelBeachTennis || item.nivel || '',
     professorResponsavelNome: item.professorResponsavelNome || item.professorNome || item.responsavelNome || '',
   }
+}
+
+function normalizarId(valor) {
+  return String(valor ?? '').trim()
+}
+
+function normalizarAlunoAcordo(item = {}) {
+  if (typeof item !== 'object' || item === null) {
+    const id = normalizarId(item)
+    return {
+      id,
+      clienteId: id,
+      clienteNome: id,
+      nome: id,
+      ativo: true,
+    }
+  }
+
+  const clienteId = normalizarId(item.clienteId ?? item.id ?? item.alunoId ?? item.pessoaId ?? '')
+  const clienteNome = String(item.clienteNome || item.nome || item.nomeCompleto || '').trim()
+
+  return {
+    ...item,
+    id: clienteId,
+    clienteId,
+    clienteNome: clienteNome || clienteId,
+    nome: clienteNome || clienteId,
+    ativo: item.ativo !== false,
+  }
+}
+
+function normalizarTurmaAcordo(item = {}) {
+  if (typeof item !== 'object' || item === null) {
+    const id = normalizarId(item)
+    return {
+      id,
+      turmaId: id,
+      turmaNome: id,
+      nome: id,
+      ativo: true,
+    }
+  }
+
+  const turmaId = normalizarId(item.turmaId ?? item.id ?? item.alunoId ?? item.pessoaId ?? '')
+  const turmaNome = String(item.turmaNome || item.nome || item.descricao || '').trim()
+
+  return {
+    ...item,
+    id: turmaId,
+    turmaId,
+    turmaNome: turmaNome || turmaId,
+    nome: turmaNome || turmaId,
+    ativo: item.ativo !== false,
+  }
+}
+
+function normalizarAlunosAcordo(lista = []) {
+  return [].concat(lista || []).map((item) => normalizarAlunoAcordo(item)).filter((item) => item.ativo !== false && item.clienteId)
+}
+
+function normalizarTurmasAcordo(lista = []) {
+  return [].concat(lista || []).map((item) => normalizarTurmaAcordo(item)).filter((item) => item.ativo !== false && item.turmaId)
 }
 
 function nomesDosIds(lista = []) {
@@ -1354,12 +1446,37 @@ function nomesDosIds(lista = []) {
     .join(', ')
 }
 
-function alunosSelecionadosNoNome(item, alunosIds = []) {
-  return normalizarIds(alunosIds)
-    .map((id) => clientes.value.find((cliente) => String(cliente.id) === String(id)))
-    .filter(Boolean)
-    .map((aluno) => normalizarAluno(aluno).nome)
-    .join(', ')
+function rotuloPrimeiroMesAcordo(valor) {
+  const tipo = String(valor || '').trim().toUpperCase()
+  const mapa = {
+    INTEGRAL: 'Primeiro mês integral',
+    PROPORCIONAL: 'Primeiro mês proporcional',
+    MANUAL: 'Primeiro mês manual',
+  }
+
+  return mapa[tipo] || 'Primeiro mês não informado'
+}
+
+function criarAlunoSelecionadoFallback(id) {
+  const clienteId = normalizarId(id)
+  return {
+    id: clienteId,
+    clienteId,
+    clienteNome: clienteId,
+    nome: clienteId,
+    ativo: true,
+  }
+}
+
+function criarTurmaSelecionadaFallback(id) {
+  const turmaId = normalizarId(id)
+  return {
+    id: turmaId,
+    turmaId,
+    turmaNome: turmaId,
+    nome: turmaId,
+    ativo: true,
+  }
 }
 
 function textinho(valor) {
@@ -1686,6 +1803,10 @@ watch(competenciaSelecionada, async () => {
 watch(
   alunosSelecionadosIds,
   (ids) => {
+    if (inicializandoAcordoFormulario.value) {
+      return
+    }
+
     if (!ids.includes(String(acordoFormulario.value.responsavelAlunoId || ''))) {
       acordoFormulario.value.responsavelAlunoId = ''
     }
@@ -1832,7 +1953,7 @@ onBeforeUnmount(() => {
 
             <label>
               Geração
-              <select v-model="acordoFormulario.geracao">
+              <select v-model="acordoFormulario.modoGeracao">
                 <option v-for="opcao in GESTAO_GERACAO" :key="opcao.valor" :value="opcao.valor">
                   {{ opcao.rotulo }}
                 </option>
@@ -1841,14 +1962,14 @@ onBeforeUnmount(() => {
 
             <label>
               Primeiro mês
-              <select v-model="acordoFormulario.primeiroMes">
+              <select v-model="acordoFormulario.tipoPrimeiroMes">
                 <option v-for="opcao in PRIMEIRO_MES" :key="opcao.valor" :value="opcao.valor">
                   {{ opcao.rotulo }}
                 </option>
               </select>
             </label>
 
-            <label v-if="acordoFormulario.primeiroMes === 'MANUAL'">
+            <label v-if="acordoFormulario.tipoPrimeiroMes === 'MANUAL'">
               Valor do primeiro mês
               <input
                 v-model="acordoFormulario.valorPrimeiroMesManual"
@@ -1865,7 +1986,7 @@ onBeforeUnmount(() => {
 
             <label>
               Data final
-              <input v-model="acordoFormulario.dataFinal" type="date" />
+              <input v-model="acordoFormulario.dataFim" type="date" />
             </label>
 
             <label>
@@ -1894,7 +2015,7 @@ onBeforeUnmount(() => {
               </p>
               <div class="resumo-selecao">
                 <div class="resumo-selecao-topo">
-                  <strong>{{ alunosSelecionadosNoAcordo.length }} selecionado(s)</strong>
+                  <strong>{{ alunosSelecionadosIds.length }} selecionado(s)</strong>
                   <button class="botao secundario compacto" type="button" @click="limparSelecaoAlunosAcordo">
                     Limpar seleção
                   </button>
@@ -1966,7 +2087,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="resumo-selecao">
                 <div class="resumo-selecao-topo">
-                  <strong>{{ turmasSelecionadasNoAcordo.length }} selecionada(s)</strong>
+                  <strong>{{ turmasSelecionadasIds.length }} selecionada(s)</strong>
                   <button class="botao secundario compacto" type="button" @click="limparSelecaoTurmasAcordo">
                     Limpar seleção
                   </button>
@@ -2031,20 +2152,20 @@ onBeforeUnmount(() => {
                   <h3>{{ acordo.nome }}</h3>
                   <p>
                     <span :class="classeStatusAcordo(acordo.status)">{{ statusAcordoRotulo(acordo.status) }}</span>
-                    <span :class="classeGeracao(acordo.geracao)">{{ acordo.geracao || 'Geração não informada' }}</span>
-                    <span :class="classePrimeiroMes(acordo.primeiroMes)">{{ acordo.primeiroMes || 'Primeiro mês não informado' }}</span>
+                    <span :class="classeGeracao(acordo.modoGeracao)">{{ acordo.modoGeracao || 'Geração não informada' }}</span>
+                    <span :class="classePrimeiroMes(acordo.tipoPrimeiroMes)">{{ rotuloPrimeiroMesAcordo(acordo.tipoPrimeiroMes) }}</span>
                   </p>
                 </div>
                 <strong>{{ formatarMoeda(acordo.valorMensal) }}</strong>
               </div>
 
               <div class="resumo-card">
-                <p><strong>Responsável pelo pagamento:</strong> {{ acordo.responsavelNome }}</p>
-                <p><strong>{{ termoParticipantePlural }}:</strong> {{ nomesDosIds(acordo.alunos) || `Sem ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}` }}</p>
-                <p><strong>{{ termoGrupoPlural }}:</strong> {{ nomesDosIds(acordo.turmas) || `Sem ${termoGrupoPlural.toLocaleLowerCase('pt-BR')}` }}</p>
+                <p><strong>Responsável pelo pagamento:</strong> {{ acordo.clienteResponsavelNome }}</p>
+                <p><strong>{{ termoParticipantePlural }}:</strong> {{ acordo.alunos.map((aluno) => aluno.clienteNome).filter(Boolean).join(', ') || `Sem ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}` }}</p>
+                <p><strong>{{ termoGrupoPlural }}:</strong> {{ acordo.turmas.map((turma) => turma.turmaNome).filter(Boolean).join(', ') || `Sem ${termoGrupoPlural.toLocaleLowerCase('pt-BR')}` }}</p>
                 <p><strong>Vencimento:</strong> Dia {{ acordo.diaVencimento || '-' }}</p>
                 <p><strong>Frequência:</strong> {{ acordo.frequenciaSemanal ? `${acordo.frequenciaSemanal}x por semana` : '-' }}</p>
-                <p><strong>Período:</strong> {{ formatarData(acordo.dataInicio) }} {{ acordo.dataFinal ? `até ${formatarData(acordo.dataFinal)}` : '' }}</p>
+                <p><strong>Período:</strong> {{ formatarData(acordo.dataInicio) }} {{ acordo.dataFim ? `até ${formatarData(acordo.dataFim)}` : '' }}</p>
               </div>
 
               <p v-if="acordo.observacoes" class="observacoes">{{ acordo.observacoes }}</p>
