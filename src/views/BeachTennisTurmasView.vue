@@ -187,7 +187,10 @@ function irParaGerenciarAlunos(item = {}) {
     return
   }
 
-  router.push(`/beach-tennis/turmas/${turmaId}/alunos`)
+  router.push({
+    path: '/beach-tennis/alunos',
+    query: { turmaId },
+  })
 }
 
 function cancelarEdicao(limparMensagens = true) {
@@ -671,7 +674,7 @@ onBeforeUnmount(() => {
               <button class="botao secundario" type="button" @click="alternarAtivoTurma(item)">
                 {{ estaAtiva(item) ? 'Inativar' : 'Ativar' }}
               </button>
-              <button class="botao perigo" type="button" @click="removerTurma(item)">Excluir</button>
+              <button class="botao perigo acao-excluir" type="button" @click="removerTurma(item)">Excluir</button>
             </div>
           </article>
         </div>
@@ -685,6 +688,12 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 22px;
   color: #0f172a;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 .cabecalho-pagina {
@@ -766,7 +775,7 @@ onBeforeUnmount(() => {
 
 .campos {
   display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -815,6 +824,8 @@ textarea:focus {
   padding: 14px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   background: #f8fbff;
+  width: 100%;
+  min-width: 0;
 }
 
 .dias-campo legend {
@@ -849,11 +860,25 @@ textarea:focus {
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   background: #ffffff;
+  min-height: 44px;
+  min-width: 0;
+  cursor: pointer;
 }
 
 .dia-opcao input {
   width: auto;
   margin: 0;
+}
+
+.dia-opcao span {
+  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.dia-opcao:focus-within {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.14);
 }
 
 .dia-opcao.selecionado {
@@ -921,6 +946,7 @@ textarea:focus {
   display: grid;
   gap: 14px;
   border-left: 5px solid #0ea5e9;
+  min-width: 0;
 }
 
 .turma-card.cheia {
@@ -1019,9 +1045,13 @@ textarea:focus {
 }
 
 .acoes-card {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.acoes-card .acao-excluir {
+  grid-column: 1 / -1;
 }
 
 .botao,
@@ -1099,6 +1129,51 @@ textarea:focus {
   .badge-vagas {
     align-self: stretch;
     place-items: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .dias-campo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dias-campo legend {
+    padding-left: 0;
+  }
+
+  .campos {
+    grid-template-columns: 1fr;
+  }
+
+  .acoes-card {
+    grid-template-columns: 1fr;
+  }
+
+  .acoes-card .acao-excluir {
+    grid-column: auto;
+  }
+
+  .acao-excluir {
+    border-top: 1px solid rgba(220, 38, 38, 0.15);
+    padding-top: 10px;
+  }
+
+  .rodape-formulario {
+    width: 100%;
+  }
+
+  .rodape-formulario .botao {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .dias-campo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dia-opcao {
+    padding: 10px;
   }
 }
 </style>

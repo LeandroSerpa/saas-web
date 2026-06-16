@@ -66,6 +66,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Gerenciar participantes',
     descricao: 'Gerencie os participantes da turma em lote, com experiência otimizada para celular.',
   },
+  'beach-tennis-alunos': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Gerenciar participantes',
+    descricao: 'Gerencie os participantes da turma em lote, com experiência otimizada para celular.',
+  },
   'beach-tennis-financeiro': {
     subtitulo: 'Gestão Esportiva',
     titulo: 'Financeiro esportivo',
@@ -245,6 +250,7 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   clientes: 'clientes',
   'beach-tennis-turmas': 'clientes',
   'beach-tennis-turma-alunos': 'clientes',
+  'beach-tennis-alunos': 'clientes',
   'beach-tennis-financeiro': 'faturas-meu-plano',
   servicos: 'servicos',
   funcionarios: 'funcionarios',
@@ -323,6 +329,7 @@ const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloGestaoEsportivaVisivel = computed(() => contextoEsportivo.value?.ativo === true)
 const tituloMenuGestaoEsportiva = computed(() => formatarNomeModalidadeEmCaixaAlta(contextoEsportivo.value?.nomeModalidade))
 const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
+const rotuloParticipanteMenuPlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Alunos')
 const gruposMenuAbertos = ref({
   principal: true,
   beachTennis: true,
@@ -390,7 +397,7 @@ function obterCabecalhoPadrao(nomeRota) {
       }
     }
 
-    if (nomeRota === 'beach-tennis-turma-alunos') {
+    if (nomeRota === 'beach-tennis-turma-alunos' || nomeRota === 'beach-tennis-alunos') {
       return {
         subtitulo: contextoEsportivo.value.nomeModalidade,
         titulo: `Gerenciar ${normalizarTextoCabecalho(contextoEsportivo.value.termoParticipantePlural)}`,
@@ -830,6 +837,7 @@ onBeforeUnmount(() => {
           </button>
           <div v-if="grupoMenuAberto('beachTennis')" class="submenu">
             <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">{{ rotuloGrupoEsportivoPlural }}</RouterLink>
+            <RouterLink to="/beach-tennis/alunos" @click="fecharMenuMobile">{{ rotuloParticipanteMenuPlural }}</RouterLink>
             <RouterLink to="/beach-tennis/financeiro" @click="fecharMenuMobile">Financeiro</RouterLink>
           </div>
         </section>

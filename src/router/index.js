@@ -126,9 +126,21 @@ const router = createRouter({
       meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {
+      path: '/beach-tennis/alunos',
+      name: 'beach-tennis-alunos',
+      component: BeachTennisTurmaAlunosView,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
+    },
+    {
       path: '/beach-tennis/turmas/:turmaId/alunos',
       name: 'beach-tennis-turma-alunos',
-      component: BeachTennisTurmaAlunosView,
+      redirect: (to) => ({
+        name: 'beach-tennis-alunos',
+        query: {
+          ...to.query,
+          turmaId: String(to.params.turmaId || '').trim(),
+        },
+      }),
       meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {
