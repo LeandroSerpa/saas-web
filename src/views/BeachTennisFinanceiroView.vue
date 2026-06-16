@@ -123,11 +123,17 @@ const filtrosAcordo = ref({
   buscaTurma: '',
   status: '',
 })
+const buscaAlunoAcordoDigitada = ref('')
+const buscaAlunoAcordoDebounced = ref('')
+const buscaTurmaAcordoDigitada = ref('')
+const buscaTurmaAcordoDebounced = ref('')
 const acordoFormulario = ref(criarAcordoPadrao())
 const mensalidadeManual = ref(criarMensalidadeManualPadrao())
 const pagamentoMensalidade = ref(criarPagamentoPadrao())
 const cobrancaWhatsapp = ref(criarCobrancaWhatsappPadrao())
 let janelaWhatsapp = null
+let temporizadorBuscaAluno = null
+let temporizadorBuscaTurma = null
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
 const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
@@ -192,9 +198,16 @@ const turmasSelecionadasNoAcordo = computed(() =>
     .filter(Boolean)
     .map((item) => normalizarTurma(item)),
 )
+const alunosSelecionadosResumo = computed(() => alunosSelecionadosNoAcordo.value.slice(0, 6))
+const turmasSelecionadasResumo = computed(() => turmasSelecionadasNoAcordo.value.slice(0, 6))
+const alunosSelecionadosExtras = computed(() => Math.max(alunosSelecionadosNoAcordo.value.length - alunosSelecionadosResumo.value.length, 0))
+const turmasSelecionadasExtras = computed(() => Math.max(turmasSelecionadasNoAcordo.value.length - turmasSelecionadasResumo.value.length, 0))
 
 const responsavelSelecionado = computed(() =>
   alunosSelecionadosNoAcordo.value.find((item) => String(item.id) === String(acordoFormulario.value.responsavelAlunoId || '')) || null,
+)
+const avisoResponsavelSelecionado = computed(
+  () => alunosSelecionadosIds.value.length > 0 && !responsavelSelecionado.value && !String(acordoFormulario.value.responsavelAlunoId || '').trim(),
 )
 
 const acordosOrdenados = computed(() =>
@@ -425,6 +438,10 @@ function limparDadosTela() {
   configuracao.value = criarConfiguracaoPadrao()
   sucesso.value = ''
   erro.value = ''
+  buscaAlunoAcordoDigitada.value = ''
+  buscaAlunoAcordoDebounced.value = ''
+  buscaTurmaAcordoDigitada.value = ''
+  buscaTurmaAcordoDebounced.value = ''
 }
 
 async function recarregarTudo() {
@@ -434,6 +451,10 @@ async function recarregarTudo() {
 function abrirNovaAcordo() {
   acordoEditandoId.value = ''
   acordoFormulario.value = criarAcordoPadrao()
+  buscaAlunoAcordoDigitada.value = ''
+  buscaAlunoAcordoDebounced.value = ''
+  buscaTurmaAcordoDigitada.value = ''
+  buscaTurmaAcordoDebounced.value = ''
   mudarAba('acordos')
 }
 
@@ -471,6 +492,10 @@ async function abrirEdicaoAcordo(item) {
 function cancelarEdicaoAcordo(limparMensagens = true) {
   acordoEditandoId.value = ''
   acordoFormulario.value = criarAcordoPadrao()
+  buscaAlunoAcordoDigitada.value = ''
+  buscaAlunoAcordoDebounced.value = ''
+  buscaTurmaAcordoDigitada.value = ''
+  buscaTurmaAcordoDebounced.value = ''
 
   if (limparMensagens) {
     sucesso.value = ''
@@ -779,11 +804,11 @@ function validarAcordo() {
   }
 
   if (!String(acordoFormulario.value.responsavelAlunoId || '').trim()) {
-    return `Selecione o responsável pelo pagamento entre os ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} do acordo.`
+    return 'Escolha o responsável pelo pagamento entre os alunos selecionados.'
   }
 
   if (!alunosSelecionadosIds.value.includes(String(acordoFormulario.value.responsavelAlunoId || ''))) {
-    return 'O responsável pelo pagamento precisa estar entre os participantes selecionados.'
+    return 'O responsável pelo pagamento precisa estar entre os alunos selecionados.'
   }
 
   if (!String(acordoFormulario.value.valorMensal || '').trim()) {
@@ -829,12 +854,41 @@ function alternarTurmaAcordo(id) {
   turmasSelecionadasIds.value = [...conjunto]
 }
 
+function limparSelecaoAlunosAcordo() {
+  alunosSelecionadosIds.value = []
+  acordoFormulario.value.responsavelAlunoId = ''
+}
+
+function limparSelecaoTurmasAcordo() {
+  turmasSelecionadasIds.value = []
+}
+
+function buscarAlunosAcordoComDebounce() {
+  if (temporizadorBuscaAluno) {
+    window.clearTimeout(temporizadorBuscaAluno)
+  }
+
+  temporizadorBuscaAluno = window.setTimeout(() => {
+    buscaAlunoAcordoDebounced.value = String(buscaAlunoAcordoDigitada.value || '').trim()
+  }, 250)
+}
+
+function buscarTurmasAcordoComDebounce() {
+  if (temporizadorBuscaTurma) {
+    window.clearTimeout(temporizadorBuscaTurma)
+  }
+
+  temporizadorBuscaTurma = window.setTimeout(() => {
+    buscaTurmaAcordoDebounced.value = String(buscaTurmaAcordoDigitada.value || '').trim()
+  }, 250)
+}
+
 function selecionarResponsavelAcordo(id) {
   acordoFormulario.value.responsavelAlunoId = String(id || '').trim()
 }
 
 function filtrarAlunoNoAcordo(aluno = {}) {
-  const busca = normalizarTexto(filtrosAcordo.value.buscaAluno)
+  const busca = normalizarTexto(buscaAlunoAcordoDebounced.value)
   if (!busca) return true
 
   const campos = [aluno.nome, aluno.telefone, aluno.email, aluno.perfilBeachTennis, aluno.nivelBeachTennis]
@@ -842,7 +896,7 @@ function filtrarAlunoNoAcordo(aluno = {}) {
 }
 
 function filtrarTurmaNoAcordo(turma = {}) {
-  const busca = normalizarTexto(filtrosAcordo.value.buscaTurma)
+  const busca = normalizarTexto(buscaTurmaAcordoDebounced.value)
   if (!busca) return true
 
   const campos = [turma.nome, turma.nivelBeachTennis, turma.professorResponsavelNome]
@@ -1648,6 +1702,9 @@ watch(
   },
 )
 
+watch(buscaAlunoAcordoDigitada, buscarAlunosAcordoComDebounce)
+watch(buscaTurmaAcordoDigitada, buscarTurmasAcordoComDebounce)
+
 async function atualizarContextoEmpresa() {
   await recarregarContextoGestaoEsportiva()
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
@@ -1667,6 +1724,16 @@ onBeforeUnmount(() => {
   if (janelaWhatsapp) {
     janelaWhatsapp.close()
     janelaWhatsapp = null
+  }
+
+  if (temporizadorBuscaAluno) {
+    window.clearTimeout(temporizadorBuscaAluno)
+    temporizadorBuscaAluno = null
+  }
+
+  if (temporizadorBuscaTurma) {
+    window.clearTimeout(temporizadorBuscaTurma)
+    temporizadorBuscaTurma = null
   }
 })
 </script>
@@ -1825,9 +1892,25 @@ onBeforeUnmount(() => {
               <p class="ajuda-campo">
                 {{ `Selecione um ou vários ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. O responsável pelo pagamento precisa estar nesta lista.` }}
               </p>
+              <div class="resumo-selecao">
+                <div class="resumo-selecao-topo">
+                  <strong>{{ alunosSelecionadosNoAcordo.length }} selecionado(s)</strong>
+                  <button class="botao secundario compacto" type="button" @click="limparSelecaoAlunosAcordo">
+                    Limpar seleção
+                  </button>
+                </div>
+                <div v-if="alunosSelecionadosNoAcordo.length" class="chips-selecao" aria-label="Resumo dos alunos selecionados">
+                  <span v-for="aluno in alunosSelecionadosResumo" :key="aluno.id" class="chip-selecao">
+                    {{ aluno.nome }}
+                  </span>
+                  <span v-if="alunosSelecionadosExtras > 0" class="chip-selecao sutileza">
+                    +{{ alunosSelecionadosExtras }}
+                  </span>
+                </div>
+              </div>
               <label class="campo-busca">
                 {{ `Buscar ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}` }}
-                <input v-model="filtrosAcordo.buscaAluno" type="text" placeholder="Nome, telefone ou e-mail" />
+                <input v-model="buscaAlunoAcordoDigitada" type="search" placeholder="Nome, telefone ou e-mail" />
               </label>
               <div class="lista-checkboxes">
                 <label v-for="aluno in alunosDisponiveis" :key="aluno.id" class="item-checkbox">
@@ -1838,7 +1921,10 @@ onBeforeUnmount(() => {
                   />
                   <span>
                     <strong>{{ aluno.nome }}</strong>
-                    <small v-if="aluno.telefone">{{ aluno.telefone }}</small>
+                    <small>
+                      <span v-if="aluno.telefone">{{ aluno.telefone }}</span>
+                      <span v-if="aluno.email"> {{ aluno.telefone ? '· ' : '' }}{{ aluno.email }}</span>
+                    </small>
                   </span>
                 </label>
               </div>
@@ -1851,6 +1937,9 @@ onBeforeUnmount(() => {
               </div>
               <p class="ajuda-campo">
                 {{ `O pagamento é sempre único por acordo, sem rateio entre ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}.` }}
+              </p>
+              <p v-if="avisoResponsavelSelecionado" class="aviso-responsavel">
+                Escolha o responsável pelo pagamento entre os alunos selecionados.
               </p>
               <label>
                 {{ rotuloResponsavelPagamento }}
@@ -1875,9 +1964,25 @@ onBeforeUnmount(() => {
                 <h3>{{ `${termoGrupoPlural} vinculadas` }}</h3>
                 <span>{{ turmasSelecionadasIds.length }} selecionada(s)</span>
               </div>
+              <div class="resumo-selecao">
+                <div class="resumo-selecao-topo">
+                  <strong>{{ turmasSelecionadasNoAcordo.length }} selecionada(s)</strong>
+                  <button class="botao secundario compacto" type="button" @click="limparSelecaoTurmasAcordo">
+                    Limpar seleção
+                  </button>
+                </div>
+                <div v-if="turmasSelecionadasNoAcordo.length" class="chips-selecao" aria-label="Resumo das turmas selecionadas">
+                  <span v-for="turmaSelecionada in turmasSelecionadasResumo" :key="turmaSelecionada.id" class="chip-selecao">
+                    {{ turmaSelecionada.nome }}
+                  </span>
+                  <span v-if="turmasSelecionadasExtras > 0" class="chip-selecao sutileza">
+                    +{{ turmasSelecionadasExtras }}
+                  </span>
+                </div>
+              </div>
               <label class="campo-busca">
                 {{ `Buscar ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
-                <input v-model="filtrosAcordo.buscaTurma" type="text" :placeholder="`Nome ou ${termoResponsavelSingular.toLocaleLowerCase('pt-BR')}`" />
+                <input v-model="buscaTurmaAcordoDigitada" type="search" :placeholder="`Nome ou ${termoResponsavelSingular.toLocaleLowerCase('pt-BR')}`" />
               </label>
               <div class="lista-checkboxes">
                 <label v-for="turma in turmasDisponiveis" :key="turma.id" class="item-checkbox">
@@ -1888,7 +1993,10 @@ onBeforeUnmount(() => {
                   />
                   <span>
                     <strong>{{ turma.nome }}</strong>
-                    <small v-if="turma.professorResponsavelNome">{{ turma.professorResponsavelNome }}</small>
+                    <small>
+                      <span v-if="turma.professorResponsavelNome">{{ turma.professorResponsavelNome }}</span>
+                      <span v-if="turma.horarioInicio"> {{ turma.professorResponsavelNome ? '· ' : '' }}{{ turma.horarioInicio }}</span>
+                    </small>
                   </span>
                 </label>
               </div>
@@ -2027,14 +2135,16 @@ onBeforeUnmount(() => {
               </thead>
               <tbody>
                 <tr v-for="mensalidade in mensalidadesFiltradas" :key="mensalidade.id">
-                  <td>{{ formatarCompetencia(mensalidade.competencia) }}</td>
-                  <td>{{ mensalidade.nomeAcordo }}</td>
-                  <td>{{ mensalidade.responsavelNome }}</td>
-                  <td>{{ mensalidade.integranteResumo || '-' }}</td>
-                  <td>{{ formatarData(mensalidade.vencimento) }}</td>
-                  <td>{{ formatarMoeda(mensalidade.valor) }}</td>
-                  <td><span :class="classeStatusMensalidade(mensalidade.status)">{{ statusMensalidadeRotulo(mensalidade.status) }}</span></td>
-                  <td>
+                  <td data-label="Competência">{{ formatarCompetencia(mensalidade.competencia) }}</td>
+                  <td data-label="Acordo">{{ mensalidade.nomeAcordo }}</td>
+                  <td data-label="Responsável">{{ mensalidade.responsavelNome }}</td>
+                  <td data-label="Alunos">{{ mensalidade.integranteResumo || '-' }}</td>
+                  <td data-label="Vencimento">{{ formatarData(mensalidade.vencimento) }}</td>
+                  <td data-label="Valor">{{ formatarMoeda(mensalidade.valor) }}</td>
+                  <td data-label="Status">
+                    <span :class="classeStatusMensalidade(mensalidade.status)">{{ statusMensalidadeRotulo(mensalidade.status) }}</span>
+                  </td>
+                  <td data-label="Ações">
                     <div class="acoes-tabela">
                       <button
                         class="botao compacto secundario"
@@ -2421,6 +2531,12 @@ onBeforeUnmount(() => {
   color: #0f172a;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 .cabecalho-pagina {
   display: flex;
   justify-content: space-between;
@@ -2519,7 +2635,7 @@ onBeforeUnmount(() => {
 
 .campos {
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -2559,6 +2675,7 @@ textarea {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .cabecalho-mini {
@@ -2567,6 +2684,7 @@ textarea {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .cabecalho-mini h3,
@@ -2577,7 +2695,7 @@ textarea {
 
 .grade-selecao {
   display: grid;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-top: 18px;
 }
@@ -2590,6 +2708,7 @@ textarea {
   display: grid;
   gap: 12px;
   align-content: start;
+  min-width: 0;
 }
 
 .campo-busca {
@@ -2599,18 +2718,23 @@ textarea {
 .lista-checkboxes {
   display: grid;
   gap: 8px;
-  max-height: 270px;
+  max-height: min(360px, 52vh);
   overflow: auto;
 }
 
 .item-checkbox {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 10px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: white;
-  padding: 10px;
+  padding: 12px;
+  min-height: 44px;
+  width: 100%;
+  cursor: pointer;
+  min-width: 0;
 }
 
 .item-checkbox input {
@@ -2622,6 +2746,7 @@ textarea {
 .item-checkbox span {
   display: grid;
   gap: 3px;
+  min-width: 0;
 }
 
 .item-checkbox strong {
@@ -2630,6 +2755,65 @@ textarea {
 
 .item-checkbox small {
   color: #64748b;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.item-checkbox:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+.resumo-selecao {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+}
+
+.resumo-selecao-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chips-selecao {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-selecao {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.chip-selecao.sutileza {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.aviso-responsavel {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-weight: 700;
 }
 
 .acoes-formulario,
@@ -2691,11 +2875,12 @@ textarea {
 .lista-card {
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 .grade-acordos {
   display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -2708,6 +2893,7 @@ textarea {
   background:
     radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 26%),
     #fff;
+  min-width: 0;
 }
 
 .cabecalho-card.interno p {
@@ -2879,6 +3065,7 @@ textarea {
   width: min(100%, 820px);
   max-height: 90vh;
   overflow: auto;
+  min-width: 0;
 }
 
 .tabela-card {
@@ -2905,6 +3092,10 @@ td {
   vertical-align: top;
   font-size: 13px;
   word-break: break-word;
+}
+
+td[data-label] {
+  min-width: 0;
 }
 
 th {
@@ -2950,6 +3141,104 @@ th {
   .acoes-cabecalho {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .cabecalho-pagina {
+    padding: 18px;
+  }
+
+  .card,
+  .modal-card {
+    padding: 18px;
+  }
+
+  .resumo-selecao-topo,
+  .cabecalho-mini,
+  .cabecalho-card,
+  .cabecalho-lista,
+  .acoes-cabecalho,
+  .acoes-formulario {
+    align-items: stretch;
+  }
+
+  .item-checkbox {
+    min-height: 48px;
+  }
+
+  .tabela-container {
+    overflow: visible;
+  }
+
+  table,
+  thead,
+  tbody,
+  tr,
+  th,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    border: 0;
+  }
+
+  tr {
+    margin-bottom: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+
+  td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  td::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  td:last-child {
+    border-bottom: none;
+  }
+
+  .acoes-tabela {
+    min-width: 0;
+  }
+
+  .acoes-tabela .botao {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .grade-selecao,
+  .grade-acordos {
+    grid-template-columns: 1fr;
+  }
+
+  .botao,
+  .botao.compacto {
+    width: 100%;
   }
 }
 </style>

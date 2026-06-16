@@ -6,6 +6,7 @@ import {
   buscarAlunosTurmaBeachTennis,
   buscarClientesDisponiveisBeachTennis,
   buscarTurmaBeachTennisOuLista,
+  buscarTurmasBeachTennis,
   modoVisualizacaoEmpresaAtivo,
   salvarClientesTurmaBeachTennis,
 } from '@/services/api'
@@ -16,23 +17,26 @@ import {
   rotuloNivelBeachTennis,
   rotuloPerfilBeachTennis,
 } from '@/utils/beachTennis'
+import { debugLog } from '@/utils/devDebug'
 import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
-import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
+import { criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const route = useRoute()
 const router = useRouter()
+
 const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
 const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
 const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Participante')
 const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Participantes')
+const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'Professor')
 const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
 const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 
-const turmaId = computed(() => String(route.params.turmaId || '').trim())
 const turma = ref(null)
-const alunosCache = ref({})
+const turmas = ref([])
+const alunosPorClienteId = ref(new Map())
 const idsIniciais = ref(new Set())
 const idsAtuais = ref(new Set())
 const idsMarcadosDisponiveis = ref(new Set())
@@ -47,6 +51,7 @@ const erro = ref('')
 const sucesso = ref('')
 const filtrosAbertos = ref(false)
 const abaMobileAtiva = ref('disponiveis')
+const buscaTurmas = ref('')
 const buscaDisponiveisDigitada = ref('')
 const buscaDisponiveisDebounced = ref('')
 const buscaVinculados = ref('')
@@ -54,24 +59,34 @@ const filtroNivel = ref('')
 const filtroPerfil = ref('')
 const somenteAtivos = ref(true)
 const confirmarSaidaAberta = ref(false)
-const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
+
 let temporizadorBusca = null
 let resolverSaidaPendencia = null
+let sequenciaTela = 0
 let sequenciaCarregamentoDisponiveis = 0
 
 const EVENTO_TURMAS_BEACH_TENNIS_ATUALIZADAS = 'beach-tennis-turmas-atualizadas'
+const MENSAGEM_ERRO_SALVAR =
+  'Não foi possível salvar os participantes selecionados. Atualize os dados da turma e tente novamente.'
 
+const turmaIdSelecionada = computed(() => normalizarIdPositivo(valorRota(route.query.turmaId ?? route.params.turmaId)))
+const turmaSelecionada = computed(() => turmaIdSelecionada.value !== null)
 const tituloPagina = computed(() =>
   turma.value?.nome
     ? `Gerenciar ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} - ${turma.value.nome}`
     : `Gerenciar ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')}`,
 )
 const descricaoPagina = computed(() =>
-  `Escolha quem entra ou sai da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} em lote, com busca paginada e salvamento único.`,
+  turmaSelecionada.value
+    ? `Escolha quem entra ou sai da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} em lote, com busca paginada e salvamento único.`
+    : `Selecione uma ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} para gerenciar ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')}.`,
 )
 const quantidadeAtual = computed(() => idsIniciais.value.size)
 const quantidadeFinal = computed(() => idsAtuais.value.size)
-const quantidadeAlterada = computed(() => diferencaIds(idsIniciais.value, idsAtuais.value).adicionados.length + diferencaIds(idsIniciais.value, idsAtuais.value).removidos.length)
+const quantidadeAlterada = computed(() => {
+  const diferenca = diferencaIds(idsIniciais.value, idsAtuais.value)
+  return diferenca.adicionados.length + diferenca.removidos.length
+})
 const capacidade = computed(() => normalizarCapacidade(turma.value?.vagas))
 const capacidadeIlimitada = computed(() => capacidade.value === null)
 const vagasDisponiveis = computed(() =>
@@ -97,32 +112,72 @@ const textoVagasDisponiveis = computed(() => {
 const alteracoesPendentes = computed(() => !conjuntosIguais(idsIniciais.value, idsAtuais.value))
 const avisarCapacidade = computed(() => excedenteCapacidade.value > 0)
 const listaDisponiveisVisiveis = computed(() =>
-  alunosDisponiveis.value.filter((aluno) => !idsAtuais.value.has(obterChaveAluno(aluno))),
+  alunosDisponiveis.value.filter((aluno) => !idsAtuais.value.has(aluno.clienteId)),
 )
 const listaVinculadosExibidos = computed(() => {
-  const busca = normalizarTexto(buscaVinculados.value)
+  const busca = normalizarTextoPesquisa(buscaVinculados.value)
   const lista = [...idsAtuais.value]
-    .map((id) => alunosCache.value[String(id)] || criarAlunoResumo(String(id)))
+    .map((clienteId) => alunosPorClienteId.value.get(clienteId) || criarAlunoResumo(clienteId))
     .filter(Boolean)
 
   if (!busca) {
     return lista.sort(compararPorNome)
   }
 
-  return lista.filter((aluno) => campoAlunoPesquisa(aluno).some((valor) => normalizarTexto(valor).includes(busca))).sort(compararPorNome)
+  return lista
+    .filter((aluno) => campoAlunoPesquisa(aluno).some((valor) => normalizarTextoPesquisa(valor).includes(busca)))
+    .sort(compararPorNome)
 })
 const selecionadosDisponiveis = computed(() => idsMarcadosDisponiveis.value.size)
 const selecionadosTurma = computed(() => idsMarcadosTurma.value.size)
 const podeSalvar = computed(() => alteracoesPendentes.value && !avisarCapacidade.value && !salvando.value)
-const subtituloColunaDisponiveis = computed(() =>
-  `${listaDisponiveisVisiveis.value.length} visíveis`,
-)
-const subtituloColunaTurma = computed(() =>
-  `${listaVinculadosExibidos.value.length} vinculados`,
-)
+const subtituloColunaDisponiveis = computed(() => `${listaDisponiveisVisiveis.value.length} visíveis`)
+const subtituloColunaTurma = computed(() => `${listaVinculadosExibidos.value.length} vinculados`)
+const turmasFiltradas = computed(() => {
+  const busca = normalizarTextoPesquisa(buscaTurmas.value)
+  if (!busca) {
+    return turmas.value
+  }
 
-function criarConjunto(valor = []) {
-  return new Set((Array.isArray(valor) ? valor : [valor]).map((item) => String(item).trim()).filter(Boolean))
+  return turmas.value.filter((item) =>
+    campoTurmaPesquisa(item).some((valor) => normalizarTextoPesquisa(valor).includes(busca)),
+  )
+})
+
+function valorRota(valor) {
+  return Array.isArray(valor) ? valor[0] : valor
+}
+
+function normalizarIdPositivo(valor) {
+  const texto = String(valor ?? '').trim()
+  if (!texto) {
+    return null
+  }
+
+  const numero = Number.parseInt(texto, 10)
+  return Number.isInteger(numero) && numero > 0 ? numero : null
+}
+
+function normalizarIds(lista = []) {
+  const itens = Array.isArray(lista) ? lista : [lista]
+  const ids = []
+  const vistos = new Set()
+
+  for (const item of itens) {
+    const id = normalizarIdPositivo(item)
+    if (!id || vistos.has(id)) {
+      continue
+    }
+
+    vistos.add(id)
+    ids.push(id)
+  }
+
+  return ids
+}
+
+function criarConjuntoIds(lista = []) {
+  return new Set(normalizarIds(lista))
 }
 
 function conjuntosIguais(a, b) {
@@ -146,12 +201,7 @@ function diferencaIds(origem, destino) {
 }
 
 function normalizarCapacidade(valor) {
-  const texto = String(valor ?? '').trim()
-  if (!texto) {
-    return null
-  }
-
-  const numero = Number(texto)
+  const numero = Number(valor)
   if (!Number.isFinite(numero) || numero <= 0) {
     return null
   }
@@ -159,7 +209,21 @@ function normalizarCapacidade(valor) {
   return numero
 }
 
-function normalizarTexto(valor) {
+function normalizarQuantidadeAlunos(item = {}, fallback = 0) {
+  const candidatos = [
+    item.quantidadeAlunos,
+    item.quantidadeAlunosAtivos,
+    item.totalAlunos,
+    item.alunosCount,
+    item.alunosVinculadosCount,
+    Array.isArray(item.alunos) ? item.alunos.length : null,
+  ]
+
+  const valor = candidatos.find((candidato) => Number.isFinite(Number(candidato)) && Number(candidato) >= 0)
+  return Number.isFinite(Number(valor)) ? Number(valor) : fallback
+}
+
+function normalizarTextoPesquisa(valor) {
   return String(valor || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -167,82 +231,138 @@ function normalizarTexto(valor) {
     .trim()
 }
 
-function obterChaveAluno(aluno = {}) {
-  return String(aluno.id || aluno.clienteId || aluno.alunoId || '').trim()
-}
-
-function criarAlunoResumo(id) {
-  return {
-    id,
-    nome: `Participante ${id}`,
-    email: '',
-    telefone: '',
-    nivelBeachTennis: '',
-    perfilBeachTennis: '',
-    dataNascimento: '',
-  }
-}
-
-function normalizarAluno(aluno = {}) {
-  return {
-    ...aluno,
-    id: aluno.id ?? aluno.clienteId ?? aluno.alunoId ?? '',
-    nome: aluno.nome || aluno.nomeCompleto || aluno.clienteNome || aluno.alunoNome || termoParticipanteSingular.value,
-    email: aluno.email || '',
-    telefone: aluno.telefone || '',
-    nivelBeachTennis: aluno.nivelBeachTennis || '',
-    perfilBeachTennis: aluno.perfilBeachTennis || '',
-    dataNascimento: aluno.dataNascimento || aluno.nascimento || '',
-  }
-}
-
 function compararPorNome(a, b) {
   return String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR')
 }
 
-function campoAlunoPesquisa(aluno = {}) {
-  return [
-    aluno.nome,
-    aluno.email,
-    aluno.telefone,
-    rotuloNivelBeachTennis(aluno.nivelBeachTennis),
-    rotuloPerfilBeachTennis(aluno.perfilBeachTennis),
-  ]
+function criarAlunoResumo(clienteId) {
+  return {
+    clienteId,
+    vinculoId: null,
+    nome: `${termoParticipanteSingular.value} ${clienteId}`,
+    email: '',
+    telefone: '',
+    nivel: '',
+    perfil: '',
+    dataNascimento: '',
+  }
+}
+
+function normalizarAlunoVinculado(item = {}) {
+  const clienteId = normalizarIdPositivo(item.clienteId)
+  if (!clienteId) {
+    return null
+  }
+
+  return {
+    clienteId,
+    vinculoId: normalizarIdPositivo(item.id),
+    nome: String(item.clienteNome || item.nome || item.alunoNome || termoParticipanteSingular.value).trim() || termoParticipanteSingular.value,
+    email: String(item.clienteEmail || item.email || '').trim(),
+    telefone: String(item.clienteTelefone || item.telefone || '').trim(),
+    nivel: String(item.nivelBeachTennis || item.nivel || '').trim(),
+    perfil: String(item.perfilBeachTennis || item.perfil || '').trim(),
+    dataNascimento: String(item.dataNascimento || item.nascimento || '').trim(),
+  }
+}
+
+function normalizarClienteDisponivel(item = {}) {
+  const clienteId = normalizarIdPositivo(item.id)
+  if (!clienteId) {
+    return null
+  }
+
+  return {
+    clienteId,
+    vinculoId: null,
+    nome: String(item.nome || item.nomeCompleto || termoParticipanteSingular.value).trim() || termoParticipanteSingular.value,
+    email: String(item.email || '').trim(),
+    telefone: String(item.telefone || '').trim(),
+    nivel: String(item.nivelBeachTennis || item.nivel || '').trim(),
+    perfil: String(item.perfilBeachTennis || item.perfil || '').trim(),
+    dataNascimento: String(item.dataNascimento || item.nascimento || '').trim(),
+  }
+}
+
+function normalizarTurmaResumo(item = {}) {
+  const id = normalizarIdPositivo(item.id || item.turmaId)
+  if (!id) {
+    return null
+  }
+
+  return {
+    ...item,
+    id,
+    nome: String(item.nome || `${termoGrupoSingular.value} ${id}`).trim(),
+    horarioInicio: String(item.horarioInicio || item.horaInicio || '').trim(),
+    professorResponsavelNome: String(item.professorResponsavelNome || item.nomeProfessor || item.funcionarioNome || '').trim(),
+    quantidadeAlunos: normalizarQuantidadeAlunos(item),
+    vagas: Number.isFinite(Number(item.vagas)) ? Number(item.vagas) : 0,
+  }
+}
+
+function normalizarTurmas(lista = []) {
+  return (Array.isArray(lista) ? lista : [])
+    .map((item) => normalizarTurmaResumo(item))
+    .filter(Boolean)
+    .sort(compararPorNome)
+}
+
+function mesclarAluno(base = {}, atualizacao = {}) {
+  return {
+    clienteId: atualizacao.clienteId ?? base.clienteId ?? null,
+    vinculoId: atualizacao.vinculoId ?? base.vinculoId ?? null,
+    nome: atualizacao.nome || base.nome || termoParticipanteSingular.value,
+    email: atualizacao.email || base.email || '',
+    telefone: atualizacao.telefone || base.telefone || '',
+    nivel: atualizacao.nivel || base.nivel || '',
+    perfil: atualizacao.perfil || base.perfil || '',
+    dataNascimento: atualizacao.dataNascimento || base.dataNascimento || '',
+  }
 }
 
 function indexarAlunos(lista = []) {
-  const mapa = { ...alunosCache.value }
-  for (const item of lista) {
-    const aluno = normalizarAluno(item)
-    const chave = obterChaveAluno(aluno)
-    if (chave) {
-      mapa[chave] = aluno
-    }
-  }
-  alunosCache.value = mapa
-}
+  const mapa = new Map(alunosPorClienteId.value)
 
-function atualizarSelecoesIniciais(lista = []) {
-  const ids = lista.map((item) => obterChaveAluno(item)).filter(Boolean)
-  idsIniciais.value = criarConjunto(ids)
-  idsAtuais.value = criarConjunto(ids)
-  idsMarcadosDisponiveis.value = new Set()
-  idsMarcadosTurma.value = new Set()
-}
-
-function atualizarAlunosDisponiveis(lista = []) {
-  const mapa = new Map()
-  for (const item of lista) {
-    const aluno = normalizarAluno(item)
-    const chave = obterChaveAluno(aluno)
-    if (!chave || mapa.has(chave)) {
+  for (const aluno of Array.isArray(lista) ? lista : []) {
+    if (!aluno?.clienteId) {
       continue
     }
 
-    mapa.set(chave, aluno)
+    mapa.set(aluno.clienteId, mesclarAluno(mapa.get(aluno.clienteId), aluno))
   }
 
-  alunosDisponiveis.value = [...mapa.values()].sort(compararPorNome)
+  alunosPorClienteId.value = mapa
+}
+
+function normalizarListaAlunosVinculados(lista = []) {
+  const mapa = new Map()
+
+  for (const item of Array.isArray(lista) ? lista : []) {
+    const aluno = normalizarAlunoVinculado(item)
+    if (!aluno || mapa.has(aluno.clienteId)) {
+      continue
+    }
+
+    mapa.set(aluno.clienteId, aluno)
+  }
+
+  return [...mapa.values()].sort(compararPorNome)
+}
+
+function normalizarListaClientesDisponiveis(lista = []) {
+  const mapa = new Map()
+
+  for (const item of Array.isArray(lista) ? lista : []) {
+    const aluno = normalizarClienteDisponivel(item)
+    if (!aluno || mapa.has(aluno.clienteId)) {
+      continue
+    }
+
+    mapa.set(aluno.clienteId, aluno)
+  }
+
+  return [...mapa.values()].sort(compararPorNome)
 }
 
 function extrairListaAlunosResposta(resposta) {
@@ -261,57 +381,77 @@ function extrairListaAlunosResposta(resposta) {
   return []
 }
 
-function extrairIdsAlunosResposta(resposta) {
+function extrairIdsClienteResposta(resposta, alunosNormalizados = []) {
   if (Array.isArray(resposta?.clienteIds)) {
-    return resposta.clienteIds
+    return normalizarIds(resposta.clienteIds)
   }
 
-  if (Array.isArray(resposta?.alunoIds)) {
-    return resposta.alunoIds
-  }
-
-  return extrairListaAlunosResposta(resposta)
-    .map((item) => obterChaveAluno(item))
-    .filter(Boolean)
+  return normalizarIds(alunosNormalizados.map((aluno) => aluno.clienteId))
 }
 
-function limparEstadosBuscaVisivel() {
+function atualizarSelecoesIniciais(lista = []) {
+  const ids = lista.map((item) => item.clienteId)
+  idsIniciais.value = criarConjuntoIds(ids)
+  idsAtuais.value = criarConjuntoIds(ids)
   idsMarcadosDisponiveis.value = new Set()
   idsMarcadosTurma.value = new Set()
 }
 
-function alternarMarcadoDisponivel(aluno, marcado) {
-  const chave = obterChaveAluno(aluno)
-  if (!chave) return
+function atualizarAlunosDisponiveis(lista = []) {
+  const mapa = new Map()
 
-  const conjunto = new Set(idsMarcadosDisponiveis.value)
-  if (marcado) {
-    conjunto.add(chave)
-  } else {
-    conjunto.delete(chave)
+  for (const aluno of Array.isArray(lista) ? lista : []) {
+    if (!aluno?.clienteId || mapa.has(aluno.clienteId)) {
+      continue
+    }
+
+    mapa.set(aluno.clienteId, aluno)
   }
-  idsMarcadosDisponiveis.value = conjunto
+
+  alunosDisponiveis.value = [...mapa.values()].sort(compararPorNome)
 }
 
-function alternarMarcadoTurma(aluno, marcado) {
-  const chave = obterChaveAluno(aluno)
-  if (!chave) return
-
-  const conjunto = new Set(idsMarcadosTurma.value)
-  if (marcado) {
-    conjunto.add(chave)
-  } else {
-    conjunto.delete(chave)
-  }
-  idsMarcadosTurma.value = conjunto
+function campoAlunoPesquisa(aluno = {}) {
+  return [
+    aluno.nome,
+    aluno.email,
+    aluno.telefone,
+    rotuloNivelBeachTennis(aluno.nivel),
+    rotuloPerfilBeachTennis(aluno.perfil),
+  ]
 }
 
-function selecionarTodosDisponiveis() {
-  idsMarcadosDisponiveis.value = new Set(listaDisponiveisVisiveis.value.map((aluno) => obterChaveAluno(aluno)).filter(Boolean))
+function campoTurmaPesquisa(item = {}) {
+  return [
+    item.nome,
+    item.horarioInicio,
+    item.professorResponsavelNome,
+    String(normalizarQuantidadeAlunos(item)),
+  ]
 }
 
-function selecionarTodosVinculados() {
-  idsMarcadosTurma.value = new Set(listaVinculadosExibidos.value.map((aluno) => obterChaveAluno(aluno)).filter(Boolean))
+function formatarHorario(valor) {
+  return String(valor || '').trim() || '-'
+}
+
+function formatarCapacidadeTurma(valor) {
+  const capacidadeTurma = normalizarCapacidade(valor)
+  return capacidadeTurma === null ? 'Ilimitada' : `${capacidadeTurma} vagas`
+}
+
+function limparMensagens() {
+  erro.value = ''
+  sucesso.value = ''
+}
+
+function definirErro(mensagem) {
+  sucesso.value = ''
+  erro.value = String(mensagem || '').trim()
+}
+
+function definirSucesso(mensagem) {
+  erro.value = ''
+  sucesso.value = String(mensagem || '').trim()
 }
 
 function limparSelecaoDisponiveis() {
@@ -322,29 +462,101 @@ function limparSelecaoTurma() {
   idsMarcadosTurma.value = new Set()
 }
 
+function limparEstadosBuscaVisivel() {
+  limparSelecaoDisponiveis()
+  limparSelecaoTurma()
+}
+
+function redefinirPaginacao() {
+  paginacaoDisponiveis.value = criarPaginacaoInicial(paginacaoDisponiveis.value.size || 20)
+}
+
+function limparEstadoTurmaSelecionada() {
+  turma.value = null
+  alunosPorClienteId.value = new Map()
+  alunosDisponiveis.value = []
+  idsIniciais.value = new Set()
+  idsAtuais.value = new Set()
+  idsMarcadosDisponiveis.value = new Set()
+  idsMarcadosTurma.value = new Set()
+  buscaDisponiveisDigitada.value = ''
+  buscaDisponiveisDebounced.value = ''
+  buscaVinculados.value = ''
+  filtroNivel.value = ''
+  filtroPerfil.value = ''
+  somenteAtivos.value = true
+  filtrosAbertos.value = false
+  abaMobileAtiva.value = 'disponiveis'
+  redefinirPaginacao()
+}
+
+function invalidarRequisicoesPendentes() {
+  sequenciaTela += 1
+  sequenciaCarregamentoDisponiveis += 1
+}
+
+function alternarMarcadoDisponivel(aluno, marcado) {
+  const clienteId = normalizarIdPositivo(aluno?.clienteId)
+  if (!clienteId) {
+    return
+  }
+
+  const conjunto = new Set(idsMarcadosDisponiveis.value)
+  if (marcado) {
+    conjunto.add(clienteId)
+  } else {
+    conjunto.delete(clienteId)
+  }
+  idsMarcadosDisponiveis.value = conjunto
+}
+
+function alternarMarcadoTurma(aluno, marcado) {
+  const clienteId = normalizarIdPositivo(aluno?.clienteId)
+  if (!clienteId) {
+    return
+  }
+
+  const conjunto = new Set(idsMarcadosTurma.value)
+  if (marcado) {
+    conjunto.add(clienteId)
+  } else {
+    conjunto.delete(clienteId)
+  }
+  idsMarcadosTurma.value = conjunto
+}
+
+function selecionarTodosDisponiveis() {
+  idsMarcadosDisponiveis.value = new Set(listaDisponiveisVisiveis.value.map((aluno) => aluno.clienteId))
+}
+
+function selecionarTodosVinculados() {
+  idsMarcadosTurma.value = new Set(listaVinculadosExibidos.value.map((aluno) => aluno.clienteId))
+}
+
 function adicionarSelecionados() {
   const conjunto = new Set(idsAtuais.value)
-  for (const id of idsMarcadosDisponiveis.value) {
-    conjunto.add(String(id))
+  for (const clienteId of idsMarcadosDisponiveis.value) {
+    conjunto.add(clienteId)
   }
   idsAtuais.value = conjunto
   limparSelecaoDisponiveis()
+  limparMensagens()
 }
 
 function removerSelecionados() {
   const conjunto = new Set(idsAtuais.value)
-  for (const id of idsMarcadosTurma.value) {
-    conjunto.delete(String(id))
+  for (const clienteId of idsMarcadosTurma.value) {
+    conjunto.delete(clienteId)
   }
   idsAtuais.value = conjunto
   limparSelecaoTurma()
+  limparMensagens()
 }
 
 function desfazerAlteracoes() {
   idsAtuais.value = new Set(idsIniciais.value)
   limparEstadosBuscaVisivel()
-  sucesso.value = ''
-  erro.value = ''
+  limparMensagens()
 }
 
 function aplicarFiltroBusca() {
@@ -356,45 +568,10 @@ function aplicarFiltroBusca() {
     buscaDisponiveisDebounced.value = String(buscaDisponiveisDigitada.value || '').trim()
     paginacaoDisponiveis.value.page = 0
     limparSelecaoDisponiveis()
-    carregarDisponiveis({ reiniciar: true })
+    if (turmaSelecionada.value) {
+      carregarDisponiveis({ reiniciar: true })
+    }
   }, 300)
-}
-
-async function carregarContexto() {
-  await carregarContextoGestaoEsportiva()
-  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
-}
-
-async function carregarTurma() {
-  if (!turmaId.value) {
-    throw new Error('Turma não informada.')
-  }
-
-  const resposta = await buscarTurmaBeachTennisOuLista(turmaId.value)
-  turma.value = resposta ? { ...resposta } : null
-
-  if (!turma.value) {
-    throw new Error('Turma não encontrada.')
-  }
-}
-
-async function carregarVinculados() {
-  if (!turmaId.value) {
-    atualizarSelecoesIniciais([])
-    return
-  }
-
-  try {
-    carregandoVinculados.value = true
-    const resposta = await buscarAlunosTurmaBeachTennis(turmaId.value)
-    const lista = extrairListaAlunosResposta(resposta).map((item) => normalizarAluno(item))
-    indexarAlunos(lista)
-    atualizarSelecoesIniciais(lista)
-  } catch (error) {
-    throw error
-  } finally {
-    carregandoVinculados.value = false
-  }
 }
 
 function montarFiltrosDisponiveis() {
@@ -408,73 +585,49 @@ function montarFiltrosDisponiveis() {
   }
 }
 
-async function carregarDisponiveis({ reiniciar = false } = {}) {
-  if (!turmaId.value) {
-    atualizarAlunosDisponiveis([])
-    return
-  }
-
-  const sequenciaAtual = ++sequenciaCarregamentoDisponiveis
-  const paginaBase = reiniciar ? 0 : paginacaoDisponiveis.value.page
-
-  try {
-    carregandoDisponiveis.value = true
-    if (reiniciar) {
-      atualizarAlunosDisponiveis([])
-    }
-    const resposta = await buscarClientesDisponiveisBeachTennis({
-      ...montarFiltrosDisponiveis(),
-      page: paginaBase,
-    })
-    const dadosPaginados = normalizarRespostaPaginada(resposta, {
-      page: paginaBase,
-      size: paginacaoDisponiveis.value.size,
-    })
-
-    if (sequenciaAtual !== sequenciaCarregamentoDisponiveis) {
-      return
-    }
-
-    indexarAlunos(dadosPaginados.content)
-    const visiveis = dadosPaginados.content
-      .map((item) => normalizarAluno(item))
-      .filter((item) => !idsAtuais.value.has(obterChaveAluno(item)))
-
-    atualizarAlunosDisponiveis(reiniciar ? visiveis : [...alunosDisponiveis.value, ...visiveis])
-    paginacaoDisponiveis.value = {
-      page: dadosPaginados.page,
-      size: dadosPaginados.size,
-      totalElements: dadosPaginados.totalElements,
-      totalPages: dadosPaginados.totalPages,
-      first: dadosPaginados.first,
-      last: dadosPaginados.last,
-      numberOfElements: dadosPaginados.numberOfElements,
-    }
-  } catch (error) {
-    throw error
-  } finally {
-    if (sequenciaAtual === sequenciaCarregamentoDisponiveis) {
-      carregandoDisponiveis.value = false
-    }
-  }
-}
-
-async function carregarMaisDisponiveis() {
-  if (paginacaoDisponiveis.value.last || carregandoDisponiveis.value) {
-    return
-  }
-
-  paginacaoDisponiveis.value.page += 1
-  await carregarDisponiveis({ reiniciar: false })
-}
-
 function atualizarMensagemErro(error, fallback) {
   const mensagem = String(error?.message || '').trim()
-  erro.value = mensagem || fallback
+  definirErro(mensagem || fallback)
+}
+
+function mapearErroSalvar(error) {
+  const mensagem = normalizarTextoPesquisa(error?.message)
+  if (
+    mensagem.includes('cliente') ||
+    mensagem.includes('empresa') ||
+    mensagem.includes('turma') ||
+    mensagem.includes('participante')
+  ) {
+    return MENSAGEM_ERRO_SALVAR
+  }
+
+  return 'Não foi possível salvar os participantes selecionados. Tente novamente.'
 }
 
 function voltarParaTurmas() {
   router.push('/beach-tennis/turmas')
+}
+
+function selecionarTurmaParaGerenciar(item = {}) {
+  const id = normalizarIdPositivo(item.id || item)
+  if (!id) {
+    return
+  }
+
+  limparMensagens()
+  router.push({
+    name: 'beach-tennis-alunos',
+    query: { turmaId: String(id) },
+  })
+}
+
+async function limparTurmaSelecionadaRota() {
+  limparMensagens()
+  if (!turmaSelecionada.value && route.name === 'beach-tennis-alunos') {
+    return
+  }
+
+  await router.replace({ name: 'beach-tennis-alunos' })
 }
 
 function abrirConfirmacaoSaida(resolver) {
@@ -501,86 +654,237 @@ function cancelarSaida() {
   fecharConfirmacaoSaida()
 }
 
+async function carregarContexto() {
+  await carregarContextoGestaoEsportiva()
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+}
+
+async function carregarTurmasLista(sequenciaAtual) {
+  const resposta = await buscarTurmasBeachTennis()
+  if (sequenciaAtual !== sequenciaTela) {
+    return
+  }
+
+  turmas.value = normalizarTurmas(resposta)
+}
+
+async function carregarTurmaAtual(sequenciaAtual) {
+  if (!turmaIdSelecionada.value) {
+    turma.value = null
+    return
+  }
+
+  const resposta = await buscarTurmaBeachTennisOuLista(turmaIdSelecionada.value)
+  if (sequenciaAtual !== sequenciaTela) {
+    return
+  }
+
+  const turmaNormalizada = normalizarTurmaResumo(resposta)
+  if (!turmaNormalizada) {
+    throw new Error('Turma não encontrada.')
+  }
+
+  turma.value = turmaNormalizada
+}
+
+async function carregarVinculados(sequenciaAtual) {
+  if (!turmaIdSelecionada.value) {
+    atualizarSelecoesIniciais([])
+    return
+  }
+
+  try {
+    carregandoVinculados.value = true
+    const resposta = await buscarAlunosTurmaBeachTennis(turmaIdSelecionada.value)
+    if (sequenciaAtual !== sequenciaTela) {
+      return
+    }
+
+    const alunosNormalizados = normalizarListaAlunosVinculados(extrairListaAlunosResposta(resposta))
+    indexarAlunos(alunosNormalizados)
+    atualizarSelecoesIniciais(alunosNormalizados)
+  } finally {
+    if (sequenciaAtual === sequenciaTela) {
+      carregandoVinculados.value = false
+    }
+  }
+}
+
+async function carregarDisponiveis({ reiniciar = false } = {}) {
+  if (!turmaIdSelecionada.value) {
+    atualizarAlunosDisponiveis([])
+    return
+  }
+
+  const sequenciaTelaAtual = sequenciaTela
+  const sequenciaAtual = ++sequenciaCarregamentoDisponiveis
+  const paginaBase = reiniciar ? 0 : paginacaoDisponiveis.value.page
+
+  try {
+    carregandoDisponiveis.value = true
+    if (reiniciar) {
+      atualizarAlunosDisponiveis([])
+    }
+
+    const resposta = await buscarClientesDisponiveisBeachTennis({
+      ...montarFiltrosDisponiveis(),
+      page: paginaBase,
+    })
+    const dadosPaginados = normalizarRespostaPaginada(resposta, {
+      page: paginaBase,
+      size: paginacaoDisponiveis.value.size,
+    })
+
+    if (sequenciaTelaAtual !== sequenciaTela || sequenciaAtual !== sequenciaCarregamentoDisponiveis) {
+      return
+    }
+
+    const alunosNormalizados = normalizarListaClientesDisponiveis(dadosPaginados.content)
+    indexarAlunos(alunosNormalizados)
+    atualizarAlunosDisponiveis(reiniciar ? alunosNormalizados : [...alunosDisponiveis.value, ...alunosNormalizados])
+    paginacaoDisponiveis.value = {
+      page: dadosPaginados.page,
+      size: dadosPaginados.size,
+      totalElements: dadosPaginados.totalElements,
+      totalPages: dadosPaginados.totalPages,
+      first: dadosPaginados.first,
+      last: dadosPaginados.last,
+      numberOfElements: dadosPaginados.numberOfElements,
+    }
+  } finally {
+    if (sequenciaTelaAtual === sequenciaTela && sequenciaAtual === sequenciaCarregamentoDisponiveis) {
+      carregandoDisponiveis.value = false
+    }
+  }
+}
+
+async function carregarMaisDisponiveis() {
+  if (paginacaoDisponiveis.value.last || carregandoDisponiveis.value || !turmaSelecionada.value) {
+    return
+  }
+
+  paginacaoDisponiveis.value.page += 1
+  await carregarDisponiveis({ reiniciar: false })
+}
+
 async function salvarAlteracoes() {
+  if (!turmaIdSelecionada.value) {
+    return
+  }
+
   if (avisarCapacidade.value) {
-    erro.value = `Há ${excedenteCapacidade.value} participante(s) acima da capacidade. Remova antes de salvar.`
+    definirErro(`Há ${excedenteCapacidade.value} participante(s) acima da capacidade. Remova antes de salvar.`)
     return
   }
 
   try {
     salvando.value = true
-    erro.value = ''
-    sucesso.value = ''
-    const resposta = await salvarClientesTurmaBeachTennis(turmaId.value, [...idsAtuais.value])
+    limparMensagens()
 
-    const idsResposta = extrairIdsAlunosResposta(resposta)
-    if (idsResposta.length > 0) {
-      const quantidadeResposta = Number(resposta?.quantidadeAlunos)
-      idsIniciais.value = criarConjunto(idsResposta)
-      idsAtuais.value = criarConjunto(idsResposta)
+    const clienteIds = [...idsAtuais.value]
+    const resposta = await salvarClientesTurmaBeachTennis(turmaIdSelecionada.value, clienteIds)
+    const alunosNormalizados = normalizarListaAlunosVinculados(extrairListaAlunosResposta(resposta))
+    const idsResposta = extrairIdsClienteResposta(resposta, alunosNormalizados)
 
-      if (turma.value) {
-        turma.value = {
-          ...turma.value,
-          quantidadeAlunos: Number.isFinite(quantidadeResposta) ? quantidadeResposta : idsResposta.length,
-        }
+    indexarAlunos(alunosNormalizados)
+    idsIniciais.value = criarConjuntoIds(idsResposta)
+    idsAtuais.value = criarConjuntoIds(idsResposta)
+    limparEstadosBuscaVisivel()
+
+    if (turma.value) {
+      turma.value = {
+        ...turma.value,
+        quantidadeAlunos: normalizarQuantidadeAlunos(resposta, idsResposta.length),
+        vagas: Number.isFinite(Number(resposta?.vagas)) ? Number(resposta.vagas) : turma.value.vagas,
       }
-    } else {
-      await carregarTurma()
-      await carregarVinculados()
     }
 
-    limparEstadosBuscaVisivel()
-    sucesso.value = 'Participantes atualizados com sucesso.'
+    definirSucesso('Participantes atualizados com sucesso.')
     window.dispatchEvent(
       new CustomEvent(EVENTO_TURMAS_BEACH_TENNIS_ATUALIZADAS, {
-        detail: { turmaId: turmaId.value },
+        detail: { turmaId: turmaIdSelecionada.value, clienteIds: idsResposta },
       }),
     )
   } catch (error) {
-    atualizarMensagemErro(error, 'Não foi possível salvar as alterações.')
+    debugLog('beach-tennis-alunos', 'Falha ao salvar participantes', {
+      mensagem: error?.message,
+      detalhes: error?.detalhes,
+    })
+    definirErro(mapearErroSalvar(error))
   } finally {
     salvando.value = false
   }
 }
 
 async function recarregarTudo() {
+  const sequenciaAtual = ++sequenciaTela
+
   try {
     carregando.value = true
-    erro.value = ''
-    sucesso.value = ''
-
+    limparMensagens()
     await carregarContexto()
 
-    if (modoVisualizacaoEmpresa.value || !moduloEsportivoAtivo.value) {
-      turma.value = null
-      atualizarAlunosDisponiveis([])
-      atualizarSelecoesIniciais([])
+    if (sequenciaAtual !== sequenciaTela) {
       return
     }
 
-    await carregarTurma()
-    await carregarVinculados()
+    if (modoVisualizacaoEmpresa.value || !moduloEsportivoAtivo.value) {
+      turmas.value = []
+      limparEstadoTurmaSelecionada()
+      return
+    }
+
+    await carregarTurmasLista(sequenciaAtual)
+    if (sequenciaAtual !== sequenciaTela) {
+      return
+    }
+
+    if (!turmaIdSelecionada.value) {
+      limparEstadoTurmaSelecionada()
+      return
+    }
+
+    await carregarTurmaAtual(sequenciaAtual)
+    await carregarVinculados(sequenciaAtual)
+    if (sequenciaAtual !== sequenciaTela) {
+      return
+    }
+
     await carregarDisponiveis({ reiniciar: true })
   } catch (error) {
+    if (sequenciaAtual !== sequenciaTela) {
+      return
+    }
     atualizarMensagemErro(error, 'Não foi possível carregar a gestão de participantes.')
   } finally {
-    carregando.value = false
+    if (sequenciaAtual === sequenciaTela) {
+      carregando.value = false
+    }
   }
 }
 
-function atualizarContextoEmpresa() {
-  recarregarContextoGestaoEsportiva()
-    .then(() => {
-      modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
-      return recarregarTudo()
-    })
-    .catch((error) => {
-      atualizarMensagemErro(error, 'Não foi possível atualizar o contexto da empresa.')
-    })
+async function atualizarContextoEmpresa() {
+  invalidarRequisicoesPendentes()
+  turmas.value = []
+  limparEstadoTurmaSelecionada()
+  limparMensagens()
+
+  try {
+    await recarregarContextoGestaoEsportiva()
+    modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+
+    if (turmaSelecionada.value) {
+      await limparTurmaSelecionadaRota()
+      return
+    }
+
+    await recarregarTudo()
+  } catch (error) {
+    atualizarMensagemErro(error, 'Não foi possível atualizar o contexto da empresa.')
+  }
 }
 
-async function alterarAbaMobile(aba) {
+function alterarAbaMobile(aba) {
   abaMobileAtiva.value = aba
 }
 
@@ -603,17 +907,17 @@ onBeforeRouteLeave((_to, _from, next) => {
 })
 
 watch(
-  () => route.params.turmaId,
+  () => [route.params.turmaId, route.query.turmaId],
   async () => {
-    if (!route.params.turmaId) {
-      return
-    }
-
     await recarregarTudo()
   },
 )
 
 watch([filtroNivel, filtroPerfil, somenteAtivos], async () => {
+  if (!turmaSelecionada.value || modoVisualizacaoEmpresa.value || !moduloEsportivoAtivo.value) {
+    return
+  }
+
   limparSelecaoDisponiveis()
   paginacaoDisponiveis.value.page = 0
   await carregarDisponiveis({ reiniciar: true })
@@ -634,12 +938,12 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  invalidarRequisicoesPendentes()
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
   window.removeEventListener('beforeunload', handleBeforeUnload)
   if (temporizadorBusca) {
     window.clearTimeout(temporizadorBusca)
   }
-  sequenciaCarregamentoDisponiveis += 1
 })
 </script>
 
@@ -654,6 +958,15 @@ onBeforeUnmount(() => {
 
       <div class="acoes-cabecalho">
         <button class="botao secundario" type="button" @click="voltarParaTurmas">Voltar</button>
+        <button
+          v-if="turmaSelecionada"
+          class="botao secundario"
+          type="button"
+          :disabled="salvando"
+          @click="limparTurmaSelecionadaRota"
+        >
+          Escolher turma
+        </button>
         <button class="botao secundario" type="button" :disabled="carregando" @click="recarregarTudo">
           {{ carregando ? 'Atualizando...' : 'Atualizar' }}
         </button>
@@ -664,7 +977,7 @@ onBeforeUnmount(() => {
       <p>{{ erro }}</p>
     </section>
 
-    <section v-if="sucesso" class="card feedback sucesso">
+    <section v-else-if="sucesso" class="card feedback sucesso">
       <p>{{ sucesso }}</p>
     </section>
 
@@ -676,20 +989,70 @@ onBeforeUnmount(() => {
       <p>Este recurso só fica disponível para empresas com o módulo de Gestão Esportiva ativo.</p>
     </section>
 
+    <section v-else-if="!turmaSelecionada" class="conteudo-gerencia">
+      <section class="card seletor-turmas">
+        <div class="resumo-topo">
+          <div>
+            <p class="subtitulo-mini">{{ termoGrupoPlural }}</p>
+            <h2>Gerenciar alunos</h2>
+            <p class="resumo-descricao">Escolha uma turma para abrir a gestão de participantes com o contexto correto.</p>
+          </div>
+        </div>
+
+        <label class="busca-turma">
+          Buscar turma
+          <input
+            v-model="buscaTurmas"
+            type="search"
+            placeholder="Nome, horário ou professor"
+          />
+        </label>
+
+        <section v-if="carregando && !turmas.length" class="estado-vazio compacto">
+          <p>Carregando turmas...</p>
+        </section>
+
+        <section v-else-if="!turmasFiltradas.length" class="estado-vazio compacto">
+          <p>Nenhuma turma encontrada para os filtros informados.</p>
+        </section>
+
+        <div v-else class="lista-turmas-selecao">
+          <article
+            v-for="item in turmasFiltradas"
+            :key="item.id"
+            class="card card-turma-selecao"
+          >
+            <div class="cabecalho-turma-selecao">
+              <div>
+                <p class="subtitulo-mini">{{ termoGrupoSingular }}</p>
+                <h3>{{ item.nome }}</h3>
+              </div>
+              <button class="botao principal compacto" type="button" @click="selecionarTurmaParaGerenciar(item)">
+                Gerenciar
+              </button>
+            </div>
+
+            <div class="grid-resumo-selecao">
+              <p><strong>Horário:</strong> {{ formatarHorario(item.horarioInicio) }}</p>
+              <p><strong>{{ termoResponsavelSingular }}:</strong> {{ item.professorResponsavelNome || '-' }}</p>
+              <p><strong>{{ termoParticipantePlural }}:</strong> {{ normalizarQuantidadeAlunos(item) }}</p>
+              <p><strong>Capacidade:</strong> {{ formatarCapacidadeTurma(item.vagas) }}</p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </section>
+
     <section v-else class="conteudo-gerencia">
       <section class="card resumo-capacidade">
         <div class="resumo-topo">
           <div>
             <p class="subtitulo-mini">Turma</p>
             <h2>{{ turma?.nome || 'Carregando turma...' }}</h2>
-            <p class="resumo-descricao">{{ turma?.descricao || `Gerencie ${termoParticipantePlural.toLocaleLowerCase('pt-BR')} em lote.` }}</p>
+            <p class="resumo-descricao">Gerencie {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }} em lote.</p>
           </div>
-          <button
-            class="botao principal"
-            type="button"
-            :disabled="!podeSalvar"
-            @click="salvarAlteracoes"
-          >
+
+          <button class="botao principal" type="button" :disabled="!podeSalvar" @click="salvarAlteracoes">
             {{ salvando ? 'Salvando...' : 'Salvar alterações' }}
           </button>
         </div>
@@ -743,13 +1106,14 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="layout-gerencia">
-        <section class="coluna coluna-disponiveis" :class="{ ativa: abaMobileAtiva === 'disponiveis' }">
+        <section class="coluna" :class="{ ativa: abaMobileAtiva === 'disponiveis' }">
           <header class="cabecalho-coluna">
             <div>
               <p class="subtitulo-mini">{{ termoParticipantePlural }} disponíveis</p>
               <h2>Disponíveis</h2>
               <p>{{ subtituloColunaDisponiveis }}</p>
             </div>
+
             <div class="cabecalho-acoes">
               <button class="botao secundario compacto" type="button" @click="selecionarTodosDisponiveis">Selecionar visíveis</button>
               <button class="botao secundario compacto" type="button" @click="limparSelecaoDisponiveis">Limpar seleção</button>
@@ -809,19 +1173,19 @@ onBeforeUnmount(() => {
           <div v-else class="lista-participantes">
             <article
               v-for="aluno in listaDisponiveisVisiveis"
-              :key="obterChaveAluno(aluno)"
+              :key="aluno.clienteId"
               class="participante-card"
-              :class="{ selecionado: idsMarcadosDisponiveis.has(obterChaveAluno(aluno)) }"
+              :class="{ selecionado: idsMarcadosDisponiveis.has(aluno.clienteId) }"
               tabindex="0"
               role="button"
-              :aria-pressed="idsMarcadosDisponiveis.has(obterChaveAluno(aluno))"
-              @click="alternarMarcadoDisponivel(aluno, !idsMarcadosDisponiveis.has(obterChaveAluno(aluno)))"
-              @keydown.enter.prevent="alternarMarcadoDisponivel(aluno, !idsMarcadosDisponiveis.has(obterChaveAluno(aluno)))"
-              @keydown.space.prevent="alternarMarcadoDisponivel(aluno, !idsMarcadosDisponiveis.has(obterChaveAluno(aluno)))"
+              :aria-pressed="idsMarcadosDisponiveis.has(aluno.clienteId)"
+              @click="alternarMarcadoDisponivel(aluno, !idsMarcadosDisponiveis.has(aluno.clienteId))"
+              @keydown.enter.prevent="alternarMarcadoDisponivel(aluno, !idsMarcadosDisponiveis.has(aluno.clienteId))"
+              @keydown.space.prevent="alternarMarcadoDisponivel(aluno, !idsMarcadosDisponiveis.has(aluno.clienteId))"
             >
               <label class="participante-selecao">
                 <input
-                  :checked="idsMarcadosDisponiveis.has(obterChaveAluno(aluno))"
+                  :checked="idsMarcadosDisponiveis.has(aluno.clienteId)"
                   type="checkbox"
                   @change="alternarMarcadoDisponivel(aluno, $event.target.checked)"
                 />
@@ -836,9 +1200,9 @@ onBeforeUnmount(() => {
               </label>
 
               <div class="chips-participante">
-                <span v-if="rotuloNivelBeachTennis(aluno.nivelBeachTennis)" class="chip">{{ rotuloNivelBeachTennis(aluno.nivelBeachTennis) }}</span>
-                <span v-if="rotuloPerfilBeachTennis(aluno.perfilBeachTennis)" class="chip sutileza">
-                  {{ rotuloPerfilBeachTennis(aluno.perfilBeachTennis) }}
+                <span v-if="rotuloNivelBeachTennis(aluno.nivel)" class="chip">{{ rotuloNivelBeachTennis(aluno.nivel) }}</span>
+                <span v-if="rotuloPerfilBeachTennis(aluno.perfil)" class="chip sutileza">
+                  {{ rotuloPerfilBeachTennis(aluno.perfil) }}
                 </span>
               </div>
             </article>
@@ -853,19 +1217,18 @@ onBeforeUnmount(() => {
             >
               {{ carregandoDisponiveis ? 'Carregando...' : 'Carregar mais' }}
             </button>
-            <p>
-              {{ paginacaoDisponiveis.totalElements }} resultado(s) no servidor.
-            </p>
+            <p>{{ paginacaoDisponiveis.totalElements }} resultado(s) no servidor.</p>
           </footer>
         </section>
 
-        <section class="coluna coluna-turma" :class="{ ativa: abaMobileAtiva === 'turma' }">
+        <section class="coluna" :class="{ ativa: abaMobileAtiva === 'turma' }">
           <header class="cabecalho-coluna">
             <div>
               <p class="subtitulo-mini">{{ termoParticipantePlural }} na turma</p>
               <h2>Na turma</h2>
               <p>{{ subtituloColunaTurma }}</p>
             </div>
+
             <div class="cabecalho-acoes">
               <button class="botao secundario compacto" type="button" @click="selecionarTodosVinculados">Selecionar visíveis</button>
               <button class="botao secundario compacto" type="button" @click="limparSelecaoTurma">Limpar seleção</button>
@@ -891,19 +1254,19 @@ onBeforeUnmount(() => {
           <div v-else class="lista-participantes">
             <article
               v-for="aluno in listaVinculadosExibidos"
-              :key="obterChaveAluno(aluno)"
+              :key="aluno.clienteId"
               class="participante-card vinculado"
-              :class="{ selecionado: idsMarcadosTurma.has(obterChaveAluno(aluno)) }"
+              :class="{ selecionado: idsMarcadosTurma.has(aluno.clienteId) }"
               tabindex="0"
               role="button"
-              :aria-pressed="idsMarcadosTurma.has(obterChaveAluno(aluno))"
-              @click="alternarMarcadoTurma(aluno, !idsMarcadosTurma.has(obterChaveAluno(aluno)))"
-              @keydown.enter.prevent="alternarMarcadoTurma(aluno, !idsMarcadosTurma.has(obterChaveAluno(aluno)))"
-              @keydown.space.prevent="alternarMarcadoTurma(aluno, !idsMarcadosTurma.has(obterChaveAluno(aluno)))"
+              :aria-pressed="idsMarcadosTurma.has(aluno.clienteId)"
+              @click="alternarMarcadoTurma(aluno, !idsMarcadosTurma.has(aluno.clienteId))"
+              @keydown.enter.prevent="alternarMarcadoTurma(aluno, !idsMarcadosTurma.has(aluno.clienteId))"
+              @keydown.space.prevent="alternarMarcadoTurma(aluno, !idsMarcadosTurma.has(aluno.clienteId))"
             >
               <label class="participante-selecao">
                 <input
-                  :checked="idsMarcadosTurma.has(obterChaveAluno(aluno))"
+                  :checked="idsMarcadosTurma.has(aluno.clienteId)"
                   type="checkbox"
                   @change="alternarMarcadoTurma(aluno, $event.target.checked)"
                 />
@@ -918,18 +1281,16 @@ onBeforeUnmount(() => {
               </label>
 
               <div class="chips-participante">
-                <span v-if="rotuloNivelBeachTennis(aluno.nivelBeachTennis)" class="chip">{{ rotuloNivelBeachTennis(aluno.nivelBeachTennis) }}</span>
-                <span v-if="rotuloPerfilBeachTennis(aluno.perfilBeachTennis)" class="chip sutileza">
-                  {{ rotuloPerfilBeachTennis(aluno.perfilBeachTennis) }}
+                <span v-if="rotuloNivelBeachTennis(aluno.nivel)" class="chip">{{ rotuloNivelBeachTennis(aluno.nivel) }}</span>
+                <span v-if="rotuloPerfilBeachTennis(aluno.perfil)" class="chip sutileza">
+                  {{ rotuloPerfilBeachTennis(aluno.perfil) }}
                 </span>
               </div>
             </article>
           </div>
 
           <footer class="rodape-coluna">
-            <button class="botao secundario" type="button" @click="desfazerAlteracoes">
-              Desfazer alterações
-            </button>
+            <button class="botao secundario" type="button" @click="desfazerAlteracoes">Desfazer alterações</button>
             <p>{{ idsAtuais.size }} participante(s) na turma.</p>
           </footer>
         </section>
@@ -950,7 +1311,13 @@ onBeforeUnmount(() => {
       </footer>
     </section>
 
-    <section v-if="confirmarSaidaAberta" class="modal-fundo" role="dialog" aria-modal="true" aria-labelledby="confirmar-saida-titulo">
+    <section
+      v-if="confirmarSaidaAberta"
+      class="modal-fundo"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmar-saida-titulo"
+    >
       <article class="card modal-card">
         <h2 id="confirmar-saida-titulo">Alterações não salvas</h2>
         <p>Existem alterações não salvas. Deseja sair mesmo assim?</p>
@@ -968,310 +1335,350 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 20px;
   color: #0f172a;
-  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.cabecalho-pagina,
+.card {
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
 }
 
 .cabecalho-pagina {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 22px 24px;
-  border: 1px solid #dbeafe;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 30%),
-    linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
+  gap: 20px;
+  padding: 24px;
 }
 
 .subtitulo,
 .subtitulo-mini {
-  margin: 0 0 6px;
-  color: #0ea5e9;
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: #0f766e;
 }
 
 .cabecalho-pagina h1,
-.resumo-capacidade h2,
+.resumo-topo h2,
+.cabecalho-turma-selecao h3,
 .cabecalho-coluna h2,
 .modal-card h2 {
   margin: 0;
-  font-size: clamp(24px, 2.5vw, 34px);
-  font-weight: 900;
 }
 
 .descricao,
 .resumo-descricao,
 .cabecalho-coluna p,
+.grid-resumo-selecao p,
+.rodape-coluna p,
+.estado-vazio p,
+.feedback p,
 .modal-card p {
-  margin: 6px 0 0;
-  color: #64748b;
+  margin: 0;
+  color: #475569;
 }
 
 .acoes-cabecalho,
 .cabecalho-acoes,
-.barra-fixa-acoes,
 .modal-acoes,
-.rodape-coluna {
+.barra-fixa-acoes {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
-  align-items: center;
+  gap: 10px;
 }
 
-.card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  padding: 20px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+.botao {
+  appearance: none;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+}
+
+.botao:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.botao:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.botao.compacto {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.botao.principal {
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #ffffff;
+}
+
+.botao.secundario {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.botao.perigo {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.feedback {
+  padding: 16px 18px;
 }
 
 .feedback.erro {
   border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+  background: #fff1f2;
 }
 
 .feedback.sucesso {
   border-color: #bbf7d0;
   background: #f0fdf4;
-  color: #15803d;
 }
 
 .feedback.aviso {
-  border-color: #fbbf24;
+  border-color: #fde68a;
   background: #fffbeb;
-  color: #92400e;
 }
 
 .conteudo-gerencia {
   display: grid;
-  gap: 18px;
+  gap: 20px;
+  min-width: 0;
 }
 
-.resumo-capacidade {
-  display: grid;
-  gap: 16px;
+.resumo-capacidade,
+.seletor-turmas {
+  padding: 22px;
+  min-width: 0;
 }
 
-.resumo-topo {
+.resumo-topo,
+.cabecalho-turma-selecao,
+.cabecalho-coluna {
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .metricas-capacidade {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+  margin-top: 18px;
 }
 
 .metrica {
-  padding: 14px;
-  border: 1px solid #dbeafe;
+  padding: 16px;
   border-radius: 16px;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .metrica span {
   display: block;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  color: #475569;
 }
 
 .metrica strong {
-  display: block;
-  margin-top: 8px;
-  color: #0f172a;
-  font-size: 20px;
-  font-weight: 900;
+  font-size: 22px;
 }
 
 .metrica.alerta {
-  border-color: #fecaca;
-  background: #fef2f2;
+  border-color: #f59e0b;
+  background: #fffbeb;
 }
 
-.resumo-alteracoes {
-  margin: 0;
-  color: #1d4ed8;
-  font-weight: 800;
+.resumo-alteracoes,
+.resumo-alerta {
+  margin-top: 14px;
 }
 
 .resumo-alerta {
-  margin: 0;
-  color: #b91c1c;
-  font-weight: 800;
+  color: #b45309;
+  font-weight: 700;
 }
 
-.botoes-mobile {
-  display: none;
-  gap: 8px;
-}
-
-.aba-mobile {
-  flex: 1;
-  min-height: 48px;
-  border: 1px solid #dbeafe;
-  border-radius: 14px;
-  background: #fff;
-  color: #0f172a;
-  font-weight: 900;
-}
-
-.aba-mobile.ativa {
-  background: #0ea5e9;
-  color: #fff;
-  border-color: #0ea5e9;
-}
-
-.layout-gerencia {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 18px;
-}
-
-.coluna {
-  display: grid;
-  gap: 14px;
-}
-
-.cabecalho-coluna {
-  display: grid;
-  gap: 10px;
-}
-
-.barra-filtros,
-.filtros-recolhiveis {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  align-items: end;
-}
-
-.filtros-recolhiveis {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
+.busca-turma,
 .busca-interna,
-label {
+.barra-filtros label,
+.filtros-recolhiveis label {
   display: grid;
-  gap: 6px;
-  color: #374151;
-  font-size: 14px;
-  font-weight: 800;
+  gap: 8px;
+  font-weight: 600;
+  color: #0f172a;
+  min-width: 0;
+}
+
+.busca-turma {
+  margin-top: 18px;
 }
 
 input,
 select {
   width: 100%;
-  min-width: 0;
-  border: 1px solid #d1d5db;
+  border: 1px solid #cbd5e1;
   border-radius: 12px;
   padding: 11px 12px;
-  font-size: 15px;
-  background: #fff;
-  box-sizing: border-box;
+  background: #ffffff;
+  color: #0f172a;
 }
 
-input:focus,
-select:focus {
-  outline: none;
-  border-color: #0ea5e9;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+.lista-turmas-selecao {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  min-width: 0;
+}
+
+.card-turma-selecao {
+  padding: 18px;
+  min-width: 0;
+}
+
+.grid-resumo-selecao {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.botoes-mobile {
+  display: none;
+}
+
+.layout-gerencia {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  min-width: 0;
+}
+
+.coluna {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 20px;
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+  min-width: 0;
+}
+
+.barra-filtros,
+.filtros-recolhiveis {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.checkbox-line {
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+}
+
+.checkbox-line input {
+  width: auto;
 }
 
 .estado-vazio {
-  color: #64748b;
-}
-
-.estado-vazio.compacto {
-  padding: 8px 0 0;
+  padding: 28px 18px;
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  text-align: center;
 }
 
 .lista-participantes {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .participante-card {
   display: grid;
-  gap: 10px;
-  padding: 14px 15px;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  background: #fff;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid #dbeafe;
+  background: #f8fafc;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  min-width: 0;
+  min-height: 44px;
 }
 
-.participante-card:hover,
+.participante-card:focus-within,
 .participante-card:focus-visible {
-  border-color: #0ea5e9;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
-  transform: translateY(-1px);
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+}
+
+.participante-card.vinculado {
+  background: #ecfeff;
 }
 
 .participante-card.selecionado {
-  border-color: #0ea5e9;
-  background: #f0f9ff;
-}
-
-.participante-card.vinculado.selecionado {
-  border-color: #dc2626;
-  background: #fef2f2;
+  border-color: #0f766e;
+  box-shadow: inset 0 0 0 1px #0f766e;
 }
 
 .participante-selecao {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
-  align-items: flex-start;
-  cursor: pointer;
+  align-items: center;
+  min-width: 0;
 }
 
 .participante-selecao input {
-  width: 22px;
-  height: 22px;
-  margin-top: 2px;
+  width: auto;
+  margin-top: 0;
 }
 
 .participante-selecao strong {
   display: block;
-  font-size: 15px;
 }
 
 .participante-selecao small {
   display: block;
   margin-top: 4px;
   color: #64748b;
-  font-weight: 600;
-  line-height: 1.45;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .chips-participante {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
   border-radius: 999px;
-  padding: 5px 9px;
-  font-size: 12px;
-  font-weight: 900;
   background: #dbeafe;
   color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .chip.sutileza {
@@ -1279,53 +1686,12 @@ select:focus {
   color: #334155;
 }
 
-.compacto {
-  min-width: 0;
-  padding: 8px 10px;
-  font-size: 12px;
-}
-
-.principal {
-  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
-}
-
-.secundario {
-  background: #0f172a;
-}
-
-.perigo {
-  background: #dc2626;
-}
-
-.botao {
-  border: none;
-  color: white;
-  padding: 10px 16px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 900;
-  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
-}
-
-.botao:hover {
-  transform: translateY(-1px);
-}
-
-.botao:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
 .rodape-coluna {
+  display: flex;
   justify-content: space-between;
+  gap: 16px;
   align-items: center;
-}
-
-.rodape-coluna p {
-  margin: 0;
-  color: #64748b;
-  font-weight: 800;
+  min-width: 0;
 }
 
 .barra-fixa-mobile {
@@ -1337,47 +1703,52 @@ select:focus {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 18px;
-  background: rgba(15, 23, 42, 0.42);
-  backdrop-filter: blur(2px);
-  z-index: 50;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.55);
 }
 
 .modal-card {
-  width: min(520px, 100%);
-  border: 1px solid #dbeafe;
+  width: min(100%, 440px);
+  padding: 24px;
 }
 
-.modal-acoes {
-  margin-top: 18px;
-  justify-content: flex-end;
-}
+@media (max-width: 960px) {
+  .cabecalho-pagina,
+  .resumo-topo,
+  .cabecalho-coluna,
+  .cabecalho-turma-selecao,
+  .rodape-coluna {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
 
-@media (max-width: 980px) {
+  .metricas-capacidade,
+  .grid-resumo-selecao,
   .layout-gerencia {
     grid-template-columns: 1fr;
   }
 
-  .metricas-capacidade {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .barra-filtros,
-  .filtros-recolhiveis {
-    grid-template-columns: 1fr;
-  }
-
-  .cabecalho-pagina,
-  .resumo-topo,
-  .rodape-coluna {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 720px) {
   .botoes-mobile {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .aba-mobile {
+    appearance: none;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    background: #ffffff;
+    padding: 12px;
+    font-weight: 700;
+    color: #334155;
+    min-height: 44px;
+  }
+
+  .aba-mobile.ativa {
+    border-color: #0f766e;
+    background: #ccfbf1;
+    color: #115e59;
   }
 
   .coluna {
@@ -1388,47 +1759,43 @@ select:focus {
     display: grid;
   }
 
+  .conteudo-gerencia {
+    padding-bottom: 180px;
+  }
+
+  .busca-turma,
+  .busca-interna,
+  .barra-filtros {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: #ffffff;
+    padding-top: 8px;
+  }
+
+  .coluna {
+    padding-bottom: 18px;
+  }
+
   .barra-fixa-mobile {
     position: fixed;
     left: 16px;
     right: 16px;
     bottom: 16px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
     gap: 12px;
-    padding: 14px 16px;
-    border: 1px solid #dbeafe;
+    padding: 16px;
     border-radius: 18px;
-    background: rgba(255, 255, 255, 0.97);
-    box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.08);
-    box-sizing: border-box;
+    border: 1px solid #dbeafe;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
     max-width: calc(100vw - 32px);
   }
 
-  .barra-fixa-acoes {
+  .barra-fixa-acoes .botao,
+  .rodape-coluna .botao,
+  .cabecalho-acoes .botao {
     width: 100%;
-  }
-
-  .barra-fixa-acoes .botao {
-    flex: 1;
-  }
-
-  .conteudo-gerencia {
-    padding-bottom: 180px;
-  }
-
-  .barra-fixa-mobile strong {
-    display: block;
-    color: #0f172a;
-  }
-
-  .barra-fixa-mobile span {
-    display: block;
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-    margin-top: 2px;
   }
 }
 </style>

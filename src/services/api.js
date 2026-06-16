@@ -4312,7 +4312,7 @@ export async function salvarClientesTurmaBeachTennis(turmaId, clienteIds) {
     {
       method: 'PUT',
       headers: montarHeaders(true),
-      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({ clienteIds: ids })),
+      body: JSON.stringify({ clienteIds: ids }),
     },
   )
 
