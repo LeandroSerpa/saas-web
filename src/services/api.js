@@ -4377,6 +4377,37 @@ export async function buscarAcordoBeachTennis(id) {
   return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${id}`))
 }
 
+export async function buscarAcordoBeachTennisDetalhe(id) {
+  return buscarAcordoBeachTennis(id)
+}
+
+export async function buscarAcordosPaginadosBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos('/paginados', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesAlunosAcordoBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos('/opcoes/alunos', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesTurmasAcordoBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos('/opcoes/turmas', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
 export async function criarAcordoBeachTennis(acordo) {
   return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(), {
     method: 'POST',
