@@ -1,13 +1,17 @@
-<script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+﻿<script setup>
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   EVENTO_EMPRESA_VISUALIZACAO,
   buscarAcordosBeachTennis,
+  buscarAcordoBeachTennisDetalhe,
+  buscarAcordosPaginadosBeachTennis,
   buscarClientes,
   buscarConfiguracaoBeachTennisFinanceira,
+  buscarFuncionarios,
   buscarMensalidadesBeachTennis,
+  buscarOpcoesAlunosAcordoBeachTennis,
+  buscarOpcoesTurmasAcordoBeachTennis,
   buscarResumoFinanceiroBeachTennis,
-  buscarTurmasBeachTennis,
   cobrarMensalidadeWhatsappBeachTennis,
   criarAcordoBeachTennis,
   criarMensalidadeBeachTennis,
@@ -19,6 +23,16 @@ import {
   atualizarAcordoBeachTennis,
   cancelarMensalidadeBeachTennis,
 } from '@/services/api'
+import PaginacaoCompacta from '@/components/PaginacaoCompacta.vue'
+import ResumoSelecaoAcordo from '@/components/ResumoSelecaoAcordo.vue'
+import SeletorAlunosAcordo from '@/components/SeletorAlunosAcordo.vue'
+import SeletorTurmasAcordo from '@/components/SeletorTurmasAcordo.vue'
+import {
+  normalizarArrayBeachTennis,
+  rotuloDiaBeachTennis,
+  rotuloNivelBeachTennis,
+  rotuloPerfilBeachTennis,
+} from '@/utils/beachTennis'
 import {
   carregarContextoGestaoEsportiva,
   contextoGestaoEsportiva,
@@ -29,7 +43,7 @@ const ABAS = [
   { id: 'acordos', rotulo: 'Acordos' },
   { id: 'mensalidades', rotulo: 'Mensalidades' },
   { id: 'resumo', rotulo: 'Resumo financeiro' },
-  { id: 'configuracao', rotulo: 'Configuração e PIX' },
+  { id: 'configuracao', rotulo: 'ConfiguraÃ§Ã£o e PIX' },
 ]
 
 const OPCOES_MODALIDADE = [
@@ -50,11 +64,11 @@ const TIPO_CHAVE_PIX = [
   { valor: 'CNPJ', rotulo: 'CNPJ' },
   { valor: 'EMAIL', rotulo: 'E-mail' },
   { valor: 'TELEFONE', rotulo: 'Telefone' },
-  { valor: 'ALEATORIA', rotulo: 'Chave aleatória' },
+  { valor: 'ALEATORIA', rotulo: 'Chave aleatÃ³ria' },
 ]
 
 const GESTAO_GERACAO = [
-  { valor: 'AUTOMATICA', rotulo: 'Automática' },
+  { valor: 'AUTOMATICA', rotulo: 'AutomÃ¡tica' },
   { valor: 'MANUAL', rotulo: 'Manual' },
 ]
 
@@ -83,8 +97,8 @@ const STATUS_MENSALIDADE = [
 const FORMAS_PAGAMENTO_BEACH_TENNIS = [
   { codigo: 'PIX', rotulo: 'Pix' },
   { codigo: 'DINHEIRO', rotulo: 'Dinheiro' },
-  { codigo: 'TRANSFERENCIA', rotulo: 'Transferência' },
-  { codigo: 'CARTAO', rotulo: 'Cartão' },
+  { codigo: 'TRANSFERENCIA', rotulo: 'TransferÃªncia' },
+  { codigo: 'CARTAO', rotulo: 'CartÃ£o' },
   { codigo: 'OUTRO', rotulo: 'Outro' },
 ]
 
@@ -93,6 +107,12 @@ const statusPagamentoDisponiveis = [...FORMAS_PAGAMENTO_BEACH_TENNIS]
 const abaAtiva = ref('acordos')
 const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const carregando = ref(false)
+const carregandoListaAcordos = ref(false)
+const carregandoClientesApoio = ref(false)
+const carregandoProfessoresAcordo = ref(false)
+const carregandoOpcoesAlunos = ref(false)
+const carregandoOpcoesTurmas = ref(false)
+const carregandoDetalheAcordoId = ref('')
 const salvandoAcordo = ref(false)
 const salvandoConfiguracao = ref(false)
 const salvandoMensalidade = ref(false)
@@ -101,14 +121,31 @@ const acordoEditandoId = ref('')
 const inicializandoAcordoFormulario = ref(false)
 const mensalidadeManualAberta = ref(false)
 const mensalidadePagamentoAberta = ref(false)
+const seletorAlunosAberto = ref(false)
+const seletorTurmasAberto = ref(false)
 const erro = ref('')
 const sucesso = ref('')
+const erroListagemAcordos = ref('')
+const erroSeletorAlunos = ref('')
+const erroSeletorTurmas = ref('')
+const avisoResponsavelRemovido = ref('')
 const acordos = ref([])
+const acordosPaginados = ref(criarPaginaVazia(10))
 const mensalidades = ref([])
 const resumoFinanceiro = ref(null)
 const configuracao = ref(criarConfiguracaoPadrao())
 const clientes = ref([])
-const turmas = ref([])
+const professoresAcordo = ref([])
+const paginaAlunosAcordo = ref(criarPaginaVazia(20))
+const paginaTurmasAcordo = ref(criarPaginaVazia(20))
+const alunosOpcoesAcordo = ref([])
+const turmasOpcoesAcordo = ref([])
+const alunosConfirmadosMap = ref(new Map())
+const turmasConfirmadasMap = ref(new Map())
+const alunosTemporariosIds = ref(new Set())
+const turmasTemporariasIds = ref(new Set())
+const alunosTemporariosMap = ref(new Map())
+const turmasTemporariasMap = ref(new Map())
 const competenciaSelecionada = ref(competenciaAtual())
 const filtrosMensalidades = ref({
   status: '',
@@ -116,11 +153,11 @@ const filtrosMensalidades = ref({
   alunoId: '',
   busca: '',
 })
-const filtrosAcordo = ref({
-  buscaAluno: '',
-  buscaTurma: '',
-  status: '',
-})
+const filtrosAcordosPaginados = ref(criarFiltrosAcordosPaginadosPadrao())
+const filtrosAlunosAcordo = ref(criarFiltrosAlunosAcordoPadrao())
+const filtrosTurmasAcordo = ref(criarFiltrosTurmasAcordoPadrao())
+const buscaAcordosDigitada = ref('')
+const buscaAcordosDebounced = ref('')
 const buscaAlunoAcordoDigitada = ref('')
 const buscaAlunoAcordoDebounced = ref('')
 const buscaTurmaAcordoDigitada = ref('')
@@ -129,28 +166,54 @@ const acordoFormulario = ref(criarAcordoPadrao())
 const mensalidadeManual = ref(criarMensalidadeManualPadrao())
 const pagamentoMensalidade = ref(criarPagamentoPadrao())
 const cobrancaWhatsapp = ref(criarCobrancaWhatsappPadrao())
+const apoioMensalidadesCarregado = ref(false)
 let janelaWhatsapp = null
+let botaoAberturaSeletorAlunos = null
+let botaoAberturaSeletorTurmas = null
+let temporizadorBuscaAcordos = null
 let temporizadorBuscaAluno = null
 let temporizadorBuscaTurma = null
+const controleRequisicoes = {
+  acordos: 0,
+  acordosAuxiliares: 0,
+  clientesApoio: 0,
+  professoresAcordo: 0,
+  mensalidades: 0,
+  resumo: 0,
+  configuracao: 0,
+  alunos: 0,
+  turmas: 0,
+  detalhe: 0,
+}
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
 const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
 const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Participante')
 const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Participantes')
-const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'Responsável')
+const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'ResponsÃ¡vel')
 const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
 const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const termoAtividadeSingular = computed(() => contextoEsportivo.value?.termoAtividadeSingular || 'Atividade')
 const termoAtividadePlural = computed(() => contextoEsportivo.value?.termoAtividadePlural || 'Atividades')
 const termoLocalSingular = computed(() => contextoEsportivo.value?.termoLocalSingular || 'Local')
 const termoLocalPlural = computed(() => contextoEsportivo.value?.termoLocalPlural || 'Locais')
-const rotuloResponsavelPagamento = 'Responsável pelo pagamento'
+const rotuloResponsavelPagamento = 'ResponsÃ¡vel pelo pagamento'
 const nomeEventoLivre = computed(() => contextoEsportivo.value?.nomeEventoLivre || configuracao.value.nomePlay || 'Jogo livre')
 const tituloPagina = computed(() => `Financeiro - ${nomeModalidade.value}`)
 const descricaoPagina = computed(() =>
   `Centralize acordos, mensalidades, cobrancas no WhatsApp e a configuracao de PIX para ${nomeModalidade.value}.`,
 )
 const nomeAcordoExemplo = computed(() => `Acordo ${nomeModalidade.value}`)
+const professoresDisponiveisAcordo = computed(() =>
+  [...professoresAcordo.value]
+    .map((item) => ({
+      id: normalizarId(item.id ?? item.funcionarioId ?? ''),
+      nome: String(item.nome || item.nomeCompleto || item.apelido || 'FuncionÃ¡rio').trim(),
+      ativo: item.ativo !== false,
+    }))
+    .filter((item) => item.id && item.ativo !== false)
+    .sort((a, b) => compararTexto(a.nome, b.nome)),
+)
 
 const alunosSelecionadosIds = computed({
   get: () => acordoFormulario.value.alunoIds || [],
@@ -172,65 +235,69 @@ const turmasSelecionadasIds = computed({
   },
 })
 
-const alunosDisponiveis = computed(() =>
-  [...clientes.value]
-    .map((item) => normalizarAluno(item))
-    .filter((aluno) => filtrarAlunoNoAcordo(aluno))
-    .sort((a, b) => compararTexto(a.nome, b.nome)),
-)
-
-const turmasDisponiveis = computed(() =>
-  [...turmas.value]
-    .map((item) => normalizarTurma(item))
-    .filter((turma) => filtrarTurmaNoAcordo(turma))
-    .sort((a, b) => compararTexto(a.nome, b.nome)),
-)
-
 const alunosSelecionadosNoAcordo = computed(() =>
-  alunosSelecionadosIds.value
-    .map((id) => {
-      const encontrado =
-        alunosDisponiveis.value.find((item) => normalizarId(item.id) === normalizarId(id)) ||
-        clientes.value.find((item) => normalizarId(item.id) === normalizarId(id)) ||
-        acordoFormulario.value.alunos?.find((item) => normalizarId(item.clienteId ?? item.id ?? item.alunoId ?? item.pessoaId) === normalizarId(id))
-
-      return encontrado ? normalizarAluno(encontrado) : criarAlunoSelecionadoFallback(id)
-    })
-    .filter(Boolean),
+  listarSelecionadosPorIds(
+    alunosSelecionadosIds.value,
+    alunosConfirmadosMap.value,
+    acordoFormulario.value.alunos || [],
+    criarAlunoSelecionadoFallback,
+  ),
 )
 
 const turmasSelecionadasNoAcordo = computed(() =>
-  turmasSelecionadasIds.value
-    .map((id) => {
-      const encontrado =
-        turmasDisponiveis.value.find((item) => normalizarId(item.id) === normalizarId(id)) ||
-        turmas.value.find((item) => normalizarId(item.id) === normalizarId(id)) ||
-        acordoFormulario.value.turmas?.find((item) => normalizarId(item.turmaId ?? item.id ?? item.alunoId ?? item.pessoaId) === normalizarId(id))
-
-      return encontrado ? normalizarTurma(encontrado) : criarTurmaSelecionadaFallback(id)
-    })
-    .filter(Boolean),
+  listarSelecionadosPorIds(
+    turmasSelecionadasIds.value,
+    turmasConfirmadasMap.value,
+    acordoFormulario.value.turmas || [],
+    criarTurmaSelecionadaFallback,
+  ),
+)
+const alunosTemporariosLista = computed(() =>
+  listarSelecionadosPorIds([...alunosTemporariosIds.value], alunosTemporariosMap.value, [], criarAlunoSelecionadoFallback),
+)
+const turmasTemporariasLista = computed(() =>
+  listarSelecionadosPorIds([...turmasTemporariasIds.value], turmasTemporariasMap.value, [], criarTurmaSelecionadaFallback),
+)
+const alunosDisponiveis = computed(() =>
+  [...clientes.value]
+    .map((item) => normalizarAluno(item))
+    .sort((a, b) => compararTexto(a.nome, b.nome)),
+)
+const turmasDisponiveis = computed(() =>
+  [...turmasOpcoesAcordo.value]
+    .map((item) => normalizarTurma(item))
+    .sort((a, b) => compararTexto(a.nome, b.nome)),
 )
 const alunosSelecionadosResumo = computed(() => alunosSelecionadosNoAcordo.value.slice(0, 6))
 const turmasSelecionadasResumo = computed(() => turmasSelecionadasNoAcordo.value.slice(0, 6))
 const alunosSelecionadosExtras = computed(() => Math.max(alunosSelecionadosNoAcordo.value.length - alunosSelecionadosResumo.value.length, 0))
 const turmasSelecionadasExtras = computed(() => Math.max(turmasSelecionadasNoAcordo.value.length - turmasSelecionadasResumo.value.length, 0))
+const gruposResumoOcultos = computed(() => turmasSelecionadasResumo.value)
+const gruposOcultosDisponiveis = computed(() => turmasDisponiveis.value)
 
 const responsavelSelecionado = computed(() =>
   alunosSelecionadosNoAcordo.value.find((item) => normalizarId(item.id) === normalizarId(acordoFormulario.value.responsavelAlunoId)) || null,
 )
 const avisoResponsavelSelecionado = computed(
   () =>
-    !inicializandoAcordoFormulario.value &&
-    alunosSelecionadosIds.value.length > 0 &&
-    !responsavelSelecionado.value &&
-    !String(acordoFormulario.value.responsavelAlunoId || '').trim(),
+    avisoResponsavelRemovido.value ||
+    (
+      !inicializandoAcordoFormulario.value &&
+      alunosSelecionadosIds.value.length > 0 &&
+      !responsavelSelecionado.value &&
+      !String(acordoFormulario.value.responsavelAlunoId || '').trim()
+        ? 'Escolha o responsÃ¡vel pelo pagamento entre os alunos selecionados.'
+        : ''
+    ),
 )
 
 const acordosOrdenados = computed(() =>
   [...acordos.value]
     .map((item) => normalizarAcordo(item))
     .sort((a, b) => compararTexto(a.nome, b.nome)),
+)
+const acordosPaginadosLista = computed(() =>
+  normalizarListaAcordosPaginados(acordosPaginados.value.content || []),
 )
 
 const mensalidadesOrdenadas = computed(() =>
@@ -297,6 +364,95 @@ const previewMensagemConfiguracao = computed(() =>
   }),
 )
 
+function criarPaginaVazia(size = 10) {
+  return {
+    content: [],
+    page: 0,
+    size,
+    totalElements: 0,
+    totalPages: 0,
+    first: true,
+    last: true,
+    numberOfElements: 0,
+  }
+}
+
+function criarFiltrosAcordosPaginadosPadrao() {
+  return {
+    busca: '',
+    status: '',
+    page: 0,
+    size: 10,
+  }
+}
+
+function criarFiltrosAlunosAcordoPadrao() {
+  return {
+    nivel: '',
+    perfil: '',
+    somenteAtivos: true,
+    page: 0,
+    size: 20,
+  }
+}
+
+function criarFiltrosTurmasAcordoPadrao() {
+  return {
+    diaSemana: '',
+    funcionarioId: '',
+    nivel: '',
+    horarioInicioDe: '',
+    horarioInicioAte: '',
+    somenteAtivas: true,
+    page: 0,
+    size: 20,
+  }
+}
+
+function normalizarPaginaResposta(dados, sizePadrao = 10) {
+  const base = dados && typeof dados === 'object' ? dados : {}
+  const content = Array.isArray(base.content) ? base.content : []
+  const page = Number(base.page ?? base.number ?? 0)
+  const size = Number(base.size ?? sizePadrao)
+  const totalElements = Number(base.totalElements ?? content.length ?? 0)
+  const totalPages = Number(base.totalPages ?? (totalElements > 0 ? Math.ceil(totalElements / Math.max(size, 1)) : 0))
+
+  return {
+    content,
+    page: Number.isFinite(page) ? page : 0,
+    size: Number.isFinite(size) && size > 0 ? size : sizePadrao,
+    totalElements: Number.isFinite(totalElements) ? totalElements : 0,
+    totalPages: Number.isFinite(totalPages) ? totalPages : 0,
+    first: base.first === true || page <= 0,
+    last: base.last === true || totalPages <= 1 || page >= totalPages - 1,
+    numberOfElements: Number(base.numberOfElements ?? content.length ?? 0),
+  }
+}
+
+function listarSelecionadosPorIds(ids = [], mapa = new Map(), fallbackLista = [], fallbackFactory = (id) => ({ id })) {
+  const fallbackMap = new Map(
+    [].concat(fallbackLista || []).map((item) => {
+      const normalizado = item?.turmaId ? normalizarTurma(item) : normalizarAluno(item)
+      return [normalizarId(normalizado.id), normalizado]
+    }),
+  )
+
+  return ids
+    .map((id) => {
+      const chave = normalizarId(id)
+      return mapa.get(chave) || fallbackMap.get(chave) || fallbackFactory(chave)
+    })
+    .filter(Boolean)
+}
+
+function clonarSet(origem = new Set()) {
+  return new Set([...origem].map((item) => normalizarId(item)).filter(Boolean))
+}
+
+function clonarMap(origem = new Map()) {
+  return new Map(origem)
+}
+
 function criarAcordoPadrao() {
   return {
     nome: '',
@@ -359,7 +515,7 @@ function criarConfiguracaoPadrao() {
     chavePix: '',
     nomeRecebedor: '',
     templateMensagem:
-      'Olá, {nomeResponsavel}! A mensalidade referente a {competencia}, do acordo {nomeAcordo}, está no valor de {valor} e vence em {vencimento}. PIX: {chavePix}. Após o pagamento, por favor envie o comprovante. Obrigado!',
+      'OlÃ¡, {nomeResponsavel}! A mensalidade referente a {competencia}, do acordo {nomeAcordo}, estÃ¡ no valor de {valor} e vence em {vencimento}. PIX: {chavePix}. ApÃ³s o pagamento, por favor envie o comprovante. Obrigado!',
     nomePlay: 'PLAY',
   }
 }
@@ -388,9 +544,9 @@ async function carregarTudo() {
   erro.value = ''
   sucesso.value = ''
 
-  return Promise.all([carregarBase(), carregarAcordos(), carregarMensalidades(), carregarResumo(), carregarConfiguracao()])
+  return Promise.all([carregarAcordosPaginados(), carregarMensalidades(), carregarResumo(), carregarConfiguracao()])
     .catch((exception) => {
-      erro.value = obterMensagemErro(exception, `Não foi possível carregar a área financeira de ${nomeModalidade.value}.`)
+      erro.value = obterMensagemErro(exception, `NÃ£o foi possÃ­vel carregar a Ã¡rea financeira de ${nomeModalidade.value}.`)
       console.error(exception)
     })
     .finally(() => {
@@ -398,61 +554,224 @@ async function carregarTudo() {
     })
 }
 
-async function carregarBase() {
-  const [clientesResp, turmasResp] = await Promise.allSettled([buscarClientes(), buscarTurmasBeachTennis()])
+async function carregarClientesApoio() {
+  const requisicaoId = ++controleRequisicoes.clientesApoio
 
-  if (clientesResp.status === 'fulfilled') {
-    clientes.value = Array.isArray(clientesResp.value) ? clientesResp.value.map(normalizarAluno) : []
+  try {
+    carregandoClientesApoio.value = true
+    const resposta = await buscarClientes()
+    if (requisicaoId !== controleRequisicoes.clientesApoio) {
+      return
+    }
+
+    clientes.value = Array.isArray(resposta) ? resposta.map(normalizarAluno) : []
+  } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.clientesApoio) {
+      return
+    }
+
+    clientes.value = []
+    console.error(exception)
+  } finally {
+    if (requisicaoId === controleRequisicoes.clientesApoio) {
+      carregandoClientesApoio.value = false
+    }
   }
+}
 
-  if (turmasResp.status === 'fulfilled') {
-    turmas.value = Array.isArray(turmasResp.value) ? turmasResp.value.map(normalizarTurma) : []
+async function carregarProfessoresAcordo() {
+  const requisicaoId = ++controleRequisicoes.professoresAcordo
+
+  try {
+    carregandoProfessoresAcordo.value = true
+    const resposta = await buscarFuncionarios()
+    if (requisicaoId !== controleRequisicoes.professoresAcordo) {
+      return
+    }
+
+    professoresAcordo.value = Array.isArray(resposta) ? resposta : []
+  } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.professoresAcordo) {
+      return
+    }
+
+    professoresAcordo.value = []
+    console.error(exception)
+  } finally {
+    if (requisicaoId === controleRequisicoes.professoresAcordo) {
+      carregandoProfessoresAcordo.value = false
+    }
   }
 }
 
 async function carregarAcordos() {
-  const resposta = await buscarAcordosBeachTennis()
-  acordos.value = Array.isArray(resposta) ? resposta : []
+  const requisicaoId = ++controleRequisicoes.acordosAuxiliares
+
+  try {
+    const resposta = await buscarAcordosBeachTennis()
+    if (requisicaoId !== controleRequisicoes.acordosAuxiliares) {
+      return
+    }
+
+    acordos.value = Array.isArray(resposta) ? resposta : []
+  } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.acordosAuxiliares) {
+      return
+    }
+
+    acordos.value = []
+    throw exception
+  }
+}
+
+async function garantirApoioMensalidades() {
+  if (apoioMensalidadesCarregado.value) {
+    return
+  }
+
+  await Promise.all([carregarClientesApoio(), carregarAcordos()])
+  apoioMensalidadesCarregado.value = true
+}
+
+async function carregarAcordosPaginados({ ajustarPaginaSeVazia = false } = {}) {
+  const requisicaoId = ++controleRequisicoes.acordos
+
+  try {
+    carregandoListaAcordos.value = true
+    erroListagemAcordos.value = ''
+
+    const resposta = await buscarAcordosPaginadosBeachTennis({
+      busca: buscaAcordosDebounced.value,
+      status: filtrosAcordosPaginados.value.status,
+      page: filtrosAcordosPaginados.value.page,
+      size: filtrosAcordosPaginados.value.size,
+    })
+
+    if (requisicaoId !== controleRequisicoes.acordos) {
+      return
+    }
+
+    const pagina = normalizarPaginaResposta(resposta, filtrosAcordosPaginados.value.size)
+
+    if (ajustarPaginaSeVazia && !pagina.content.length && pagina.totalElements > 0 && pagina.page > 0) {
+      filtrosAcordosPaginados.value.page = pagina.page - 1
+      await carregarAcordosPaginados()
+      return
+    }
+
+    acordosPaginados.value = pagina
+  } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.acordos) {
+      return
+    }
+
+    acordosPaginados.value = criarPaginaVazia(filtrosAcordosPaginados.value.size)
+    erroListagemAcordos.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel carregar os acordos agora.')
+    console.error(exception)
+  } finally {
+    if (requisicaoId === controleRequisicoes.acordos) {
+      carregandoListaAcordos.value = false
+    }
+  }
 }
 
 async function carregarMensalidades() {
-  const resposta = await buscarMensalidadesBeachTennis({
-    competencia: competenciaSelecionada.value,
-  })
-  mensalidades.value = Array.isArray(resposta) ? resposta : []
+  const requisicaoId = ++controleRequisicoes.mensalidades
+
+  try {
+    const resposta = await buscarMensalidadesBeachTennis({
+      competencia: competenciaSelecionada.value,
+    })
+    if (requisicaoId !== controleRequisicoes.mensalidades) {
+      return
+    }
+
+    mensalidades.value = Array.isArray(resposta) ? resposta : []
+  } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.mensalidades) {
+      return
+    }
+
+    mensalidades.value = []
+    throw exception
+  }
 }
 
 async function carregarResumo() {
+  const requisicaoId = ++controleRequisicoes.resumo
+
   try {
-    resumoFinanceiro.value = await buscarResumoFinanceiroBeachTennis({
+    const resposta = await buscarResumoFinanceiroBeachTennis({
       competencia: competenciaSelecionada.value,
     })
+    if (requisicaoId !== controleRequisicoes.resumo) {
+      return
+    }
+
+    resumoFinanceiro.value = resposta
   } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.resumo) {
+      return
+    }
+
     resumoFinanceiro.value = null
     console.error(exception)
   }
 }
 
 async function carregarConfiguracao() {
+  const requisicaoId = ++controleRequisicoes.configuracao
+
   try {
     const resposta = await buscarConfiguracaoBeachTennisFinanceira()
+    if (requisicaoId !== controleRequisicoes.configuracao) {
+      return
+    }
+
     configuracao.value = normalizarConfiguracao(resposta)
   } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.configuracao) {
+      return
+    }
+
     configuracao.value = criarConfiguracaoPadrao()
     console.error(exception)
   }
 }
 
 function limparDadosTela() {
+  limparTemporizadorBusca('acordos')
+  limparTemporizadorBusca('alunos')
+  limparTemporizadorBusca('turmas')
   acordos.value = []
+  acordosPaginados.value = criarPaginaVazia(10)
   mensalidades.value = []
   resumoFinanceiro.value = null
   clientes.value = []
-  turmas.value = []
+  professoresAcordo.value = []
+  paginaAlunosAcordo.value = criarPaginaVazia(20)
+  paginaTurmasAcordo.value = criarPaginaVazia(20)
+  alunosOpcoesAcordo.value = []
+  turmasOpcoesAcordo.value = []
+  alunosConfirmadosMap.value = new Map()
+  turmasConfirmadasMap.value = new Map()
+  alunosTemporariosIds.value = new Set()
+  turmasTemporariasIds.value = new Set()
+  alunosTemporariosMap.value = new Map()
+  turmasTemporariasMap.value = new Map()
   acordoEditandoId.value = ''
+  carregandoDetalheAcordoId.value = ''
   inicializandoAcordoFormulario.value = false
+  carregando.value = false
+  carregandoListaAcordos.value = false
+  carregandoClientesApoio.value = false
+  carregandoProfessoresAcordo.value = false
+  carregandoOpcoesAlunos.value = false
+  carregandoOpcoesTurmas.value = false
   mensalidadeManualAberta.value = false
   mensalidadePagamentoAberta.value = false
+  seletorAlunosAberto.value = false
+  seletorTurmasAberto.value = false
   cobrancaWhatsapp.value = criarCobrancaWhatsappPadrao()
   acordoFormulario.value = criarAcordoPadrao()
   mensalidadeManual.value = criarMensalidadeManualPadrao()
@@ -460,10 +779,30 @@ function limparDadosTela() {
   configuracao.value = criarConfiguracaoPadrao()
   sucesso.value = ''
   erro.value = ''
+  erroListagemAcordos.value = ''
+  erroSeletorAlunos.value = ''
+  erroSeletorTurmas.value = ''
+  avisoResponsavelRemovido.value = ''
+  apoioMensalidadesCarregado.value = false
+  filtrosAcordosPaginados.value = criarFiltrosAcordosPaginadosPadrao()
+  filtrosAlunosAcordo.value = criarFiltrosAlunosAcordoPadrao()
+  filtrosTurmasAcordo.value = criarFiltrosTurmasAcordoPadrao()
+  buscaAcordosDigitada.value = ''
+  buscaAcordosDebounced.value = ''
   buscaAlunoAcordoDigitada.value = ''
   buscaAlunoAcordoDebounced.value = ''
   buscaTurmaAcordoDigitada.value = ''
   buscaTurmaAcordoDebounced.value = ''
+  controleRequisicoes.acordos += 1
+  controleRequisicoes.acordosAuxiliares += 1
+  controleRequisicoes.clientesApoio += 1
+  controleRequisicoes.professoresAcordo += 1
+  controleRequisicoes.mensalidades += 1
+  controleRequisicoes.resumo += 1
+  controleRequisicoes.configuracao += 1
+  controleRequisicoes.alunos += 1
+  controleRequisicoes.turmas += 1
+  controleRequisicoes.detalhe += 1
 }
 
 async function recarregarTudo() {
@@ -474,32 +813,53 @@ function abrirNovaAcordo() {
   acordoEditandoId.value = ''
   inicializandoAcordoFormulario.value = false
   acordoFormulario.value = criarAcordoPadrao()
-  buscaAlunoAcordoDigitada.value = ''
-  buscaAlunoAcordoDebounced.value = ''
-  buscaTurmaAcordoDigitada.value = ''
-  buscaTurmaAcordoDebounced.value = ''
+  alunosConfirmadosMap.value = new Map()
+  turmasConfirmadasMap.value = new Map()
+  encerrarSeletorAlunos()
+  encerrarSeletorTurmas()
+  avisoResponsavelRemovido.value = ''
   mudarAba('acordos')
 }
 
 async function abrirEdicaoAcordo(item) {
-  acordoEditandoId.value = String(item.id || '')
-  inicializandoAcordoFormulario.value = true
-  acordoFormulario.value = criarAcordoPadrao()
+  const acordoId = normalizarId(item.id || item.acordoId || '')
+  if (!acordoId) return
+
+  const requisicaoId = ++controleRequisicoes.detalhe
+  carregandoDetalheAcordoId.value = acordoId
   erro.value = ''
   sucesso.value = ''
-
   try {
-    const base = normalizarAcordo(item)
+    const resposta = await buscarAcordoBeachTennisDetalhe(acordoId)
+    if (requisicaoId !== controleRequisicoes.detalhe) {
+      return
+    }
+
+    const base = normalizarAcordo(resposta)
+    inicializandoAcordoFormulario.value = true
     acordoFormulario.value = normalizarAcordoFormulario(base)
-    acordoEditandoId.value = String(base.id || item.id || '')
+    acordoEditandoId.value = String(base.id || acordoId)
+    alunosConfirmadosMap.value = construirMapaSelecao(base.alunos || [], normalizarAluno)
+    turmasConfirmadasMap.value = construirMapaSelecao(base.turmas || [], normalizarTurma)
+    acordoFormulario.value.alunos = [...(base.alunos || [])]
+    acordoFormulario.value.turmas = [...(base.turmas || [])]
+    sincronizarResponsavelAposSelecao(alunosSelecionadosIds.value, {
+      limparSilenciosamente: false,
+      preservarSePossivel: true,
+    })
     mudarAba('acordos')
   } catch (exception) {
-    acordoFormulario.value = normalizarAcordoFormulario(normalizarAcordo(item))
-    acordoEditandoId.value = String(item.id || '')
+    if (requisicaoId !== controleRequisicoes.detalhe) {
+      return
+    }
+
+    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel carregar o detalhe completo do acordo.')
     console.error(exception)
   } finally {
-    await nextTick()
-    inicializandoAcordoFormulario.value = false
+    if (requisicaoId === controleRequisicoes.detalhe) {
+      inicializandoAcordoFormulario.value = false
+      carregandoDetalheAcordoId.value = ''
+    }
   }
 }
 
@@ -507,10 +867,11 @@ function cancelarEdicaoAcordo(limparMensagens = true) {
   acordoEditandoId.value = ''
   inicializandoAcordoFormulario.value = false
   acordoFormulario.value = criarAcordoPadrao()
-  buscaAlunoAcordoDigitada.value = ''
-  buscaAlunoAcordoDebounced.value = ''
-  buscaTurmaAcordoDigitada.value = ''
-  buscaTurmaAcordoDebounced.value = ''
+  alunosConfirmadosMap.value = new Map()
+  turmasConfirmadasMap.value = new Map()
+  encerrarSeletorAlunos()
+  encerrarSeletorTurmas()
+  avisoResponsavelRemovido.value = ''
 
   if (limparMensagens) {
     sucesso.value = ''
@@ -555,7 +916,7 @@ function normalizarAcordo(item = {}) {
     item.responsavelNome ||
     item.responsavel ||
     alunos.find((aluno) => aluno.clienteId === clienteResponsavelId)?.clienteNome ||
-    'Responsável não informado'
+    'ResponsÃ¡vel nÃ£o informado'
 
   return {
     ...item,
@@ -580,7 +941,14 @@ function normalizarAcordo(item = {}) {
     alunoIds: alunos.map((aluno) => aluno.clienteId).filter(Boolean),
     turmaIds: turmasAcordo.map((turma) => turma.turmaId).filter(Boolean),
     whatsappUrl: item.whatsappUrl || item.urlWhatsapp || item.linkWhatsapp || '',
+    quantidadeAlunosAtivos: numeroInteiro(item.quantidadeAlunosAtivos ?? alunos.length),
+    quantidadeTurmasAtivas: numeroInteiro(item.quantidadeTurmasAtivas ?? turmasAcordo.length),
+    atualizadoEm: item.atualizadoEm || item.updatedAt || item.dataAtualizacao || '',
   }
+}
+
+function normalizarListaAcordosPaginados(lista = []) {
+  return [].concat(lista || []).map((item) => normalizarAcordo(item))
 }
 
 function normalizarMensalidade(item = {}) {
@@ -606,14 +974,14 @@ function normalizarMensalidade(item = {}) {
     nomeAcordo: item.nomeAcordo || item.acordoNome || item.nome || 'Acordo sem nome',
     clienteResponsavelId: item.clienteResponsavelId ?? item.responsavelId ?? acordoRelacionado?.clienteResponsavelId ?? '',
     clienteResponsavelNome:
-      item.clienteResponsavelNome || item.responsavelNome || acordoRelacionado?.clienteResponsavelNome || 'Responsável não informado',
+      item.clienteResponsavelNome || item.responsavelNome || acordoRelacionado?.clienteResponsavelNome || 'ResponsÃ¡vel nÃ£o informado',
     competencia,
     valor: numeroSeguro(item.valor ?? item.valorMensal ?? item.valorCobrado),
     vencimento,
     status,
     statusOriginal: String(item.status || '').trim().toUpperCase(),
     responsavelNome:
-      item.clienteResponsavelNome || item.responsavelNome || acordoRelacionado?.clienteResponsavelNome || 'Responsável não informado',
+      item.clienteResponsavelNome || item.responsavelNome || acordoRelacionado?.clienteResponsavelNome || 'ResponsÃ¡vel nÃ£o informado',
     integranteResumo,
     turmasResumo: turmaResumo,
     alunoIds,
@@ -750,7 +1118,7 @@ function aplicarSugestoesModalidade() {
 }
 
 function gerarPayloadAcordo() {
-  const clienteIds = normalizarIds(alunosSelecionadosIds.value)
+  const clienteIds = obterIdsAlunosElegiveis(alunosSelecionadosIds.value, alunosConfirmadosMap.value)
     .map((id) => Number.parseInt(id, 10))
     .filter((id) => Number.isFinite(id))
   const turmaIds = normalizarIds(turmasSelecionadasIds.value)
@@ -810,9 +1178,9 @@ async function salvarAcordo() {
     cancelarEdicaoAcordo(false)
     await recarregarAposAlteracao()
   } catch (exception) {
-    const mensagem = obterMensagemErro(exception, 'Não foi possível salvar o acordo.')
+    const mensagem = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel salvar o acordo.')
     erro.value = detectarConflitoAlunoAcordo(mensagem)
-      ? `Um dos ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} selecionados já possui um acordo ativo. Revise os integrantes ou encerre o acordo atual.`
+      ? `Um dos ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} selecionados jÃ¡ possui um acordo ativo. Revise os integrantes ou encerre o acordo atual.`
       : mensagem
     console.error(exception)
   } finally {
@@ -830,11 +1198,11 @@ function validarAcordo() {
   }
 
   if (!String(acordoFormulario.value.responsavelAlunoId || '').trim()) {
-    return 'Escolha o responsável pelo pagamento entre os alunos selecionados.'
+    return 'Escolha o responsÃ¡vel pelo pagamento entre os alunos selecionados.'
   }
 
   if (!alunosSelecionadosIds.value.includes(String(acordoFormulario.value.responsavelAlunoId || ''))) {
-    return 'O responsável pelo pagamento precisa estar entre os alunos selecionados.'
+    return 'O responsÃ¡vel pelo pagamento precisa estar entre os alunos selecionados.'
   }
 
   if (!String(acordoFormulario.value.valorMensal || '').trim()) {
@@ -843,93 +1211,503 @@ function validarAcordo() {
 
   if (String(acordoFormulario.value.tipoPrimeiroMes || '').trim().toUpperCase() === 'MANUAL' &&
     !String(acordoFormulario.value.valorPrimeiroMesManual || '').trim()) {
-    return 'Informe o valor do primeiro mês manual.'
+    return 'Informe o valor do primeiro mÃªs manual.'
   }
 
   return ''
 }
 
-function alternarAlunoAcordo(id) {
-  const conjunto = new Set(alunosSelecionadosIds.value.map(String))
-  const chave = String(id || '').trim()
-
-  if (!chave) return
-  if (conjunto.has(chave)) {
-    conjunto.delete(chave)
-    if (String(acordoFormulario.value.responsavelAlunoId || '') === chave) {
-      acordoFormulario.value.responsavelAlunoId = ''
-    }
-  } else {
-    conjunto.add(chave)
-  }
-
-  alunosSelecionadosIds.value = [...conjunto]
+function construirMapaSelecao(lista = [], normalizar) {
+  return new Map(
+    [].concat(lista || []).map((item) => {
+      const normalizado = normalizar(item)
+      return [normalizarId(normalizado.id), normalizado]
+    }),
+  )
 }
 
-function alternarTurmaAcordo(id) {
-  const conjunto = new Set(turmasSelecionadasIds.value.map(String))
-  const chave = String(id || '').trim()
-
-  if (!chave) return
-  if (conjunto.has(chave)) {
-    conjunto.delete(chave)
-  } else {
-    conjunto.add(chave)
+function sincronizarResponsavelAposSelecao(ids = [], { limparSilenciosamente = false, preservarSePossivel = false } = {}) {
+  if (inicializandoAcordoFormulario.value) {
+    return
   }
 
-  turmasSelecionadasIds.value = [...conjunto]
+  const atual = normalizarId(acordoFormulario.value.responsavelAlunoId)
+  if (preservarSePossivel && atual && ids.includes(atual)) {
+    avisoResponsavelRemovido.value = ''
+    return
+  }
+
+  if (atual && ids.includes(atual)) {
+    avisoResponsavelRemovido.value = ''
+    return
+  }
+
+  if (atual && !limparSilenciosamente) {
+    avisoResponsavelRemovido.value = 'O responsÃ¡vel anterior saiu do acordo. Escolha outro aluno para continuar.'
+  } else if (!atual) {
+    avisoResponsavelRemovido.value = ''
+  }
+
+  acordoFormulario.value.responsavelAlunoId = ''
+}
+
+function preencherMapasConfirmadosDoFormulario() {
+  alunosConfirmadosMap.value = construirMapaSelecao(acordoFormulario.value.alunos || [], normalizarAluno)
+  turmasConfirmadasMap.value = construirMapaSelecao(acordoFormulario.value.turmas || [], normalizarTurma)
 }
 
 function limparSelecaoAlunosAcordo() {
   alunosSelecionadosIds.value = []
   acordoFormulario.value.responsavelAlunoId = ''
+  acordoFormulario.value.alunos = []
+  alunosConfirmadosMap.value = new Map()
+  avisoResponsavelRemovido.value = ''
 }
 
 function limparSelecaoTurmasAcordo() {
   turmasSelecionadasIds.value = []
+  acordoFormulario.value.turmas = []
+  turmasConfirmadasMap.value = new Map()
+}
+
+function alternarAlunoAcordo(id) {
+  const conjunto = new Set(alunosSelecionadosIds.value.map(String))
+  const chave = normalizarId(id)
+
+  if (!chave) return
+  if (conjunto.has(chave)) {
+    conjunto.delete(chave)
+    alunosConfirmadosMap.value.delete(chave)
+    alunosConfirmadosMap.value = clonarMap(alunosConfirmadosMap.value)
+  } else {
+    conjunto.add(chave)
+  }
+
+  alunosSelecionadosIds.value = [...conjunto]
+  acordoFormulario.value.alunos = alunosSelecionadosNoAcordo.value.map((item) => normalizarAluno(item))
+}
+
+function alternarTurmaAcordo(id) {
+  const conjunto = new Set(turmasSelecionadasIds.value.map(String))
+  const chave = normalizarId(id)
+
+  if (!chave) return
+  if (conjunto.has(chave)) {
+    conjunto.delete(chave)
+    turmasConfirmadasMap.value.delete(chave)
+    turmasConfirmadasMap.value = clonarMap(turmasConfirmadasMap.value)
+  } else {
+    conjunto.add(chave)
+  }
+
+  turmasSelecionadasIds.value = [...conjunto]
+  acordoFormulario.value.turmas = turmasSelecionadasNoAcordo.value.map((item) => normalizarTurma(item))
+}
+
+function buscarAcordosComDebounce() {
+  limparTemporizadorBusca('acordos')
+
+  temporizadorBuscaAcordos = window.setTimeout(() => {
+    buscaAcordosDebounced.value = String(buscaAcordosDigitada.value || '').trim()
+  }, 300)
 }
 
 function buscarAlunosAcordoComDebounce() {
-  if (temporizadorBuscaAluno) {
-    window.clearTimeout(temporizadorBuscaAluno)
-  }
+  limparTemporizadorBusca('alunos')
 
   temporizadorBuscaAluno = window.setTimeout(() => {
     buscaAlunoAcordoDebounced.value = String(buscaAlunoAcordoDigitada.value || '').trim()
-  }, 250)
+  }, 300)
 }
 
 function buscarTurmasAcordoComDebounce() {
-  if (temporizadorBuscaTurma) {
-    window.clearTimeout(temporizadorBuscaTurma)
-  }
+  limparTemporizadorBusca('turmas')
 
   temporizadorBuscaTurma = window.setTimeout(() => {
     buscaTurmaAcordoDebounced.value = String(buscaTurmaAcordoDigitada.value || '').trim()
-  }, 250)
+  }, 300)
 }
 
 function selecionarResponsavelAcordo(id) {
   acordoFormulario.value.responsavelAlunoId = String(id || '').trim()
+  if (acordoFormulario.value.responsavelAlunoId) {
+    avisoResponsavelRemovido.value = ''
+  }
 }
 
-function filtrarAlunoNoAcordo(aluno = {}) {
-  const busca = normalizarTexto(buscaAlunoAcordoDebounced.value)
-  if (!busca) return true
+function abrirSeletorAlunos(event) {
+  if (seletorTurmasAberto.value) {
+    encerrarSeletorTurmas()
+  }
 
-  const campos = [aluno.nome, aluno.telefone, aluno.email, aluno.perfilBeachTennis, aluno.nivelBeachTennis]
-  return campos.some((campo) => normalizarTexto(campo).includes(busca))
+  botaoAberturaSeletorAlunos = event?.currentTarget || event?.target || null
+  erroSeletorAlunos.value = ''
+  carregandoOpcoesAlunos.value = false
+  limparTemporizadorBusca('alunos')
+  buscaAlunoAcordoDigitada.value = ''
+  buscaAlunoAcordoDebounced.value = ''
+  filtrosAlunosAcordo.value = criarFiltrosAlunosAcordoPadrao()
+  alunosOpcoesAcordo.value = []
+  paginaAlunosAcordo.value = criarPaginaVazia(filtrosAlunosAcordo.value.size)
+  alunosTemporariosIds.value = clonarSet(new Set(alunosSelecionadosIds.value))
+  alunosTemporariosMap.value = clonarMap(alunosConfirmadosMap.value)
+  seletorAlunosAberto.value = true
+  void carregarOpcoesAlunosAcordo()
 }
 
-function filtrarTurmaNoAcordo(turma = {}) {
-  const busca = normalizarTexto(buscaTurmaAcordoDebounced.value)
-  if (!busca) return true
+function abrirSeletorTurmas(event) {
+  if (seletorAlunosAberto.value) {
+    encerrarSeletorAlunos()
+  }
 
-  const campos = [turma.nome, turma.nivelBeachTennis, turma.professorResponsavelNome]
-  return campos.some((campo) => normalizarTexto(campo).includes(busca))
+  botaoAberturaSeletorTurmas = event?.currentTarget || event?.target || null
+  erroSeletorTurmas.value = ''
+  carregandoOpcoesTurmas.value = false
+  carregandoProfessoresAcordo.value = false
+  limparTemporizadorBusca('turmas')
+  buscaTurmaAcordoDigitada.value = ''
+  buscaTurmaAcordoDebounced.value = ''
+  filtrosTurmasAcordo.value = criarFiltrosTurmasAcordoPadrao()
+  turmasOpcoesAcordo.value = []
+  paginaTurmasAcordo.value = criarPaginaVazia(filtrosTurmasAcordo.value.size)
+  turmasTemporariasIds.value = clonarSet(new Set(turmasSelecionadasIds.value))
+  turmasTemporariasMap.value = clonarMap(turmasConfirmadasMap.value)
+  seletorTurmasAberto.value = true
+  void Promise.all([carregarProfessoresAcordo(), carregarOpcoesTurmasAcordo()])
 }
 
-function abrirNovaMensalidadeManual() {
+function restaurarFocoNoBotao(gatilho) {
+  window.requestAnimationFrame(() => {
+    gatilho?.focus?.()
+  })
+}
+
+function encerrarSeletorAlunos() {
+  limparTemporizadorBusca('alunos')
+  controleRequisicoes.alunos += 1
+  seletorAlunosAberto.value = false
+  carregandoOpcoesAlunos.value = false
+  erroSeletorAlunos.value = ''
+  buscaAlunoAcordoDigitada.value = ''
+  buscaAlunoAcordoDebounced.value = ''
+  filtrosAlunosAcordo.value = criarFiltrosAlunosAcordoPadrao()
+  alunosOpcoesAcordo.value = []
+  paginaAlunosAcordo.value = criarPaginaVazia(filtrosAlunosAcordo.value.size)
+  alunosTemporariosIds.value = new Set()
+  alunosTemporariosMap.value = new Map()
+}
+
+function cancelarSeletorAlunos() {
+  encerrarSeletorAlunos()
+  restaurarFocoNoBotao(botaoAberturaSeletorAlunos)
+}
+
+function encerrarSeletorTurmas() {
+  limparTemporizadorBusca('turmas')
+  controleRequisicoes.turmas += 1
+  controleRequisicoes.professoresAcordo += 1
+  seletorTurmasAberto.value = false
+  carregandoOpcoesTurmas.value = false
+  carregandoProfessoresAcordo.value = false
+  erroSeletorTurmas.value = ''
+  buscaTurmaAcordoDigitada.value = ''
+  buscaTurmaAcordoDebounced.value = ''
+  filtrosTurmasAcordo.value = criarFiltrosTurmasAcordoPadrao()
+  turmasOpcoesAcordo.value = []
+  paginaTurmasAcordo.value = criarPaginaVazia(filtrosTurmasAcordo.value.size)
+  turmasTemporariasIds.value = new Set()
+  turmasTemporariasMap.value = new Map()
+}
+
+function cancelarSeletorTurmas() {
+  encerrarSeletorTurmas()
+  restaurarFocoNoBotao(botaoAberturaSeletorTurmas)
+}
+
+function confirmarSeletorAlunos() {
+  const idsConfirmados = obterIdsAlunosElegiveis(alunosTemporariosIds.value, alunosTemporariosMap.value)
+
+  alunosSelecionadosIds.value = idsConfirmados
+  alunosConfirmadosMap.value = filtrarMapaPorIds(alunosTemporariosMap.value, idsConfirmados)
+  acordoFormulario.value.alunos = alunosSelecionadosNoAcordo.value.map((item) => normalizarAluno(item))
+  sincronizarResponsavelAposSelecao(alunosSelecionadosIds.value, { preservarSePossivel: true })
+  encerrarSeletorAlunos()
+  restaurarFocoNoBotao(botaoAberturaSeletorAlunos)
+}
+
+function confirmarSeletorTurmas() {
+  turmasSelecionadasIds.value = [...turmasTemporariasIds.value]
+  turmasConfirmadasMap.value = filtrarMapaPorIds(turmasTemporariasMap.value, turmasSelecionadasIds.value)
+  acordoFormulario.value.turmas = turmasSelecionadasNoAcordo.value.map((item) => normalizarTurma(item))
+  encerrarSeletorTurmas()
+  restaurarFocoNoBotao(botaoAberturaSeletorTurmas)
+}
+
+function alternarAlunoTemporario(id) {
+  const chave = normalizarId(id)
+  const alunoAtual = alunosOpcoesAcordo.value.find((item) => normalizarId(item.id) === chave)
+  if (!chave) return
+  if (alunoAtual && alunoAtual.elegivel === false && alunoAtual.selecionadoNoAcordo !== true) {
+    return
+  }
+
+  const conjunto = clonarSet(alunosTemporariosIds.value)
+  const mapa = clonarMap(alunosTemporariosMap.value)
+  if (conjunto.has(chave)) {
+    conjunto.delete(chave)
+    mapa.delete(chave)
+  } else {
+    conjunto.add(chave)
+    if (alunoAtual) {
+      mapa.set(chave, normalizarAluno(alunoAtual))
+    }
+  }
+
+  alunosTemporariosIds.value = conjunto
+  alunosTemporariosMap.value = mapa
+}
+
+function alternarTurmaTemporaria(id) {
+  const chave = normalizarId(id)
+  if (!chave) return
+
+  const conjunto = clonarSet(turmasTemporariasIds.value)
+  const mapa = clonarMap(turmasTemporariasMap.value)
+  if (conjunto.has(chave)) {
+    conjunto.delete(chave)
+    mapa.delete(chave)
+  } else {
+    conjunto.add(chave)
+    const turmaAtual = turmasOpcoesAcordo.value.find((item) => normalizarId(item.id) === chave)
+    if (turmaAtual) {
+      mapa.set(chave, normalizarTurma(turmaAtual))
+    }
+  }
+
+  turmasTemporariasIds.value = conjunto
+  turmasTemporariasMap.value = mapa
+}
+
+function removerAlunoTemporario(id) {
+  const chave = normalizarId(id)
+  const conjunto = clonarSet(alunosTemporariosIds.value)
+  conjunto.delete(chave)
+  alunosTemporariosIds.value = conjunto
+  alunosTemporariosMap.value.delete(chave)
+  alunosTemporariosMap.value = clonarMap(alunosTemporariosMap.value)
+}
+
+function removerTurmaTemporaria(id) {
+  const chave = normalizarId(id)
+  const conjunto = clonarSet(turmasTemporariasIds.value)
+  conjunto.delete(chave)
+  turmasTemporariasIds.value = conjunto
+  turmasTemporariasMap.value.delete(chave)
+  turmasTemporariasMap.value = clonarMap(turmasTemporariasMap.value)
+}
+
+async function carregarOpcoesAlunosAcordo() {
+  const requisicaoId = ++controleRequisicoes.alunos
+
+  try {
+    carregandoOpcoesAlunos.value = true
+    erroSeletorAlunos.value = ''
+
+    const resposta = await buscarOpcoesAlunosAcordoBeachTennis({
+      busca: buscaAlunoAcordoDebounced.value,
+      page: filtrosAlunosAcordo.value.page,
+      size: filtrosAlunosAcordo.value.size,
+      nivel: filtrosAlunosAcordo.value.nivel,
+      perfil: filtrosAlunosAcordo.value.perfil,
+      somenteAtivos: filtrosAlunosAcordo.value.somenteAtivos,
+      acordoId: acordoEditandoId.value || undefined,
+    })
+
+    if (requisicaoId !== controleRequisicoes.alunos) {
+      return
+    }
+
+    const pagina = normalizarPaginaResposta(resposta, filtrosAlunosAcordo.value.size)
+    const lista = pagina.content.map((item) => {
+      const aluno = normalizarAluno(item)
+      const chave = normalizarId(aluno.id)
+      if (alunosTemporariosIds.value.has(chave) || aluno.selecionadoNoAcordo) {
+        alunosTemporariosMap.value.set(chave, aluno)
+      }
+
+      return {
+        ...aluno,
+        selecionado: alunosTemporariosIds.value.has(chave),
+      }
+    })
+
+    alunosTemporariosMap.value = clonarMap(alunosTemporariosMap.value)
+    alunosOpcoesAcordo.value = lista
+    paginaAlunosAcordo.value = {
+      ...pagina,
+      content: lista,
+    }
+  } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.alunos) {
+      return
+    }
+
+    alunosOpcoesAcordo.value = []
+    paginaAlunosAcordo.value = criarPaginaVazia(filtrosAlunosAcordo.value.size)
+    erroSeletorAlunos.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel carregar os alunos para este acordo.')
+    console.error(exception)
+  } finally {
+    if (requisicaoId === controleRequisicoes.alunos) {
+      carregandoOpcoesAlunos.value = false
+    }
+  }
+}
+
+async function carregarOpcoesTurmasAcordo() {
+  const requisicaoId = ++controleRequisicoes.turmas
+
+  try {
+    carregandoOpcoesTurmas.value = true
+    erroSeletorTurmas.value = ''
+
+    const resposta = await buscarOpcoesTurmasAcordoBeachTennis({
+      busca: buscaTurmaAcordoDebounced.value,
+      page: filtrosTurmasAcordo.value.page,
+      size: filtrosTurmasAcordo.value.size,
+      diaSemana: filtrosTurmasAcordo.value.diaSemana,
+      funcionarioId: filtrosTurmasAcordo.value.funcionarioId,
+      nivel: filtrosTurmasAcordo.value.nivel,
+      horarioInicioDe: filtrosTurmasAcordo.value.horarioInicioDe,
+      horarioInicioAte: filtrosTurmasAcordo.value.horarioInicioAte,
+      somenteAtivas: filtrosTurmasAcordo.value.somenteAtivas,
+      acordoId: acordoEditandoId.value || undefined,
+    })
+
+    if (requisicaoId !== controleRequisicoes.turmas) {
+      return
+    }
+
+    const pagina = normalizarPaginaResposta(resposta, filtrosTurmasAcordo.value.size)
+    const lista = pagina.content.map((item) => {
+      const turma = normalizarTurma(item)
+      const chave = normalizarId(turma.id)
+      if (turmasTemporariasIds.value.has(chave) || turma.selecionadaNoAcordo) {
+        turmasTemporariasMap.value.set(chave, turma)
+      }
+
+      return {
+        ...turma,
+        selecionado: turmasTemporariasIds.value.has(chave),
+      }
+    })
+
+    turmasTemporariasMap.value = clonarMap(turmasTemporariasMap.value)
+    turmasOpcoesAcordo.value = lista
+    paginaTurmasAcordo.value = {
+      ...pagina,
+      content: lista,
+    }
+  } catch (exception) {
+    if (requisicaoId !== controleRequisicoes.turmas) {
+      return
+    }
+
+    turmasOpcoesAcordo.value = []
+    paginaTurmasAcordo.value = criarPaginaVazia(filtrosTurmasAcordo.value.size)
+    erroSeletorTurmas.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel carregar as turmas para este acordo.')
+    console.error(exception)
+  } finally {
+    if (requisicaoId === controleRequisicoes.turmas) {
+      carregandoOpcoesTurmas.value = false
+    }
+  }
+}
+
+function atualizarFiltrosAlunosAcordo(proximosFiltros) {
+  const anteriores = filtrosAlunosAcordo.value
+  filtrosAlunosAcordo.value = {
+    ...anteriores,
+    ...proximosFiltros,
+    page:
+      proximosFiltros.page !== undefined
+        ? proximosFiltros.page
+        : houveMudancaEmCampos(anteriores, proximosFiltros, ['nivel', 'perfil', 'somenteAtivos'])
+          ? 0
+          : anteriores.page,
+  }
+}
+
+function atualizarFiltrosTurmasAcordo(proximosFiltros) {
+  const anteriores = filtrosTurmasAcordo.value
+  filtrosTurmasAcordo.value = {
+    ...anteriores,
+    ...proximosFiltros,
+    page:
+      proximosFiltros.page !== undefined
+        ? proximosFiltros.page
+        : houveMudancaEmCampos(anteriores, proximosFiltros, [
+            'diaSemana',
+            'funcionarioId',
+            'nivel',
+            'horarioInicioDe',
+            'horarioInicioAte',
+            'somenteAtivas',
+          ])
+          ? 0
+          : anteriores.page,
+  }
+}
+
+function houveMudancaEmCampos(anteriores, proximos, campos = []) {
+  return campos.some((campo) => anteriores?.[campo] !== (proximos?.[campo] ?? anteriores?.[campo]))
+}
+
+async function irPaginaAnteriorAcordos() {
+  if (filtrosAcordosPaginados.value.page <= 0) return
+  filtrosAcordosPaginados.value.page -= 1
+  await carregarAcordosPaginados()
+}
+
+async function irPaginaProximaAcordos() {
+  if (filtrosAcordosPaginados.value.page >= Math.max(acordosPaginados.value.totalPages - 1, 0)) return
+  filtrosAcordosPaginados.value.page += 1
+  await carregarAcordosPaginados()
+}
+
+async function irPaginaAnteriorAlunos() {
+  if (filtrosAlunosAcordo.value.page <= 0) return
+  atualizarFiltrosAlunosAcordo({ page: filtrosAlunosAcordo.value.page - 1 })
+}
+
+async function irPaginaProximaAlunos() {
+  if (filtrosAlunosAcordo.value.page >= Math.max(paginaAlunosAcordo.value.totalPages - 1, 0)) return
+  atualizarFiltrosAlunosAcordo({ page: filtrosAlunosAcordo.value.page + 1 })
+}
+
+async function irPaginaAnteriorTurmas() {
+  if (filtrosTurmasAcordo.value.page <= 0) return
+  atualizarFiltrosTurmasAcordo({ page: filtrosTurmasAcordo.value.page - 1 })
+}
+
+async function irPaginaProximaTurmas() {
+  if (filtrosTurmasAcordo.value.page >= Math.max(paginaTurmasAcordo.value.totalPages - 1, 0)) return
+  atualizarFiltrosTurmasAcordo({ page: filtrosTurmasAcordo.value.page + 1 })
+}
+
+function limparFiltrosAcordos() {
+  buscaAcordosDigitada.value = ''
+  buscaAcordosDebounced.value = ''
+  filtrosAcordosPaginados.value = {
+    busca: '',
+    status: '',
+    page: 0,
+    size: 10,
+  }
+  void carregarAcordosPaginados()
+}
+
+async function abrirNovaMensalidadeManual() {
+  await garantirApoioMensalidades()
   mensalidadeManual.value = criarMensalidadeManualPadrao()
   if (filtrosMensalidades.value.acordoId) {
     mensalidadeManual.value.acordoId = filtrosMensalidades.value.acordoId
@@ -986,7 +1764,7 @@ async function salvarMensalidadeManual() {
     mensalidadeManual.value = criarMensalidadeManualPadrao()
     await recarregarAposAlteracao()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'Não foi possível criar a mensalidade manual.')
+    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel criar a mensalidade manual.')
     console.error(exception)
   } finally {
     salvandoMensalidade.value = false
@@ -999,7 +1777,7 @@ function validarMensalidadeManual() {
   }
 
   if (!String(mensalidadeManual.value.competencia || '').trim()) {
-    return 'Informe a competência da mensalidade.'
+    return 'Informe a competÃªncia da mensalidade.'
   }
 
   if (!String(mensalidadeManual.value.valor || '').trim()) {
@@ -1056,7 +1834,7 @@ async function confirmarPagamento() {
     pagamentoMensalidade.value = criarPagamentoPadrao()
     await recarregarAposAlteracao()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'Não foi possível confirmar o pagamento.')
+    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel confirmar o pagamento.')
     console.error(exception)
   } finally {
     salvandoMensalidade.value = false
@@ -1079,7 +1857,7 @@ async function gerarMensalidades() {
     return
   }
 
-  if (!confirmacaoSimples(`Gerar mensalidades para a competência ${formatarCompetencia(competenciaSelecionada.value)}?`)) {
+  if (!confirmacaoSimples(`Gerar mensalidades para a competÃªncia ${formatarCompetencia(competenciaSelecionada.value)}?`)) {
     return
   }
 
@@ -1096,7 +1874,7 @@ async function gerarMensalidades() {
     sucesso.value = 'Mensalidades geradas com sucesso.'
     await recarregarAposAlteracao()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'Não foi possível gerar as mensalidades.')
+    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel gerar as mensalidades.')
     console.error(exception)
   } finally {
     processandoAcaoId.value = ''
@@ -1136,7 +1914,7 @@ async function cobrarNoWhatsApp(mensalidade) {
 
     cobrancaWhatsapp.value = {
       aberta: true,
-      titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
+      titulo: `CobranÃ§a de ${mensalidade.nomeAcordo}`,
       mensagem,
       orientacao,
       whatsappUrl,
@@ -1158,10 +1936,10 @@ async function cobrarNoWhatsApp(mensalidade) {
       janelaWhatsapp.close()
       janelaWhatsapp = null
     }
-    erro.value = obterMensagemErro(exception, 'Não foi possível preparar a cobrança via WhatsApp.')
+    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel preparar a cobranÃ§a via WhatsApp.')
     cobrancaWhatsapp.value = {
       aberta: true,
-      titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
+      titulo: `CobranÃ§a de ${mensalidade.nomeAcordo}`,
       mensagem: montarMensagemPreviewLocal(mensalidade),
       orientacao: orientarCobrancaWhatsApp(mensalidade),
       whatsappUrl: '',
@@ -1175,15 +1953,15 @@ async function cobrarNoWhatsApp(mensalidade) {
 
 function orientarCobrancaWhatsApp(mensalidade) {
   if (!configuracao.value.chavePix) {
-    return 'Configure uma chave PIX na aba Configuração para liberar a cobrança com mensagem pronta.'
+    return 'Configure uma chave PIX na aba ConfiguraÃ§Ã£o para liberar a cobranÃ§a com mensagem pronta.'
   }
 
   const telefone = extrairTelefoneResponsavel(mensalidade)
   if (!telefone) {
-    return `Este acordo não tem telefone válido para o responsável pelo pagamento. Atualize o cadastro do ${termoParticipanteSingular.value.toLocaleLowerCase('pt-BR')} ou escolha outro responsável.`
+    return `Este acordo nÃ£o tem telefone vÃ¡lido para o responsÃ¡vel pelo pagamento. Atualize o cadastro do ${termoParticipanteSingular.value.toLocaleLowerCase('pt-BR')} ou escolha outro responsÃ¡vel.`
   }
 
-  return 'A cobrança é manual. O WhatsApp será aberto em nova aba com a mensagem pronta para revisão e envio.'
+  return 'A cobranÃ§a Ã© manual. O WhatsApp serÃ¡ aberto em nova aba com a mensagem pronta para revisÃ£o e envio.'
 }
 
 function montarMensagemPreviewLocal(mensalidade) {
@@ -1193,7 +1971,7 @@ function montarMensagemPreviewLocal(mensalidade) {
     competencia: mensalidade.competencia || competenciaSelecionada.value,
     valor: mensalidade.valor || 0,
     vencimento: mensalidade.vencimento ? formatarData(mensalidade.vencimento) : 'sem vencimento informado',
-    chavePix: configuracao.value.chavePix || 'chave PIX não configurada',
+    chavePix: configuracao.value.chavePix || 'chave PIX nÃ£o configurada',
   })
 }
 
@@ -1245,11 +2023,11 @@ async function salvarConfiguracao() {
       nomePlay: String(configuracao.value.nomePlay || 'PLAY').trim() || 'PLAY',
     })
 
-    sucesso.value = 'Configuração salva com sucesso.'
+    sucesso.value = 'ConfiguraÃ§Ã£o salva com sucesso.'
     await carregarConfiguracao()
     await recarregarContextoGestaoEsportiva()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, `Não foi possível salvar a configuração de ${nomeModalidade.value}.`)
+    erro.value = obterMensagemErro(exception, `NÃ£o foi possÃ­vel salvar a configuraÃ§Ã£o de ${nomeModalidade.value}.`)
     console.error(exception)
   } finally {
     salvandoConfiguracao.value = false
@@ -1267,10 +2045,10 @@ async function executarAcaoMensalidade(id, executar) {
     erro.value = ''
     sucesso.value = ''
     await executar()
-    sucesso.value = 'Ação concluída com sucesso.'
+    sucesso.value = 'AÃ§Ã£o concluÃ­da com sucesso.'
     await recarregarAposAlteracao()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'Não foi possível concluir a ação da mensalidade.')
+    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel concluir a aÃ§Ã£o da mensalidade.')
     console.error(exception)
   } finally {
     processandoAcaoId.value = ''
@@ -1278,7 +2056,13 @@ async function executarAcaoMensalidade(id, executar) {
 }
 
 async function recarregarAposAlteracao() {
-  await Promise.all([carregarAcordos(), carregarMensalidades(), carregarResumo(), carregarConfiguracao()])
+  const tarefas = [carregarAcordosPaginados({ ajustarPaginaSeVazia: true }), carregarMensalidades(), carregarResumo(), carregarConfiguracao()]
+
+  if (apoioMensalidadesCarregado.value) {
+    tarefas.push(carregarAcordos())
+  }
+
+  await Promise.all(tarefas)
 }
 
 function normalizarResumoFinanceiro(dados = {}) {
@@ -1340,6 +2124,9 @@ function mudarAba(aba) {
 }
 
 function normalizarAluno(item = {}) {
+  const nivel = String(item.nivelBeachTennis || item.nivel || '').trim().toUpperCase()
+  const perfil = String(item.perfilBeachTennis || item.perfil || '').trim().toUpperCase()
+
   return {
     ...item,
     id: normalizarId(item.id ?? item.alunoId ?? item.clienteId ?? item.pessoaId ?? ''),
@@ -1348,12 +2135,23 @@ function normalizarAluno(item = {}) {
     nome: item.nome || item.nomeCompleto || item.clienteNome || termoParticipanteSingular.value,
     telefone: item.telefone || item.celular || '',
     email: item.email || '',
-    perfilBeachTennis: item.perfilBeachTennis || '',
-    nivelBeachTennis: item.nivelBeachTennis || '',
+    perfilBeachTennis: perfil,
+    nivelBeachTennis: nivel,
+    perfilRotulo: rotuloPerfilBeachTennis(perfil),
+    nivelRotulo: rotuloNivelBeachTennis(nivel),
+    ativo: item.ativo !== false,
+    elegivel: item.elegivel !== false,
+    selecionadoNoAcordo: item.selecionadoNoAcordo === true,
+    motivoIndisponibilidade: String(item.motivoIndisponibilidade || '').trim(),
   }
 }
 
 function normalizarTurma(item = {}) {
+  const diasSemana = normalizarArrayBeachTennis(item.diasSemana || item.dias || [])
+  const vagas = numeroInteiro(item.vagas)
+  const quantidadeAlunos = numeroInteiro(item.quantidadeAlunos ?? item.quantidadeAlunosAtivos)
+  const horarioInicio = String(item.horarioInicio || item.horaInicio || '').trim()
+
   return {
     ...item,
     id: normalizarId(item.id ?? item.turmaId ?? ''),
@@ -1361,7 +2159,18 @@ function normalizarTurma(item = {}) {
     turmaNome: item.turmaNome || item.nome || item.descricao || termoGrupoSingular.value,
     nome: item.nome || item.descricao || item.turmaNome || termoGrupoSingular.value,
     nivelBeachTennis: item.nivelBeachTennis || item.nivel || '',
+    professorId: normalizarId(item.professorId ?? item.funcionarioId ?? item.professorResponsavelId ?? ''),
     professorResponsavelNome: item.professorResponsavelNome || item.professorNome || item.responsavelNome || '',
+    nivelRotulo: rotuloNivelBeachTennis(item.nivelBeachTennis || item.nivel || ''),
+    diasSemana,
+    diasSemanaFormatados: diasSemana.map((dia) => rotuloDiaBeachTennis(dia)).filter(Boolean).join(', '),
+    horarioInicio,
+    horarioFormatado: formatarHorarioTexto(horarioInicio),
+    vagas,
+    quantidadeAlunos,
+    ocupacaoTexto: vagas > 0 ? `${quantidadeAlunos} de ${vagas} alunos` : `${quantidadeAlunos} alunos Â· sem limite`,
+    ativo: item.ativo !== false,
+    selecionadaNoAcordo: item.selecionadaNoAcordo === true,
   }
 }
 
@@ -1371,50 +2180,22 @@ function normalizarId(valor) {
 
 function normalizarAlunoAcordo(item = {}) {
   if (typeof item !== 'object' || item === null) {
-    const id = normalizarId(item)
-    return {
-      id,
-      clienteId: id,
-      clienteNome: id,
-      nome: id,
-      ativo: true,
-    }
+    return criarAlunoSelecionadoFallback(item)
   }
 
-  const clienteId = normalizarId(item.clienteId ?? item.id ?? item.alunoId ?? item.pessoaId ?? '')
-  const clienteNome = String(item.clienteNome || item.nome || item.nomeCompleto || '').trim()
-
   return {
-    ...item,
-    id: clienteId,
-    clienteId,
-    clienteNome: clienteNome || clienteId,
-    nome: clienteNome || clienteId,
+    ...normalizarAluno(item),
     ativo: item.ativo !== false,
   }
 }
 
 function normalizarTurmaAcordo(item = {}) {
   if (typeof item !== 'object' || item === null) {
-    const id = normalizarId(item)
-    return {
-      id,
-      turmaId: id,
-      turmaNome: id,
-      nome: id,
-      ativo: true,
-    }
+    return criarTurmaSelecionadaFallback(item)
   }
 
-  const turmaId = normalizarId(item.turmaId ?? item.id ?? item.alunoId ?? item.pessoaId ?? '')
-  const turmaNome = String(item.turmaNome || item.nome || item.descricao || '').trim()
-
   return {
-    ...item,
-    id: turmaId,
-    turmaId,
-    turmaNome: turmaNome || turmaId,
-    nome: turmaNome || turmaId,
+    ...normalizarTurma(item),
     ativo: item.ativo !== false,
   }
 }
@@ -1435,9 +2216,17 @@ function nomesDosIds(lista = []) {
         return normalizarAluno(aluno).nome
       }
 
-      const turma = turmas.value.find((item) => String(item.id) === String(id))
-      if (turma) {
-        return normalizarTurma(turma).nome
+      const turmaAtual = turmasSelecionadasNoAcordo.value.find((item) => String(item.id) === String(id))
+      if (turmaAtual) {
+        return turmaAtual.nome
+      }
+
+      const turmaAuxiliar = acordos.value
+        .flatMap((acordo) => normalizarAcordo(acordo).turmas || [])
+        .find((item) => String(item.turmaId || item.id) === String(id))
+
+      if (turmaAuxiliar) {
+        return normalizarTurma(turmaAuxiliar).nome
       }
 
       return String(id)
@@ -1449,12 +2238,12 @@ function nomesDosIds(lista = []) {
 function rotuloPrimeiroMesAcordo(valor) {
   const tipo = String(valor || '').trim().toUpperCase()
   const mapa = {
-    INTEGRAL: 'Primeiro mês integral',
-    PROPORCIONAL: 'Primeiro mês proporcional',
-    MANUAL: 'Primeiro mês manual',
+    INTEGRAL: 'Primeiro mÃªs integral',
+    PROPORCIONAL: 'Primeiro mÃªs proporcional',
+    MANUAL: 'Primeiro mÃªs manual',
   }
 
-  return mapa[tipo] || 'Primeiro mês não informado'
+  return mapa[tipo] || 'Primeiro mÃªs nÃ£o informado'
 }
 
 function criarAlunoSelecionadoFallback(id) {
@@ -1462,8 +2251,12 @@ function criarAlunoSelecionadoFallback(id) {
   return {
     id: clienteId,
     clienteId,
-    clienteNome: clienteId,
-    nome: clienteId,
+    clienteNome: `${termoParticipanteSingular.value} selecionado`,
+    nome: `${termoParticipanteSingular.value} selecionado`,
+    telefone: '',
+    email: '',
+    perfilRotulo: '',
+    nivelRotulo: '',
     ativo: true,
   }
 }
@@ -1473,8 +2266,12 @@ function criarTurmaSelecionadaFallback(id) {
   return {
     id: turmaId,
     turmaId,
-    turmaNome: turmaId,
-    nome: turmaId,
+    turmaNome: `${termoGrupoSingular.value} vinculada`,
+    nome: `${termoGrupoSingular.value} vinculada`,
+    diasSemanaFormatados: '',
+    horarioFormatado: '',
+    nivelRotulo: '',
+    ocupacaoTexto: '',
     ativo: true,
   }
 }
@@ -1509,6 +2306,43 @@ function numeroSeguro(valor) {
 
   const numero = Number(texto)
   return Number.isFinite(numero) ? numero : 0
+}
+
+function filtrarMapaPorIds(mapa = new Map(), ids = []) {
+  const idsValidos = new Set(normalizarIds(ids))
+
+  return new Map(
+    [...mapa.entries()].filter(([chave]) => idsValidos.has(normalizarId(chave))),
+  )
+}
+
+function obterIdsAlunosElegiveis(ids = [], mapa = new Map()) {
+  return normalizarIds(ids).filter((id) => {
+    const aluno = mapa.get(normalizarId(id))
+
+    if (!aluno) {
+      return true
+    }
+
+    return aluno.elegivel !== false || aluno.selecionadoNoAcordo === true
+  })
+}
+
+function limparTemporizadorBusca(tipo) {
+  if (tipo === 'acordos' && temporizadorBuscaAcordos) {
+    window.clearTimeout(temporizadorBuscaAcordos)
+    temporizadorBuscaAcordos = null
+  }
+
+  if (tipo === 'alunos' && temporizadorBuscaAluno) {
+    window.clearTimeout(temporizadorBuscaAluno)
+    temporizadorBuscaAluno = null
+  }
+
+  if (tipo === 'turmas' && temporizadorBuscaTurma) {
+    window.clearTimeout(temporizadorBuscaTurma)
+    temporizadorBuscaTurma = null
+  }
 }
 
 function numeroInteiro(valor) {
@@ -1565,6 +2399,18 @@ function formatarCompetencia(valor) {
 
   const [ano, mes] = texto.split('-')
   return `${mes}/${ano}`
+}
+
+function formatarHorarioTexto(valor) {
+  const texto = String(valor || '').trim()
+  if (!texto) return ''
+
+  const partes = texto.split(':')
+  if (partes.length < 2) {
+    return texto
+  }
+
+  return `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}`
 }
 
 function dataAtual() {
@@ -1731,7 +2577,7 @@ function detectarConflitoAlunoAcordo(mensagem) {
   return (
     texto.includes('acordo ativo') ||
     texto.includes('aluno') && texto.includes('ativo') ||
-    texto.includes('já possui') ||
+    texto.includes('jÃ¡ possui') ||
     texto.includes('ja possui')
   )
 }
@@ -1808,7 +2654,7 @@ watch(
     }
 
     if (!ids.includes(String(acordoFormulario.value.responsavelAlunoId || ''))) {
-      acordoFormulario.value.responsavelAlunoId = ''
+      sincronizarResponsavelAposSelecao(ids, { limparSilenciosamente: true })
     }
   },
   { deep: true },
@@ -1823,8 +2669,64 @@ watch(
   },
 )
 
+watch(buscaAcordosDigitada, buscarAcordosComDebounce)
 watch(buscaAlunoAcordoDigitada, buscarAlunosAcordoComDebounce)
 watch(buscaTurmaAcordoDigitada, buscarTurmasAcordoComDebounce)
+
+watch(buscaAcordosDebounced, async () => {
+  filtrosAcordosPaginados.value.page = 0
+  await carregarAcordosPaginados()
+})
+
+watch(
+  () => filtrosAcordosPaginados.value.status,
+  async () => {
+    filtrosAcordosPaginados.value.page = 0
+    await carregarAcordosPaginados()
+  },
+)
+
+watch(
+  () => ({ ...filtrosAlunosAcordo.value }),
+  async () => {
+    if (!seletorAlunosAberto.value) {
+      return
+    }
+
+    await carregarOpcoesAlunosAcordo()
+  },
+  { deep: true },
+)
+
+watch(
+  () => ({ ...filtrosTurmasAcordo.value }),
+  async () => {
+    if (!seletorTurmasAberto.value) {
+      return
+    }
+
+    await carregarOpcoesTurmasAcordo()
+  },
+  { deep: true },
+)
+
+watch(buscaAlunoAcordoDebounced, async () => {
+  if (!seletorAlunosAberto.value) return
+  filtrosAlunosAcordo.value.page = 0
+  await carregarOpcoesAlunosAcordo()
+})
+
+watch(buscaTurmaAcordoDebounced, async () => {
+  if (!seletorTurmasAberto.value) return
+  filtrosTurmasAcordo.value.page = 0
+  await carregarOpcoesTurmasAcordo()
+})
+
+watch(abaAtiva, async (aba) => {
+  if (aba === 'mensalidades') {
+    await garantirApoioMensalidades()
+  }
+})
 
 async function atualizarContextoEmpresa() {
   await recarregarContextoGestaoEsportiva()
@@ -1850,6 +2752,11 @@ onBeforeUnmount(() => {
   if (temporizadorBuscaAluno) {
     window.clearTimeout(temporizadorBuscaAluno)
     temporizadorBuscaAluno = null
+  }
+
+  if (temporizadorBuscaAcordos) {
+    window.clearTimeout(temporizadorBuscaAcordos)
+    temporizadorBuscaAcordos = null
   }
 
   if (temporizadorBuscaTurma) {
@@ -1892,7 +2799,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-else class="painel-financeiro">
-      <nav class="abas" role="tablist" :aria-label="`Navegação financeira de ${nomeModalidade}`">
+      <nav class="abas" role="tablist" :aria-label="`NavegaÃ§Ã£o financeira de ${nomeModalidade}`">
         <button
           v-for="aba in ABAS"
           :key="aba.id"
@@ -1913,11 +2820,11 @@ onBeforeUnmount(() => {
             <div>
               <h2>{{ acordoEditandoId ? 'Editar acordo' : 'Novo acordo' }}</h2>
               <p>
-                {{ `O pagamento é único por acordo. Não fazemos divisão por ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} nesta etapa.` }}
+                {{ `O pagamento Ã© Ãºnico por acordo. NÃ£o fazemos divisÃ£o por ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} nesta etapa.` }}
               </p>
             </div>
             <button v-if="acordoEditandoId" class="botao secundario" type="button" @click="cancelarEdicaoAcordo">
-              Cancelar edição
+              Cancelar ediÃ§Ã£o
             </button>
           </div>
 
@@ -1933,7 +2840,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Frequência semanal *
+              FrequÃªncia semanal *
               <select v-model="acordoFormulario.frequenciaSemanal">
                 <option value="">Selecione</option>
                 <option value="1">1x por semana</option>
@@ -1952,7 +2859,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Geração
+              GeraÃ§Ã£o
               <select v-model="acordoFormulario.modoGeracao">
                 <option v-for="opcao in GESTAO_GERACAO" :key="opcao.valor" :value="opcao.valor">
                   {{ opcao.rotulo }}
@@ -1961,7 +2868,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Primeiro mês
+              Primeiro mÃªs
               <select v-model="acordoFormulario.tipoPrimeiroMes">
                 <option v-for="opcao in PRIMEIRO_MES" :key="opcao.valor" :value="opcao.valor">
                   {{ opcao.rotulo }}
@@ -1970,7 +2877,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label v-if="acordoFormulario.tipoPrimeiroMes === 'MANUAL'">
-              Valor do primeiro mês
+              Valor do primeiro mÃªs
               <input
                 v-model="acordoFormulario.valorPrimeiroMesManual"
                 type="text"
@@ -1980,7 +2887,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Data de início *
+              Data de inÃ­cio *
               <input v-model="acordoFormulario.dataInicio" type="date" />
             </label>
 
@@ -1999,57 +2906,23 @@ onBeforeUnmount(() => {
             </label>
 
             <label class="campo-grande">
-              Observações
-              <textarea v-model="acordoFormulario.observacoes" rows="3" placeholder="Observações comerciais, descontos, condições especiais..."></textarea>
+              ObservaÃ§Ãµes
+              <textarea v-model="acordoFormulario.observacoes" rows="3" placeholder="ObservaÃ§Ãµes comerciais, descontos, condiÃ§Ãµes especiais..."></textarea>
             </label>
           </div>
 
-          <div class="grade-selecao">
-            <section class="bloco-selecao">
-              <div class="cabecalho-mini">
-                <h3>{{ `${termoParticipantePlural} do acordo` }}</h3>
-                <span>{{ alunosSelecionadosIds.length }} selecionado(s)</span>
-              </div>
-              <p class="ajuda-campo">
-                {{ `Selecione um ou vários ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. O responsável pelo pagamento precisa estar nesta lista.` }}
-              </p>
-              <div class="resumo-selecao">
-                <div class="resumo-selecao-topo">
-                  <strong>{{ alunosSelecionadosIds.length }} selecionado(s)</strong>
-                  <button class="botao secundario compacto" type="button" @click="limparSelecaoAlunosAcordo">
-                    Limpar seleção
-                  </button>
-                </div>
-                <div v-if="alunosSelecionadosNoAcordo.length" class="chips-selecao" aria-label="Resumo dos alunos selecionados">
-                  <span v-for="aluno in alunosSelecionadosResumo" :key="aluno.id" class="chip-selecao">
-                    {{ aluno.nome }}
-                  </span>
-                  <span v-if="alunosSelecionadosExtras > 0" class="chip-selecao sutileza">
-                    +{{ alunosSelecionadosExtras }}
-                  </span>
-                </div>
-              </div>
-              <label class="campo-busca">
-                {{ `Buscar ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}` }}
-                <input v-model="buscaAlunoAcordoDigitada" type="search" placeholder="Nome, telefone ou e-mail" />
-              </label>
-              <div class="lista-checkboxes">
-                <label v-for="aluno in alunosDisponiveis" :key="aluno.id" class="item-checkbox">
-                  <input
-                    :checked="alunosSelecionadosIds.includes(String(aluno.id))"
-                    type="checkbox"
-                    @change="alternarAlunoAcordo(aluno.id)"
-                  />
-                  <span>
-                    <strong>{{ aluno.nome }}</strong>
-                    <small>
-                      <span v-if="aluno.telefone">{{ aluno.telefone }}</span>
-                      <span v-if="aluno.email"> {{ aluno.telefone ? '· ' : '' }}{{ aluno.email }}</span>
-                    </small>
-                  </span>
-                </label>
-              </div>
-            </section>
+
+          <div class="grade-selecao grade-selecao-escalavel">
+            <ResumoSelecaoAcordo
+              :titulo="`${termoParticipantePlural} do acordo`"
+              :ajuda="`Selecione um ou vÃ¡rios ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. O responsÃ¡vel pelo pagamento precisa estar nessa lista.`"
+              :quantidade-texto="`${alunosSelecionadosIds.length} selecionado(s)`"
+              :selecionados="alunosSelecionadosNoAcordo"
+              :botao-gerenciar-texto="`Gerenciar ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}`"
+              :vazio-texto="`Nenhum ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} selecionado ainda.`"
+              @gerenciar="abrirSeletorAlunos"
+              @limpar="limparSelecaoAlunosAcordo"
+            />
 
             <section class="bloco-selecao">
               <div class="cabecalho-mini">
@@ -2057,16 +2930,17 @@ onBeforeUnmount(() => {
                 <span v-if="responsavelSelecionado">{{ responsavelSelecionado.nome }}</span>
               </div>
               <p class="ajuda-campo">
-                {{ `O pagamento é sempre único por acordo, sem rateio entre ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}.` }}
+                {{ `O pagamento Ã© sempre Ãºnico por acordo, sem rateio entre ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}.` }}
               </p>
               <p v-if="avisoResponsavelSelecionado" class="aviso-responsavel">
-                Escolha o responsável pelo pagamento entre os alunos selecionados.
+                {{ avisoResponsavelSelecionado }}
               </p>
               <label>
                 {{ rotuloResponsavelPagamento }}
                 <select
                   v-model="acordoFormulario.responsavelAlunoId"
                   :disabled="!alunosSelecionadosIds.length"
+                  @change="selecionarResponsavelAcordo($event.target.value)"
                 >
                   <option value="">Selecione</option>
                   <option
@@ -2080,48 +2954,16 @@ onBeforeUnmount(() => {
               </label>
             </section>
 
-            <section class="bloco-selecao">
-              <div class="cabecalho-mini">
-                <h3>{{ `${termoGrupoPlural} vinculadas` }}</h3>
-                <span>{{ turmasSelecionadasIds.length }} selecionada(s)</span>
-              </div>
-              <div class="resumo-selecao">
-                <div class="resumo-selecao-topo">
-                  <strong>{{ turmasSelecionadasIds.length }} selecionada(s)</strong>
-                  <button class="botao secundario compacto" type="button" @click="limparSelecaoTurmasAcordo">
-                    Limpar seleção
-                  </button>
-                </div>
-                <div v-if="turmasSelecionadasNoAcordo.length" class="chips-selecao" aria-label="Resumo das turmas selecionadas">
-                  <span v-for="turmaSelecionada in turmasSelecionadasResumo" :key="turmaSelecionada.id" class="chip-selecao">
-                    {{ turmaSelecionada.nome }}
-                  </span>
-                  <span v-if="turmasSelecionadasExtras > 0" class="chip-selecao sutileza">
-                    +{{ turmasSelecionadasExtras }}
-                  </span>
-                </div>
-              </div>
-              <label class="campo-busca">
-                {{ `Buscar ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
-                <input v-model="buscaTurmaAcordoDigitada" type="search" :placeholder="`Nome ou ${termoResponsavelSingular.toLocaleLowerCase('pt-BR')}`" />
-              </label>
-              <div class="lista-checkboxes">
-                <label v-for="turma in turmasDisponiveis" :key="turma.id" class="item-checkbox">
-                  <input
-                    :checked="turmasSelecionadasIds.includes(String(turma.id))"
-                    type="checkbox"
-                    @change="alternarTurmaAcordo(turma.id)"
-                  />
-                  <span>
-                    <strong>{{ turma.nome }}</strong>
-                    <small>
-                      <span v-if="turma.professorResponsavelNome">{{ turma.professorResponsavelNome }}</span>
-                      <span v-if="turma.horarioInicio"> {{ turma.professorResponsavelNome ? '· ' : '' }}{{ turma.horarioInicio }}</span>
-                    </small>
-                  </span>
-                </label>
-              </div>
-            </section>
+            <ResumoSelecaoAcordo
+              :titulo="`${termoGrupoPlural} vinculadas`"
+              :ajuda="`Vincule apenas as ${termoGrupoPlural.toLocaleLowerCase('pt-BR')} que participam deste acordo.`"
+              :quantidade-texto="`${turmasSelecionadasIds.length} selecionada(s)`"
+              :selecionados="turmasSelecionadasNoAcordo"
+              :botao-gerenciar-texto="`Gerenciar ${termoGrupoPlural.toLocaleLowerCase('pt-BR')}`"
+              :vazio-texto="`Nenhuma ${termoGrupoSingular.toLocaleLowerCase('pt-BR')} vinculada ainda.`"
+              @gerenciar="abrirSeletorTurmas"
+              @limpar="limparSelecaoTurmasAcordo"
+            />
           </div>
 
           <div class="acoes-formulario">
@@ -2132,27 +2974,53 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+
         <section class="card lista-card">
           <div class="cabecalho-lista">
             <div>
               <h2>Acordos cadastrados</h2>
-              <p>Mostre os integrantes e o responsável pelo pagamento sem dividir o valor por pessoa.</p>
+              <p>Busque, filtre e edite acordos sem carregar a lista inteira de uma sÃ³ vez.</p>
             </div>
-            <span class="contador">{{ acordosOrdenados.length }} acordo(s)</span>
+            <span class="contador">{{ Number(acordosPaginados.totalElements || 0).toLocaleString('pt-BR') }} acordo(s)</span>
           </div>
 
-          <section v-if="!acordosOrdenados.length" class="estado-vazio">
-            <p>Nenhum acordo cadastrado ainda.</p>
+          <div class="campos filtros-acordos">
+            <label class="campo-grande">
+              Buscar acordo
+              <input v-model="buscaAcordosDigitada" type="search" placeholder="Nome do acordo, responsÃ¡vel ou aluno" />
+            </label>
+
+            <label>
+              Status
+              <select v-model="filtrosAcordosPaginados.status">
+                <option v-for="opcao in STATUS_ACORDO" :key="opcao.valor" :value="opcao.valor">
+                  {{ opcao.rotulo }}
+                </option>
+              </select>
+            </label>
+
+            <div class="acoes-filtros-acordos">
+              <button class="botao secundario" type="button" @click="limparFiltrosAcordos">
+                Limpar filtros
+              </button>
+            </div>
+          </div>
+
+          <p v-if="erroListagemAcordos" class="feedback-lista erro-inline">{{ erroListagemAcordos }}</p>
+          <p v-else-if="carregandoListaAcordos" class="feedback-lista">Carregando acordos...</p>
+
+          <section v-if="!carregandoListaAcordos && !acordosPaginadosLista.length" class="estado-vazio">
+            <p>Nenhum acordo encontrado para os filtros atuais.</p>
           </section>
 
           <div v-else class="grade-acordos">
-            <article v-for="acordo in acordosOrdenados" :key="acordo.id" class="acordo-card">
+            <article v-for="acordo in acordosPaginadosLista" :key="acordo.id" class="acordo-card">
               <div class="cabecalho-card interno">
                 <div>
                   <h3>{{ acordo.nome }}</h3>
                   <p>
                     <span :class="classeStatusAcordo(acordo.status)">{{ statusAcordoRotulo(acordo.status) }}</span>
-                    <span :class="classeGeracao(acordo.modoGeracao)">{{ acordo.modoGeracao || 'Geração não informada' }}</span>
+                    <span :class="classeGeracao(acordo.modoGeracao)">{{ acordo.modoGeracao || 'GeraÃ§Ã£o nÃ£o informada' }}</span>
                     <span :class="classePrimeiroMes(acordo.tipoPrimeiroMes)">{{ rotuloPrimeiroMesAcordo(acordo.tipoPrimeiroMes) }}</span>
                   </p>
                 </div>
@@ -2160,22 +3028,82 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="resumo-card">
-                <p><strong>Responsável pelo pagamento:</strong> {{ acordo.clienteResponsavelNome }}</p>
-                <p><strong>{{ termoParticipantePlural }}:</strong> {{ acordo.alunos.map((aluno) => aluno.clienteNome).filter(Boolean).join(', ') || `Sem ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}` }}</p>
-                <p><strong>{{ termoGrupoPlural }}:</strong> {{ acordo.turmas.map((turma) => turma.turmaNome).filter(Boolean).join(', ') || `Sem ${termoGrupoPlural.toLocaleLowerCase('pt-BR')}` }}</p>
+                <p><strong>ResponsÃ¡vel pelo pagamento:</strong> {{ acordo.clienteResponsavelNome }}</p>
+                <p><strong>{{ termoParticipantePlural }}:</strong> {{ `${acordo.quantidadeAlunosAtivos || 0} aluno(s)` }}</p>
+                <p><strong>{{ termoGrupoPlural }}:</strong> {{ `${acordo.quantidadeTurmasAtivas || 0} turma(s)` }}</p>
                 <p><strong>Vencimento:</strong> Dia {{ acordo.diaVencimento || '-' }}</p>
-                <p><strong>Frequência:</strong> {{ acordo.frequenciaSemanal ? `${acordo.frequenciaSemanal}x por semana` : '-' }}</p>
-                <p><strong>Período:</strong> {{ formatarData(acordo.dataInicio) }} {{ acordo.dataFim ? `até ${formatarData(acordo.dataFim)}` : '' }}</p>
+                <p><strong>FrequÃªncia:</strong> {{ acordo.frequenciaSemanal ? `${acordo.frequenciaSemanal}x por semana` : '-' }}</p>
+                <p><strong>PerÃ­odo:</strong> {{ formatarData(acordo.dataInicio) }} {{ acordo.dataFim ? `atÃ© ${formatarData(acordo.dataFim)}` : '' }}</p>
+                <p v-if="acordo.atualizadoEm"><strong>Atualizado:</strong> {{ formatarData(acordo.atualizadoEm) }}</p>
               </div>
 
               <p v-if="acordo.observacoes" class="observacoes">{{ acordo.observacoes }}</p>
 
               <div class="acoes-card">
-                <button class="botao secundario" type="button" @click="abrirEdicaoAcordo(acordo)">Editar</button>
+                <button
+                  class="botao secundario"
+                  type="button"
+                  :disabled="carregandoDetalheAcordoId === acordo.id"
+                  @click="abrirEdicaoAcordo(acordo)"
+                >
+                  {{ carregandoDetalheAcordoId === acordo.id ? 'Carregando...' : 'Editar' }}
+                </button>
               </div>
             </article>
           </div>
+
+          <PaginacaoCompacta
+            :pagina="Number(acordosPaginados.page || 0)"
+            :total-pages="Number(acordosPaginados.totalPages || 0)"
+            :total-elements="Number(acordosPaginados.totalElements || 0)"
+            :disabled="carregandoListaAcordos"
+            @anterior="irPaginaAnteriorAcordos"
+            @proxima="irPaginaProximaAcordos"
+          />
         </section>
+
+        <SeletorAlunosAcordo
+          :aberto="seletorAlunosAberto"
+          :busca="buscaAlunoAcordoDigitada"
+          :carregando="carregandoOpcoesAlunos"
+          :erro="erroSeletorAlunos"
+          :pagina="paginaAlunosAcordo"
+          :filtros="filtrosAlunosAcordo"
+          :alunos="alunosOpcoesAcordo"
+          :selecionados="alunosTemporariosLista"
+          :termo-singular="termoParticipanteSingular"
+          :termo-plural="termoParticipantePlural"
+          @fechar="cancelarSeletorAlunos"
+          @confirmar="confirmarSeletorAlunos"
+          @update:busca="buscaAlunoAcordoDigitada = $event"
+          @update:filtros="atualizarFiltrosAlunosAcordo($event)"
+          @alternar="alternarAlunoTemporario"
+          @remover-selecionado="removerAlunoTemporario"
+          @anterior="irPaginaAnteriorAlunos"
+          @proxima="irPaginaProximaAlunos"
+        />
+
+        <SeletorTurmasAcordo
+          :aberto="seletorTurmasAberto"
+          :busca="buscaTurmaAcordoDigitada"
+          :carregando="carregandoOpcoesTurmas"
+          :erro="erroSeletorTurmas"
+          :pagina="paginaTurmasAcordo"
+          :filtros="filtrosTurmasAcordo"
+          :turmas="turmasOpcoesAcordo"
+          :selecionados="turmasTemporariasLista"
+          :professores="professoresDisponiveisAcordo"
+          :termo-singular="termoGrupoSingular"
+          :termo-plural="termoGrupoPlural"
+          @fechar="cancelarSeletorTurmas"
+          @confirmar="confirmarSeletorTurmas"
+          @update:busca="buscaTurmaAcordoDigitada = $event"
+          @update:filtros="atualizarFiltrosTurmasAcordo($event)"
+          @alternar="alternarTurmaTemporaria"
+          @remover-selecionado="removerTurmaTemporaria"
+          @anterior="irPaginaAnteriorTurmas"
+          @proxima="irPaginaProximaTurmas"
+        />
       </section>
 
       <section v-show="abaAtiva === 'mensalidades'" class="conteudo-aba">
@@ -2183,7 +3111,7 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Mensalidades</h2>
-              <p>{{ `Filtros por competência, status, acordo e ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}. A cobrança pelo WhatsApp é individual, uma por vez.` }}</p>
+              <p>{{ `Filtros por competÃªncia, status, acordo e ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}. A cobranÃ§a pelo WhatsApp Ã© individual, uma por vez.` }}</p>
             </div>
             <div class="acoes-cabecalho">
               <button class="botao principal" type="button" :disabled="processandoAcaoId === 'gerar-mensalidades'" @click="gerarMensalidades">
@@ -2195,7 +3123,7 @@ onBeforeUnmount(() => {
 
           <div class="campos">
             <label>
-              Competência
+              CompetÃªncia
               <input v-model="competenciaSelecionada" type="month" />
             </label>
 
@@ -2233,7 +3161,7 @@ onBeforeUnmount(() => {
               <input
                 v-model="filtrosMensalidades.busca"
                 type="text"
-                placeholder="Acordo, responsável, participante ou grupo"
+                placeholder="Acordo, responsÃ¡vel, participante ou grupo"
               />
             </label>
           </div>
@@ -2244,28 +3172,28 @@ onBeforeUnmount(() => {
             <table>
               <thead>
                 <tr>
-                  <th>Competência</th>
+                  <th>CompetÃªncia</th>
                   <th>Acordo</th>
-                  <th>Responsável</th>
+                  <th>ResponsÃ¡vel</th>
                   <th>{{ termoParticipantePlural }}</th>
                   <th>Vencimento</th>
                   <th>Valor</th>
                   <th>Status</th>
-                  <th>Ações</th>
+                  <th>AÃ§Ãµes</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="mensalidade in mensalidadesFiltradas" :key="mensalidade.id">
-                  <td data-label="Competência">{{ formatarCompetencia(mensalidade.competencia) }}</td>
+                  <td data-label="CompetÃªncia">{{ formatarCompetencia(mensalidade.competencia) }}</td>
                   <td data-label="Acordo">{{ mensalidade.nomeAcordo }}</td>
-                  <td data-label="Responsável">{{ mensalidade.responsavelNome }}</td>
+                  <td data-label="ResponsÃ¡vel">{{ mensalidade.responsavelNome }}</td>
                   <td data-label="Alunos">{{ mensalidade.integranteResumo || '-' }}</td>
                   <td data-label="Vencimento">{{ formatarData(mensalidade.vencimento) }}</td>
                   <td data-label="Valor">{{ formatarMoeda(mensalidade.valor) }}</td>
                   <td data-label="Status">
                     <span :class="classeStatusMensalidade(mensalidade.status)">{{ statusMensalidadeRotulo(mensalidade.status) }}</span>
                   </td>
-                  <td data-label="Ações">
+                  <td data-label="AÃ§Ãµes">
                     <div class="acoes-tabela">
                       <button
                         class="botao compacto secundario"
@@ -2314,13 +3242,13 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>{{ cobrancaWhatsapp.titulo }}</h2>
-              <p>Prévia para conferência antes de abrir a conversa em nova aba.</p>
+              <p>PrÃ©via para conferÃªncia antes de abrir a conversa em nova aba.</p>
             </div>
             <button class="botao secundario" type="button" @click="fecharPreviewWhatsapp">Fechar</button>
           </div>
 
           <p v-if="cobrancaWhatsapp.orientacao" class="aviso-whatsapp">{{ cobrancaWhatsapp.orientacao }}</p>
-          <pre class="previsualizacao">{{ cobrancaWhatsapp.mensagem || 'Sem prévia disponível.' }}</pre>
+          <pre class="previsualizacao">{{ cobrancaWhatsapp.mensagem || 'Sem prÃ©via disponÃ­vel.' }}</pre>
           <button
             v-if="cobrancaWhatsapp.whatsappUrl"
             class="botao principal"
@@ -2337,10 +3265,10 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Resumo financeiro</h2>
-              <p>Visão simples para acompanhar previsto, recebido, pendente e vencido na competência selecionada.</p>
+              <p>VisÃ£o simples para acompanhar previsto, recebido, pendente e vencido na competÃªncia selecionada.</p>
             </div>
             <label class="filtro-resumo">
-              Competência
+              CompetÃªncia
               <input v-model="competenciaSelecionada" type="month" />
             </label>
           </div>
@@ -2385,7 +3313,7 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Principais atrasos</h2>
-              <p>Lista resumida dos acordos com maior atraso na competência atual.</p>
+              <p>Lista resumida dos acordos com maior atraso na competÃªncia atual.</p>
             </div>
           </div>
 
@@ -2398,7 +3326,7 @@ onBeforeUnmount(() => {
               <strong>{{ atraso.nomeAcordo }}</strong>
               <p>{{ atraso.responsavelNome }}</p>
               <small>
-                {{ formatarCompetencia(atraso.competencia) }} · {{ formatarMoeda(atraso.valor) }} ·
+                {{ formatarCompetencia(atraso.competencia) }} Â· {{ formatarMoeda(atraso.valor) }} Â·
                 {{ atraso.diasAtraso }} dia(s) em atraso
               </small>
             </article>
@@ -2410,8 +3338,8 @@ onBeforeUnmount(() => {
         <section class="card formulario-card">
           <div class="cabecalho-card">
             <div>
-              <h2>Configuração e PIX</h2>
-              <p>Defina a identidade esportiva, a chave PIX, o nome do recebedor e o template da mensagem usada na cobrança.</p>
+              <h2>ConfiguraÃ§Ã£o e PIX</h2>
+              <p>Defina a identidade esportiva, a chave PIX, o nome do recebedor e o template da mensagem usada na cobranÃ§a.</p>
             </div>
             <div class="acoes-cabecalho">
               <button class="botao secundario" type="button" @click="aplicarSugestoesModalidade">
@@ -2505,7 +3433,7 @@ onBeforeUnmount(() => {
 
             <label>
               Nome do recebedor
-              <input v-model="configuracao.nomeRecebedor" type="text" placeholder="Nome que aparecerá na cobrança" />
+              <input v-model="configuracao.nomeRecebedor" type="text" placeholder="Nome que aparecerÃ¡ na cobranÃ§a" />
             </label>
 
             <label>
@@ -2527,8 +3455,8 @@ onBeforeUnmount(() => {
         <section class="card preview-configuracao">
           <div class="cabecalho-card">
             <div>
-              <h2>Prévia da mensagem</h2>
-              <p>Exemplo com dados fictícios para validar o texto antes de salvar.</p>
+              <h2>PrÃ©via da mensagem</h2>
+              <p>Exemplo com dados fictÃ­cios para validar o texto antes de salvar.</p>
             </div>
           </div>
 
@@ -2542,7 +3470,7 @@ onBeforeUnmount(() => {
         <div class="cabecalho-card">
           <div>
             <h2>Marcar como paga</h2>
-            <p>Informe os dados da quitação para registrar o recebimento.</p>
+            <p>Informe os dados da quitaÃ§Ã£o para registrar o recebimento.</p>
           </div>
           <button class="botao secundario" type="button" @click="mensalidadePagamentoAberta = false">Fechar</button>
         </div>
@@ -2568,8 +3496,8 @@ onBeforeUnmount(() => {
           </label>
 
           <label class="campo-grande">
-            Observação
-            <textarea v-model="pagamentoMensalidade.observacao" rows="3" placeholder="Observação opcional"></textarea>
+            ObservaÃ§Ã£o
+            <textarea v-model="pagamentoMensalidade.observacao" rows="3" placeholder="ObservaÃ§Ã£o opcional"></textarea>
           </label>
         </div>
 
@@ -2587,7 +3515,7 @@ onBeforeUnmount(() => {
         <div class="cabecalho-card">
           <div>
             <h2>Nova mensalidade manual</h2>
-            <p>Crie uma mensalidade avulsa para um acordo já cadastrado.</p>
+            <p>Crie uma mensalidade avulsa para um acordo jÃ¡ cadastrado.</p>
           </div>
           <button class="botao secundario" type="button" @click="mensalidadeManualAberta = false">Fechar</button>
         </div>
@@ -2604,7 +3532,7 @@ onBeforeUnmount(() => {
           </label>
 
           <label>
-            Competência
+            CompetÃªncia
             <input v-model="mensalidadeManual.competencia" type="month" />
           </label>
 
@@ -2629,7 +3557,7 @@ onBeforeUnmount(() => {
           </label>
 
           <label class="campo-grande">
-            Observação
+            ObservaÃ§Ã£o
             <textarea v-model="mensalidadeManual.observacoes" rows="3"></textarea>
           </label>
         </div>
@@ -2821,6 +3749,10 @@ textarea {
   margin-top: 18px;
 }
 
+.grade-selecao-escalavel {
+  align-items: stretch;
+}
+
 .bloco-selecao {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -2935,6 +3867,26 @@ textarea {
   border: 1px solid #fde68a;
   color: #92400e;
   font-weight: 700;
+}
+
+.filtros-acordos {
+  align-items: end;
+}
+
+.acoes-filtros-acordos {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+}
+
+.feedback-lista {
+  margin: 0;
+  color: #475569;
+  font-weight: 700;
+}
+
+.erro-inline {
+  color: #b91c1c;
 }
 
 .acoes-formulario,
