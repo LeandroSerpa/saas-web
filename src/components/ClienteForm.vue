@@ -52,10 +52,14 @@ const temDadosBeachTennis = computed(() =>
 )
 const moduloEsportivoAtivo = computed(() => props.contextoEsportivo?.ativo === true)
 const nomeModalidade = computed(() => props.contextoEsportivo?.nomeModalidade || 'Esporte')
+const termoParticipanteSingular = computed(() => props.contextoEsportivo?.termoParticipanteSingular || 'Aluno')
 const tituloSecaoEsportiva = computed(() =>
   nomeModalidade.value === 'Beach Tennis'
     ? 'Dados de Beach Tennis'
     : `Dados esportivos - ${nomeModalidade.value}`,
+)
+const rotuloSingular = computed(() =>
+  moduloEsportivoAtivo.value ? termoParticipanteSingular.value.toLocaleLowerCase('pt-BR') : 'cliente',
 )
 
 function limparErroCampo(campo) {
@@ -109,12 +113,14 @@ function solicitarSalvamento() {
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar cliente' : 'Novo cliente' }}</h2>
+      <h2>{{ modoEdicao ? `Editar ${rotuloSingular}` : `Novo ${rotuloSingular}` }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do cliente selecionado.'
-            : 'Cadastre um cliente para usar nos agendamentos.'
+            ? `Atualize os dados do ${rotuloSingular} selecionado.`
+            : moduloEsportivoAtivo
+              ? `Cadastre um ${rotuloSingular} para usar na rotina da modalidade.`
+              : 'Cadastre um cliente para usar nos agendamentos.'
         }}
       </p>
     </div>
@@ -145,7 +151,7 @@ function solicitarSalvamento() {
           :value="cliente.email"
           type="text"
           inputmode="email"
-          placeholder="Ex: cliente@email.com"
+          :placeholder="`Ex: ${rotuloSingular}@email.com`"
           @input="aplicarEmail($event.target.value)"
           @blur="validarEmail"
         />
@@ -157,7 +163,7 @@ function solicitarSalvamento() {
         <input
           v-model="cliente.observacao"
           type="text"
-          placeholder="Ex: Cliente prefere atendimento pela manhã"
+          :placeholder="moduloEsportivoAtivo ? `Ex: ${termoParticipanteSingular} prefere aulas pela manhã` : 'Ex: Cliente prefere atendimento pela manhã'"
         />
       </label>
     </div>

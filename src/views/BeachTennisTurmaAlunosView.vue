@@ -66,20 +66,23 @@ let sequenciaTela = 0
 let sequenciaCarregamentoDisponiveis = 0
 
 const EVENTO_TURMAS_BEACH_TENNIS_ATUALIZADAS = 'beach-tennis-turmas-atualizadas'
-const MENSAGEM_ERRO_SALVAR =
-  'Não foi possível salvar os participantes selecionados. Atualize os dados da turma e tente novamente.'
+const MENSAGEM_ERRO_SALVAR = computed(
+  () =>
+    `Não foi possível salvar os ${termoParticipantePluralLower.value} selecionados. Atualize os dados da ${termoGrupoSingularLower.value} e tente novamente.`,
+)
 
 const turmaIdSelecionada = computed(() => normalizarIdPositivo(valorRota(route.query.turmaId ?? route.params.turmaId)))
 const turmaSelecionada = computed(() => turmaIdSelecionada.value !== null)
+const termoParticipanteSingularLower = computed(() => termoParticipanteSingular.value.toLocaleLowerCase('pt-BR'))
+const termoParticipantePluralLower = computed(() => termoParticipantePlural.value.toLocaleLowerCase('pt-BR'))
+const termoGrupoSingularLower = computed(() => termoGrupoSingular.value.toLocaleLowerCase('pt-BR'))
 const tituloPagina = computed(() =>
-  turma.value?.nome
-    ? `Gerenciar ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} - ${turma.value.nome}`
-    : `Gerenciar ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')}`,
+  `${termoParticipantePlural.value} por ${termoGrupoSingularLower.value}`,
 )
 const descricaoPagina = computed(() =>
   turmaSelecionada.value
-    ? `Escolha quem entra ou sai da ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} em lote, com busca paginada e salvamento único.`
-    : `Selecione uma ${termoGrupoSingular.value.toLocaleLowerCase('pt-BR')} para gerenciar ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')}.`,
+    ? `Vincule, remova e acompanhe os ${termoParticipantePluralLower.value} participantes de cada ${termoGrupoSingularLower.value}.`
+    : `Selecione uma ${termoGrupoSingularLower.value} para acompanhar os ${termoParticipantePluralLower.value} vinculados.`,
 )
 const quantidadeAtual = computed(() => idsIniciais.value.size)
 const quantidadeFinal = computed(() => idsAtuais.value.size)
@@ -100,7 +103,7 @@ const mensagemCapacidade = computed(() => {
     return 'Ilimitado'
   }
 
-  return `${quantidadeFinal.value} de ${capacidade.value} participantes`
+  return `${quantidadeFinal.value} de ${capacidade.value} ${termoParticipantePluralLower.value}`
 })
 const textoVagasDisponiveis = computed(() => {
   if (capacidadeIlimitada.value) {
@@ -598,10 +601,10 @@ function mapearErroSalvar(error) {
     mensagem.includes('turma') ||
     mensagem.includes('participante')
   ) {
-    return MENSAGEM_ERRO_SALVAR
+    return MENSAGEM_ERRO_SALVAR.value
   }
 
-  return 'Não foi possível salvar os participantes selecionados. Tente novamente.'
+  return `Não foi possível salvar os ${termoParticipantePluralLower.value} selecionados. Tente novamente.`
 }
 
 function voltarParaTurmas() {
@@ -773,7 +776,7 @@ async function salvarAlteracoes() {
   }
 
   if (avisarCapacidade.value) {
-    definirErro(`Há ${excedenteCapacidade.value} participante(s) acima da capacidade. Remova antes de salvar.`)
+    definirErro(`Há ${excedenteCapacidade.value} ${termoParticipantePluralLower.value} acima da capacidade. Remova antes de salvar.`)
     return
   }
 
@@ -855,7 +858,7 @@ async function recarregarTudo() {
     if (sequenciaAtual !== sequenciaTela) {
       return
     }
-    atualizarMensagemErro(error, 'Não foi possível carregar a gestão de participantes.')
+    atualizarMensagemErro(error, `Não foi possível carregar ${tituloPagina.value.toLocaleLowerCase('pt-BR')}.`)
   } finally {
     if (sequenciaAtual === sequenciaTela) {
       carregando.value = false
@@ -982,7 +985,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-if="modoVisualizacaoEmpresa" class="card feedback aviso">
-      <p>Selecione uma empresa no seletor superior para gerenciar participantes como SUPER_ADMIN.</p>
+      <p>Selecione uma empresa no seletor superior para gerenciar {{ termoParticipantePluralLower }} como SUPER_ADMIN.</p>
     </section>
 
     <section v-else-if="!moduloEsportivoAtivo" class="card feedback aviso">
@@ -994,8 +997,8 @@ onBeforeUnmount(() => {
         <div class="resumo-topo">
           <div>
             <p class="subtitulo-mini">{{ termoGrupoPlural }}</p>
-            <h2>Gerenciar alunos</h2>
-            <p class="resumo-descricao">Escolha uma turma para abrir a gestão de participantes com o contexto correto.</p>
+            <h2>{{ tituloPagina }}</h2>
+            <p class="resumo-descricao">Escolha uma {{ termoGrupoSingularLower }} para abrir a gestão com o contexto correto.</p>
           </div>
         </div>
 
@@ -1049,7 +1052,7 @@ onBeforeUnmount(() => {
           <div>
             <p class="subtitulo-mini">Turma</p>
             <h2>{{ turma?.nome || 'Carregando turma...' }}</h2>
-            <p class="resumo-descricao">Gerencie {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }} em lote.</p>
+            <p class="resumo-descricao">{{ descricaoPagina }}</p>
           </div>
 
           <button class="botao principal" type="button" :disabled="!podeSalvar" @click="salvarAlteracoes">
@@ -1080,7 +1083,7 @@ onBeforeUnmount(() => {
           {{ quantidadeAlterada }} alteração(ões) pendente(s).
         </p>
         <p v-if="avisarCapacidade" class="resumo-alerta">
-          A seleção atual excede a capacidade em {{ excedenteCapacidade }} participante(s). Remova antes de salvar.
+          A seleção atual excede a capacidade em {{ excedenteCapacidade }} {{ termoParticipantePluralLower }}. Remova antes de salvar.
         </p>
       </section>
 
@@ -1163,11 +1166,11 @@ onBeforeUnmount(() => {
           </div>
 
           <section v-if="carregandoDisponiveis && !alunosDisponiveis.length" class="estado-vazio compacto">
-            <p>Carregando participantes disponíveis...</p>
+            <p>Carregando {{ termoParticipantePluralLower }} disponíveis...</p>
           </section>
 
           <section v-else-if="!listaDisponiveisVisiveis.length" class="estado-vazio compacto">
-            <p>Nenhum participante disponível com estes filtros.</p>
+            <p>Nenhum {{ termoParticipanteSingularLower }} disponível com estes filtros.</p>
           </section>
 
           <div v-else class="lista-participantes">
@@ -1244,11 +1247,11 @@ onBeforeUnmount(() => {
           </label>
 
           <section v-if="carregandoVinculados && !listaVinculadosExibidos.length" class="estado-vazio compacto">
-            <p>Carregando participantes vinculados...</p>
+            <p>Carregando {{ termoParticipantePluralLower }} vinculados...</p>
           </section>
 
           <section v-else-if="!listaVinculadosExibidos.length" class="estado-vazio compacto">
-            <p>Nenhum participante vinculado a esta turma.</p>
+            <p>Nenhum {{ termoParticipanteSingularLower }} vinculado a esta {{ termoGrupoSingularLower }}.</p>
           </section>
 
           <div v-else class="lista-participantes">
@@ -1291,7 +1294,7 @@ onBeforeUnmount(() => {
 
           <footer class="rodape-coluna">
             <button class="botao secundario" type="button" @click="desfazerAlteracoes">Desfazer alterações</button>
-            <p>{{ idsAtuais.size }} participante(s) na turma.</p>
+            <p>{{ idsAtuais.size }} {{ termoParticipantePluralLower }} na {{ termoGrupoSingularLower }}.</p>
           </footer>
         </section>
       </div>

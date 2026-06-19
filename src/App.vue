@@ -63,13 +63,13 @@ const CABECALHOS_PADRAO = {
   },
   'beach-tennis-turma-alunos': {
     subtitulo: 'Gestão Esportiva',
-    titulo: 'Gerenciar participantes',
-    descricao: 'Gerencie os participantes da turma em lote, com experiência otimizada para celular.',
+    titulo: 'Alunos por turma',
+    descricao: 'Vincule, remova e acompanhe os alunos participantes de cada turma.',
   },
   'beach-tennis-alunos': {
     subtitulo: 'Gestão Esportiva',
-    titulo: 'Gerenciar participantes',
-    descricao: 'Gerencie os participantes da turma em lote, com experiência otimizada para celular.',
+    titulo: 'Alunos por turma',
+    descricao: 'Vincule, remova e acompanhe os alunos participantes de cada turma.',
   },
   'beach-tennis-financeiro': {
     subtitulo: 'Gestão Esportiva',
@@ -329,7 +329,13 @@ const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloGestaoEsportivaVisivel = computed(() => contextoEsportivo.value?.ativo === true)
 const tituloMenuGestaoEsportiva = computed(() => formatarNomeModalidadeEmCaixaAlta(contextoEsportivo.value?.nomeModalidade))
 const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
-const rotuloParticipanteMenuPlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Alunos')
+const rotuloCadastroParticipanteMenu = computed(
+  () => `Cadastro de ${normalizarTextoCabecalho(contextoEsportivo.value?.termoParticipantePlural || 'Alunos')}`,
+)
+const rotuloParticipantePorGrupoMenu = computed(
+  () =>
+    `${contextoEsportivo.value?.termoParticipantePlural || 'Alunos'} por ${normalizarTextoCabecalho(contextoEsportivo.value?.termoGrupoSingular || 'Turma')}`,
+)
 const gruposMenuAbertos = ref({
   principal: true,
   beachTennis: true,
@@ -389,6 +395,14 @@ function criarCabecalhoPagina() {
 
 function obterCabecalhoPadrao(nomeRota) {
   if (contextoEsportivo.value?.ativo === true) {
+    if (nomeRota === 'clientes') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: rotuloCadastroParticipanteMenu.value,
+        descricao: `Cadastre e mantenha os dados dos ${normalizarTextoCabecalho(contextoEsportivo.value.termoParticipantePlural)} da modalidade.`,
+      }
+    }
+
     if (nomeRota === 'beach-tennis-turmas') {
       return {
         subtitulo: contextoEsportivo.value.nomeModalidade,
@@ -400,8 +414,8 @@ function obterCabecalhoPadrao(nomeRota) {
     if (nomeRota === 'beach-tennis-turma-alunos' || nomeRota === 'beach-tennis-alunos') {
       return {
         subtitulo: contextoEsportivo.value.nomeModalidade,
-        titulo: `Gerenciar ${normalizarTextoCabecalho(contextoEsportivo.value.termoParticipantePlural)}`,
-        descricao: `Organize participantes da ${normalizarTextoCabecalho(contextoEsportivo.value.termoGrupoSingular)} em lotes pequenos e amigáveis para celular.`,
+        titulo: rotuloParticipantePorGrupoMenu.value,
+        descricao: `Vincule, remova e acompanhe ${normalizarTextoCabecalho(contextoEsportivo.value.termoParticipantePlural)} participantes de cada ${normalizarTextoCabecalho(contextoEsportivo.value.termoGrupoSingular)}.`,
       }
     }
 
@@ -612,6 +626,19 @@ function alternarGrupoMenu(chave) {
   gruposMenuAbertos.value[chave] = !grupoMenuAberto(chave)
 }
 
+function sincronizarGruposMenu() {
+  const rotaEsportiva = String(routeName.value || '').startsWith('beach-tennis')
+  const rotaCadastroParticipantes = moduloGestaoEsportivaVisivel.value && routeName.value === 'clientes'
+
+  if (rotaEsportiva || rotaCadastroParticipantes) {
+    gruposMenuAbertos.value.beachTennis = true
+  }
+
+  if (!moduloGestaoEsportivaVisivel.value && routeName.value === 'clientes') {
+    gruposMenuAbertos.value.principal = true
+  }
+}
+
 function irParaAjudaVersao() {
   fecharMenuMobile()
   router.push({ path: '/ajuda', hash: '#versao-novidades' })
@@ -687,6 +714,7 @@ watch(
     mensagemGlobal.value = ''
     erroInesperado.value = false
     menuMobileAberto.value = false
+    sincronizarGruposMenu()
 
     await nextTick()
     observarCabecalhoPagina()
@@ -701,6 +729,8 @@ watch(
     if (!carregado) {
       return
     }
+
+    sincronizarGruposMenu()
 
     if (
       String(nomeRota || '').startsWith('beach-tennis') &&
@@ -826,7 +856,7 @@ onBeforeUnmount(() => {
           <div v-if="grupoMenuAberto('principal')" class="submenu">
             <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
             <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
-            <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
+            <RouterLink v-if="!moduloGestaoEsportivaVisivel" to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
           </div>
         </section>
 
@@ -837,7 +867,8 @@ onBeforeUnmount(() => {
           </button>
           <div v-if="grupoMenuAberto('beachTennis')" class="submenu">
             <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">{{ rotuloGrupoEsportivoPlural }}</RouterLink>
-            <RouterLink to="/beach-tennis/alunos" @click="fecharMenuMobile">{{ rotuloParticipanteMenuPlural }}</RouterLink>
+            <RouterLink to="/clientes" @click="fecharMenuMobile">{{ rotuloCadastroParticipanteMenu }}</RouterLink>
+            <RouterLink to="/beach-tennis/alunos" @click="fecharMenuMobile">{{ rotuloParticipantePorGrupoMenu }}</RouterLink>
             <RouterLink to="/beach-tennis/financeiro" @click="fecharMenuMobile">Financeiro</RouterLink>
           </div>
         </section>
