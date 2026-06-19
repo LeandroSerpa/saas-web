@@ -37,6 +37,43 @@ const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.va
 const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
+const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Aluno')
+const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Alunos')
+const rotuloSingularCapitalizado = computed(() =>
+  moduloEsportivoAtivo.value ? termoParticipanteSingular.value : 'Cliente',
+)
+const rotuloSingular = computed(() =>
+  moduloEsportivoAtivo.value ? termoParticipanteSingular.value.toLocaleLowerCase('pt-BR') : 'cliente',
+)
+const rotuloPlural = computed(() =>
+  moduloEsportivoAtivo.value ? termoParticipantePlural.value.toLocaleLowerCase('pt-BR') : 'clientes',
+)
+const tituloPagina = computed(() => (moduloEsportivoAtivo.value ? `Cadastro de ${rotuloPlural.value}` : 'Clientes'))
+const subtituloPagina = computed(() => (moduloEsportivoAtivo.value ? contextoEsportivo.value?.nomeModalidade || 'Gestão esportiva' : 'Relacionamento'))
+const descricaoPagina = computed(() =>
+  moduloEsportivoAtivo.value
+    ? `Cadastre e mantenha os dados dos ${rotuloPlural.value} da modalidade.`
+    : 'Consulte a base de clientes e cadastre novos contatos.',
+)
+const tituloLista = computed(() => (moduloEsportivoAtivo.value ? `${termoParticipantePlural.value} cadastrados` : 'Clientes cadastrados'))
+const descricaoLista = computed(() =>
+  moduloEsportivoAtivo.value
+    ? `Consulte e gerencie os ${rotuloPlural.value} cadastrados.`
+    : 'Consulte e gerencie os clientes cadastrados.',
+)
+const textoCarregando = computed(() => `Carregando ${rotuloPlural.value}...`)
+const textoVazio = computed(() => `Nenhum ${rotuloSingular.value} encontrado.`)
+const contadorLista = computed(() =>
+  moduloEsportivoAtivo.value
+    ? `${paginacao.value.totalElements} ${paginacao.value.totalElements === 1 ? rotuloSingular.value : rotuloPlural.value}`
+    : `${paginacao.value.totalElements} cliente(s)`,
+)
+const resumoPaginacao = computed(
+  () =>
+    moduloEsportivoAtivo.value
+      ? `${paginacao.value.totalElements} ${paginacao.value.totalElements === 1 ? 'registro' : 'registros'} - Página ${paginaAtualHumana.value} de ${paginacao.value.totalPages}`
+      : `${paginacao.value.totalElements} registro(s) - Página ${paginaAtualHumana.value} de ${paginacao.value.totalPages}`,
+)
 const tituloSecaoEsportiva = computed(() =>
   contextoEsportivo.value?.nomeModalidade === 'Beach Tennis'
     ? 'Dados de Beach Tennis'
@@ -190,7 +227,7 @@ async function salvarCliente() {
     }
 
     if (!cliente.value.nome.trim()) {
-      erro.value = 'Informe o nome do cliente.'
+      erro.value = moduloEsportivoAtivo.value ? `Informe o nome do ${rotuloSingular.value}.` : 'Informe o nome do cliente.'
       return
     }
 
@@ -198,10 +235,14 @@ async function salvarCliente() {
 
     if (clienteEditandoId.value) {
       await atualizarCliente(clienteEditandoId.value, dadosCliente)
-      mensagemSucessoCliente.value = 'Cliente atualizado com sucesso.'
+      mensagemSucessoCliente.value = moduloEsportivoAtivo.value
+        ? `${rotuloSingularCapitalizado.value} atualizado com sucesso.`
+        : 'Cliente atualizado com sucesso.'
     } else {
       await cadastrarCliente(dadosCliente)
-      mensagemSucessoCliente.value = 'Cliente cadastrado com sucesso.'
+      mensagemSucessoCliente.value = moduloEsportivoAtivo.value
+        ? `${rotuloSingularCapitalizado.value} cadastrado com sucesso.`
+        : 'Cliente cadastrado com sucesso.'
     }
 
     cancelarEdicaoCliente(false)
@@ -210,8 +251,12 @@ async function salvarCliente() {
     erro.value = obterMensagemErro(
       error,
       clienteEditandoId.value
-        ? 'Não foi possível atualizar o cliente.'
-        : 'Não foi possível cadastrar o cliente.',
+        ? moduloEsportivoAtivo.value
+          ? `Não foi possível atualizar o ${rotuloSingular.value}.`
+          : 'Não foi possível atualizar o cliente.'
+        : moduloEsportivoAtivo.value
+          ? `Não foi possível cadastrar o ${rotuloSingular.value}.`
+          : 'Não foi possível cadastrar o cliente.',
     )
     console.error(error)
   }
@@ -222,7 +267,11 @@ async function enviarClienteParaLixeira(clienteItem) {
     return
   }
 
-  const confirmou = window.confirm(`Deseja enviar o cliente "${clienteItem?.nome || ''}" para a lixeira?`)
+  const confirmou = window.confirm(
+    moduloEsportivoAtivo.value
+      ? `Deseja enviar o ${rotuloSingular.value} "${clienteItem?.nome || ''}" para a lixeira?`
+      : `Deseja enviar o cliente "${clienteItem?.nome || ''}" para a lixeira?`,
+  )
 
   if (!confirmou) {
     return
@@ -239,7 +288,9 @@ async function enviarClienteParaLixeira(clienteItem) {
     mensagemSucessoCliente.value = ''
     await excluirCliente(clienteItem.id, String(motivoInformado || '').trim())
     clientes.value = clientes.value.filter((item) => String(item.id) !== String(clienteItem.id))
-    mensagemSucessoCliente.value = 'Registro enviado para a lixeira com sucesso.'
+    mensagemSucessoCliente.value = moduloEsportivoAtivo.value
+      ? `${rotuloSingularCapitalizado.value} enviado para a lixeira com sucesso.`
+      : 'Registro enviado para a lixeira com sucesso.'
 
     if (clienteEditandoId.value && String(clienteEditandoId.value) === String(clienteItem.id)) {
       cancelarEdicaoCliente(false)
@@ -356,9 +407,9 @@ onBeforeUnmount(() => {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Relacionamento</p>
-        <h1>Clientes</h1>
-        <p class="descricao">Consulte a base de clientes e cadastre novos contatos.</p>
+        <p class="subtitulo">{{ subtituloPagina }}</p>
+        <h1>{{ tituloPagina }}</h1>
+        <p class="descricao">{{ descricaoPagina }}</p>
       </div>
 
       <button class="botao secundario" @click="carregarClientes">Atualizar dados</button>
@@ -385,19 +436,19 @@ onBeforeUnmount(() => {
     <section class="secao-clientes">
       <div class="cabecalho-lista">
         <div>
-          <h2>Clientes cadastrados</h2>
-          <p>Consulte e gerencie os clientes cadastrados.</p>
+          <h2>{{ tituloLista }}</h2>
+          <p>{{ descricaoLista }}</p>
         </div>
 
-        <span class="contador">{{ paginacao.totalElements }} cliente(s)</span>
+        <span class="contador">{{ contadorLista }}</span>
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando clientes...</p>
+        <p>{{ textoCarregando }}</p>
       </section>
 
       <section v-else-if="clientes.length === 0" class="card">
-        <p>Nenhum cliente encontrado.</p>
+        <p>{{ textoVazio }}</p>
       </section>
 
       <section v-else class="lista-clientes">
@@ -447,9 +498,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-if="!carregando" class="card paginacao">
-        <p class="resumo-paginacao">
-          {{ paginacao.totalElements }} registro(s) - Página {{ paginaAtualHumana }} de {{ paginacao.totalPages }}
-        </p>
+        <p class="resumo-paginacao">{{ resumoPaginacao }}</p>
 
         <label class="tamanho-pagina">
           Registros por página
