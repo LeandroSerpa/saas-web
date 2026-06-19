@@ -24,7 +24,7 @@ const props = defineProps({
   },
   proximaLabel: {
     type: String,
-    default: 'Proxima',
+    default: 'Próxima',
   },
 })
 
@@ -35,7 +35,7 @@ const paginaAtual = computed(() =>
   totalPaginas.value > 0 ? Math.min(Math.max(Number(props.pagina || 0) + 1, 1), totalPaginas.value) : 0,
 )
 const textoResumo = computed(() =>
-  totalPaginas.value > 0 ? `Pagina ${paginaAtual.value} de ${totalPaginas.value}` : 'Nenhum resultado',
+  totalPaginas.value > 0 ? `Página ${paginaAtual.value} de ${totalPaginas.value}` : 'Nenhum resultado',
 )
 </script>
 

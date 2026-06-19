@@ -43,7 +43,7 @@ const ABAS = [
   { id: 'acordos', rotulo: 'Acordos' },
   { id: 'mensalidades', rotulo: 'Mensalidades' },
   { id: 'resumo', rotulo: 'Resumo financeiro' },
-  { id: 'configuracao', rotulo: 'ConfiguraÃ§Ã£o e PIX' },
+  { id: 'configuracao', rotulo: 'Configuração e PIX' },
 ]
 
 const OPCOES_MODALIDADE = [
@@ -64,11 +64,11 @@ const TIPO_CHAVE_PIX = [
   { valor: 'CNPJ', rotulo: 'CNPJ' },
   { valor: 'EMAIL', rotulo: 'E-mail' },
   { valor: 'TELEFONE', rotulo: 'Telefone' },
-  { valor: 'ALEATORIA', rotulo: 'Chave aleatÃ³ria' },
+  { valor: 'ALEATORIA', rotulo: 'Chave aleatória' },
 ]
 
 const GESTAO_GERACAO = [
-  { valor: 'AUTOMATICA', rotulo: 'AutomÃ¡tica' },
+  { valor: 'AUTOMATICA', rotulo: 'Automática' },
   { valor: 'MANUAL', rotulo: 'Manual' },
 ]
 
@@ -97,8 +97,8 @@ const STATUS_MENSALIDADE = [
 const FORMAS_PAGAMENTO_BEACH_TENNIS = [
   { codigo: 'PIX', rotulo: 'Pix' },
   { codigo: 'DINHEIRO', rotulo: 'Dinheiro' },
-  { codigo: 'TRANSFERENCIA', rotulo: 'TransferÃªncia' },
-  { codigo: 'CARTAO', rotulo: 'CartÃ£o' },
+  { codigo: 'TRANSFERENCIA', rotulo: 'Transferência' },
+  { codigo: 'CARTAO', rotulo: 'Cartão' },
   { codigo: 'OUTRO', rotulo: 'Outro' },
 ]
 
@@ -190,25 +190,25 @@ const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === t
 const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
 const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Participante')
 const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Participantes')
-const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'ResponsÃ¡vel')
+const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'Responsável')
 const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
 const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const termoAtividadeSingular = computed(() => contextoEsportivo.value?.termoAtividadeSingular || 'Atividade')
 const termoAtividadePlural = computed(() => contextoEsportivo.value?.termoAtividadePlural || 'Atividades')
 const termoLocalSingular = computed(() => contextoEsportivo.value?.termoLocalSingular || 'Local')
 const termoLocalPlural = computed(() => contextoEsportivo.value?.termoLocalPlural || 'Locais')
-const rotuloResponsavelPagamento = 'ResponsÃ¡vel pelo pagamento'
+const rotuloResponsavelPagamento = 'Responsável pelo pagamento'
 const nomeEventoLivre = computed(() => contextoEsportivo.value?.nomeEventoLivre || configuracao.value.nomePlay || 'Jogo livre')
 const tituloPagina = computed(() => `Financeiro - ${nomeModalidade.value}`)
 const descricaoPagina = computed(() =>
-  `Centralize acordos, mensalidades, cobrancas no WhatsApp e a configuracao de PIX para ${nomeModalidade.value}.`,
+  `Centralize acordos, mensalidades, cobranças no WhatsApp e a configuração de PIX para ${nomeModalidade.value}.`,
 )
 const nomeAcordoExemplo = computed(() => `Acordo ${nomeModalidade.value}`)
 const professoresDisponiveisAcordo = computed(() =>
   [...professoresAcordo.value]
     .map((item) => ({
       id: normalizarId(item.id ?? item.funcionarioId ?? ''),
-      nome: String(item.nome || item.nomeCompleto || item.apelido || 'FuncionÃ¡rio').trim(),
+      nome: String(item.nome || item.nomeCompleto || item.apelido || 'Funcionário').trim(),
       ativo: item.ativo !== false,
     }))
     .filter((item) => item.id && item.ativo !== false)
@@ -286,7 +286,7 @@ const avisoResponsavelSelecionado = computed(
       alunosSelecionadosIds.value.length > 0 &&
       !responsavelSelecionado.value &&
       !String(acordoFormulario.value.responsavelAlunoId || '').trim()
-        ? 'Escolha o responsÃ¡vel pelo pagamento entre os alunos selecionados.'
+        ? 'Escolha o responsável pelo pagamento entre os alunos selecionados.'
         : ''
     ),
 )
@@ -515,7 +515,7 @@ function criarConfiguracaoPadrao() {
     chavePix: '',
     nomeRecebedor: '',
     templateMensagem:
-      'OlÃ¡, {nomeResponsavel}! A mensalidade referente a {competencia}, do acordo {nomeAcordo}, estÃ¡ no valor de {valor} e vence em {vencimento}. PIX: {chavePix}. ApÃ³s o pagamento, por favor envie o comprovante. Obrigado!',
+      'Olá, {nomeResponsavel}! A mensalidade referente a {competencia}, do acordo {nomeAcordo}, está no valor de {valor} e vence em {vencimento}. PIX: {chavePix}. Após o pagamento, por favor envie o comprovante. Obrigado!',
     nomePlay: 'PLAY',
   }
 }
@@ -546,7 +546,7 @@ async function carregarTudo() {
 
   return Promise.all([carregarAcordosPaginados(), carregarMensalidades(), carregarResumo(), carregarConfiguracao()])
     .catch((exception) => {
-      erro.value = obterMensagemErro(exception, `NÃ£o foi possÃ­vel carregar a Ã¡rea financeira de ${nomeModalidade.value}.`)
+      erro.value = obterMensagemErro(exception, `Não foi possível carregar a área financeira de ${nomeModalidade.value}.`)
       console.error(exception)
     })
     .finally(() => {
@@ -666,7 +666,7 @@ async function carregarAcordosPaginados({ ajustarPaginaSeVazia = false } = {}) {
     }
 
     acordosPaginados.value = criarPaginaVazia(filtrosAcordosPaginados.value.size)
-    erroListagemAcordos.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel carregar os acordos agora.')
+    erroListagemAcordos.value = obterMensagemErro(exception, 'Não foi possível carregar os acordos agora.')
     console.error(exception)
   } finally {
     if (requisicaoId === controleRequisicoes.acordos) {
@@ -853,7 +853,7 @@ async function abrirEdicaoAcordo(item) {
       return
     }
 
-    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel carregar o detalhe completo do acordo.')
+    erro.value = obterMensagemErro(exception, 'Não foi possível carregar o detalhe completo do acordo.')
     console.error(exception)
   } finally {
     if (requisicaoId === controleRequisicoes.detalhe) {
@@ -887,8 +887,23 @@ function normalizarAcordoFormulario(item = {}) {
     valorMensal: valorParaEntrada(acordo.valorMensal ?? item.valorMensal ?? item.valor ?? item.valorAcordo),
     frequenciaSemanal: String(item.frequenciaSemanal || item.frequencia || ''),
     diaVencimento: String(item.diaVencimento || item.vencimentoDia || ''),
-    modoGeracao: String(acordo.modoGeracao || item.modoGeracao || item.geracao || item.tipoGeracao || 'AUTOMATICA').toUpperCase(),
-    tipoPrimeiroMes: String(acordo.tipoPrimeiroMes || item.tipoPrimeiroMes || item.primeiroMes || item.primeiroMesCobranca || 'INTEGRAL').toUpperCase(),
+    modoGeracao: String(
+      acordo.modoGeracao ||
+      item.modoGeracao ||
+      item.tipoGeracaoMensalidades ||
+      item.tipoGeracao ||
+      item.geracaoMensalidades ||
+      item.geracao ||
+      'AUTOMATICA',
+    ).toUpperCase(),
+    tipoPrimeiroMes: String(
+      acordo.tipoPrimeiroMes ||
+      item.tipoPrimeiroMes ||
+      item.formaPrimeiroMes ||
+      item.primeiroMes ||
+      item.primeiroMesCobranca ||
+      'INTEGRAL',
+    ).toUpperCase(),
     dataInicio: dataParaInput(acordo.dataInicio || item.dataInicio || item.inicio || item.dataInicioVigencia),
     dataFim: dataParaInput(acordo.dataFim || item.dataFim || item.dataFinal || item.fim),
     status,
@@ -916,7 +931,7 @@ function normalizarAcordo(item = {}) {
     item.responsavelNome ||
     item.responsavel ||
     alunos.find((aluno) => aluno.clienteId === clienteResponsavelId)?.clienteNome ||
-    'ResponsÃ¡vel nÃ£o informado'
+    'Responsável não informado'
 
   return {
     ...item,
@@ -925,8 +940,12 @@ function normalizarAcordo(item = {}) {
     valorMensal: numeroSeguro(item.valorMensal ?? item.valor ?? item.valorAcordo),
     frequenciaSemanal: String(item.frequenciaSemanal || item.frequencia || ''),
     diaVencimento: String(item.diaVencimento || item.vencimentoDia || ''),
-    modoGeracao: String(item.modoGeracao || item.geracao || item.tipoGeracao || '').trim().toUpperCase(),
-    tipoPrimeiroMes: String(item.tipoPrimeiroMes || item.primeiroMes || item.primeiroMesCobranca || '').trim().toUpperCase(),
+    modoGeracao: String(
+      item.modoGeracao || item.tipoGeracaoMensalidades || item.tipoGeracao || item.geracaoMensalidades || item.geracao || '',
+    ).trim().toUpperCase(),
+    tipoPrimeiroMes: String(item.tipoPrimeiroMes || item.formaPrimeiroMes || item.primeiroMes || item.primeiroMesCobranca || '')
+      .trim()
+      .toUpperCase(),
     valorPrimeiroMesManual: numeroSeguro(item.valorPrimeiroMesManual ?? item.primeiroMesValorManual),
     dataInicio: item.dataInicio || item.inicio || '',
     dataFim: item.dataFim || item.dataFinal || item.fim || '',
@@ -974,14 +993,14 @@ function normalizarMensalidade(item = {}) {
     nomeAcordo: item.nomeAcordo || item.acordoNome || item.nome || 'Acordo sem nome',
     clienteResponsavelId: item.clienteResponsavelId ?? item.responsavelId ?? acordoRelacionado?.clienteResponsavelId ?? '',
     clienteResponsavelNome:
-      item.clienteResponsavelNome || item.responsavelNome || acordoRelacionado?.clienteResponsavelNome || 'ResponsÃ¡vel nÃ£o informado',
+      item.clienteResponsavelNome || item.responsavelNome || acordoRelacionado?.clienteResponsavelNome || 'Responsável não informado',
     competencia,
     valor: numeroSeguro(item.valor ?? item.valorMensal ?? item.valorCobrado),
     vencimento,
     status,
     statusOriginal: String(item.status || '').trim().toUpperCase(),
     responsavelNome:
-      item.clienteResponsavelNome || item.responsavelNome || acordoRelacionado?.clienteResponsavelNome || 'ResponsÃ¡vel nÃ£o informado',
+      item.clienteResponsavelNome || item.responsavelNome || acordoRelacionado?.clienteResponsavelNome || 'Responsável não informado',
     integranteResumo,
     turmasResumo: turmaResumo,
     alunoIds,
@@ -1178,9 +1197,9 @@ async function salvarAcordo() {
     cancelarEdicaoAcordo(false)
     await recarregarAposAlteracao()
   } catch (exception) {
-    const mensagem = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel salvar o acordo.')
+    const mensagem = obterMensagemErro(exception, 'Não foi possível salvar o acordo.')
     erro.value = detectarConflitoAlunoAcordo(mensagem)
-      ? `Um dos ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} selecionados jÃ¡ possui um acordo ativo. Revise os integrantes ou encerre o acordo atual.`
+      ? `Um dos ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} selecionados já possui um acordo ativo. Revise os integrantes ou encerre o acordo atual.`
       : mensagem
     console.error(exception)
   } finally {
@@ -1198,11 +1217,11 @@ function validarAcordo() {
   }
 
   if (!String(acordoFormulario.value.responsavelAlunoId || '').trim()) {
-    return 'Escolha o responsÃ¡vel pelo pagamento entre os alunos selecionados.'
+    return 'Escolha o responsável pelo pagamento entre os alunos selecionados.'
   }
 
   if (!alunosSelecionadosIds.value.includes(String(acordoFormulario.value.responsavelAlunoId || ''))) {
-    return 'O responsÃ¡vel pelo pagamento precisa estar entre os alunos selecionados.'
+    return 'O responsável pelo pagamento precisa estar entre os alunos selecionados.'
   }
 
   if (!String(acordoFormulario.value.valorMensal || '').trim()) {
@@ -1211,7 +1230,7 @@ function validarAcordo() {
 
   if (String(acordoFormulario.value.tipoPrimeiroMes || '').trim().toUpperCase() === 'MANUAL' &&
     !String(acordoFormulario.value.valorPrimeiroMesManual || '').trim()) {
-    return 'Informe o valor do primeiro mÃªs manual.'
+    return 'Informe o valor do primeiro mês manual.'
   }
 
   return ''
@@ -1243,7 +1262,7 @@ function sincronizarResponsavelAposSelecao(ids = [], { limparSilenciosamente = f
   }
 
   if (atual && !limparSilenciosamente) {
-    avisoResponsavelRemovido.value = 'O responsÃ¡vel anterior saiu do acordo. Escolha outro aluno para continuar.'
+    avisoResponsavelRemovido.value = 'O responsável anterior saiu do acordo. Escolha outro aluno para continuar.'
   } else if (!atual) {
     avisoResponsavelRemovido.value = ''
   }
@@ -1554,7 +1573,7 @@ async function carregarOpcoesAlunosAcordo() {
 
     alunosOpcoesAcordo.value = []
     paginaAlunosAcordo.value = criarPaginaVazia(filtrosAlunosAcordo.value.size)
-    erroSeletorAlunos.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel carregar os alunos para este acordo.')
+    erroSeletorAlunos.value = obterMensagemErro(exception, 'Não foi possível carregar os alunos para este acordo.')
     console.error(exception)
   } finally {
     if (requisicaoId === controleRequisicoes.alunos) {
@@ -1614,7 +1633,7 @@ async function carregarOpcoesTurmasAcordo() {
 
     turmasOpcoesAcordo.value = []
     paginaTurmasAcordo.value = criarPaginaVazia(filtrosTurmasAcordo.value.size)
-    erroSeletorTurmas.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel carregar as turmas para este acordo.')
+    erroSeletorTurmas.value = obterMensagemErro(exception, 'Não foi possível carregar as turmas para este acordo.')
     console.error(exception)
   } finally {
     if (requisicaoId === controleRequisicoes.turmas) {
@@ -1764,7 +1783,7 @@ async function salvarMensalidadeManual() {
     mensalidadeManual.value = criarMensalidadeManualPadrao()
     await recarregarAposAlteracao()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel criar a mensalidade manual.')
+    erro.value = obterMensagemErro(exception, 'Não foi possível criar a mensalidade manual.')
     console.error(exception)
   } finally {
     salvandoMensalidade.value = false
@@ -1777,7 +1796,7 @@ function validarMensalidadeManual() {
   }
 
   if (!String(mensalidadeManual.value.competencia || '').trim()) {
-    return 'Informe a competÃªncia da mensalidade.'
+    return 'Informe a competência da mensalidade.'
   }
 
   if (!String(mensalidadeManual.value.valor || '').trim()) {
@@ -1834,7 +1853,7 @@ async function confirmarPagamento() {
     pagamentoMensalidade.value = criarPagamentoPadrao()
     await recarregarAposAlteracao()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel confirmar o pagamento.')
+    erro.value = obterMensagemErro(exception, 'Não foi possível confirmar o pagamento.')
     console.error(exception)
   } finally {
     salvandoMensalidade.value = false
@@ -1857,7 +1876,7 @@ async function gerarMensalidades() {
     return
   }
 
-  if (!confirmacaoSimples(`Gerar mensalidades para a competÃªncia ${formatarCompetencia(competenciaSelecionada.value)}?`)) {
+  if (!confirmacaoSimples(`Gerar mensalidades para a competência ${formatarCompetencia(competenciaSelecionada.value)}?`)) {
     return
   }
 
@@ -1874,7 +1893,7 @@ async function gerarMensalidades() {
     sucesso.value = 'Mensalidades geradas com sucesso.'
     await recarregarAposAlteracao()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel gerar as mensalidades.')
+    erro.value = obterMensagemErro(exception, 'Não foi possível gerar as mensalidades.')
     console.error(exception)
   } finally {
     processandoAcaoId.value = ''
@@ -1914,7 +1933,7 @@ async function cobrarNoWhatsApp(mensalidade) {
 
     cobrancaWhatsapp.value = {
       aberta: true,
-      titulo: `CobranÃ§a de ${mensalidade.nomeAcordo}`,
+      titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
       mensagem,
       orientacao,
       whatsappUrl,
@@ -1936,10 +1955,10 @@ async function cobrarNoWhatsApp(mensalidade) {
       janelaWhatsapp.close()
       janelaWhatsapp = null
     }
-    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel preparar a cobranÃ§a via WhatsApp.')
+    erro.value = obterMensagemErro(exception, 'Não foi possível preparar a cobrança via WhatsApp.')
     cobrancaWhatsapp.value = {
       aberta: true,
-      titulo: `CobranÃ§a de ${mensalidade.nomeAcordo}`,
+      titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
       mensagem: montarMensagemPreviewLocal(mensalidade),
       orientacao: orientarCobrancaWhatsApp(mensalidade),
       whatsappUrl: '',
@@ -1953,15 +1972,15 @@ async function cobrarNoWhatsApp(mensalidade) {
 
 function orientarCobrancaWhatsApp(mensalidade) {
   if (!configuracao.value.chavePix) {
-    return 'Configure uma chave PIX na aba ConfiguraÃ§Ã£o para liberar a cobranÃ§a com mensagem pronta.'
+    return 'Configure uma chave PIX na aba Configuração para liberar a cobrança com mensagem pronta.'
   }
 
   const telefone = extrairTelefoneResponsavel(mensalidade)
   if (!telefone) {
-    return `Este acordo nÃ£o tem telefone vÃ¡lido para o responsÃ¡vel pelo pagamento. Atualize o cadastro do ${termoParticipanteSingular.value.toLocaleLowerCase('pt-BR')} ou escolha outro responsÃ¡vel.`
+    return `Este acordo não tem telefone válido para o responsável pelo pagamento. Atualize o cadastro do ${termoParticipanteSingular.value.toLocaleLowerCase('pt-BR')} ou escolha outro responsável.`
   }
 
-  return 'A cobranÃ§a Ã© manual. O WhatsApp serÃ¡ aberto em nova aba com a mensagem pronta para revisÃ£o e envio.'
+  return 'A cobrança é manual. O WhatsApp será aberto em nova aba com a mensagem pronta para revisão e envio.'
 }
 
 function montarMensagemPreviewLocal(mensalidade) {
@@ -1971,7 +1990,7 @@ function montarMensagemPreviewLocal(mensalidade) {
     competencia: mensalidade.competencia || competenciaSelecionada.value,
     valor: mensalidade.valor || 0,
     vencimento: mensalidade.vencimento ? formatarData(mensalidade.vencimento) : 'sem vencimento informado',
-    chavePix: configuracao.value.chavePix || 'chave PIX nÃ£o configurada',
+    chavePix: configuracao.value.chavePix || 'chave PIX não configurada',
   })
 }
 
@@ -2023,11 +2042,11 @@ async function salvarConfiguracao() {
       nomePlay: String(configuracao.value.nomePlay || 'PLAY').trim() || 'PLAY',
     })
 
-    sucesso.value = 'ConfiguraÃ§Ã£o salva com sucesso.'
+    sucesso.value = 'Configuração salva com sucesso.'
     await carregarConfiguracao()
     await recarregarContextoGestaoEsportiva()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, `NÃ£o foi possÃ­vel salvar a configuraÃ§Ã£o de ${nomeModalidade.value}.`)
+    erro.value = obterMensagemErro(exception, `Não foi possível salvar a configuração de ${nomeModalidade.value}.`)
     console.error(exception)
   } finally {
     salvandoConfiguracao.value = false
@@ -2045,10 +2064,10 @@ async function executarAcaoMensalidade(id, executar) {
     erro.value = ''
     sucesso.value = ''
     await executar()
-    sucesso.value = 'AÃ§Ã£o concluÃ­da com sucesso.'
+    sucesso.value = 'Ação concluída com sucesso.'
     await recarregarAposAlteracao()
   } catch (exception) {
-    erro.value = obterMensagemErro(exception, 'NÃ£o foi possÃ­vel concluir a aÃ§Ã£o da mensalidade.')
+    erro.value = obterMensagemErro(exception, 'Não foi possível concluir a ação da mensalidade.')
     console.error(exception)
   } finally {
     processandoAcaoId.value = ''
@@ -2168,7 +2187,7 @@ function normalizarTurma(item = {}) {
     horarioFormatado: formatarHorarioTexto(horarioInicio),
     vagas,
     quantidadeAlunos,
-    ocupacaoTexto: vagas > 0 ? `${quantidadeAlunos} de ${vagas} alunos` : `${quantidadeAlunos} alunos Â· sem limite`,
+    ocupacaoTexto: vagas > 0 ? `${quantidadeAlunos} de ${vagas} alunos` : `${quantidadeAlunos} alunos · sem limite`,
     ativo: item.ativo !== false,
     selecionadaNoAcordo: item.selecionadaNoAcordo === true,
   }
@@ -2235,15 +2254,25 @@ function nomesDosIds(lista = []) {
     .join(', ')
 }
 
+function rotuloGeracaoAcordo(valor) {
+  const tipo = String(valor || '').trim().toUpperCase()
+  const mapa = {
+    AUTOMATICA: 'Geração automática',
+    MANUAL: 'Geração manual',
+  }
+
+  return mapa[tipo] || 'Geração não informada'
+}
+
 function rotuloPrimeiroMesAcordo(valor) {
   const tipo = String(valor || '').trim().toUpperCase()
   const mapa = {
-    INTEGRAL: 'Primeiro mÃªs integral',
-    PROPORCIONAL: 'Primeiro mÃªs proporcional',
-    MANUAL: 'Primeiro mÃªs manual',
+    INTEGRAL: 'Primeiro mês integral',
+    PROPORCIONAL: 'Primeiro mês proporcional',
+    MANUAL: 'Primeiro mês manual',
   }
 
-  return mapa[tipo] || 'Primeiro mÃªs nÃ£o informado'
+  return mapa[tipo] || 'Primeiro mês não informado'
 }
 
 function criarAlunoSelecionadoFallback(id) {
@@ -2577,7 +2606,7 @@ function detectarConflitoAlunoAcordo(mensagem) {
   return (
     texto.includes('acordo ativo') ||
     texto.includes('aluno') && texto.includes('ativo') ||
-    texto.includes('jÃ¡ possui') ||
+    texto.includes('já possui') ||
     texto.includes('ja possui')
   )
 }
@@ -2799,7 +2828,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-else class="painel-financeiro">
-      <nav class="abas" role="tablist" :aria-label="`NavegaÃ§Ã£o financeira de ${nomeModalidade}`">
+      <nav class="abas" role="tablist" :aria-label="`Navegação financeira de ${nomeModalidade}`">
         <button
           v-for="aba in ABAS"
           :key="aba.id"
@@ -2820,11 +2849,11 @@ onBeforeUnmount(() => {
             <div>
               <h2>{{ acordoEditandoId ? 'Editar acordo' : 'Novo acordo' }}</h2>
               <p>
-                {{ `O pagamento Ã© Ãºnico por acordo. NÃ£o fazemos divisÃ£o por ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} nesta etapa.` }}
+                {{ `O pagamento é único por acordo. Não fazemos divisão por ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')} nesta etapa.` }}
               </p>
             </div>
             <button v-if="acordoEditandoId" class="botao secundario" type="button" @click="cancelarEdicaoAcordo">
-              Cancelar ediÃ§Ã£o
+              Cancelar edição
             </button>
           </div>
 
@@ -2840,7 +2869,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              FrequÃªncia semanal *
+              Frequência semanal *
               <select v-model="acordoFormulario.frequenciaSemanal">
                 <option value="">Selecione</option>
                 <option value="1">1x por semana</option>
@@ -2859,7 +2888,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              GeraÃ§Ã£o
+              Geração
               <select v-model="acordoFormulario.modoGeracao">
                 <option v-for="opcao in GESTAO_GERACAO" :key="opcao.valor" :value="opcao.valor">
                   {{ opcao.rotulo }}
@@ -2868,7 +2897,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Primeiro mÃªs
+              Primeiro mês
               <select v-model="acordoFormulario.tipoPrimeiroMes">
                 <option v-for="opcao in PRIMEIRO_MES" :key="opcao.valor" :value="opcao.valor">
                   {{ opcao.rotulo }}
@@ -2877,7 +2906,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label v-if="acordoFormulario.tipoPrimeiroMes === 'MANUAL'">
-              Valor do primeiro mÃªs
+              Valor do primeiro mês
               <input
                 v-model="acordoFormulario.valorPrimeiroMesManual"
                 type="text"
@@ -2887,7 +2916,7 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Data de inÃ­cio *
+              Data de início *
               <input v-model="acordoFormulario.dataInicio" type="date" />
             </label>
 
@@ -2906,8 +2935,8 @@ onBeforeUnmount(() => {
             </label>
 
             <label class="campo-grande">
-              ObservaÃ§Ãµes
-              <textarea v-model="acordoFormulario.observacoes" rows="3" placeholder="ObservaÃ§Ãµes comerciais, descontos, condiÃ§Ãµes especiais..."></textarea>
+              Observações
+              <textarea v-model="acordoFormulario.observacoes" rows="3" placeholder="Observações comerciais, descontos, condições especiais..."></textarea>
             </label>
           </div>
 
@@ -2915,7 +2944,7 @@ onBeforeUnmount(() => {
           <div class="grade-selecao grade-selecao-escalavel">
             <ResumoSelecaoAcordo
               :titulo="`${termoParticipantePlural} do acordo`"
-              :ajuda="`Selecione um ou vÃ¡rios ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. O responsÃ¡vel pelo pagamento precisa estar nessa lista.`"
+              :ajuda="`Selecione um ou vários ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}. O responsável pelo pagamento precisa estar nessa lista.`"
               :quantidade-texto="`${alunosSelecionadosIds.length} selecionado(s)`"
               :selecionados="alunosSelecionadosNoAcordo"
               :botao-gerenciar-texto="`Gerenciar ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}`"
@@ -2930,7 +2959,7 @@ onBeforeUnmount(() => {
                 <span v-if="responsavelSelecionado">{{ responsavelSelecionado.nome }}</span>
               </div>
               <p class="ajuda-campo">
-                {{ `O pagamento Ã© sempre Ãºnico por acordo, sem rateio entre ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}.` }}
+                {{ `O pagamento é sempre único por acordo, sem rateio entre ${termoParticipantePlural.toLocaleLowerCase('pt-BR')}.` }}
               </p>
               <p v-if="avisoResponsavelSelecionado" class="aviso-responsavel">
                 {{ avisoResponsavelSelecionado }}
@@ -2979,7 +3008,7 @@ onBeforeUnmount(() => {
           <div class="cabecalho-lista">
             <div>
               <h2>Acordos cadastrados</h2>
-              <p>Busque, filtre e edite acordos sem carregar a lista inteira de uma sÃ³ vez.</p>
+              <p>Busque, filtre e edite acordos sem carregar a lista inteira de uma só vez.</p>
             </div>
             <span class="contador">{{ Number(acordosPaginados.totalElements || 0).toLocaleString('pt-BR') }} acordo(s)</span>
           </div>
@@ -2987,7 +3016,7 @@ onBeforeUnmount(() => {
           <div class="campos filtros-acordos">
             <label class="campo-grande">
               Buscar acordo
-              <input v-model="buscaAcordosDigitada" type="search" placeholder="Nome do acordo, responsÃ¡vel ou aluno" />
+              <input v-model="buscaAcordosDigitada" type="search" placeholder="Nome do acordo, responsável ou aluno" />
             </label>
 
             <label>
@@ -3020,7 +3049,7 @@ onBeforeUnmount(() => {
                   <h3>{{ acordo.nome }}</h3>
                   <p>
                     <span :class="classeStatusAcordo(acordo.status)">{{ statusAcordoRotulo(acordo.status) }}</span>
-                    <span :class="classeGeracao(acordo.modoGeracao)">{{ acordo.modoGeracao || 'GeraÃ§Ã£o nÃ£o informada' }}</span>
+                    <span :class="classeGeracao(acordo.modoGeracao)">{{ rotuloGeracaoAcordo(acordo.modoGeracao) }}</span>
                     <span :class="classePrimeiroMes(acordo.tipoPrimeiroMes)">{{ rotuloPrimeiroMesAcordo(acordo.tipoPrimeiroMes) }}</span>
                   </p>
                 </div>
@@ -3028,12 +3057,12 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="resumo-card">
-                <p><strong>ResponsÃ¡vel pelo pagamento:</strong> {{ acordo.clienteResponsavelNome }}</p>
+                <p><strong>Responsável pelo pagamento:</strong> {{ acordo.clienteResponsavelNome }}</p>
                 <p><strong>{{ termoParticipantePlural }}:</strong> {{ `${acordo.quantidadeAlunosAtivos || 0} aluno(s)` }}</p>
                 <p><strong>{{ termoGrupoPlural }}:</strong> {{ `${acordo.quantidadeTurmasAtivas || 0} turma(s)` }}</p>
                 <p><strong>Vencimento:</strong> Dia {{ acordo.diaVencimento || '-' }}</p>
-                <p><strong>FrequÃªncia:</strong> {{ acordo.frequenciaSemanal ? `${acordo.frequenciaSemanal}x por semana` : '-' }}</p>
-                <p><strong>PerÃ­odo:</strong> {{ formatarData(acordo.dataInicio) }} {{ acordo.dataFim ? `atÃ© ${formatarData(acordo.dataFim)}` : '' }}</p>
+                <p><strong>Frequência:</strong> {{ acordo.frequenciaSemanal ? `${acordo.frequenciaSemanal}x por semana` : '-' }}</p>
+                <p><strong>Período:</strong> {{ formatarData(acordo.dataInicio) }} {{ acordo.dataFim ? `até ${formatarData(acordo.dataFim)}` : '' }}</p>
                 <p v-if="acordo.atualizadoEm"><strong>Atualizado:</strong> {{ formatarData(acordo.atualizadoEm) }}</p>
               </div>
 
@@ -3111,7 +3140,7 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Mensalidades</h2>
-              <p>{{ `Filtros por competÃªncia, status, acordo e ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}. A cobranÃ§a pelo WhatsApp Ã© individual, uma por vez.` }}</p>
+              <p>{{ `Filtros por competência, status, acordo e ${termoParticipanteSingular.toLocaleLowerCase('pt-BR')}. A cobrança pelo WhatsApp é individual, uma por vez.` }}</p>
             </div>
             <div class="acoes-cabecalho">
               <button class="botao principal" type="button" :disabled="processandoAcaoId === 'gerar-mensalidades'" @click="gerarMensalidades">
@@ -3123,7 +3152,7 @@ onBeforeUnmount(() => {
 
           <div class="campos">
             <label>
-              CompetÃªncia
+              Competência
               <input v-model="competenciaSelecionada" type="month" />
             </label>
 
@@ -3161,7 +3190,7 @@ onBeforeUnmount(() => {
               <input
                 v-model="filtrosMensalidades.busca"
                 type="text"
-                placeholder="Acordo, responsÃ¡vel, participante ou grupo"
+                placeholder="Acordo, responsável, participante ou grupo"
               />
             </label>
           </div>
@@ -3172,28 +3201,28 @@ onBeforeUnmount(() => {
             <table>
               <thead>
                 <tr>
-                  <th>CompetÃªncia</th>
+                  <th>Competência</th>
                   <th>Acordo</th>
-                  <th>ResponsÃ¡vel</th>
+                  <th>Responsável</th>
                   <th>{{ termoParticipantePlural }}</th>
                   <th>Vencimento</th>
                   <th>Valor</th>
                   <th>Status</th>
-                  <th>AÃ§Ãµes</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="mensalidade in mensalidadesFiltradas" :key="mensalidade.id">
-                  <td data-label="CompetÃªncia">{{ formatarCompetencia(mensalidade.competencia) }}</td>
+                  <td data-label="Competência">{{ formatarCompetencia(mensalidade.competencia) }}</td>
                   <td data-label="Acordo">{{ mensalidade.nomeAcordo }}</td>
-                  <td data-label="ResponsÃ¡vel">{{ mensalidade.responsavelNome }}</td>
+                  <td data-label="Responsável">{{ mensalidade.responsavelNome }}</td>
                   <td data-label="Alunos">{{ mensalidade.integranteResumo || '-' }}</td>
                   <td data-label="Vencimento">{{ formatarData(mensalidade.vencimento) }}</td>
                   <td data-label="Valor">{{ formatarMoeda(mensalidade.valor) }}</td>
                   <td data-label="Status">
                     <span :class="classeStatusMensalidade(mensalidade.status)">{{ statusMensalidadeRotulo(mensalidade.status) }}</span>
                   </td>
-                  <td data-label="AÃ§Ãµes">
+                  <td data-label="Ações">
                     <div class="acoes-tabela">
                       <button
                         class="botao compacto secundario"
@@ -3242,13 +3271,13 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>{{ cobrancaWhatsapp.titulo }}</h2>
-              <p>PrÃ©via para conferÃªncia antes de abrir a conversa em nova aba.</p>
+              <p>Prévia para conferência antes de abrir a conversa em nova aba.</p>
             </div>
             <button class="botao secundario" type="button" @click="fecharPreviewWhatsapp">Fechar</button>
           </div>
 
           <p v-if="cobrancaWhatsapp.orientacao" class="aviso-whatsapp">{{ cobrancaWhatsapp.orientacao }}</p>
-          <pre class="previsualizacao">{{ cobrancaWhatsapp.mensagem || 'Sem prÃ©via disponÃ­vel.' }}</pre>
+          <pre class="previsualizacao">{{ cobrancaWhatsapp.mensagem || 'Sem prévia disponível.' }}</pre>
           <button
             v-if="cobrancaWhatsapp.whatsappUrl"
             class="botao principal"
@@ -3265,10 +3294,10 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Resumo financeiro</h2>
-              <p>VisÃ£o simples para acompanhar previsto, recebido, pendente e vencido na competÃªncia selecionada.</p>
+              <p>Visão simples para acompanhar previsto, recebido, pendente e vencido na competência selecionada.</p>
             </div>
             <label class="filtro-resumo">
-              CompetÃªncia
+              Competência
               <input v-model="competenciaSelecionada" type="month" />
             </label>
           </div>
@@ -3313,7 +3342,7 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Principais atrasos</h2>
-              <p>Lista resumida dos acordos com maior atraso na competÃªncia atual.</p>
+              <p>Lista resumida dos acordos com maior atraso na competência atual.</p>
             </div>
           </div>
 
@@ -3326,7 +3355,7 @@ onBeforeUnmount(() => {
               <strong>{{ atraso.nomeAcordo }}</strong>
               <p>{{ atraso.responsavelNome }}</p>
               <small>
-                {{ formatarCompetencia(atraso.competencia) }} Â· {{ formatarMoeda(atraso.valor) }} Â·
+                {{ formatarCompetencia(atraso.competencia) }} · {{ formatarMoeda(atraso.valor) }} ·
                 {{ atraso.diasAtraso }} dia(s) em atraso
               </small>
             </article>
@@ -3338,8 +3367,8 @@ onBeforeUnmount(() => {
         <section class="card formulario-card">
           <div class="cabecalho-card">
             <div>
-              <h2>ConfiguraÃ§Ã£o e PIX</h2>
-              <p>Defina a identidade esportiva, a chave PIX, o nome do recebedor e o template da mensagem usada na cobranÃ§a.</p>
+              <h2>Configuração e PIX</h2>
+              <p>Defina a identidade esportiva, a chave PIX, o nome do recebedor e o template da mensagem usada na cobrança.</p>
             </div>
             <div class="acoes-cabecalho">
               <button class="botao secundario" type="button" @click="aplicarSugestoesModalidade">
@@ -3433,7 +3462,7 @@ onBeforeUnmount(() => {
 
             <label>
               Nome do recebedor
-              <input v-model="configuracao.nomeRecebedor" type="text" placeholder="Nome que aparecerÃ¡ na cobranÃ§a" />
+              <input v-model="configuracao.nomeRecebedor" type="text" placeholder="Nome que aparecerá na cobrança" />
             </label>
 
             <label>
@@ -3455,8 +3484,8 @@ onBeforeUnmount(() => {
         <section class="card preview-configuracao">
           <div class="cabecalho-card">
             <div>
-              <h2>PrÃ©via da mensagem</h2>
-              <p>Exemplo com dados fictÃ­cios para validar o texto antes de salvar.</p>
+              <h2>Prévia da mensagem</h2>
+              <p>Exemplo com dados fictícios para validar o texto antes de salvar.</p>
             </div>
           </div>
 
@@ -3470,7 +3499,7 @@ onBeforeUnmount(() => {
         <div class="cabecalho-card">
           <div>
             <h2>Marcar como paga</h2>
-            <p>Informe os dados da quitaÃ§Ã£o para registrar o recebimento.</p>
+            <p>Informe os dados da quitação para registrar o recebimento.</p>
           </div>
           <button class="botao secundario" type="button" @click="mensalidadePagamentoAberta = false">Fechar</button>
         </div>
@@ -3496,8 +3525,8 @@ onBeforeUnmount(() => {
           </label>
 
           <label class="campo-grande">
-            ObservaÃ§Ã£o
-            <textarea v-model="pagamentoMensalidade.observacao" rows="3" placeholder="ObservaÃ§Ã£o opcional"></textarea>
+            Observação
+            <textarea v-model="pagamentoMensalidade.observacao" rows="3" placeholder="Observação opcional"></textarea>
           </label>
         </div>
 
@@ -3515,7 +3544,7 @@ onBeforeUnmount(() => {
         <div class="cabecalho-card">
           <div>
             <h2>Nova mensalidade manual</h2>
-            <p>Crie uma mensalidade avulsa para um acordo jÃ¡ cadastrado.</p>
+            <p>Crie uma mensalidade avulsa para um acordo já cadastrado.</p>
           </div>
           <button class="botao secundario" type="button" @click="mensalidadeManualAberta = false">Fechar</button>
         </div>
@@ -3532,7 +3561,7 @@ onBeforeUnmount(() => {
           </label>
 
           <label>
-            CompetÃªncia
+            Competência
             <input v-model="mensalidadeManual.competencia" type="month" />
           </label>
 
@@ -3557,7 +3586,7 @@ onBeforeUnmount(() => {
           </label>
 
           <label class="campo-grande">
-            ObservaÃ§Ã£o
+            Observação
             <textarea v-model="mensalidadeManual.observacoes" rows="3"></textarea>
           </label>
         </div>

@@ -124,7 +124,7 @@ function atualizarFiltro(campo, valor) {
             <p>{{ `${quantidadeSelecionados} ${props.termoPlural.toLocaleLowerCase('pt-BR')} selecionado(s)` }}</p>
           </div>
           <button class="botao-fechar" type="button" aria-label="Fechar seletor de alunos" @click="emit('fechar')">
-            ×
+            &times;
           </button>
         </header>
 
