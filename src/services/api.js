@@ -1,5 +1,10 @@
 ﻿import { debugLog } from '@/utils/devDebug'
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
+import {
+  HEADER_EMPRESA_OPERACIONAL,
+  resolverEmpresaOperacionalHeader,
+  usuarioEhSuperAdmin,
+} from './empresaOperacionalHeader'
 
 const PUBLIC_APP_URL_HOMOLOGACAO = 'https://gestao-hml.nuvemmais.com.br'
 const PUBLIC_APP_URL_PRODUCAO = 'https://gestao.nuvemmais.com.br'
@@ -653,9 +658,7 @@ function obterEmpresaSelecionadaOperacao() {
   const empresaVisualizacao = obterEmpresaVisualizacao()
   const usuario = carregarUsuarioSessao()
 
-  const perfil = normalizarTextoBusca(usuario?.perfil).replace(/^role_/, '')
-
-  if (!empresaVisualizacao?.id || perfil !== 'super_admin') {
+  if (!empresaVisualizacao?.id || !usuarioEhSuperAdmin(usuario)) {
     return null
   }
 
@@ -758,6 +761,9 @@ function montarHeaders(comJson = false) {
 
   if (token) {
     headers.Authorization = `Bearer ${token}`
+    Object.assign(headers, resolverEmpresaOperacionalHeader(carregarUsuarioSessao(), obterEmpresaVisualizacao()))
+  } else {
+    delete headers[HEADER_EMPRESA_OPERACIONAL]
   }
 
   return headers
