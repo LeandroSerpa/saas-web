@@ -649,9 +649,8 @@ export function limparEmpresaVisualizacao() {
 
 export function modoVisualizacaoEmpresaAtivo() {
   const usuario = carregarUsuarioSessao()
-  const perfil = normalizarTextoBusca(usuario?.perfil).replace(/^role_/, '')
 
-  return Boolean(perfil === 'super_admin' && !obterEmpresaVisualizacao())
+  return Boolean(usuarioEhSuperAdmin(usuario) && !obterEmpresaVisualizacao())
 }
 
 function obterEmpresaSelecionadaOperacao() {
@@ -4039,10 +4038,9 @@ export async function buscarEmpresas(filtros = {}) {
 
 export async function buscarMinhaEmpresa() {
   const empresaVisualizacao = obterEmpresaVisualizacao()
+  const usuario = carregarUsuarioSessao()
 
-  const perfil = normalizarTextoBusca(carregarUsuarioSessao()?.perfil).replace(/^role_/, '')
-
-  if (empresaVisualizacao?.id && perfil === 'super_admin') {
+  if (empresaVisualizacao?.id && usuarioEhSuperAdmin(usuario)) {
     return buscarEmpresaPorId(empresaVisualizacao.id)
   }
 
