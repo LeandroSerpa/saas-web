@@ -158,12 +158,13 @@ function atualizarFiltro(campo, valor) {
 
           <div class="painel-lista">
             <label class="campo-grande">
-              {{ `Buscar ${props.termoSingular.toLocaleLowerCase('pt-BR')}` }}
+              Buscar turma
+              <small class="ajuda-busca">Nome da turma, professor ou horário</small>
               <input
                 ref="buscaRef"
                 :value="props.busca"
                 type="search"
-                placeholder="Nome da turma ou professor"
+                placeholder="Nome da turma, professor ou horário"
                 @input="emit('update:busca', $event.target.value)"
               />
             </label>
@@ -361,6 +362,12 @@ function atualizarFiltro(campo, valor) {
 
 .cabecalho p,
 .mensagem-suave {
+  color: var(--app-text-muted);
+}
+
+.ajuda-busca {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--app-text-muted);
 }
 

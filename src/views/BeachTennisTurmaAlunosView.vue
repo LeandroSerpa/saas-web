@@ -1233,8 +1233,9 @@ onBeforeUnmount(() => {
           </footer>
         </section>
 
-        <section class="coluna" :class="{ ativa: abaMobileAtiva === 'turma' }">
-          <header class="cabecalho-coluna">
+        <section class="coluna coluna-turma" :class="{ ativa: abaMobileAtiva === 'turma' }">
+          <div class="topo-coluna-turma">
+            <header class="cabecalho-coluna">
             <div>
               <p class="subtitulo-mini">{{ termoParticipantePlural }} na turma</p>
               <h2>Na turma</h2>
@@ -1248,13 +1249,15 @@ onBeforeUnmount(() => {
                 Remover selecionados
               </button>
             </div>
-          </header>
+            </header>
 
-          <label class="busca-interna">
-            Buscar dentro da turma
-            <input v-model="buscaVinculados" type="search" placeholder="Nome, e-mail ou telefone" />
-          </label>
+            <label class="busca-interna">
+              Buscar dentro da turma
+              <input v-model="buscaVinculados" type="search" placeholder="Nome, e-mail ou telefone" />
+            </label>
+          </div>
 
+          <div class="conteudo-coluna">
           <section v-if="carregandoVinculados && !listaVinculadosExibidos.length" class="estado-vazio compacto">
             <p>Carregando {{ termoParticipantePluralLower }} vinculados...</p>
           </section>
@@ -1299,6 +1302,7 @@ onBeforeUnmount(() => {
                 </span>
               </div>
             </article>
+          </div>
           </div>
 
           <footer class="rodape-coluna">
@@ -1593,6 +1597,18 @@ select {
   border: 1px solid var(--app-border);
   background: var(--app-surface);
   box-shadow: var(--app-shadow);
+  min-width: 0;
+}
+
+.coluna-turma {
+  align-content: start;
+}
+
+.topo-coluna-turma,
+.conteudo-coluna {
+  display: grid;
+  gap: 16px;
+  align-content: start;
   min-width: 0;
 }
 
