@@ -581,23 +581,29 @@ async function carregarTudo() {
 }
 
 async function carregarClientesApoio() {
+  if (clientes.value.length) {
+    return clientes.value
+  }
+
   const requisicaoId = ++controleRequisicoes.clientesApoio
 
   try {
     carregandoClientesApoio.value = true
     const resposta = await buscarClientes()
     if (requisicaoId !== controleRequisicoes.clientesApoio) {
-      return
+      return clientes.value
     }
 
     clientes.value = Array.isArray(resposta) ? resposta.map(normalizarAluno) : []
+    return clientes.value
   } catch (exception) {
     if (requisicaoId !== controleRequisicoes.clientesApoio) {
-      return
+      return clientes.value
     }
 
     clientes.value = []
     console.error(exception)
+    return clientes.value
   } finally {
     if (requisicaoId === controleRequisicoes.clientesApoio) {
       carregandoClientesApoio.value = false
@@ -904,23 +910,8 @@ function cancelarEdicaoAcordo(limparMensagens = true) {
   }
 }
 
-async function carregarOpcoesAlunosDetalheAcordo(acordoId) {
-  try {
-    const resposta = await buscarOpcoesAlunosAcordoBeachTennis({
-      acordoId,
-      page: 0,
-      size: 200,
-      somenteAtivos: false,
-    })
-
-    return normalizarPaginaResposta(resposta, 200).content.map((item) => normalizarAluno(item))
-  } catch (exception) {
-    if (!clientes.value.length) {
-      await carregarClientesApoio()
-    }
-
-    return clientes.value.map((item) => normalizarAluno(item))
-  }
+async function carregarAlunosEmpresaEfetivaDetalheAcordo() {
+  return (await carregarClientesApoio()).map((item) => normalizarAluno(item))
 }
 
 async function carregarTurmasDetalheAcordo(acordoId) {
@@ -955,12 +946,13 @@ async function hidratarDetalheAcordo(acordoId, base) {
     return base
   }
 
+  const responsavelId = normalizarId(base.clienteResponsavelId || base.responsavelAlunoId)
   const [alunosHidratados, turmasHidratadas] = await Promise.all([
-    precisaHidratarAlunos ? carregarOpcoesAlunosDetalheAcordo(acordoId) : Promise.resolve(base.alunos || []),
+    precisaHidratarAlunos ? carregarAlunosEmpresaEfetivaDetalheAcordo() : Promise.resolve(base.alunos || []),
     precisaHidratarTurmas ? carregarTurmasDetalheAcordo(acordoId) : Promise.resolve(base.turmas || []),
   ])
 
-  const alunos = precisaHidratarAlunos
+  let alunos = precisaHidratarAlunos
     ? hidratarSelecionadosPorOpcoes(base.alunoIds || [], base.alunos || [], alunosHidratados, {
         idKeys: ['id', 'clienteId'],
         nomeKeys: ['nome', 'clienteNome'],
@@ -977,7 +969,21 @@ async function hidratarDetalheAcordo(acordoId, base) {
       }).map((item) => normalizarTurma(item))
     : base.turmas || []
 
-  const responsavelId = normalizarId(base.clienteResponsavelId || base.responsavelAlunoId)
+  const precisaCompletarAlunosEmpresaEfetiva = precisaHidratacaoSelecionados(base.alunoIds || [], alunos, {
+    idKeys: ['id', 'clienteId'],
+    nomeKeys: ['nome', 'clienteNome'],
+    nomeGenerico: `${termoParticipanteSingular.value} selecionado`,
+  }) || Boolean(responsavelId && !alunos.some((item) => normalizarId(item.id || item.clienteId) === responsavelId))
+
+  if (precisaCompletarAlunosEmpresaEfetiva) {
+    alunos = hidratarSelecionadosPorOpcoes(base.alunoIds || [], alunos, await carregarAlunosEmpresaEfetivaDetalheAcordo(), {
+      idKeys: ['id', 'clienteId'],
+      nomeKeys: ['nome', 'clienteNome'],
+      nomeGenerico: `${termoParticipanteSingular.value} selecionado`,
+      criarFallback: criarAlunoSelecionadoFallback,
+    }).map((item) => normalizarAluno(item))
+  }
+
   const responsavel = alunos.find((item) => normalizarId(item.id || item.clienteId) === responsavelId) || null
 
   return {
@@ -986,6 +992,8 @@ async function hidratarDetalheAcordo(acordoId, base) {
     turmas,
     alunoIds: alunos.map((item) => normalizarId(item.id || item.clienteId)).filter(Boolean),
     turmaIds: turmas.map((item) => normalizarId(item.id || item.turmaId)).filter(Boolean),
+    clienteResponsavelId: responsavelId || base.clienteResponsavelId,
+    responsavelAlunoId: responsavelId || base.responsavelAlunoId,
     clienteResponsavelNome: responsavel?.nome || base.clienteResponsavelNome,
     responsavelNome: responsavel?.nome || base.responsavelNome,
   }
@@ -994,6 +1002,9 @@ async function hidratarDetalheAcordo(acordoId, base) {
 function normalizarAcordoFormulario(item = {}) {
   const acordo = normalizarAcordo(item)
   const status = normalizarStatusAcordoBeachTennis(item.status || 'ATIVO')
+  const responsavelAlunoId = normalizarId(
+    item.clienteResponsavelId || item.responsavelAlunoId || item.responsavelId || item.responsavelAcordoId || acordo.clienteResponsavelId,
+  )
 
   return {
     nome: acordo.nome || item.nome || '',
@@ -1021,10 +1032,8 @@ function normalizarAcordoFormulario(item = {}) {
     dataFim: dataParaInput(acordo.dataFim || item.dataFim || item.dataFinal || item.fim),
     status,
     observacoes: item.observacoes || item.observacao || acordo.observacoes || '',
-    responsavelAlunoId: normalizarId(
-      item.clienteResponsavelId || item.responsavelAlunoId || item.responsavelId || item.responsavelAcordoId || acordo.clienteResponsavelId,
-    ),
-    clienteResponsavelId: normalizarId(acordo.clienteResponsavelId || item.clienteResponsavelId || item.responsavelId || ''),
+    responsavelAlunoId,
+    clienteResponsavelId: responsavelAlunoId,
     clienteResponsavelNome: acordo.clienteResponsavelNome || item.clienteResponsavelNome || item.responsavelNome || '',
     valorPrimeiroMesManual: valorParaEntrada(acordo.valorPrimeiroMesManual ?? item.valorPrimeiroMesManual ?? item.primeiroMesValorManual ?? ''),
     alunoIds: [...(acordo.alunoIds || normalizarIds(item.clienteIds || item.alunoIds || []))],

@@ -99,6 +99,30 @@ describe('beachTennisFinanceiro', () => {
     )
   })
 
+  it('normaliza ids numericos e texto ao hidratar alunos selecionados', () => {
+    const hidratados = hidratarSelecionadosPorOpcoes(
+      [7, '8'],
+      [
+        { id: 7, nome: 'Aluno selecionado' },
+        { id: '8', nome: 'Aluno selecionado' },
+      ],
+      [
+        { id: '7', nome: 'Jessica Serpa' },
+        { id: 8, nome: 'Leandro Serpa' },
+      ],
+      {
+        idKeys: ['id'],
+        nomeKeys: ['nome'],
+        nomeGenerico: 'Aluno selecionado',
+      },
+    )
+
+    assert.deepEqual(
+      hidratados.map((item) => `${item.id}:${item.nome}`),
+      ['7:Jessica Serpa', '8:Leandro Serpa'],
+    )
+  })
+
   it('mantem o responsavel desabilitado sem alunos e habilita com selecionados', () => {
     const vazio = criarEstadoResponsavelPagamento([], '', { rotuloItem: 'aluno' })
     const preenchido = criarEstadoResponsavelPagamento([{ id: '8', nome: 'Leandro Serpa' }], '8', {
