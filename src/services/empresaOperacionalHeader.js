@@ -1,16 +1,15 @@
+import { ehSuperAdmin, normalizarPerfil } from '../utils/permissoes.js'
+
 export const HEADER_EMPRESA_OPERACIONAL = 'X-Empresa-Operacional-Id'
 
-function normalizarPerfil(valor) {
-  return String(valor || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase()
-    .replace(/^role_/, '')
-}
-
 export function usuarioEhSuperAdmin(usuario) {
-  return normalizarPerfil(usuario?.perfil) === 'super_admin'
+  const perfilPrincipal = normalizarPerfil(usuario?.perfil)
+
+  if (perfilPrincipal) {
+    return perfilPrincipal === 'SUPER_ADMIN'
+  }
+
+  return ehSuperAdmin(usuario)
 }
 
 export function normalizarEmpresaOperacionalId(valor) {
@@ -28,7 +27,7 @@ export function normalizarEmpresaOperacionalId(valor) {
 }
 
 export function resolverEmpresaOperacionalHeader(usuario, empresaVisualizacao) {
-  const empresaOperacionalId = normalizarEmpresaOperacionalId(empresaVisualizacao?.id)
+  const empresaOperacionalId = normalizarEmpresaOperacionalId(empresaVisualizacao?.id ?? empresaVisualizacao)
 
   if (!usuarioEhSuperAdmin(usuario) || !empresaOperacionalId) {
     return {}
