@@ -80,6 +80,10 @@ const tituloSecaoEsportiva = computed(() =>
     : `Dados esportivos - ${contextoEsportivo.value?.nomeModalidade || 'Esporte'}`,
 )
 
+function contextoOperacionalAtual() {
+  return String(obterEmpresaIdOperacao() || 'GLOBAL')
+}
+
 function criarClienteInicial() {
   return {
     nome: '',
@@ -169,15 +173,28 @@ function listaResumoBeachTennis(clienteItem = {}) {
 }
 
 async function carregarClientes() {
+  const contextoInicial = contextoOperacionalAtual()
+
   try {
     carregando.value = true
     erro.value = ''
+    modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+
+    if (modoVisualizacaoEmpresa.value) {
+      clientes.value = []
+      paginacao.value = criarPaginacaoInicial()
+      return
+    }
 
     const resposta = await buscarClientes({
       page: paginacao.value.page,
       size: paginacao.value.size,
     })
     const dadosPaginados = normalizarRespostaPaginada(resposta, paginacao.value)
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
 
     clientes.value = dadosPaginados.content
     paginacao.value = {
@@ -204,6 +221,10 @@ async function carregarClientes() {
       }
     }
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     erro.value = 'Não foi possível carregar os clientes.'
     console.error(error)
   } finally {
@@ -304,9 +325,26 @@ async function enviarClienteParaLixeira(clienteItem) {
 }
 
 async function carregarStatusFinanceiro() {
+  const contextoInicial = contextoOperacionalAtual()
+
+  if (modoVisualizacaoEmpresaAtivo()) {
+    statusFinanceiro.value = null
+    return
+  }
+
   try {
-    statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
+    const statusFinanceiroApi = await buscarStatusFinanceiroMinhaEmpresa()
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
+    statusFinanceiro.value = statusFinanceiroApi
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     statusFinanceiro.value = null
     console.error(error)
   }
@@ -387,6 +425,8 @@ async function atualizarModoVisualizacao() {
   await recarregarContextoGestaoEsportiva()
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
   cancelarEdicaoCliente(false)
+  clientes.value = []
+  paginacao.value = criarPaginacaoInicial()
   carregarClientes()
   carregarStatusFinanceiro()
 }
