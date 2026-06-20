@@ -75,6 +75,10 @@ const funcionariosFiltrados = computed(() => {
     )
 })
 
+function contextoOperacionalAtual() {
+  return String(obterEmpresaIdOperacao() || 'GLOBAL')
+}
+
 function criarFuncionarioInicial() {
   return {
     empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
@@ -96,15 +100,28 @@ function criarFuncionarioInicial() {
 }
 
 async function carregarFuncionarios() {
+  const contextoInicial = contextoOperacionalAtual()
+
   try {
     carregando.value = true
     erro.value = ''
+    modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+
+    if (modoVisualizacaoEmpresa.value) {
+      funcionarios.value = []
+      paginacao.value = criarPaginacaoInicial()
+      return
+    }
 
     const resposta = await buscarFuncionarios({
       page: paginacao.value.page,
       size: paginacao.value.size,
     })
     const dadosPaginados = normalizarRespostaPaginada(resposta, paginacao.value)
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
 
     funcionarios.value = dadosPaginados.content
     paginacao.value = {
@@ -131,6 +148,10 @@ async function carregarFuncionarios() {
       }
     }
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     erro.value = 'Não foi possível carregar os funcionários.'
     console.error(error)
   } finally {
@@ -215,9 +236,26 @@ async function salvarFuncionario() {
 }
 
 async function carregarStatusFinanceiro() {
+  const contextoInicial = contextoOperacionalAtual()
+
+  if (modoVisualizacaoEmpresaAtivo()) {
+    statusFinanceiro.value = null
+    return
+  }
+
   try {
-    statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
+    const statusFinanceiroApi = await buscarStatusFinanceiroMinhaEmpresa()
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
+    statusFinanceiro.value = statusFinanceiroApi
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     statusFinanceiro.value = null
     console.error(error)
   }
@@ -256,7 +294,7 @@ function editarFuncionario(funcionarioItem) {
   mensagemSucessoStatus.value = ''
   funcionarioEditandoId.value = funcionarioItem.id
   funcionario.value = {
-    empresaId: funcionarioItem.empresaId || 1,
+    empresaId: funcionarioItem.empresaId || obterEmpresaIdOperacao() || '',
     nome: funcionarioItem.nome || '',
     telefone: funcionarioItem.telefone || '',
     email: funcionarioItem.email || '',
@@ -471,7 +509,11 @@ onBeforeUnmount(() => {
 
 function atualizarModoVisualizacao() {
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  cancelarEdicaoFuncionario(false)
+  funcionarios.value = []
+  paginacao.value = criarPaginacaoInicial()
   carregarFuncionarios()
+  carregarStatusFinanceiro()
 }
 </script>
 

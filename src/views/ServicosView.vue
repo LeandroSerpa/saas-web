@@ -69,6 +69,10 @@ const servicosFiltrados = computed(() => {
     )
 })
 
+function contextoOperacionalAtual() {
+  return String(obterEmpresaIdOperacao() || 'GLOBAL')
+}
+
 function criarServicoInicial() {
   return {
     empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
@@ -81,15 +85,28 @@ function criarServicoInicial() {
 }
 
 async function carregarServicos() {
+  const contextoInicial = contextoOperacionalAtual()
+
   try {
     carregando.value = true
     erro.value = ''
+    modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+
+    if (modoVisualizacaoEmpresa.value) {
+      servicos.value = []
+      paginacao.value = criarPaginacaoInicial()
+      return
+    }
 
     const resposta = await buscarServicos({
       page: paginacao.value.page,
       size: paginacao.value.size,
     })
     const dadosPaginados = normalizarRespostaPaginada(resposta, paginacao.value)
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
 
     servicos.value = dadosPaginados.content
     paginacao.value = {
@@ -116,6 +133,10 @@ async function carregarServicos() {
       }
     }
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     erro.value = 'Não foi possível carregar os serviços.'
     console.error(error)
   } finally {
@@ -182,9 +203,26 @@ async function salvarServico() {
 }
 
 async function carregarStatusFinanceiro() {
+  const contextoInicial = contextoOperacionalAtual()
+
+  if (modoVisualizacaoEmpresaAtivo()) {
+    statusFinanceiro.value = null
+    return
+  }
+
   try {
-    statusFinanceiro.value = await buscarStatusFinanceiroMinhaEmpresa()
+    const statusFinanceiroApi = await buscarStatusFinanceiroMinhaEmpresa()
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
+    statusFinanceiro.value = statusFinanceiroApi
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     statusFinanceiro.value = null
     console.error(error)
   }
@@ -282,7 +320,7 @@ function editarServico(servicoItem) {
   mensagemSucessoStatus.value = ''
   servicoEmEdicaoId.value = servicoItem.id
   servico.value = {
-    empresaId: servicoItem.empresaId || 1,
+    empresaId: servicoItem.empresaId || obterEmpresaIdOperacao() || '',
     nome: servicoItem.nome || '',
     descricao: servicoItem.descricao || '',
     preco: servicoItem.preco ?? '',
@@ -404,7 +442,11 @@ onBeforeUnmount(() => {
 
 function atualizarModoVisualizacao() {
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  limparFormulario()
+  servicos.value = []
+  paginacao.value = criarPaginacaoInicial()
   carregarServicos()
+  carregarStatusFinanceiro()
 }
 </script>
 

@@ -2,7 +2,10 @@
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
 import {
   HEADER_EMPRESA_OPERACIONAL,
+  resolverEmpresaIdEfetiva,
   resolverEmpresaOperacionalHeader,
+  resolverPayloadEmpresaEfetiva,
+  resolverQueryEmpresaEfetiva,
   usuarioEhSuperAdmin,
 } from './empresaOperacionalHeader'
 
@@ -653,32 +656,9 @@ export function modoVisualizacaoEmpresaAtivo() {
   return Boolean(usuarioEhSuperAdmin(usuario) && !obterEmpresaVisualizacao())
 }
 
-function obterEmpresaSelecionadaOperacao() {
-  const empresaVisualizacao = obterEmpresaVisualizacao()
-  const usuario = carregarUsuarioSessao()
-
-  if (!empresaVisualizacao?.id || !usuarioEhSuperAdmin(usuario)) {
-    return null
-  }
-
-  return empresaVisualizacao
-}
-
-function obterEmpresaIdOperacionalSelecionada() {
-  return String(obterEmpresaSelecionadaOperacao()?.id || '').trim()
-}
-
 export function anexarEmpresaIdOperacionalNaQuery(filtros = {}) {
-  const empresaIdOperacional = obterEmpresaIdOperacionalSelecionada()
-
-  if (!empresaIdOperacional) {
-    return { ...(filtros || {}) }
-  }
-
-  return {
-    ...(filtros || {}),
-    empresaId: filtros?.empresaId || empresaIdOperacional,
-  }
+  const usuario = carregarUsuarioSessao()
+  return resolverQueryEmpresaEfetiva(usuario, obterEmpresaVisualizacao(), filtros)
 }
 
 function montarQueryEmpresaOperacional(filtros = {}) {
@@ -686,16 +666,8 @@ function montarQueryEmpresaOperacional(filtros = {}) {
 }
 
 function anexarEmpresaIdOperacionalNoPayload(dados = {}) {
-  const empresaIdOperacional = obterEmpresaIdOperacionalSelecionada()
-
-  if (!empresaIdOperacional) {
-    return { ...(dados || {}) }
-  }
-
-  return {
-    ...(dados || {}),
-    empresaId: empresaIdOperacional,
-  }
+  const usuario = carregarUsuarioSessao()
+  return resolverPayloadEmpresaEfetiva(usuario, obterEmpresaVisualizacao(), dados)
 }
 
 export function aplicarEmpresaVisualizacao(filtros = {}) {
@@ -709,7 +681,7 @@ function aplicarEmpresaSelecionadaNoPayload(dados = {}) {
 export function obterEmpresaIdOperacao() {
   const usuario = carregarUsuarioSessao()
 
-  return String(obterEmpresaIdOperacionalSelecionada() || usuario?.empresaId || '').trim()
+  return String(resolverEmpresaIdEfetiva(usuario, obterEmpresaVisualizacao()) || '').trim()
 }
 
 export function notificarUnidadesEstoqueAtualizadas() {
