@@ -296,7 +296,7 @@ function atualizarFiltro(campo, valor) {
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(15, 23, 42, 0.56);
+  background: var(--app-overlay);
 }
 
 .painel {
@@ -306,8 +306,8 @@ function atualizarFiltro(campo, valor) {
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
   border-radius: 20px;
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--app-surface);
+  color: var(--app-text);
 }
 
 .cabecalho,
@@ -319,7 +319,7 @@ function atualizarFiltro(campo, valor) {
   gap: 14px;
   align-items: center;
   padding: 18px 20px;
-  background: #ffffff;
+  background: var(--app-surface);
 }
 
 .botao-fechar {
@@ -328,27 +328,27 @@ function atualizarFiltro(campo, valor) {
   justify-content: center;
   width: 42px;
   height: 42px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--app-border);
   border-radius: 999px;
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--app-surface);
+  color: var(--app-text);
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
 }
 
 .botao-fechar:hover {
-  background: #f8fafc;
+  background: var(--app-surface-soft);
 }
 
 .cabecalho {
   top: 0;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .rodape {
   bottom: 0;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--app-border);
 }
 
 .cabecalho h2,
@@ -361,12 +361,13 @@ function atualizarFiltro(campo, valor) {
 
 .cabecalho p,
 .mensagem-suave {
-  color: #64748b;
+  color: var(--app-text-muted);
 }
 
 .conteudo {
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   display: grid;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
 }
@@ -380,8 +381,8 @@ function atualizarFiltro(campo, valor) {
 }
 
 .painel-selecionados {
-  border-right: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-right: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
   align-content: start;
 }
 
@@ -396,23 +397,23 @@ function atualizarFiltro(campo, valor) {
   display: inline-flex;
   border-radius: 999px;
   padding: 6px 10px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   font-size: 12px;
   font-weight: 800;
 }
 
 .filtros {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--app-border);
   border-radius: 14px;
   padding: 12px 14px;
-  background: #f8fafc;
+  background: var(--app-surface-soft);
 }
 
 .filtros summary {
   cursor: pointer;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--app-text);
 }
 
 .grade-filtros {
@@ -441,9 +442,9 @@ function atualizarFiltro(campo, valor) {
   align-items: flex-start;
   min-height: 48px;
   padding: 14px;
-  border: 1px solid #dbe3ef;
+  border: 1px solid var(--app-border);
   border-radius: 14px;
-  background: #ffffff;
+  background: var(--app-surface);
 }
 
 .card-resultado {
@@ -453,8 +454,8 @@ function atualizarFiltro(campo, valor) {
 }
 
 .card-resultado.selecionado {
-  border-color: #2563eb;
-  background: #eff6ff;
+  border-color: var(--app-primary);
+  background: color-mix(in srgb, var(--app-primary-soft) 72%, var(--app-surface));
 }
 
 .marcador {
@@ -466,13 +467,13 @@ function atualizarFiltro(campo, valor) {
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  border: 2px solid #94a3b8;
-  background: #ffffff;
+  border: 2px solid var(--app-input-disabled-border);
+  background: var(--app-surface);
 }
 
 .card-resultado.selecionado .indicador {
-  border-color: #2563eb;
-  background: radial-gradient(circle at center, #2563eb 0, #2563eb 45%, transparent 46%);
+  border-color: var(--app-primary);
+  background: radial-gradient(circle at center, var(--app-primary) 0, var(--app-primary) 45%, transparent 46%);
 }
 
 .conteudo-resultado,
@@ -484,16 +485,16 @@ function atualizarFiltro(campo, valor) {
 
 .conteudo-resultado strong,
 .card-selecionado strong {
-  color: #0f172a;
+  color: var(--app-text);
 }
 
 .conteudo-resultado small,
 .card-selecionado small {
-  color: #64748b;
+  color: var(--app-text-muted);
 }
 
 .erro {
-  color: #b91c1c;
+  color: var(--app-danger);
   font-weight: 700;
 }
 
@@ -504,7 +505,7 @@ function atualizarFiltro(campo, valor) {
 
   .painel-selecionados {
     border-right: none;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--app-border);
   }
 
   .grade-filtros {
@@ -530,6 +531,10 @@ function atualizarFiltro(campo, valor) {
   .rodape {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .cabecalho {
+    padding-top: calc(18px + env(safe-area-inset-top, 0px));
   }
 
   .rodape {

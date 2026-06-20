@@ -12,6 +12,7 @@ import {
   buscarOpcoesAlunosAcordoBeachTennis,
   buscarOpcoesTurmasAcordoBeachTennis,
   buscarResumoFinanceiroBeachTennis,
+  buscarTurmasBeachTennis,
   cobrarMensalidadeWhatsappBeachTennis,
   criarAcordoBeachTennis,
   criarMensalidadeBeachTennis,
@@ -38,6 +39,14 @@ import {
   contextoGestaoEsportiva,
   recarregarContextoGestaoEsportiva,
 } from '@/utils/gestaoEsportiva'
+import {
+  clonarEstadoSelecaoTemporaria,
+  criarEstadoResponsavelPagamento,
+  filtrarTurmasAcordoLocal,
+  hidratarSelecionadosPorOpcoes,
+  paginarListaLocal,
+  precisaHidratacaoSelecionados,
+} from '@/utils/beachTennisFinanceiro'
 
 const ABAS = [
   { id: 'acordos', rotulo: 'Acordos' },
@@ -278,15 +287,19 @@ const gruposOcultosDisponiveis = computed(() => turmasDisponiveis.value)
 const responsavelSelecionado = computed(() =>
   alunosSelecionadosNoAcordo.value.find((item) => normalizarId(item.id) === normalizarId(acordoFormulario.value.responsavelAlunoId)) || null,
 )
+const estadoResponsavelPagamento = computed(() =>
+  criarEstadoResponsavelPagamento(alunosSelecionadosNoAcordo.value, acordoFormulario.value.responsavelAlunoId, {
+    rotuloItem: termoParticipanteSingular.value.toLocaleLowerCase('pt-BR'),
+  }),
+)
 const avisoResponsavelSelecionado = computed(
   () =>
     avisoResponsavelRemovido.value ||
     (
       !inicializandoAcordoFormulario.value &&
-      alunosSelecionadosIds.value.length > 0 &&
       !responsavelSelecionado.value &&
-      !String(acordoFormulario.value.responsavelAlunoId || '').trim()
-        ? 'Escolha o responsável pelo pagamento entre os alunos selecionados.'
+      estadoResponsavelPagamento.value.ajuda
+        ? estadoResponsavelPagamento.value.ajuda
         : ''
     ),
 )
@@ -410,6 +423,19 @@ function criarFiltrosTurmasAcordoPadrao() {
 }
 
 function normalizarPaginaResposta(dados, sizePadrao = 10) {
+  if (Array.isArray(dados)) {
+    return {
+      content: dados,
+      page: 0,
+      size: sizePadrao,
+      totalElements: dados.length,
+      totalPages: dados.length > 0 ? 1 : 0,
+      first: true,
+      last: true,
+      numberOfElements: dados.length,
+    }
+  }
+
   const base = dados && typeof dados === 'object' ? dados : {}
   const content = Array.isArray(base.content) ? base.content : []
   const page = Number(base.page ?? base.number ?? 0)
@@ -584,7 +610,7 @@ async function carregarProfessoresAcordo() {
 
   try {
     carregandoProfessoresAcordo.value = true
-    const resposta = await buscarFuncionarios()
+    const resposta = await buscarFuncionarios({ ativo: true })
     if (requisicaoId !== controleRequisicoes.professoresAcordo) {
       return
     }
@@ -835,7 +861,7 @@ async function abrirEdicaoAcordo(item) {
       return
     }
 
-    const base = normalizarAcordo(resposta)
+    const base = await hidratarDetalheAcordo(acordoId, normalizarAcordo(resposta))
     inicializandoAcordoFormulario.value = true
     acordoFormulario.value = normalizarAcordoFormulario(base)
     acordoEditandoId.value = String(base.id || acordoId)
@@ -875,6 +901,93 @@ function cancelarEdicaoAcordo(limparMensagens = true) {
 
   if (limparMensagens) {
     sucesso.value = ''
+  }
+}
+
+async function carregarOpcoesAlunosDetalheAcordo(acordoId) {
+  try {
+    const resposta = await buscarOpcoesAlunosAcordoBeachTennis({
+      acordoId,
+      page: 0,
+      size: 200,
+      somenteAtivos: false,
+    })
+
+    return normalizarPaginaResposta(resposta, 200).content.map((item) => normalizarAluno(item))
+  } catch (exception) {
+    if (!clientes.value.length) {
+      await carregarClientesApoio()
+    }
+
+    return clientes.value.map((item) => normalizarAluno(item))
+  }
+}
+
+async function carregarTurmasDetalheAcordo(acordoId) {
+  try {
+    const resposta = await buscarOpcoesTurmasAcordoBeachTennis({
+      acordoId,
+      page: 0,
+      size: 200,
+      somenteAtivas: false,
+    })
+
+    return normalizarPaginaResposta(resposta, 200).content.map((item) => normalizarTurma(item))
+  } catch (exception) {
+    const resposta = await buscarTurmasBeachTennis()
+    return [].concat(resposta || []).map((item) => normalizarTurma(item))
+  }
+}
+
+async function hidratarDetalheAcordo(acordoId, base) {
+  const precisaHidratarAlunos = precisaHidratacaoSelecionados(base.alunoIds || [], base.alunos || [], {
+    idKeys: ['id', 'clienteId'],
+    nomeKeys: ['nome', 'clienteNome'],
+    nomeGenerico: `${termoParticipanteSingular.value} selecionado`,
+  })
+  const precisaHidratarTurmas = precisaHidratacaoSelecionados(base.turmaIds || [], base.turmas || [], {
+    idKeys: ['id', 'turmaId'],
+    nomeKeys: ['nome', 'turmaNome'],
+    nomeGenerico: `${termoGrupoSingular.value} vinculada`,
+  })
+
+  if (!precisaHidratarAlunos && !precisaHidratarTurmas) {
+    return base
+  }
+
+  const [alunosHidratados, turmasHidratadas] = await Promise.all([
+    precisaHidratarAlunos ? carregarOpcoesAlunosDetalheAcordo(acordoId) : Promise.resolve(base.alunos || []),
+    precisaHidratarTurmas ? carregarTurmasDetalheAcordo(acordoId) : Promise.resolve(base.turmas || []),
+  ])
+
+  const alunos = precisaHidratarAlunos
+    ? hidratarSelecionadosPorOpcoes(base.alunoIds || [], base.alunos || [], alunosHidratados, {
+        idKeys: ['id', 'clienteId'],
+        nomeKeys: ['nome', 'clienteNome'],
+        nomeGenerico: `${termoParticipanteSingular.value} selecionado`,
+        criarFallback: criarAlunoSelecionadoFallback,
+      }).map((item) => normalizarAluno(item))
+    : base.alunos || []
+  const turmas = precisaHidratarTurmas
+    ? hidratarSelecionadosPorOpcoes(base.turmaIds || [], base.turmas || [], turmasHidratadas, {
+        idKeys: ['id', 'turmaId'],
+        nomeKeys: ['nome', 'turmaNome'],
+        nomeGenerico: `${termoGrupoSingular.value} vinculada`,
+        criarFallback: criarTurmaSelecionadaFallback,
+      }).map((item) => normalizarTurma(item))
+    : base.turmas || []
+
+  const responsavelId = normalizarId(base.clienteResponsavelId || base.responsavelAlunoId)
+  const responsavel = alunos.find((item) => normalizarId(item.id || item.clienteId) === responsavelId) || null
+
+  return {
+    ...base,
+    alunos,
+    turmas,
+    alunoIds: alunos.map((item) => normalizarId(item.id || item.clienteId)).filter(Boolean),
+    turmaIds: turmas.map((item) => normalizarId(item.id || item.turmaId)).filter(Boolean),
+    clienteResponsavelNome: responsavel?.nome || base.clienteResponsavelNome,
+    responsavelNome: responsavel?.nome || base.responsavelNome,
   }
 }
 
@@ -1368,8 +1481,9 @@ function abrirSeletorAlunos(event) {
   filtrosAlunosAcordo.value = criarFiltrosAlunosAcordoPadrao()
   alunosOpcoesAcordo.value = []
   paginaAlunosAcordo.value = criarPaginaVazia(filtrosAlunosAcordo.value.size)
-  alunosTemporariosIds.value = clonarSet(new Set(alunosSelecionadosIds.value))
-  alunosTemporariosMap.value = clonarMap(alunosConfirmadosMap.value)
+  const estadoTemporario = clonarEstadoSelecaoTemporaria(new Set(alunosSelecionadosIds.value), alunosConfirmadosMap.value)
+  alunosTemporariosIds.value = estadoTemporario.ids
+  alunosTemporariosMap.value = estadoTemporario.mapa
   seletorAlunosAberto.value = true
   void carregarOpcoesAlunosAcordo()
 }
@@ -1389,8 +1503,9 @@ function abrirSeletorTurmas(event) {
   filtrosTurmasAcordo.value = criarFiltrosTurmasAcordoPadrao()
   turmasOpcoesAcordo.value = []
   paginaTurmasAcordo.value = criarPaginaVazia(filtrosTurmasAcordo.value.size)
-  turmasTemporariasIds.value = clonarSet(new Set(turmasSelecionadasIds.value))
-  turmasTemporariasMap.value = clonarMap(turmasConfirmadasMap.value)
+  const estadoTemporario = clonarEstadoSelecaoTemporaria(new Set(turmasSelecionadasIds.value), turmasConfirmadasMap.value)
+  turmasTemporariasIds.value = estadoTemporario.ids
+  turmasTemporariasMap.value = estadoTemporario.mapa
   seletorTurmasAberto.value = true
   void Promise.all([carregarProfessoresAcordo(), carregarOpcoesTurmasAcordo()])
 }
@@ -1582,6 +1697,47 @@ async function carregarOpcoesAlunosAcordo() {
   }
 }
 
+function aplicarPaginaTurmasTemporarias(pagina) {
+  const lista = pagina.content.map((item) => {
+    const turma = normalizarTurma(item)
+    const chave = normalizarId(turma.id)
+    if (turmasTemporariasIds.value.has(chave) || turma.selecionadaNoAcordo) {
+      turmasTemporariasMap.value.set(chave, turma)
+    }
+
+    return {
+      ...turma,
+      selecionado: turmasTemporariasIds.value.has(chave),
+    }
+  })
+
+  turmasTemporariasMap.value = clonarMap(turmasTemporariasMap.value)
+
+  return {
+    lista,
+    pagina: {
+      ...pagina,
+      content: lista,
+    },
+  }
+}
+
+async function carregarOpcoesTurmasAcordoPorFallback() {
+  const resposta = await buscarTurmasBeachTennis()
+  const turmasFiltradas = filtrarTurmasAcordoLocal(
+    [].concat(resposta || []).map((item) => normalizarTurma(item)),
+    {
+      busca: buscaTurmaAcordoDebounced.value,
+      ...filtrosTurmasAcordo.value,
+    },
+  )
+
+  return paginarListaLocal(turmasFiltradas, {
+    page: filtrosTurmasAcordo.value.page,
+    size: filtrosTurmasAcordo.value.size,
+  })
+}
+
 async function carregarOpcoesTurmasAcordo() {
   const requisicaoId = ++controleRequisicoes.turmas
 
@@ -1606,35 +1762,43 @@ async function carregarOpcoesTurmasAcordo() {
       return
     }
 
-    const pagina = normalizarPaginaResposta(resposta, filtrosTurmasAcordo.value.size)
-    const lista = pagina.content.map((item) => {
-      const turma = normalizarTurma(item)
-      const chave = normalizarId(turma.id)
-      if (turmasTemporariasIds.value.has(chave) || turma.selecionadaNoAcordo) {
-        turmasTemporariasMap.value.set(chave, turma)
-      }
+    let paginaNormalizada = normalizarPaginaResposta(resposta, filtrosTurmasAcordo.value.size)
 
-      return {
-        ...turma,
-        selecionado: turmasTemporariasIds.value.has(chave),
+    if (buscaTurmaAcordoDebounced.value && Number(paginaNormalizada.totalElements || 0) === 0) {
+      paginaNormalizada = await carregarOpcoesTurmasAcordoPorFallback()
+      if (requisicaoId !== controleRequisicoes.turmas) {
+        return
       }
-    })
-
-    turmasTemporariasMap.value = clonarMap(turmasTemporariasMap.value)
-    turmasOpcoesAcordo.value = lista
-    paginaTurmasAcordo.value = {
-      ...pagina,
-      content: lista,
     }
+
+    const { lista, pagina } = aplicarPaginaTurmasTemporarias(paginaNormalizada)
+
+    turmasOpcoesAcordo.value = lista
+    paginaTurmasAcordo.value = pagina
   } catch (exception) {
     if (requisicaoId !== controleRequisicoes.turmas) {
       return
     }
 
-    turmasOpcoesAcordo.value = []
-    paginaTurmasAcordo.value = criarPaginaVazia(filtrosTurmasAcordo.value.size)
-    erroSeletorTurmas.value = obterMensagemErro(exception, 'Não foi possível carregar as turmas para este acordo.')
-    console.error(exception)
+    try {
+      const paginaFallback = await carregarOpcoesTurmasAcordoPorFallback()
+
+      if (requisicaoId !== controleRequisicoes.turmas) {
+        return
+      }
+
+      const { lista, pagina } = aplicarPaginaTurmasTemporarias(paginaFallback)
+      turmasOpcoesAcordo.value = lista
+      paginaTurmasAcordo.value = pagina
+      erroSeletorTurmas.value = ''
+      console.warn('Fallback local aplicado no seletor de turmas do acordo.', exception)
+    } catch (fallbackException) {
+      turmasOpcoesAcordo.value = []
+      paginaTurmasAcordo.value = criarPaginaVazia(filtrosTurmasAcordo.value.size)
+      erroSeletorTurmas.value = obterMensagemErro(fallbackException, 'Não foi possível carregar as turmas para este acordo.')
+      console.error(exception)
+      console.error(fallbackException)
+    }
   } finally {
     if (requisicaoId === controleRequisicoes.turmas) {
       carregandoOpcoesTurmas.value = false
@@ -2142,16 +2306,73 @@ function mudarAba(aba) {
   abaAtiva.value = aba
 }
 
+function normalizarTextoComparacao(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function nomeEhPlaceholderSelecionado(nome, termoPadrao) {
+  const texto = normalizarTextoComparacao(nome)
+  const termo = normalizarTextoComparacao(termoPadrao)
+
+  return Boolean(texto && termo && texto === termo)
+}
+
+function escolherNomeAluno(item = {}) {
+  const termoGenerico = `${termoParticipanteSingular.value} selecionado`
+  const candidatos = [item.nome, item.clienteNome, item.nomeCompleto]
+
+  for (const candidato of candidatos) {
+    const nome = String(candidato || '').trim()
+    if (!nome || nomeEhPlaceholderSelecionado(nome, termoGenerico)) {
+      continue
+    }
+
+    return nome
+  }
+
+  return String(item.clienteNome || item.nome || item.nomeCompleto || termoParticipanteSingular.value).trim() || termoParticipanteSingular.value
+}
+
+function escolherNomeTurma(item = {}) {
+  const termoGenerico = `${termoGrupoSingular.value} vinculada`
+  const candidatos = [item.nome, item.turmaNome, item.descricao]
+
+  for (const candidato of candidatos) {
+    const nome = String(candidato || '').trim()
+    if (!nome || nomeEhPlaceholderSelecionado(nome, termoGenerico)) {
+      continue
+    }
+
+    return nome
+  }
+
+  return String(item.turmaNome || item.nome || item.descricao || termoGrupoSingular.value).trim() || termoGrupoSingular.value
+}
+
+function resolverAtivoRegistro(item = {}) {
+  if (item?.ativo === false) {
+    return false
+  }
+
+  const situacao = String(item?.status || item?.situacao || '').trim().toUpperCase()
+  return !['INATIVA', 'INATIVO', 'ENCERRADA', 'ENCERRADO'].includes(situacao)
+}
+
 function normalizarAluno(item = {}) {
   const nivel = String(item.nivelBeachTennis || item.nivel || '').trim().toUpperCase()
   const perfil = String(item.perfilBeachTennis || item.perfil || '').trim().toUpperCase()
+  const nome = escolherNomeAluno(item)
 
   return {
     ...item,
     id: normalizarId(item.id ?? item.alunoId ?? item.clienteId ?? item.pessoaId ?? ''),
     clienteId: normalizarId(item.clienteId ?? item.id ?? item.alunoId ?? item.pessoaId ?? ''),
-    clienteNome: item.clienteNome || item.nome || item.nomeCompleto || termoParticipanteSingular.value,
-    nome: item.nome || item.nomeCompleto || item.clienteNome || termoParticipanteSingular.value,
+    clienteNome: nome,
+    nome,
     telefone: item.telefone || item.celular || '',
     email: item.email || '',
     perfilBeachTennis: perfil,
@@ -2170,13 +2391,15 @@ function normalizarTurma(item = {}) {
   const vagas = numeroInteiro(item.vagas)
   const quantidadeAlunos = numeroInteiro(item.quantidadeAlunos ?? item.quantidadeAlunosAtivos)
   const horarioInicio = String(item.horarioInicio || item.horaInicio || '').trim()
+  const nome = escolherNomeTurma(item)
+  const ativo = resolverAtivoRegistro(item)
 
   return {
     ...item,
     id: normalizarId(item.id ?? item.turmaId ?? ''),
     turmaId: normalizarId(item.turmaId ?? item.id ?? ''),
-    turmaNome: item.turmaNome || item.nome || item.descricao || termoGrupoSingular.value,
-    nome: item.nome || item.descricao || item.turmaNome || termoGrupoSingular.value,
+    turmaNome: nome,
+    nome,
     nivelBeachTennis: item.nivelBeachTennis || item.nivel || '',
     professorId: normalizarId(item.professorId ?? item.funcionarioId ?? item.professorResponsavelId ?? ''),
     professorResponsavelNome: item.professorResponsavelNome || item.professorNome || item.responsavelNome || '',
@@ -2188,7 +2411,7 @@ function normalizarTurma(item = {}) {
     vagas,
     quantidadeAlunos,
     ocupacaoTexto: vagas > 0 ? `${quantidadeAlunos} de ${vagas} alunos` : `${quantidadeAlunos} alunos · sem limite`,
-    ativo: item.ativo !== false,
+    ativo,
     selecionadaNoAcordo: item.selecionadaNoAcordo === true,
   }
 }
@@ -2953,7 +3176,7 @@ onBeforeUnmount(() => {
               @limpar="limparSelecaoAlunosAcordo"
             />
 
-            <section class="bloco-selecao">
+            <section class="bloco-selecao" :class="{ desabilitado: estadoResponsavelPagamento.disabled }">
               <div class="cabecalho-mini">
                 <h3>{{ rotuloResponsavelPagamento }}</h3>
                 <span v-if="responsavelSelecionado">{{ responsavelSelecionado.nome }}</span>
@@ -2968,10 +3191,10 @@ onBeforeUnmount(() => {
                 {{ rotuloResponsavelPagamento }}
                 <select
                   v-model="acordoFormulario.responsavelAlunoId"
-                  :disabled="!alunosSelecionadosIds.length"
+                  :disabled="estadoResponsavelPagamento.disabled"
                   @change="selecionarResponsavelAcordo($event.target.value)"
                 >
-                  <option value="">Selecione</option>
+                  <option value="">{{ estadoResponsavelPagamento.placeholder }}</option>
                   <option
                     v-for="aluno in alunosSelecionadosNoAcordo"
                     :key="aluno.id"
@@ -2981,6 +3204,9 @@ onBeforeUnmount(() => {
                   </option>
                 </select>
               </label>
+              <p v-if="estadoResponsavelPagamento.disabled" class="ajuda-campo ajuda-desabilitada">
+                {{ estadoResponsavelPagamento.ajuda }}
+              </p>
             </section>
 
             <ResumoSelecaoAcordo
@@ -3606,7 +3832,7 @@ onBeforeUnmount(() => {
 .pagina {
   display: grid;
   gap: 22px;
-  color: #0f172a;
+  color: var(--app-text);
 }
 
 *,
@@ -3621,17 +3847,17 @@ onBeforeUnmount(() => {
   gap: 18px;
   align-items: center;
   padding: 22px 24px;
-  border: 1px solid #dbeafe;
-  border-radius: 18px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
   background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 36%),
-    linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--app-primary) 16%, transparent), transparent 36%),
+    linear-gradient(135deg, var(--app-surface-strong) 0%, var(--app-surface-soft) 100%);
+  box-shadow: var(--app-shadow);
 }
 
 .subtitulo {
   margin: 0 0 6px;
-  color: #0ea5e9;
+  color: var(--app-primary);
   font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -3648,7 +3874,7 @@ onBeforeUnmount(() => {
 .cabecalho-card p,
 .ajuda-campo {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--app-text-muted);
 }
 
 .painel-financeiro {
@@ -3663,19 +3889,19 @@ onBeforeUnmount(() => {
 }
 
 .aba {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--app-border);
   border-radius: 999px;
-  background: white;
-  color: #334155;
+  background: var(--app-surface);
+  color: var(--app-text);
   padding: 10px 16px;
   cursor: pointer;
   font-weight: 800;
 }
 
 .aba.ativa {
-  background: #0f172a;
+  background: var(--app-primary);
   color: white;
-  border-color: #0f172a;
+  border-color: var(--app-primary);
 }
 
 .conteudo-aba {
@@ -3685,29 +3911,29 @@ onBeforeUnmount(() => {
 
 .card,
 .modal-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
   padding: 22px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--app-shadow);
 }
 
 .feedback.erro {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+  border-color: var(--app-danger);
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
 }
 
 .feedback.sucesso {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-  color: #166534;
+  border-color: var(--app-success);
+  background: var(--app-success-soft);
+  color: var(--app-success);
 }
 
 .aviso-empresa {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-color: var(--app-primary);
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   font-weight: 800;
 }
 
@@ -3724,7 +3950,7 @@ onBeforeUnmount(() => {
 label {
   display: grid;
   gap: 7px;
-  color: #334155;
+  color: var(--app-text);
   font-weight: 800;
 }
 
@@ -3734,11 +3960,21 @@ textarea {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
   padding: 10px 12px;
   font: inherit;
-  background: white;
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--app-input-disabled-bg);
+  color: var(--app-input-disabled-text);
+  border-color: var(--app-input-disabled-border);
+  cursor: not-allowed;
 }
 
 textarea {
@@ -3783,14 +4019,24 @@ textarea {
 }
 
 .bloco-selecao {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--app-border);
   border-radius: 12px;
   padding: 14px;
-  background: #f8fafc;
+  background: var(--app-surface-soft);
   display: grid;
   gap: 12px;
   align-content: start;
   min-width: 0;
+}
+
+.bloco-selecao.desabilitado {
+  background: color-mix(in srgb, var(--app-input-disabled-bg) 82%, var(--app-surface));
+  border-color: var(--app-input-disabled-border);
+}
+
+.ajuda-desabilitada {
+  margin: 0;
+  color: var(--app-input-disabled-text);
 }
 
 .campo-busca {
@@ -3809,9 +4055,9 @@ textarea {
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--app-border);
   border-radius: 10px;
-  background: white;
+  background: var(--app-surface);
   padding: 12px;
   min-height: 44px;
   width: 100%;
@@ -3822,7 +4068,7 @@ textarea {
 .item-checkbox input {
   width: 18px;
   height: 18px;
-  accent-color: #2563eb;
+  accent-color: var(--app-primary);
 }
 
 .item-checkbox span {
@@ -3836,14 +4082,14 @@ textarea {
 }
 
 .item-checkbox small {
-  color: #64748b;
+  color: var(--app-text-muted);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .item-checkbox:focus-within {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 3px var(--app-focus-ring);
 }
 
 .resumo-selecao {
@@ -3851,8 +4097,8 @@ textarea {
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid #dbeafe;
-  background: #eff6ff;
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-primary-soft) 72%, var(--app-surface));
 }
 
 .resumo-selecao-topo {
@@ -3875,8 +4121,8 @@ textarea {
   min-height: 32px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   font-size: 12px;
   font-weight: 800;
   max-width: 100%;
@@ -3884,17 +4130,17 @@ textarea {
 }
 
 .chip-selecao.sutileza {
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
 }
 
 .aviso-responsavel {
   margin: 0;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
+  background: var(--app-warning-soft);
+  border: 1px solid var(--app-warning);
+  color: var(--app-warning);
   font-weight: 700;
 }
 
@@ -3910,12 +4156,12 @@ textarea {
 
 .feedback-lista {
   margin: 0;
-  color: #475569;
+  color: var(--app-text-muted);
   font-weight: 700;
 }
 
 .erro-inline {
-  color: #b91c1c;
+  color: var(--app-danger);
 }
 
 .acoes-formulario,
@@ -3932,10 +4178,10 @@ textarea {
 }
 
 .botao {
-  border: none;
+  border: 1px solid transparent;
   color: white;
   padding: 10px 16px;
-  border-radius: 8px;
+  border-radius: 14px;
   cursor: pointer;
   font-weight: 800;
   transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
@@ -3952,19 +4198,22 @@ textarea {
 }
 
 .principal {
-  background: #2563eb;
+  background: var(--app-primary);
 }
 
 .principal:hover {
-  background: #1d4ed8;
+  background: var(--app-primary-strong);
 }
 
 .secundario {
-  background: #0f172a;
+  background: var(--app-surface);
+  color: var(--app-text);
+  border-color: var(--app-border);
 }
 
 .secundario:hover {
-  background: #1e293b;
+  background: var(--app-surface-soft);
+  border-color: var(--app-primary);
 }
 
 .compacto {
@@ -3987,14 +4236,14 @@ textarea {
 }
 
 .acordo-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--app-border);
   border-radius: 14px;
   padding: 16px;
   display: grid;
   gap: 12px;
   background:
-    radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 26%),
-    #fff;
+    radial-gradient(circle at top right, color-mix(in srgb, var(--app-primary) 10%, transparent), transparent 26%),
+    var(--app-surface);
   min-width: 0;
 }
 
@@ -4019,14 +4268,14 @@ textarea {
 .atraso-item small,
 .previsualizacao {
   margin: 0;
-  color: #475569;
+  color: var(--app-text-muted);
 }
 
 .observacoes {
   padding: 12px;
   border-radius: 10px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: var(--app-surface-soft);
+  border: 1px dashed var(--app-border);
 }
 
 .contador {
@@ -4034,8 +4283,8 @@ textarea {
   width: fit-content;
   border-radius: 999px;
   padding: 7px 11px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -4043,11 +4292,11 @@ textarea {
 }
 
 .estado-vazio {
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed var(--app-border);
   border-radius: 12px;
   padding: 18px;
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
   font-weight: 700;
 }
 
@@ -4063,7 +4312,7 @@ textarea {
 }
 
 .indicador span {
-  color: #64748b;
+  color: var(--app-text-muted);
   font-weight: 800;
 }
 
@@ -4077,12 +4326,12 @@ textarea {
 }
 
 .atraso-item {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--app-border);
   border-radius: 12px;
   padding: 14px;
   display: grid;
   gap: 4px;
-  background: #f8fafc;
+  background: var(--app-surface-soft);
 }
 
 .filtros-card {
@@ -4107,50 +4356,50 @@ textarea {
 }
 
 .status.pendente {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
 }
 
 .status.paga {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--app-success-soft);
+  color: var(--app-success);
 }
 
 .status.vencida {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--app-warning-soft);
+  color: var(--app-warning);
 }
 
 .status.cancelada,
 .status.inativo {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
 }
 
 .status.reaberta,
 .status.pausado {
-  background: #e0e7ff;
-  color: #4338ca;
+  background: color-mix(in srgb, var(--app-primary-soft) 72%, var(--app-surface));
+  color: var(--app-primary-strong);
 }
 
 .badge.automatica {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
 }
 
 .badge.manual {
-  background: #ede9fe;
-  color: #6d28d9;
+  background: color-mix(in srgb, var(--app-brand-end) 18%, var(--app-surface));
+  color: var(--app-brand-end);
 }
 
 .badge.integral {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--app-success-soft);
+  color: var(--app-success);
 }
 
 .badge.proporcional {
-  background: #ffedd5;
-  color: #c2410c;
+  background: var(--app-warning-soft);
+  color: var(--app-warning);
 }
 
 .modal-fundo {
@@ -4160,7 +4409,7 @@ textarea {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--app-overlay);
 }
 
 .modal-card {
@@ -4188,8 +4437,8 @@ table {
 th,
 td {
   padding: 12px 10px;
-  border-bottom: 1px solid #e5e7eb;
-  color: #374151;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-text);
   text-align: left;
   vertical-align: top;
   font-size: 13px;
@@ -4201,8 +4450,8 @@ td[data-label] {
 }
 
 th {
-  background: #f8fafc;
-  color: #111827;
+  background: var(--app-surface-soft);
+  color: var(--app-text);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -4217,15 +4466,15 @@ th {
 
 .previsualizacao {
   white-space: pre-wrap;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
   border-radius: 12px;
   padding: 14px;
   margin-top: 12px;
 }
 
 .aviso-whatsapp {
-  color: #92400e;
+  color: var(--app-warning);
   font-weight: 700;
 }
 
@@ -4296,10 +4545,10 @@ th {
 
   tr {
     margin-bottom: 12px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--app-border);
     border-radius: 14px;
     overflow: hidden;
-    background: #ffffff;
+    background: var(--app-surface);
   }
 
   td {
@@ -4307,13 +4556,13 @@ th {
     justify-content: space-between;
     gap: 12px;
     padding: 10px 12px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--app-border);
   }
 
   td::before {
     content: attr(data-label);
     flex: 0 0 38%;
-    color: #64748b;
+    color: var(--app-text-muted);
     font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;
