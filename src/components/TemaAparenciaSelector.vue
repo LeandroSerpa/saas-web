@@ -1,4 +1,6 @@
 <script setup>
+import { obterOpcoesTemasInternos } from '@/utils/temasInternos'
+
 const props = defineProps({
   tema: {
     type: String,
@@ -8,20 +10,10 @@ const props = defineProps({
 
 const emit = defineEmits(['update:tema'])
 
-const opcoes = [
-  {
-    valor: 'claro',
-    titulo: 'Claro',
-  },
-  {
-    valor: 'escuro',
-    titulo: 'Escuro',
-  },
-  {
-    valor: 'nuvemmais',
-    titulo: 'NuvemMais',
-  },
-]
+const opcoes = obterOpcoesTemasInternos().map((tema) => ({
+  valor: tema.valor,
+  titulo: tema.nome,
+}))
 </script>
 
 <template>
@@ -59,7 +51,7 @@ const opcoes = [
 }
 
 .seletor-compacto select {
-  min-width: 120px;
+  min-width: 112px;
   padding: 0 22px 0 0;
   border: none;
   border-radius: 0;
@@ -84,18 +76,17 @@ const opcoes = [
 }
 
 .seletor-tema select {
-  min-width: 138px;
+  min-width: 112px;
 }
 
 @media (max-width: 480px) {
   .seletor-compacto {
-    width: 100%;
-    justify-content: space-between;
+    max-width: 100%;
+    padding-inline: 9px;
   }
 
-  .seletor-compacto select {
-    min-width: 0;
-    width: auto;
+  .seletor-rotulo {
+    display: none;
   }
 }
 </style>

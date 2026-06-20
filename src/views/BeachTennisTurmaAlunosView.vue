@@ -20,6 +20,14 @@ import {
 import { debugLog } from '@/utils/devDebug'
 import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
 import { criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
+import {
+  atualizarOrdemTemporariosTurma,
+  construirOrdemAlunosTurma,
+  criarEstadoCapacidadeTurma,
+  filtrarAlunosPorBuscaTurma,
+  normalizarTextoPesquisaTurma,
+  ordenarAlunosNaTurma,
+} from '@/utils/beachTennisTurmaAlunos'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,6 +50,8 @@ const idsAtuais = ref(new Set())
 const idsMarcadosDisponiveis = ref(new Set())
 const idsMarcadosTurma = ref(new Set())
 const alunosDisponiveis = ref([])
+const ordemPersistidos = ref(new Map())
+const ordemTemporarios = ref(new Map())
 const paginacaoDisponiveis = ref(criarPaginacaoInicial(20))
 const carregando = ref(true)
 const carregandoDisponiveis = ref(false)
@@ -90,14 +100,11 @@ const quantidadeAlterada = computed(() => {
   const diferenca = diferencaIds(idsIniciais.value, idsAtuais.value)
   return diferenca.adicionados.length + diferenca.removidos.length
 })
-const capacidade = computed(() => normalizarCapacidade(turma.value?.vagas))
-const capacidadeIlimitada = computed(() => capacidade.value === null)
-const vagasDisponiveis = computed(() =>
-  capacidadeIlimitada.value ? null : Math.max(capacidade.value - quantidadeFinal.value, 0),
-)
-const excedenteCapacidade = computed(() =>
-  capacidadeIlimitada.value ? 0 : Math.max(quantidadeFinal.value - capacidade.value, 0),
-)
+const estadoCapacidade = computed(() => criarEstadoCapacidadeTurma(turma.value?.vagas, quantidadeFinal.value))
+const capacidade = computed(() => estadoCapacidade.value.capacidade)
+const capacidadeIlimitada = computed(() => estadoCapacidade.value.capacidadeIlimitada)
+const vagasDisponiveis = computed(() => estadoCapacidade.value.vagasDisponiveis)
+const excedenteCapacidade = computed(() => estadoCapacidade.value.excedenteCapacidade)
 const mensagemCapacidade = computed(() => {
   if (capacidadeIlimitada.value) {
     return 'Ilimitado'
@@ -114,23 +121,26 @@ const textoVagasDisponiveis = computed(() => {
 })
 const alteracoesPendentes = computed(() => !conjuntosIguais(idsIniciais.value, idsAtuais.value))
 const avisarCapacidade = computed(() => excedenteCapacidade.value > 0)
-const listaDisponiveisVisiveis = computed(() =>
-  alunosDisponiveis.value.filter((aluno) => !idsAtuais.value.has(aluno.clienteId)),
-)
-const listaVinculadosExibidos = computed(() => {
-  const busca = normalizarTextoPesquisa(buscaVinculados.value)
-  const lista = [...idsAtuais.value]
-    .map((clienteId) => alunosPorClienteId.value.get(clienteId) || criarAlunoResumo(clienteId))
-    .filter(Boolean)
+const listaDisponiveisVisiveis = computed(() => {
+  const listaBase = alunosDisponiveis.value.filter((aluno) => !idsAtuais.value.has(aluno.clienteId))
 
-  if (!busca) {
-    return lista.sort(compararPorNome)
-  }
-
-  return lista
-    .filter((aluno) => campoAlunoPesquisa(aluno).some((valor) => normalizarTextoPesquisa(valor).includes(busca)))
-    .sort(compararPorNome)
+  return filtrarAlunosPorBuscaTurma(listaBase, buscaDisponiveisDigitada.value)
 })
+const listaVinculadosOrdenados = computed(() =>
+  ordenarAlunosNaTurma(
+    [...idsAtuais.value]
+      .map((clienteId) => alunosPorClienteId.value.get(clienteId) || criarAlunoResumo(clienteId))
+      .filter(Boolean),
+    {
+      idsPersistidos: idsIniciais.value,
+      ordemPersistidos: ordemPersistidos.value,
+      ordemTemporarios: ordemTemporarios.value,
+    },
+  ),
+)
+const listaVinculadosExibidos = computed(() =>
+  filtrarAlunosPorBuscaTurma(listaVinculadosOrdenados.value, buscaVinculados.value),
+)
 const selecionadosDisponiveis = computed(() => idsMarcadosDisponiveis.value.size)
 const selecionadosTurma = computed(() => idsMarcadosTurma.value.size)
 const podeSalvar = computed(() => alteracoesPendentes.value && !avisarCapacidade.value && !salvando.value)
@@ -227,11 +237,7 @@ function normalizarQuantidadeAlunos(item = {}, fallback = 0) {
 }
 
 function normalizarTextoPesquisa(valor) {
-  return String(valor || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
+  return normalizarTextoPesquisaTurma(valor)
 }
 
 function compararPorNome(a, b) {
@@ -396,6 +402,8 @@ function atualizarSelecoesIniciais(lista = []) {
   const ids = lista.map((item) => item.clienteId)
   idsIniciais.value = criarConjuntoIds(ids)
   idsAtuais.value = criarConjuntoIds(ids)
+  ordemPersistidos.value = construirOrdemAlunosTurma(lista)
+  ordemTemporarios.value = new Map()
   idsMarcadosDisponiveis.value = new Set()
   idsMarcadosTurma.value = new Set()
 }
@@ -412,16 +420,6 @@ function atualizarAlunosDisponiveis(lista = []) {
   }
 
   alunosDisponiveis.value = [...mapa.values()].sort(compararPorNome)
-}
-
-function campoAlunoPesquisa(aluno = {}) {
-  return [
-    aluno.nome,
-    aluno.email,
-    aluno.telefone,
-    rotuloNivelBeachTennis(aluno.nivel),
-    rotuloPerfilBeachTennis(aluno.perfil),
-  ]
 }
 
 function campoTurmaPesquisa(item = {}) {
@@ -482,6 +480,8 @@ function limparEstadoTurmaSelecionada() {
   idsAtuais.value = new Set()
   idsMarcadosDisponiveis.value = new Set()
   idsMarcadosTurma.value = new Set()
+  ordemPersistidos.value = new Map()
+  ordemTemporarios.value = new Map()
   buscaDisponiveisDigitada.value = ''
   buscaDisponiveisDebounced.value = ''
   buscaVinculados.value = ''
@@ -538,6 +538,11 @@ function selecionarTodosVinculados() {
 
 function adicionarSelecionados() {
   const conjunto = new Set(idsAtuais.value)
+  ordemTemporarios.value = atualizarOrdemTemporariosTurma(
+    ordemTemporarios.value,
+    idsMarcadosDisponiveis.value,
+    idsIniciais.value,
+  )
   for (const clienteId of idsMarcadosDisponiveis.value) {
     conjunto.add(clienteId)
   }
@@ -558,6 +563,7 @@ function removerSelecionados() {
 
 function desfazerAlteracoes() {
   idsAtuais.value = new Set(idsIniciais.value)
+  ordemTemporarios.value = new Map()
   limparEstadosBuscaVisivel()
   limparMensagens()
 }
@@ -784,6 +790,7 @@ async function salvarAlteracoes() {
     salvando.value = true
     limparMensagens()
 
+    const ordemSalva = construirOrdemAlunosTurma(listaVinculadosOrdenados.value)
     const clienteIds = [...idsAtuais.value]
     const resposta = await salvarClientesTurmaBeachTennis(turmaIdSelecionada.value, clienteIds)
     const alunosNormalizados = normalizarListaAlunosVinculados(extrairListaAlunosResposta(resposta))
@@ -792,6 +799,8 @@ async function salvarAlteracoes() {
     indexarAlunos(alunosNormalizados)
     idsIniciais.value = criarConjuntoIds(idsResposta)
     idsAtuais.value = criarConjuntoIds(idsResposta)
+    ordemPersistidos.value = ordemSalva.size ? ordemSalva : construirOrdemAlunosTurma(alunosNormalizados)
+    ordemTemporarios.value = new Map()
     limparEstadosBuscaVisivel()
 
     if (turma.value) {
@@ -1337,7 +1346,7 @@ onBeforeUnmount(() => {
 .pagina {
   display: grid;
   gap: 20px;
-  color: #0f172a;
+  color: var(--app-text);
 }
 
 *,
@@ -1348,10 +1357,10 @@ onBeforeUnmount(() => {
 
 .cabecalho-pagina,
 .card {
-  background: #ffffff;
-  border: 1px solid #dbeafe;
-  border-radius: 20px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow);
 }
 
 .cabecalho-pagina {
@@ -1368,7 +1377,7 @@ onBeforeUnmount(() => {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #0f766e;
+  color: var(--app-primary);
 }
 
 .cabecalho-pagina h1,
@@ -1388,7 +1397,7 @@ onBeforeUnmount(() => {
 .feedback p,
 .modal-card p {
   margin: 0;
-  color: #475569;
+  color: var(--app-text-muted);
 }
 
 .acoes-cabecalho,
@@ -1402,7 +1411,7 @@ onBeforeUnmount(() => {
 
 .botao {
   appearance: none;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 12px;
   padding: 11px 16px;
   font-weight: 700;
@@ -1425,18 +1434,20 @@ onBeforeUnmount(() => {
 }
 
 .botao.principal {
-  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  background: linear-gradient(135deg, var(--app-primary), var(--app-brand-end));
   color: #ffffff;
 }
 
 .botao.secundario {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--app-surface-soft);
+  color: var(--app-primary);
+  border-color: var(--app-border);
 }
 
 .botao.perigo {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
+  border-color: var(--app-danger);
 }
 
 .feedback {
@@ -1444,18 +1455,18 @@ onBeforeUnmount(() => {
 }
 
 .feedback.erro {
-  border-color: #fecaca;
-  background: #fff1f2;
+  border-color: var(--app-danger);
+  background: var(--app-danger-soft);
 }
 
 .feedback.sucesso {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: var(--app-success);
+  background: var(--app-success-soft);
 }
 
 .feedback.aviso {
-  border-color: #fde68a;
-  background: #fffbeb;
+  border-color: var(--app-warning);
+  background: var(--app-warning-soft);
 }
 
 .conteudo-gerencia {
@@ -1490,14 +1501,14 @@ onBeforeUnmount(() => {
 .metrica {
   padding: 16px;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
 }
 
 .metrica span {
   display: block;
   margin-bottom: 6px;
-  color: #475569;
+  color: var(--app-text-muted);
 }
 
 .metrica strong {
@@ -1505,8 +1516,8 @@ onBeforeUnmount(() => {
 }
 
 .metrica.alerta {
-  border-color: #f59e0b;
-  background: #fffbeb;
+  border-color: var(--app-warning);
+  background: var(--app-warning-soft);
 }
 
 .resumo-alteracoes,
@@ -1515,7 +1526,7 @@ onBeforeUnmount(() => {
 }
 
 .resumo-alerta {
-  color: #b45309;
+  color: var(--app-warning);
   font-weight: 700;
 }
 
@@ -1526,7 +1537,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 8px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--app-text);
   min-width: 0;
 }
 
@@ -1537,11 +1548,11 @@ onBeforeUnmount(() => {
 input,
 select {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--app-border);
   border-radius: 12px;
   padding: 11px 12px;
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--app-surface-strong);
+  color: var(--app-text);
 }
 
 .lista-turmas-selecao {
@@ -1579,9 +1590,9 @@ select {
   gap: 16px;
   padding: 22px;
   border-radius: 20px;
-  border: 1px solid #dbeafe;
-  background: #ffffff;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
   min-width: 0;
 }
 
@@ -1605,8 +1616,8 @@ select {
 .estado-vazio {
   padding: 28px 18px;
   border-radius: 16px;
-  border: 1px dashed #cbd5e1;
-  background: #f8fafc;
+  border: 1px dashed var(--app-border);
+  background: var(--app-surface-soft);
   text-align: center;
 }
 
@@ -1621,8 +1632,8 @@ select {
   gap: 12px;
   padding: 16px;
   border-radius: 18px;
-  border: 1px solid #dbeafe;
-  background: #f8fafc;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
   cursor: pointer;
   min-width: 0;
   min-height: 44px;
@@ -1630,17 +1641,17 @@ select {
 
 .participante-card:focus-within,
 .participante-card:focus-visible {
-  border-color: #0f766e;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 3px var(--app-focus-ring);
 }
 
 .participante-card.vinculado {
-  background: #ecfeff;
+  background: color-mix(in srgb, var(--app-primary-soft) 52%, var(--app-surface));
 }
 
 .participante-card.selecionado {
-  border-color: #0f766e;
-  box-shadow: inset 0 0 0 1px #0f766e;
+  border-color: var(--app-primary);
+  box-shadow: inset 0 0 0 1px var(--app-primary);
 }
 
 .participante-selecao {
@@ -1663,7 +1674,7 @@ select {
 .participante-selecao small {
   display: block;
   margin-top: 4px;
-  color: #64748b;
+  color: var(--app-text-muted);
   overflow-wrap: anywhere;
 }
 
@@ -1678,15 +1689,15 @@ select {
   align-items: center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
   font-size: 12px;
   font-weight: 700;
 }
 
 .chip.sutileza {
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
 }
 
 .rodape-coluna {
@@ -1707,7 +1718,7 @@ select {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--app-overlay);
 }
 
 .modal-card {
@@ -1739,19 +1750,19 @@ select {
 
   .aba-mobile {
     appearance: none;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--app-border);
     border-radius: 14px;
-    background: #ffffff;
+    background: var(--app-surface);
     padding: 12px;
     font-weight: 700;
-    color: #334155;
+    color: var(--app-text);
     min-height: 44px;
   }
 
   .aba-mobile.ativa {
-    border-color: #0f766e;
-    background: #ccfbf1;
-    color: #115e59;
+    border-color: var(--app-primary);
+    background: color-mix(in srgb, var(--app-primary-soft) 72%, var(--app-surface));
+    color: var(--app-primary);
   }
 
   .coluna {
@@ -1772,7 +1783,7 @@ select {
     position: sticky;
     top: 0;
     z-index: 4;
-    background: #ffffff;
+    background: var(--app-surface);
     padding-top: 8px;
   }
 
@@ -1789,9 +1800,9 @@ select {
     gap: 12px;
     padding: 16px;
     border-radius: 18px;
-    border: 1px solid #dbeafe;
-    background: rgba(255, 255, 255, 0.98);
-    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+    border: 1px solid var(--app-border);
+    background: color-mix(in srgb, var(--app-surface) 96%, transparent);
+    box-shadow: var(--app-shadow-elevated);
     max-width: calc(100vw - 32px);
   }
 
