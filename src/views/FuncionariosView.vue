@@ -89,7 +89,7 @@ function criarFuncionarioInicial() {
     ativo: true,
     horaInicioAtendimento: '',
     horaFimAtendimento: '',
-    atendeDominao: false,
+    atendeDomingo: false,
     atendeSegunda: true,
     atendeTerca: true,
     atendeQuarta: true,
@@ -199,7 +199,7 @@ async function salvarFuncionario() {
       ativo: Boolean(funcionario.value.ativo),
       horaInicioAtendimento: normalizarHoraFuncionario(funcionario.value.horaInicioAtendimento),
       horaFimAtendimento: normalizarHoraFuncionario(funcionario.value.horaFimAtendimento),
-      atendeDominao: Boolean(funcionario.value.atendeDominao),
+      atendeDomingo: Boolean(funcionario.value.atendeDomingo),
       atendeSegunda: Boolean(funcionario.value.atendeSegunda),
       atendeTerca: Boolean(funcionario.value.atendeTerca),
       atendeQuarta: Boolean(funcionario.value.atendeQuarta),
@@ -302,7 +302,7 @@ function editarFuncionario(funcionarioItem) {
     ativo: estaAtivo(funcionarioItem),
     horaInicioAtendimento: formatarHoraInput(funcionarioItem.horaInicioAtendimento),
     horaFimAtendimento: formatarHoraInput(funcionarioItem.horaFimAtendimento),
-    atendeDominao: obterDiaAtendimento(funcionarioItem.atendeDominao, false),
+    atendeDomingo: obterDiaAtendimento(funcionarioItem.atendeDomingo, false),
     atendeSegunda: obterDiaAtendimento(funcionarioItem.atendeSegunda, true),
     atendeTerca: obterDiaAtendimento(funcionarioItem.atendeTerca, true),
     atendeQuarta: obterDiaAtendimento(funcionarioItem.atendeQuarta, true),
@@ -417,7 +417,7 @@ function exibirDisponibilidade(funcionarioItem) {
 
 function exibirDiasAtendimento(funcionarioItem) {
   const dias = [
-    { campo: 'atendeDominao', rotulo: 'Domingo', padrao: false },
+    { campo: 'atendeDomingo', rotulo: 'Domingo', padrao: false },
     { campo: 'atendeSegunda', rotulo: 'Seg', padrao: true },
     { campo: 'atendeTerca', rotulo: 'Terça', padrao: true },
     { campo: 'atendeQuarta', rotulo: 'Qua', padrao: true },

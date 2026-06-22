@@ -188,7 +188,7 @@ function solicitarSalvamento() {
         </div>
 
         <div class="dias-semana">
-          <label class="campo-checkbox"><input v-model="funcionario.atendeDominao" type="checkbox" />Domingo</label>
+          <label class="campo-checkbox"><input v-model="funcionario.atendeDomingo" type="checkbox" />Domingo</label>
           <label class="campo-checkbox"><input v-model="funcionario.atendeSegunda" type="checkbox" />Segunda</label>
           <label class="campo-checkbox"><input v-model="funcionario.atendeTerca" type="checkbox" />Terça</label>
           <label class="campo-checkbox"><input v-model="funcionario.atendeQuarta" type="checkbox" />Quarta</label>
