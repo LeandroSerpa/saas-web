@@ -13,6 +13,7 @@ import {
 } from '@/services/api'
 import {
   formatarDataBrasileira,
+  rotuloCompeticaoBeachTennis,
   rotuloFrequenciaSemanalBeachTennis,
   rotuloNivelBeachTennis,
   rotuloPerfilBeachTennis,
@@ -93,6 +94,7 @@ function criarClienteInicial() {
     dataNascimento: '',
     perfilBeachTennis: '',
     nivelBeachTennis: '',
+    participaCompeticaoBeachTennis: false,
     frequenciaSemanalBeachTennis: '',
     planoBeachTennis: '',
     observacaoBeachTennis: '',
@@ -108,6 +110,7 @@ function normalizarClienteFormulario(clienteItem = {}) {
     dataNascimento: clienteItem.dataNascimento || clienteItem.nascimento || '',
     perfilBeachTennis: clienteItem.perfilBeachTennis || '',
     nivelBeachTennis: clienteItem.nivelBeachTennis || '',
+    participaCompeticaoBeachTennis: clienteItem.participaCompeticaoBeachTennis === true,
     frequenciaSemanalBeachTennis: clienteItem.frequenciaSemanalBeachTennis || '',
     planoBeachTennis: clienteItem.planoBeachTennis || '',
     observacaoBeachTennis: clienteItem.observacaoBeachTennis || '',
@@ -129,6 +132,7 @@ function montarPayloadCliente() {
       dataNascimento: cliente.value.dataNascimento || '',
       perfilBeachTennis: cliente.value.perfilBeachTennis || '',
       nivelBeachTennis: cliente.value.nivelBeachTennis || '',
+      participaCompeticaoBeachTennis: cliente.value.participaCompeticaoBeachTennis === true,
       frequenciaSemanalBeachTennis: cliente.value.frequenciaSemanalBeachTennis || '',
       planoBeachTennis: cliente.value.planoBeachTennis || '',
       observacaoBeachTennis: cliente.value.observacaoBeachTennis || '',
@@ -144,10 +148,11 @@ function temDadosBeachTennis(clienteItem = {}) {
   }
 
   return Boolean(
-    clienteItem.dataNascimento ||
+      clienteItem.dataNascimento ||
       clienteItem.nascimento ||
       clienteItem.perfilBeachTennis ||
       clienteItem.nivelBeachTennis ||
+      clienteItem.participaCompeticaoBeachTennis === true ||
       clienteItem.frequenciaSemanalBeachTennis ||
       clienteItem.planoBeachTennis ||
       clienteItem.observacaoBeachTennis,
@@ -165,6 +170,7 @@ function listaResumoBeachTennis(clienteItem = {}) {
 
   if (perfil) itens.push(`Perfil: ${perfil}`)
   if (nivel) itens.push(`Nível: ${nivel}`)
+  if (clienteItem.participaCompeticaoBeachTennis === true) itens.push('Participa de competição: Sim')
   if (frequencia) itens.push(`Frequência: ${frequencia}`)
   if (plano) itens.push(`Plano: ${plano}`)
   if (nascimento) itens.push(`Nascimento: ${nascimento}`)
@@ -506,6 +512,9 @@ onBeforeUnmount(() => {
               <span v-if="rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)" class="chip beach sutileza">
                 {{ rotuloNivelBeachTennis(clienteItem.nivelBeachTennis) }}
               </span>
+              <span v-if="clienteItem.participaCompeticaoBeachTennis === true" class="chip beach competicao">
+                {{ rotuloCompeticaoBeachTennis(true) }}
+              </span>
             </div>
           </div>
 
@@ -521,6 +530,7 @@ onBeforeUnmount(() => {
               <p><strong>Data de nascimento:</strong> {{ exibirValor(formatarDataBrasileira(clienteItem.dataNascimento || clienteItem.nascimento)) }}</p>
               <p><strong>Perfil:</strong> {{ exibirValor(rotuloPerfilBeachTennis(clienteItem.perfilBeachTennis)) }}</p>
               <p><strong>Nível:</strong> {{ exibirValor(rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)) }}</p>
+              <p><strong>Participa de competição:</strong> {{ clienteItem.participaCompeticaoBeachTennis === true ? 'Sim' : 'Não' }}</p>
               <p><strong>Frequência:</strong> {{ exibirValor(rotuloFrequenciaSemanalBeachTennis(clienteItem.frequenciaSemanalBeachTennis)) }}</p>
               <p><strong>Plano:</strong> {{ exibirValor(rotuloPlanoBeachTennis(clienteItem.planoBeachTennis)) }}</p>
               <p><strong>Observações:</strong> {{ exibirValor(clienteItem.observacaoBeachTennis) }}</p>
@@ -681,6 +691,11 @@ onBeforeUnmount(() => {
 .chip.sutileza {
   background: #ecfeff;
   color: #0f766e;
+}
+
+.chip.competicao {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .detalhes p,
@@ -885,6 +900,19 @@ onBeforeUnmount(() => {
 
 :deep(.campo-grande) {
   grid-column: 1 / -1;
+}
+
+:deep(.campo-checkbox) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: end;
+}
+
+:deep(.campo-checkbox input) {
+  width: 18px;
+  height: 18px;
+  margin: 0;
 }
 
 :deep(.rodape-formulario) {

@@ -14,6 +14,7 @@ import {
   OPCOES_NIVEL_BEACH_TENNIS,
   OPCOES_PERFIL_BEACH_TENNIS,
   formatarDataBrasileira,
+  rotuloCompeticaoBeachTennis,
   rotuloNivelBeachTennis,
   rotuloPerfilBeachTennis,
 } from '@/utils/beachTennis'
@@ -254,6 +255,7 @@ function criarAlunoResumo(clienteId) {
     nivel: '',
     perfil: '',
     dataNascimento: '',
+    participaCompeticaoBeachTennis: false,
   }
 }
 
@@ -272,6 +274,7 @@ function normalizarAlunoVinculado(item = {}) {
     nivel: String(item.nivelBeachTennis || item.nivel || '').trim(),
     perfil: String(item.perfilBeachTennis || item.perfil || '').trim(),
     dataNascimento: String(item.dataNascimento || item.nascimento || '').trim(),
+    participaCompeticaoBeachTennis: item.participaCompeticaoBeachTennis === true,
   }
 }
 
@@ -290,6 +293,7 @@ function normalizarClienteDisponivel(item = {}) {
     nivel: String(item.nivelBeachTennis || item.nivel || '').trim(),
     perfil: String(item.perfilBeachTennis || item.perfil || '').trim(),
     dataNascimento: String(item.dataNascimento || item.nascimento || '').trim(),
+    participaCompeticaoBeachTennis: item.participaCompeticaoBeachTennis === true,
   }
 }
 
@@ -303,6 +307,8 @@ function normalizarTurmaResumo(item = {}) {
     ...item,
     id,
     nome: String(item.nome || `${termoGrupoSingular.value} ${id}`).trim(),
+    nivelBeachTennis: String(item.nivelBeachTennis || item.nivel || '').trim(),
+    competicao: item.competicao === true,
     horarioInicio: String(item.horarioInicio || item.horaInicio || '').trim(),
     professorResponsavelNome: String(item.professorResponsavelNome || item.nomeProfessor || item.funcionarioNome || '').trim(),
     quantidadeAlunos: normalizarQuantidadeAlunos(item),
@@ -327,6 +333,10 @@ function mesclarAluno(base = {}, atualizacao = {}) {
     nivel: atualizacao.nivel || base.nivel || '',
     perfil: atualizacao.perfil || base.perfil || '',
     dataNascimento: atualizacao.dataNascimento || base.dataNascimento || '',
+    participaCompeticaoBeachTennis:
+      Object.prototype.hasOwnProperty.call(atualizacao, 'participaCompeticaoBeachTennis')
+        ? atualizacao.participaCompeticaoBeachTennis === true
+        : base.participaCompeticaoBeachTennis === true,
   }
 }
 
@@ -1050,6 +1060,14 @@ onBeforeUnmount(() => {
               <p><strong>{{ termoParticipantePlural }}:</strong> {{ normalizarQuantidadeAlunos(item) }}</p>
               <p><strong>Capacidade:</strong> {{ formatarCapacidadeTurma(item.vagas) }}</p>
             </div>
+            <div class="chips-participante">
+              <span v-if="rotuloNivelBeachTennis(item.nivelBeachTennis)" class="chip">
+                {{ rotuloNivelBeachTennis(item.nivelBeachTennis) }}
+              </span>
+              <span v-if="item.competicao === true" class="chip competicao">
+                {{ rotuloCompeticaoBeachTennis(true) }}
+              </span>
+            </div>
           </article>
         </div>
       </section>
@@ -1062,6 +1080,14 @@ onBeforeUnmount(() => {
             <p class="subtitulo-mini">Turma</p>
             <h2>{{ turma?.nome || 'Carregando turma...' }}</h2>
             <p class="resumo-descricao">{{ descricaoPagina }}</p>
+            <div class="chips-participante">
+              <span v-if="rotuloNivelBeachTennis(turma?.nivelBeachTennis)" class="chip">
+                {{ rotuloNivelBeachTennis(turma?.nivelBeachTennis) }}
+              </span>
+              <span v-if="turma?.competicao === true" class="chip competicao">
+                {{ rotuloCompeticaoBeachTennis(true) }}
+              </span>
+            </div>
           </div>
 
           <button class="botao principal" type="button" :disabled="!podeSalvar" @click="salvarAlteracoes">
@@ -1213,6 +1239,9 @@ onBeforeUnmount(() => {
 
               <div class="chips-participante">
                 <span v-if="rotuloNivelBeachTennis(aluno.nivel)" class="chip">{{ rotuloNivelBeachTennis(aluno.nivel) }}</span>
+                <span v-if="aluno.participaCompeticaoBeachTennis === true" class="chip competicao">
+                  {{ rotuloCompeticaoBeachTennis(true) }}
+                </span>
                 <span v-if="rotuloPerfilBeachTennis(aluno.perfil)" class="chip sutileza">
                   {{ rotuloPerfilBeachTennis(aluno.perfil) }}
                 </span>
@@ -1297,6 +1326,9 @@ onBeforeUnmount(() => {
 
               <div class="chips-participante">
                 <span v-if="rotuloNivelBeachTennis(aluno.nivel)" class="chip">{{ rotuloNivelBeachTennis(aluno.nivel) }}</span>
+                <span v-if="aluno.participaCompeticaoBeachTennis === true" class="chip competicao">
+                  {{ rotuloCompeticaoBeachTennis(true) }}
+                </span>
                 <span v-if="rotuloPerfilBeachTennis(aluno.perfil)" class="chip sutileza">
                   {{ rotuloPerfilBeachTennis(aluno.perfil) }}
                 </span>
@@ -1714,6 +1746,11 @@ select {
 .chip.sutileza {
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
+}
+
+.chip.competicao {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .rodape-coluna {

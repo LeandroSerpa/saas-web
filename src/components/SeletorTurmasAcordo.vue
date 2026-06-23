@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import PaginacaoCompacta from '@/components/PaginacaoCompacta.vue'
+import { rotuloCompeticaoBeachTennis } from '@/utils/beachTennis'
 
 const props = defineProps({
   aberto: {
@@ -147,7 +148,10 @@ function atualizarFiltro(campo, valor) {
               <article v-for="turma in props.selecionados" :key="turma.id" class="card-selecionado">
                 <div>
                   <strong>{{ turma.nome }}</strong>
-                  <small>{{ [turma.professorNome, turma.diasSemanaFormatados, turma.horarioFormatado].filter(Boolean).join(' · ') }}</small>
+                  <small>{{ [turma.professorNome || turma.professorResponsavelNome, turma.diasSemanaFormatados, turma.horarioFormatado].filter(Boolean).join(' · ') }}</small>
+                  <small>
+                    {{ [turma.nivelRotulo, turma.competicao === true ? rotuloCompeticaoBeachTennis(true) : '', turma.ocupacaoTexto].filter(Boolean).join(' · ') }}
+                  </small>
                 </div>
                 <button class="botao secundario compacto" type="button" @click="emit('remover-selecionado', turma.id)">
                   Remover
@@ -204,7 +208,6 @@ function atualizarFiltro(campo, valor) {
                     <option value="INICIANTE">Iniciante</option>
                     <option value="INTERMEDIARIO">Intermediário</option>
                     <option value="AVANCADO">Avançado</option>
-                    <option value="COMPETICAO">Competição</option>
                   </select>
                 </label>
 
@@ -261,8 +264,10 @@ function atualizarFiltro(campo, valor) {
                 </div>
                 <div class="conteudo-resultado">
                   <strong>{{ turma.nome }}</strong>
-                  <small>{{ [turma.professorNome, turma.diasSemanaFormatados, turma.horarioFormatado].filter(Boolean).join(' · ') }}</small>
-                  <small>{{ [turma.nivelRotulo, turma.ocupacaoTexto].filter(Boolean).join(' · ') }}</small>
+                  <small>{{ [turma.professorNome || turma.professorResponsavelNome, turma.diasSemanaFormatados, turma.horarioFormatado].filter(Boolean).join(' · ') }}</small>
+                  <small>
+                    {{ [turma.nivelRotulo, turma.competicao === true ? rotuloCompeticaoBeachTennis(true) : '', turma.ocupacaoTexto].filter(Boolean).join(' · ') }}
+                  </small>
                 </div>
               </button>
             </div>

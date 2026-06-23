@@ -15,6 +15,7 @@ import {
   OPCOES_DIAS_SEMANA_BEACH_TENNIS,
   OPCOES_NIVEL_BEACH_TENNIS,
   normalizarArrayBeachTennis,
+  rotuloCompeticaoBeachTennis,
   rotuloDiaBeachTennis,
   rotuloNivelBeachTennis,
 } from '@/utils/beachTennis'
@@ -78,6 +79,7 @@ function criarTurmaInicial() {
   return {
     nome: '',
     nivelBeachTennis: '',
+    competicao: false,
     diasSemana: [],
     horarioInicio: '',
     duracaoMinutos: 60,
@@ -92,6 +94,7 @@ function normalizarTurmaFormulario(item = {}) {
   return {
     nome: item.nome || '',
     nivelBeachTennis: item.nivelBeachTennis || item.nivel || '',
+    competicao: item.competicao === true,
     diasSemana: normalizarArrayBeachTennis(item.diasSemana || item.dias || item.diasAtendimento),
     horarioInicio: item.horarioInicio || item.horaInicio || '',
     duracaoMinutos: Number(item.duracaoMinutos || item.duracao || 60) || 60,
@@ -112,6 +115,7 @@ function montarPayloadTurma(base = turma.value, overrides = {}) {
   return {
     nome: String(dados.nome || '').trim(),
     nivel: String(dados.nivelBeachTennis || dados.nivel || '').trim().toUpperCase() || null,
+    competicao: dados.competicao === true,
     diasSemana: normalizarDiasSemanaPayload(dados.diasSemana),
     horarioInicio: normalizarHorarioPayload(dados.horarioInicio),
     duracaoMinutos: normalizarInteiroPositivo(dados.duracaoMinutos, 60),
@@ -544,6 +548,14 @@ onBeforeUnmount(() => {
             </select>
           </label>
 
+          <label class="campo-checkbox" :class="{ ativa: turma.competicao }">
+            <input v-model="turma.competicao" type="checkbox" />
+            <span>
+              <strong>Turma de competição</strong>
+              <small>Use esta marcação para destacar grupos competitivos sem bloquear vínculos.</small>
+            </span>
+          </label>
+
           <label>
             Horário de início
             <input ref="horarioCampoRef" v-model="turma.horarioInicio" type="time" />
@@ -647,6 +659,7 @@ onBeforeUnmount(() => {
                 <h3>{{ item.nome }}</h3>
                 <p class="subinfo">
                   <span v-if="rotuloNivel(item)" class="badge nivel">{{ rotuloNivel(item) }}</span>
+                  <span v-if="item.competicao === true" class="badge competicao">{{ rotuloCompeticaoBeachTennis(true) }}</span>
                   <span v-if="!estaAtiva(item)" class="badge inativo">Inativa</span>
                   <span v-if="turmaCheiaParaCard(item)" class="badge cheia">{{ termoGrupoSingular }} cheia</span>
                 </p>
@@ -987,6 +1000,11 @@ textarea:focus {
 .badge.nivel {
   background: #dbeafe;
   color: #1d4ed8;
+}
+
+.badge.competicao {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .badge.inativo {

@@ -10,7 +10,6 @@ export const OPCOES_NIVEL_BEACH_TENNIS = Object.freeze([
   criarOpcao('INICIANTE', 'Iniciante'),
   criarOpcao('INTERMEDIARIO', 'Intermediário'),
   criarOpcao('AVANCADO', 'Avançado'),
-  criarOpcao('COMPETICAO', 'Competição'),
 ])
 
 export const OPCOES_FREQUENCIA_SEMANAL_BEACH_TENNIS = Object.freeze([
@@ -52,6 +51,10 @@ export function rotuloNivelBeachTennis(valor) {
   return rotuloPorOpcao(OPCOES_NIVEL_BEACH_TENNIS, valor)
 }
 
+export function rotuloCompeticaoBeachTennis(valor) {
+  return valor === true ? 'Competição' : ''
+}
+
 export function rotuloFrequenciaSemanalBeachTennis(valor) {
   return rotuloPorOpcao(OPCOES_FREQUENCIA_SEMANAL_BEACH_TENNIS, valor)
 }
@@ -90,4 +93,3 @@ export function normalizarArrayBeachTennis(valor) {
     .map((item) => String(item || '').trim().toUpperCase())
     .filter(Boolean)
 }
-

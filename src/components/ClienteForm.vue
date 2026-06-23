@@ -45,6 +45,7 @@ const temDadosBeachTennis = computed(() =>
     cliente.value?.dataNascimento ||
       cliente.value?.perfilBeachTennis ||
       cliente.value?.nivelBeachTennis ||
+      cliente.value?.participaCompeticaoBeachTennis === true ||
       cliente.value?.frequenciaSemanalBeachTennis ||
       cliente.value?.planoBeachTennis ||
       cliente.value?.observacaoBeachTennis,
@@ -198,6 +199,11 @@ function solicitarSalvamento() {
               {{ opcao.rotulo }}
             </option>
           </select>
+        </label>
+
+        <label class="campo-checkbox">
+          <input v-model="cliente.participaCompeticaoBeachTennis" type="checkbox" />
+          <span>Participa de competição</span>
         </label>
 
         <label>

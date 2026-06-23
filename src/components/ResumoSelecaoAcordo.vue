@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { rotuloCompeticaoBeachTennis } from '@/utils/beachTennis'
 
 const props = defineProps({
   titulo: {
@@ -75,6 +76,13 @@ function rotuloSelecionado(item = {}) {
     <div v-if="props.selecionados.length" class="chips" :aria-label="props.titulo">
       <span v-for="item in chipsVisiveis" :key="item.id || item.clienteId || item.turmaId || item.nome" class="chip">
         {{ rotuloSelecionado(item) }}
+      </span>
+      <span
+        v-for="item in chipsVisiveis.filter((item) => item?.participaCompeticaoBeachTennis === true || item?.competicao === true)"
+        :key="`competicao-${item.id || item.clienteId || item.turmaId || item.nome}`"
+        class="chip chip-competicao"
+      >
+        {{ rotuloCompeticaoBeachTennis(true) }}
       </span>
       <span v-if="chipsExtras > 0" class="chip chip-sutil">
         {{ `+ ${chipsExtras}` }}
@@ -165,6 +173,11 @@ function rotuloSelecionado(item = {}) {
 .chip-sutil {
   background: #e2e8f0;
   color: #334155;
+}
+
+.chip-competicao {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .acoes {
