@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import PaginacaoCompacta from '@/components/PaginacaoCompacta.vue'
+import { rotuloCompeticaoBeachTennis } from '@/utils/beachTennis'
 
 const props = defineProps({
   aberto: {
@@ -147,6 +148,9 @@ function atualizarFiltro(campo, valor) {
                     <span v-if="aluno.telefone">{{ aluno.telefone }}</span>
                     <span v-if="aluno.email">{{ aluno.telefone ? ' · ' : '' }}{{ aluno.email }}</span>
                   </small>
+                  <small>
+                    {{ [aluno.nivelRotulo, aluno.perfilRotulo, aluno.participaCompeticaoBeachTennis === true ? rotuloCompeticaoBeachTennis(true) : ''].filter(Boolean).join(' · ') || 'Sem classificação' }}
+                  </small>
                 </div>
                 <button class="botao secundario compacto" type="button" @click="emit('remover-selecionado', aluno.id)">
                   Remover
@@ -178,7 +182,6 @@ function atualizarFiltro(campo, valor) {
                     <option value="INICIANTE">Iniciante</option>
                     <option value="INTERMEDIARIO">Intermediário</option>
                     <option value="AVANCADO">Avançado</option>
-                    <option value="COMPETICAO">Competição</option>
                   </select>
                 </label>
 
@@ -232,7 +235,9 @@ function atualizarFiltro(campo, valor) {
                     <span v-if="aluno.telefone">{{ aluno.telefone }}</span>
                     <span v-if="aluno.email">{{ aluno.telefone ? ' · ' : '' }}{{ aluno.email }}</span>
                   </small>
-                  <small>{{ [aluno.nivelRotulo, aluno.perfilRotulo].filter(Boolean).join(' · ') || 'Sem classificação' }}</small>
+                  <small>
+                    {{ [aluno.nivelRotulo, aluno.perfilRotulo, aluno.participaCompeticaoBeachTennis === true ? rotuloCompeticaoBeachTennis(true) : ''].filter(Boolean).join(' · ') || 'Sem classificação' }}
+                  </small>
                   <small v-if="aluno.elegivel === false">{{ aluno.motivoIndisponibilidade || 'Indisponível no momento.' }}</small>
                 </div>
               </button>

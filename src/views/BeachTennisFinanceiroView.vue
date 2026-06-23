@@ -2375,6 +2375,7 @@ function normalizarAluno(item = {}) {
   const nivel = String(item.nivelBeachTennis || item.nivel || '').trim().toUpperCase()
   const perfil = String(item.perfilBeachTennis || item.perfil || '').trim().toUpperCase()
   const nome = escolherNomeAluno(item)
+  const participaCompeticaoBeachTennis = item.participaCompeticaoBeachTennis === true
 
   return {
     ...item,
@@ -2386,6 +2387,7 @@ function normalizarAluno(item = {}) {
     email: item.email || '',
     perfilBeachTennis: perfil,
     nivelBeachTennis: nivel,
+    participaCompeticaoBeachTennis,
     perfilRotulo: rotuloPerfilBeachTennis(perfil),
     nivelRotulo: rotuloNivelBeachTennis(nivel),
     ativo: item.ativo !== false,
@@ -2402,6 +2404,7 @@ function normalizarTurma(item = {}) {
   const horarioInicio = String(item.horarioInicio || item.horaInicio || '').trim()
   const nome = escolherNomeTurma(item)
   const ativo = resolverAtivoRegistro(item)
+  const competicao = item.competicao === true
 
   return {
     ...item,
@@ -2410,6 +2413,7 @@ function normalizarTurma(item = {}) {
     turmaNome: nome,
     nome,
     nivelBeachTennis: item.nivelBeachTennis || item.nivel || '',
+    competicao,
     professorId: normalizarId(item.professorId ?? item.funcionarioId ?? item.professorResponsavelId ?? ''),
     professorResponsavelNome: item.professorResponsavelNome || item.professorNome || item.responsavelNome || '',
     nivelRotulo: rotuloNivelBeachTennis(item.nivelBeachTennis || item.nivel || ''),
@@ -2518,6 +2522,7 @@ function criarAlunoSelecionadoFallback(id) {
     email: '',
     perfilRotulo: '',
     nivelRotulo: '',
+    participaCompeticaoBeachTennis: false,
     ativo: true,
   }
 }
@@ -2532,6 +2537,7 @@ function criarTurmaSelecionadaFallback(id) {
     diasSemanaFormatados: '',
     horarioFormatado: '',
     nivelRotulo: '',
+    competicao: false,
     ocupacaoTexto: '',
     ativo: true,
   }
