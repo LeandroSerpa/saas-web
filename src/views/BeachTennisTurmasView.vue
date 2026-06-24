@@ -50,8 +50,8 @@ const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === t
 const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
 const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Participante')
 const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Participantes')
-const termoResponsavelSingular = computed(() => contextoEsportivo.value?.termoResponsavelSingular || 'Profissional')
-const termoResponsavelPlural = computed(() => contextoEsportivo.value?.termoResponsavelPlural || 'Profissionais')
+const termoResponsavelSingular = computed(() => 'Professor')
+const termoResponsavelPlural = computed(() => 'Professores')
 const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
 const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const tituloPagina = computed(() =>
@@ -472,7 +472,7 @@ async function removerTurma(item) {
 }
 
 function irParaFuncionarios() {
-  router.push('/funcionarios')
+  router.push('/professores')
 }
 
 function atualizarContextoEmpresa() {
@@ -576,17 +576,17 @@ onBeforeUnmount(() => {
             <select ref="professorCampoRef" v-model="turma.professorResponsavelId">
               <option value="">Sem vínculo</option>
               <option v-for="professor in professoresDisponiveis" :key="professor.id" :value="String(professor.id)">
-                {{ obterNomeResponsavel(professor) || 'Funcionário' }}
+                {{ obterNomeResponsavel(professor) || 'Professor' }}
               </option>
             </select>
-            <p class="ajuda-campo">Cadastre os {{ termoResponsavelPlural.toLocaleLowerCase('pt-BR') }} em Operação → Funcionários.</p>
+            <p class="ajuda-campo">Cadastre os {{ termoResponsavelPlural.toLocaleLowerCase('pt-BR') }} em Gestão Esportiva &gt; Professores.</p>
           </label>
           <div v-else class="campo-grande estado-professor-vazio">
             <p>Nenhum {{ termoResponsavelSingular.toLocaleLowerCase('pt-BR') }} cadastrado nesta empresa.</p>
             <button class="botao secundario" type="button" @click="irParaFuncionarios">
               Cadastrar {{ termoResponsavelSingular.toLocaleLowerCase('pt-BR') }}
             </button>
-            <p class="ajuda-campo">Cadastre os {{ termoResponsavelPlural.toLocaleLowerCase('pt-BR') }} em Operação → Funcionários.</p>
+            <p class="ajuda-campo">Cadastre os {{ termoResponsavelPlural.toLocaleLowerCase('pt-BR') }} em Gestão Esportiva &gt; Professores.</p>
           </div>
 
           <fieldset ref="diasCampoRef" class="campo-grande dias-campo">

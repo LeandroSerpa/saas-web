@@ -150,6 +150,12 @@ const router = createRouter({
       meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {
+      path: '/professores',
+      name: 'professores',
+      component: FuncionariosView,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
+    },
+    {
       path: '/servicos',
       name: 'servicos',
       component: ServicosView,

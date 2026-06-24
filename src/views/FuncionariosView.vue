@@ -35,6 +35,33 @@ const filtros = ref({
 })
 
 const funcionario = ref(criarFuncionarioInicial())
+const contextoProfessor = computed(() => route.name === 'professores')
+const rotuloEntidadeSingular = computed(() => (contextoProfessor.value ? 'Professor' : 'Funcionário'))
+const rotuloEntidadePlural = computed(() => (contextoProfessor.value ? 'Professores' : 'Funcionários'))
+const rotuloCadastroPagina = computed(() => (contextoProfessor.value ? 'Cadastro de professores' : 'Equipe'))
+const tituloPagina = computed(() => (contextoProfessor.value ? 'Professores' : 'Funcionários'))
+const descricaoPagina = computed(() =>
+  contextoProfessor.value
+    ? 'Gerencie os professores disponíveis para a modalidade.'
+    : 'Gerencie os profissionais disponíveis para atendimento.',
+)
+const tituloLista = computed(() => (contextoProfessor.value ? 'Professores cadastrados' : 'Funcionários cadastrados'))
+const descricaoLista = computed(() =>
+  contextoProfessor.value
+    ? 'Consulte e gerencie os professores disponíveis para a modalidade.'
+    : 'Consulte e gerencie os profissionais disponíveis para atendimento.',
+)
+const textoCarregando = computed(() =>
+  contextoProfessor.value ? 'Carregando professores...' : 'Carregando funcionários...',
+)
+const textoListaVazia = computed(() =>
+  contextoProfessor.value ? 'Nenhum professor cadastrado.' : 'Nenhum funcionário encontrado.',
+)
+const textoListaVaziaFiltros = computed(() =>
+  contextoProfessor.value
+    ? 'Nenhum professor encontrado para os filtros selecionados.'
+    : 'Nenhum funcionário encontrado para os filtros selecionados.',
+)
 const paginaAtualHumana = computed(() => paginacao.value.page + 1)
 const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
 const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
@@ -152,7 +179,9 @@ async function carregarFuncionarios() {
       return
     }
 
-    erro.value = 'Não foi possível carregar os funcionários.'
+    erro.value = contextoProfessor.value
+      ? 'Não foi possível carregar os professores.'
+      : 'Não foi possível carregar os funcionários.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -176,7 +205,9 @@ async function salvarFuncionario() {
     }
 
     if (!funcionario.value.nome.trim()) {
-      erro.value = 'Informe o nome do funcionário.'
+      erro.value = contextoProfessor.value
+        ? 'Informe o nome do professor.'
+        : 'Informe o nome do funcionário.'
       return
     }
 
@@ -212,10 +243,10 @@ async function salvarFuncionario() {
 
     if (funcionarioEditandoId.value) {
       await atualizarFuncionario(funcionarioEditandoId.value, dadosFuncionario)
-      mensagemSucessoFuncionario.value = 'Funcionário atualizado com sucesso.'
+      mensagemSucessoFuncionario.value = `${rotuloEntidadeSingular.value} atualizado com sucesso.`
     } else {
       await cadastrarFuncionario(dadosFuncionario)
-      mensagemSucessoFuncionario.value = 'Funcionário cadastrado com sucesso.'
+      mensagemSucessoFuncionario.value = `${rotuloEntidadeSingular.value} cadastrado com sucesso.`
     }
 
     cancelarEdicaoFuncionario(false)
@@ -228,8 +259,8 @@ async function salvarFuncionario() {
     erro.value = obterMensagemErro(
       error,
       funcionarioEditandoId.value
-        ? 'Não foi possível atualizar o funcionário.'
-        : 'Não foi possível cadastrar o funcionário.',
+        ? `Não foi possível atualizar o ${rotuloEntidadeSingular.value.toLowerCase()}.`
+        : `Não foi possível cadastrar o ${rotuloEntidadeSingular.value.toLowerCase()}.`,
     )
     console.error(error)
   }
@@ -336,10 +367,10 @@ async function alternarAtivoFuncionario(funcionarioItem) {
     await carregarFuncionarios()
 
     mensagemSucessoStatus.value = estaAtivo(funcionarioItem)
-      ? 'Funcionário desativado com sucesso.'
-      : 'Funcionário ativado com sucesso.'
+      ? `${rotuloEntidadeSingular.value} desativado com sucesso.`
+      : `${rotuloEntidadeSingular.value} ativado com sucesso.`
   } catch (error) {
-    erro.value = 'Não foi possível atualizar o status do funcionário.'
+    erro.value = `Não foi possível atualizar o status do ${rotuloEntidadeSingular.value.toLowerCase()}.`
     console.error(error)
   } finally {
     atualizandoId.value = null
@@ -351,7 +382,9 @@ async function enviarFuncionarioParaLixeira(funcionarioItem) {
     return
   }
 
-  const confirmou = window.confirm(`Deseja enviar o funcionario "${funcionarioItem?.nome || ''}" para a lixeira?`)
+  const confirmou = window.confirm(
+    `Deseja enviar o ${rotuloEntidadeSingular.value.toLowerCase()} "${funcionarioItem?.nome || ''}" para a lixeira?`,
+  )
 
   if (!confirmou) {
     return
@@ -370,7 +403,9 @@ async function enviarFuncionarioParaLixeira(funcionarioItem) {
     mensagemSucessoStatus.value = ''
     await excluirFuncionario(funcionarioItem.id, String(motivoInformado || '').trim())
     funcionarios.value = funcionarios.value.filter((item) => String(item.id) !== String(funcionarioItem.id))
-    mensagemSucessoStatus.value = 'Registro enviado para a lixeira com sucesso.'
+    mensagemSucessoStatus.value = contextoProfessor.value
+      ? 'Professor enviado para a lixeira com sucesso.'
+      : 'Registro enviado para a lixeira com sucesso.'
     await carregarFuncionarios()
   } catch (error) {
     erro.value = obterMensagemErroExclusao(error)
@@ -449,7 +484,9 @@ function obterMensagemErro(error, fallback) {
 
 function obterMensagemErroExclusao(error) {
   if (error?.status === 403) {
-    return 'Você não tem permissão para excluir este registro.'
+    return contextoProfessor.value
+      ? 'Você não tem permissão para excluir este professor.'
+      : 'Você não tem permissão para excluir este registro.'
   }
 
   if (error?.status === 404) {
@@ -521,9 +558,9 @@ function atualizarModoVisualizacao() {
   <main class="pagina">
     <header class="cabecalho-pagina">
       <div>
-        <p class="subtitulo">Equipe</p>
-        <h1>Funcionários</h1>
-        <p class="descricao">Gerencie os profissionais disponíveis para atendimento.</p>
+        <p class="subtitulo">{{ rotuloCadastroPagina }}</p>
+        <h1>{{ tituloPagina }}</h1>
+        <p class="descricao">{{ descricaoPagina }}</p>
       </div>
 
       <button class="botao secundario" @click="carregarFuncionarios">Atualizar dados</button>
@@ -546,6 +583,7 @@ function atualizarModoVisualizacao() {
       v-model="funcionario"
       :mensagem-sucesso="mensagemSucessoFuncionario"
       :modo-edicao="Boolean(funcionarioEditandoId)"
+      :contexto-professor="contextoProfessor"
       @salvar="salvarFuncionario"
       @cancelar="cancelarEdicaoFuncionario"
     />
@@ -554,7 +592,7 @@ function atualizarModoVisualizacao() {
       <section class="card filtros-funcionarios">
         <div class="titulo-card">
           <h2>Filtros</h2>
-          <p>Refine a lista de funcionários cadastrados.</p>
+          <p>Refine a lista de {{ rotuloEntidadePlural.toLocaleLowerCase('pt-BR') }} cadastrados.</p>
         </div>
 
         <div class="campos-filtros">
@@ -585,23 +623,23 @@ function atualizarModoVisualizacao() {
 
       <div class="cabecalho-lista">
         <div>
-          <h2>Funcionários cadastrados</h2>
-          <p>Consulte e gerencie os profissionais disponíveis para atendimento.</p>
+          <h2>{{ tituloLista }}</h2>
+          <p>{{ descricaoLista }}</p>
         </div>
 
-        <span class="contador">{{ paginacao.totalElements }} funcionário(s)</span>
+        <span class="contador">{{ paginacao.totalElements }} {{ rotuloEntidadePlural.toLocaleLowerCase('pt-BR') }}</span>
       </div>
 
       <section v-if="carregando" class="card">
-        <p>Carregando funcionários...</p>
+        <p>{{ textoCarregando }}</p>
       </section>
 
       <section v-else-if="funcionarios.length === 0" class="card">
-        <p>Nenhum funcionário encontrado.</p>
+        <p>{{ textoListaVazia }}</p>
       </section>
 
       <section v-else-if="funcionariosFiltrados.length === 0" class="card">
-        <p>Nenhum funcionário encontrado para os filtros selecionados.</p>
+        <p>{{ textoListaVaziaFiltros }}</p>
       </section>
 
       <section v-else class="lista-funcionarios">
@@ -653,7 +691,7 @@ function atualizarModoVisualizacao() {
           </div>
 
           <p v-if="atualizandoId === funcionarioItem.id" class="atualizando">
-            Atualizando funcionário...
+            Atualizando {{ rotuloEntidadeSingular.toLowerCase() }}...
           </p>
         </article>
       </section>

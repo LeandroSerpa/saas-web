@@ -12,12 +12,16 @@ const funcionario = defineModel({
   required: true,
 })
 
-defineProps({
+const props = defineProps({
   mensagemSucesso: {
     type: String,
     default: '',
   },
   modoEdicao: {
+    type: Boolean,
+    default: false,
+  },
+  contextoProfessor: {
     type: Boolean,
     default: false,
   },
@@ -29,6 +33,24 @@ const errosCampos = reactive({
   telefone: '',
   email: '',
 })
+
+const contextoProfessor = computed(() => props.contextoProfessor === true)
+const rotuloEntidadeSingular = computed(() => (contextoProfessor.value ? 'professor' : 'funcionário'))
+const tituloFormulario = computed(() =>
+  props.modoEdicao ? `Editar ${rotuloEntidadeSingular.value}` : `Novo ${rotuloEntidadeSingular.value}`,
+)
+const descricaoFormulario = computed(() =>
+  props.modoEdicao
+    ? `Atualize os dados do ${rotuloEntidadeSingular.value} selecionado.`
+    : contextoProfessor.value
+      ? 'Cadastre um professor para atender os agendamentos.'
+      : 'Cadastre um funcionário para atender os agendamentos.',
+)
+const tituloDisponibilidade = computed(() => `Disponibilidade do ${rotuloEntidadeSingular.value}`)
+const placeholderEmail = computed(() =>
+  contextoProfessor.value ? 'Ex: professor@empresa.com' : 'Ex: funcionario@empresa.com',
+)
+const rotuloBotaoSalvar = computed(() => `Salvar ${rotuloEntidadeSingular.value}`)
 
 const horarioInicioInvalido = computed(() => horarioPreenchidoInvalido(funcionario.value.horaInicioAtendimento))
 const horarioFimInvalido = computed(() => horarioPreenchidoInvalido(funcionario.value.horaFimAtendimento))
@@ -97,14 +119,8 @@ function solicitarSalvamento() {
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar funcionário' : 'Novo funcionário' }}</h2>
-      <p>
-        {{
-          modoEdicao
-            ? 'Atualize os dados do funcionário selecionado.'
-            : 'Cadastre um funcionário para atender os agendamentos.'
-        }}
-      </p>
+      <h2>{{ tituloFormulario }}</h2>
+      <p>{{ descricaoFormulario }}</p>
     </div>
 
     <div class="campos">
@@ -133,7 +149,7 @@ function solicitarSalvamento() {
           :value="funcionario.email"
           type="text"
           inputmode="email"
-          placeholder="Ex: funcionario@empresa.com"
+          :placeholder="placeholderEmail"
           @input="aplicarEmail($event.target.value)"
           @blur="validarEmail"
         />
@@ -152,7 +168,7 @@ function solicitarSalvamento() {
 
       <div class="secao-disponibilidade">
         <div class="titulo-card">
-          <h3>Disponibilidade do funcionário</h3>
+          <h3>{{ tituloDisponibilidade }}</h3>
         </div>
 
         <div class="campos-disponibilidade">
@@ -203,7 +219,7 @@ function solicitarSalvamento() {
 
     <div class="rodape-formulario">
       <button class="botao principal" @click="solicitarSalvamento">
-        Salvar
+        {{ rotuloBotaoSalvar }}
       </button>
 
       <button v-if="modoEdicao" class="botao secundario" @click="$emit('cancelar')">
