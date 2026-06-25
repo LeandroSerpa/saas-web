@@ -4255,6 +4255,57 @@ export async function buscarAlunosTurmaBeachTennis(turmaId) {
   return normalizarColecaoResposta(dados)
 }
 
+export async function buscarAulasGestaoEsportiva(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas${montarQueryEmpresaOperacional(filtros)}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function buscarAulaGestaoEsportiva(aulaId) {
+  const id = String(aulaId || '').trim()
+
+  if (!id) {
+    return null
+  }
+
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/${id}${montarQueryEmpresaOperacional()}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function gerarAulasGestaoEsportiva(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/gerar${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarFrequenciasAulaGestaoEsportiva(aulaId, frequencias = []) {
+  const id = String(aulaId || '').trim()
+
+  if (!id) {
+    return null
+  }
+
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/${id}/frequencias${montarQueryEmpresaOperacional()}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(frequencias),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarClientesDisponiveisBeachTennis(filtros = {}) {
   const possuiFiltroAtivo = Object.prototype.hasOwnProperty.call(filtros, 'ativo')
 

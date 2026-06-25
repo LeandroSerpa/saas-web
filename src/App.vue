@@ -76,6 +76,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Financeiro esportivo',
     descricao: 'Gerencie acordos, mensalidades, cobranças e a configuração do PIX.',
   },
+  'aulas-frequencia': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Aulas e frequência',
+    descricao: 'Gere aulas e lance a frequência dos participantes da modalidade.',
+  },
   professores: {
     subtitulo: 'Gestão Esportiva',
     titulo: 'Professores',
@@ -881,6 +886,7 @@ onBeforeUnmount(() => {
           </button>
           <div v-if="grupoMenuAberto('beachTennis')" class="submenu">
             <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">{{ rotuloGrupoEsportivoPlural }}</RouterLink>
+            <RouterLink to="/aulas-frequencia" @click="fecharMenuMobile">Aulas e frequência</RouterLink>
             <RouterLink to="/professores" @click="fecharMenuMobile">Professores</RouterLink>
             <RouterLink to="/clientes" @click="fecharMenuMobile">{{ rotuloCadastroParticipanteMenu }}</RouterLink>
             <RouterLink to="/beach-tennis/alunos" @click="fecharMenuMobile">{{ rotuloParticipantePorGrupoMenu }}</RouterLink>

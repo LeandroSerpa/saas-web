@@ -1,0 +1,1787 @@
+<script setup>
+import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  EVENTO_EMPRESA_VISUALIZACAO,
+  buscarAulaGestaoEsportiva,
+  buscarAulasGestaoEsportiva,
+  buscarFuncionarios,
+  buscarTurmasBeachTennis,
+  gerarAulasGestaoEsportiva,
+  modoVisualizacaoEmpresaAtivo,
+  salvarFrequenciasAulaGestaoEsportiva,
+} from '@/services/api'
+import { formatarDataBrasileira, rotuloCompeticaoBeachTennis, rotuloNivelBeachTennis } from '@/utils/beachTennis'
+import {
+  carregarContextoGestaoEsportiva,
+  contextoGestaoEsportiva,
+  recarregarContextoGestaoEsportiva,
+} from '@/utils/gestaoEsportiva'
+
+const route = useRoute()
+const router = useRouter()
+
+const OPCOES_SITUACAO_AULA = [
+  { valor: '', rotulo: 'Todas' },
+  { valor: 'AGENDADA', rotulo: 'Agendada' },
+  { valor: 'REALIZADA', rotulo: 'Realizada' },
+  { valor: 'CANCELADA', rotulo: 'Cancelada' },
+  { valor: 'NAO_REALIZADA', rotulo: 'Não realizada' },
+]
+
+const OPCOES_SITUACAO_FREQUENCIA = [
+  { valor: 'NAO_LANCADO', rotulo: 'Não lançado' },
+  { valor: 'PRESENTE', rotulo: 'Presente' },
+  { valor: 'FALTA_JUSTIFICADA', rotulo: 'Falta justificada' },
+  { valor: 'FALTA_SEM_JUSTIFICATIVA', rotulo: 'Falta sem justificativa' },
+  { valor: 'REPOSICAO_REALIZADA', rotulo: 'Reposição realizada' },
+]
+
+const STATUS_FREQUENCIA_PERSISTIVEIS = new Set(
+  OPCOES_SITUACAO_FREQUENCIA.map((opcao) => opcao.valor).filter((valor) => valor !== 'NAO_LANCADO'),
+)
+
+const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
+const moduloAtivo = computed(() => contextoEsportivo.value?.ativo === true)
+const nomeModalidade = computed(() => contextoEsportivo.value?.nomeModalidade || 'Esporte')
+const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Aluno')
+const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Alunos')
+const termoGrupoSingular = computed(() => contextoEsportivo.value?.termoGrupoSingular || 'Turma')
+const termoGrupoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
+
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
+const carregandoLista = ref(true)
+const carregandoDetalhe = ref(false)
+const carregandoBases = ref(false)
+const gerandoAulas = ref(false)
+const salvandoFrequencias = ref(false)
+const erroLista = ref('')
+const erroDetalhe = ref('')
+const feedback = ref('')
+const tipoFeedback = ref('info')
+const resultadoGeracao = ref(null)
+const aulas = ref([])
+const aulaDetalhe = ref(null)
+const participantesEdicao = ref([])
+const turmas = ref([])
+const professores = ref([])
+const filtros = ref(criarFiltrosPadrao())
+const geracao = ref(criarGeracaoPadrao())
+const sequenciaLista = ref(0)
+const sequenciaDetalhe = ref(0)
+
+const aulaSelecionadaId = computed(() => normalizarIdPositivo(valorRota(route.query.aulaId)))
+const aulasOrdenadas = computed(() => [...aulas.value].sort(compararAulas))
+const turmasOrdenadas = computed(() => [...turmas.value].sort(compararPorNomeComAtivo))
+const professoresOrdenados = computed(() => [...professores.value].sort(compararPorNomeComAtivo))
+const aulaSelecionada = computed(() =>
+  aulaSelecionadaId.value ? aulasOrdenadas.value.find((item) => item.id === aulaSelecionadaId.value) || null : null,
+)
+const situacaoAulaSelecionada = computed(() => String(aulaDetalhe.value?.situacao || '').trim().toUpperCase())
+const aulaCancelada = computed(() => situacaoAulaSelecionada.value === 'CANCELADA')
+const possuiLancamentosPersistiveis = computed(() =>
+  participantesEdicao.value.some((item) => STATUS_FREQUENCIA_PERSISTIVEIS.has(item.situacao)),
+)
+const podeSalvarFrequencias = computed(
+  () =>
+    Boolean(aulaDetalhe.value?.id) &&
+    !aulaCancelada.value &&
+    !salvandoFrequencias.value &&
+    !gerandoAulas.value &&
+    !modoVisualizacaoEmpresa.value &&
+    moduloAtivo.value &&
+    possuiLancamentosPersistiveis.value,
+)
+const podeGerarAulas = computed(() => !gerandoAulas.value && !salvandoFrequencias.value && !modoVisualizacaoEmpresa.value && moduloAtivo.value)
+const resumoFrequencias = computed(() => calcularResumoFrequencias(aulaDetalhe.value, participantesEdicao.value))
+const temAulas = computed(() => aulasOrdenadas.value.length > 0)
+
+function valorRota(valor) {
+  return Array.isArray(valor) ? valor[0] : valor
+}
+
+function normalizarIdPositivo(valor) {
+  const texto = String(valor ?? '').trim()
+  if (!texto) {
+    return null
+  }
+
+  const numero = Number.parseInt(texto, 10)
+  return Number.isInteger(numero) && numero > 0 ? numero : null
+}
+
+function criarDataISO(dias = 0) {
+  const data = new Date()
+  data.setHours(0, 0, 0, 0)
+  data.setDate(data.getDate() + dias)
+  return formatarDataISO(data)
+}
+
+function formatarDataISO(data) {
+  const ano = data.getFullYear()
+  const mes = String(data.getMonth() + 1).padStart(2, '0')
+  const dia = String(data.getDate()).padStart(2, '0')
+  return `${ano}-${mes}-${dia}`
+}
+
+function criarFiltrosPadrao() {
+  return {
+    dataInicial: criarDataISO(0),
+    dataFinal: criarDataISO(14),
+    turmaId: '',
+    professorId: '',
+    nivel: '',
+    situacao: '',
+  }
+}
+
+function criarGeracaoPadrao() {
+  return {
+    dataInicial: criarDataISO(0),
+    dataFinal: criarDataISO(14),
+    turmaId: '',
+  }
+}
+
+function normalizarTextoOpcional(valor) {
+  const texto = String(valor ?? '').trim()
+  return texto || ''
+}
+
+function normalizarNumero(valor, fallback = 0) {
+  const numero = Number(valor)
+  return Number.isFinite(numero) && numero >= 0 ? numero : fallback
+}
+
+function normalizarSituacaoAula(valor) {
+  const texto = String(valor || '').trim().toUpperCase()
+  return ['AGENDADA', 'REALIZADA', 'CANCELADA', 'NAO_REALIZADA'].includes(texto) ? texto : ''
+}
+
+function normalizarSituacaoFrequencia(valor) {
+  const texto = String(valor || '').trim().toUpperCase()
+  return STATUS_FREQUENCIA_PERSISTIVEIS.has(texto) || texto === 'NAO_LANCADO' ? texto : 'NAO_LANCADO'
+}
+
+function normalizarTipoParticipacao(valor) {
+  const texto = String(valor || '').trim().toUpperCase()
+  return texto || 'REGULAR'
+}
+
+function normalizarTurmaOpcao(item = {}) {
+  const id = normalizarIdPositivo(item.id ?? item.turmaId)
+  if (!id) {
+    return null
+  }
+
+  return {
+    id,
+    nome: normalizarTextoOpcional(item.nome || item.turmaNome || `Turma ${id}`),
+    nivel: String(item.nivel || item.nivelBeachTennis || '').trim().toUpperCase(),
+    competicao: item.competicao === true,
+    ativo: item.ativo !== false,
+  }
+}
+
+function normalizarProfessorOpcao(item = {}) {
+  const id = normalizarIdPositivo(item.id ?? item.funcionarioId)
+  if (!id) {
+    return null
+  }
+
+  return {
+    id,
+    nome: normalizarTextoOpcional(item.nome || item.nomeCompleto || item.apelido || `Profissional ${id}`),
+    ativo: item.ativo !== false,
+  }
+}
+
+function obterNumeroDeCampo(fontes = [], chaves = [], fallback = 0) {
+  for (const fonte of fontes) {
+    if (!fonte || typeof fonte !== 'object') {
+      continue
+    }
+
+    for (const chave of chaves) {
+      const numero = Number(fonte[chave])
+      if (Number.isFinite(numero) && numero >= 0) {
+        return numero
+      }
+    }
+  }
+
+  return fallback
+}
+
+function normalizarAulaLista(item = {}) {
+  const id = normalizarIdPositivo(item.id ?? item.aulaId)
+  if (!id) {
+    return null
+  }
+
+  const resumo = item.resumoFrequencias && typeof item.resumoFrequencias === 'object' ? item.resumoFrequencias : {}
+
+  return {
+    id,
+    dataAula: normalizarTextoOpcional(item.dataAula || item.data),
+    horarioInicio: normalizarTextoOpcional(item.horarioInicio || item.horario),
+    duracaoMinutos: normalizarNumero(item.duracaoMinutos ?? item.duracao ?? item.duracaoMin ?? 0, 0),
+    turmaId: normalizarIdPositivo(item.turmaId),
+    turmaNome: normalizarTextoOpcional(item.turmaNome || item.turma || ''),
+    nivel: String(item.nivel || item.nivelBeachTennis || '').trim().toUpperCase(),
+    competicao: item.competicao === true,
+    professorId: normalizarIdPositivo(item.professorId ?? item.funcionarioId),
+    professorNome: normalizarTextoOpcional(item.professorNome || item.funcionarioNome || ''),
+    situacao: normalizarSituacaoAula(item.situacao),
+    quantidadeParticipantes: obterNumeroDeCampo([item, resumo], ['quantidadeParticipantes', 'totalParticipantes', 'total', 'quantidadeTotal'], 0),
+    presentes: obterNumeroDeCampo([item, resumo], ['presentes', 'qtdPresentes', 'quantidadePresentes'], 0),
+    faltasJustificadas: obterNumeroDeCampo([item, resumo], ['faltasJustificadas', 'qtdFaltasJustificadas', 'faltasComJustificativa'], 0),
+    faltasSemJustificativa: obterNumeroDeCampo([item, resumo], ['faltasSemJustificativa', 'qtdFaltasSemJustificativa'], 0),
+    naoLancados: obterNumeroDeCampo([item, resumo], ['naoLancados', 'naoLancados', 'qtdNaoLancados'], 0),
+  }
+}
+
+function normalizarParticipante(item = {}) {
+  const clienteId = normalizarIdPositivo(item.clienteId ?? item.alunoId ?? item.id)
+  if (!clienteId) {
+    return null
+  }
+
+  return {
+    clienteId,
+    clienteNome: normalizarTextoOpcional(item.clienteNome || item.nome || item.alunoNome || `Participante ${clienteId}`),
+    clienteTelefone: normalizarTextoOpcional(item.clienteTelefone || item.telefone),
+    clienteNivel: String(item.clienteNivel || item.nivel || item.nivelBeachTennis || '').trim().toUpperCase(),
+    dataEntrada: normalizarTextoOpcional(item.dataEntrada),
+    dataSaida: normalizarTextoOpcional(item.dataSaida),
+    situacao: normalizarSituacaoFrequencia(item.situacao),
+    justificativa: normalizarTextoOpcional(item.justificativa),
+    observacao: normalizarTextoOpcional(item.observacao),
+    tipoParticipacao: normalizarTipoParticipacao(item.tipoParticipacao),
+    usuarioLancamentoId: item.usuarioLancamentoId ?? null,
+    lancadoEm: normalizarTextoOpcional(item.lancadoEm),
+    atualizadoEm: normalizarTextoOpcional(item.atualizadoEm),
+  }
+}
+
+function normalizarAulaDetalhe(item = {}) {
+  const base = normalizarAulaLista(item) || {
+    id: normalizarIdPositivo(item.id ?? item.aulaId) || null,
+    dataAula: normalizarTextoOpcional(item.dataAula || item.data),
+    horarioInicio: normalizarTextoOpcional(item.horarioInicio || item.horario),
+    duracaoMinutos: normalizarNumero(item.duracaoMinutos ?? item.duracao ?? 0, 0),
+    turmaId: normalizarIdPositivo(item.turmaId),
+    turmaNome: normalizarTextoOpcional(item.turmaNome || item.turma || ''),
+    nivel: String(item.nivel || item.nivelBeachTennis || '').trim().toUpperCase(),
+    competicao: item.competicao === true,
+    professorId: normalizarIdPositivo(item.professorId ?? item.funcionarioId),
+    professorNome: normalizarTextoOpcional(item.professorNome || item.funcionarioNome || ''),
+    situacao: normalizarSituacaoAula(item.situacao),
+    quantidadeParticipantes: 0,
+    presentes: 0,
+    faltasJustificadas: 0,
+    faltasSemJustificativa: 0,
+    naoLancados: 0,
+  }
+
+  const participantes = Array.isArray(item.participantes) ? item.participantes : []
+  const mapa = new Map()
+
+  for (const participante of participantes) {
+    const normalizado = normalizarParticipante(participante)
+    if (!normalizado || mapa.has(normalizado.clienteId)) {
+      continue
+    }
+
+    mapa.set(normalizado.clienteId, normalizado)
+  }
+
+  const participantesNormalizados = [...mapa.values()].sort((a, b) =>
+    String(a.clienteNome).localeCompare(String(b.clienteNome), 'pt-BR'),
+  )
+
+  return {
+    ...base,
+    resumoFrequencias: item.resumoFrequencias && typeof item.resumoFrequencias === 'object' ? item.resumoFrequencias : {},
+    quantidadeParticipantes: base.quantidadeParticipantes || participantesNormalizados.length,
+    participantes: participantesNormalizados,
+  }
+}
+
+function compararAulas(a, b) {
+  const dataA = String(a?.dataAula || '')
+  const dataB = String(b?.dataAula || '')
+
+  if (dataA !== dataB) {
+    return dataA.localeCompare(dataB)
+  }
+
+  const horaA = String(a?.horarioInicio || '')
+  const horaB = String(b?.horarioInicio || '')
+
+  if (horaA !== horaB) {
+    return horaA.localeCompare(horaB)
+  }
+
+  return String(a?.turmaNome || '').localeCompare(String(b?.turmaNome || ''), 'pt-BR')
+}
+
+function compararPorNomeComAtivo(a, b) {
+  const ativoA = a?.ativo === false ? 1 : 0
+  const ativoB = b?.ativo === false ? 1 : 0
+
+  if (ativoA !== ativoB) {
+    return ativoA - ativoB
+  }
+
+  return String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR')
+}
+
+function formatarDuracaoMinutos(valor) {
+  const numero = Number(valor)
+  if (!Number.isFinite(numero) || numero <= 0) {
+    return '-'
+  }
+
+  const horas = Math.floor(numero / 60)
+  const minutos = numero % 60
+
+  if (horas > 0 && minutos > 0) {
+    return `${horas}h ${minutos}min`
+  }
+
+  if (horas > 0) {
+    return `${horas}h`
+  }
+
+  return `${minutos} min`
+}
+
+function formatarDataHora(valor) {
+  const texto = String(valor || '').trim()
+  if (!texto) {
+    return ''
+  }
+
+  const data = new Date(texto)
+  if (Number.isNaN(data.getTime())) {
+    return texto
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(data)
+}
+
+function formatarHorario(valor) {
+  const texto = String(valor || '').trim()
+  if (!texto) {
+    return '-'
+  }
+
+  if (/^\d{2}:\d{2}:\d{2}$/.test(texto)) {
+    return texto.slice(0, 5)
+  }
+
+  return texto
+}
+
+function rotuloSituacaoAula(valor) {
+  const situacao = normalizarSituacaoAula(valor)
+
+  return (
+    {
+      AGENDADA: 'Agendada',
+      REALIZADA: 'Realizada',
+      CANCELADA: 'Cancelada',
+      NAO_REALIZADA: 'Não realizada',
+    }[situacao] || situacao || '-'
+  )
+}
+
+function rotuloSituacaoFrequencia(valor) {
+  const situacao = normalizarSituacaoFrequencia(valor)
+
+  return (
+    {
+      NAO_LANCADO: 'Não lançado',
+      PRESENTE: 'Presente',
+      FALTA_JUSTIFICADA: 'Falta justificada',
+      FALTA_SEM_JUSTIFICATIVA: 'Falta sem justificativa',
+      REPOSICAO_REALIZADA: 'Reposição realizada',
+    }[situacao] || situacao || '-'
+  )
+}
+
+function estadoSituacaoAula(valor) {
+  const situacao = normalizarSituacaoAula(valor)
+
+  return `estado-${situacao.toLowerCase() || 'indefinido'}`
+}
+
+function calcularResumoFrequencias(aula = null, participantes = []) {
+  const resumo = aula?.resumoFrequencias && typeof aula.resumoFrequencias === 'object' ? aula.resumoFrequencias : {}
+  const lista = Array.isArray(participantes) ? participantes : []
+
+  return {
+    quantidadeParticipantes: obterNumeroDeCampo([aula, resumo], ['quantidadeParticipantes', 'totalParticipantes', 'total', 'quantidadeTotal'], lista.length),
+    presentes: obterNumeroDeCampo([aula, resumo], ['presentes', 'qtdPresentes', 'quantidadePresentes'], contarSituacao(lista, 'PRESENTE')),
+    faltasJustificadas: obterNumeroDeCampo(
+      [aula, resumo],
+      ['faltasJustificadas', 'qtdFaltasJustificadas', 'faltasComJustificativa'],
+      contarSituacao(lista, 'FALTA_JUSTIFICADA'),
+    ),
+    faltasSemJustificativa: obterNumeroDeCampo(
+      [aula, resumo],
+      ['faltasSemJustificativa', 'qtdFaltasSemJustificativa'],
+      contarSituacao(lista, 'FALTA_SEM_JUSTIFICATIVA'),
+    ),
+    naoLancados: obterNumeroDeCampo([aula, resumo], ['naoLancados', 'naoLancados', 'qtdNaoLancados'], contarSituacao(lista, 'NAO_LANCADO')),
+  }
+}
+
+function contarSituacao(lista, situacao) {
+  return lista.filter((item) => normalizarSituacaoFrequencia(item.situacao) === situacao).length
+}
+
+function definirFeedback(mensagem, tipo = 'info') {
+  feedback.value = String(mensagem || '').trim()
+  tipoFeedback.value = tipo
+}
+
+function limparFeedback() {
+  feedback.value = ''
+  tipoFeedback.value = 'info'
+}
+
+function obterMensagemErro(error, fallback) {
+  const mensagem = String(error?.message || '').trim()
+  return mensagem || fallback
+}
+
+function valorSelecionado(lista = [], id) {
+  const identificador = normalizarIdPositivo(id)
+  return identificador ? lista.find((item) => item.id === identificador) || null : null
+}
+
+function limparDetalhe() {
+  aulaDetalhe.value = null
+  participantesEdicao.value = []
+  erroDetalhe.value = ''
+}
+
+function limparLista() {
+  aulas.value = []
+  erroLista.value = ''
+}
+
+function aplicarSelecaoInicial(lista = []) {
+  if (aulaSelecionadaId.value || !lista.length) {
+    return
+  }
+
+  const primeira = lista[0]
+  if (primeira?.id) {
+    router.replace({
+      query: {
+        ...route.query,
+        aulaId: String(primeira.id),
+      },
+    })
+  }
+}
+
+function montarFiltrosConsulta() {
+  const consulta = {}
+
+  if (filtros.value.dataInicial) {
+    consulta.dataInicial = filtros.value.dataInicial
+  }
+
+  if (filtros.value.dataFinal) {
+    consulta.dataFinal = filtros.value.dataFinal
+  }
+
+  const turmaId = normalizarIdPositivo(filtros.value.turmaId)
+  if (turmaId) {
+    consulta.turmaId = turmaId
+  }
+
+  const professorId = normalizarIdPositivo(filtros.value.professorId)
+  if (professorId) {
+    consulta.professorId = professorId
+  }
+
+  if (filtros.value.nivel) {
+    consulta.nivel = String(filtros.value.nivel).trim().toUpperCase()
+  }
+
+  if (filtros.value.situacao) {
+    consulta.situacao = String(filtros.value.situacao).trim().toUpperCase()
+  }
+
+  return consulta
+}
+
+function montarPayloadGeracao() {
+  const payload = {
+    dataInicial: filtrosValidos(geracao.value.dataInicial),
+    dataFinal: filtrosValidos(geracao.value.dataFinal),
+  }
+
+  const turmaId = normalizarIdPositivo(geracao.value.turmaId)
+  if (turmaId) {
+    payload.turmaId = turmaId
+  }
+
+  return payload
+}
+
+function filtrosValidos(valor) {
+  return String(valor || '').trim()
+}
+
+function validarPeriodo(dataInicial, dataFinal) {
+  if (!dataInicial || !dataFinal) {
+    return 'Informe a data inicial e a data final.'
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicial) || !/^\d{4}-\d{2}-\d{2}$/.test(dataFinal)) {
+    return 'Informe datas válidas no formato YYYY-MM-DD.'
+  }
+
+  if (dataFinal < dataInicial) {
+    return 'A data final deve ser igual ou posterior à data inicial.'
+  }
+
+  return ''
+}
+
+function normalizarResultadoGeracao(resposta) {
+  if (Array.isArray(resposta)) {
+    return {
+      criadas: resposta.length,
+      existentes: 0,
+    }
+  }
+
+  const criadas = obterNumeroDeCampo(
+    [resposta, resposta?.dados, resposta?.resultado],
+    ['quantidadeCriada', 'quantidadeCriadas', 'criados', 'quantidadeNova', 'novasAulas', 'aulasCriadas'],
+    0,
+  )
+  const existentes = obterNumeroDeCampo(
+    [resposta, resposta?.dados, resposta?.resultado],
+    ['quantidadeJaExistente', 'quantidadeJaExistentes', 'jaExistentes', 'existentes', 'aulasExistentes'],
+    0,
+  )
+
+  return {
+    criadas,
+    existentes,
+  }
+}
+
+function validarLancamentos() {
+  for (const participante of participantesEdicao.value) {
+    const situacao = normalizarSituacaoFrequencia(participante.situacao)
+    participante.situacao = situacao
+
+    if (situacao === 'FALTA_JUSTIFICADA' && !normalizarTextoOpcional(participante.justificativa)) {
+      return {
+        mensagem: `Informe a justificativa de ${participante.clienteNome}.`,
+        participanteId: participante.clienteId,
+      }
+    }
+  }
+
+  return null
+}
+
+function prepararPayloadFrequencias() {
+  const mapa = new Map()
+
+  for (const participante of participantesEdicao.value) {
+    const situacao = normalizarSituacaoFrequencia(participante.situacao)
+    if (!STATUS_FREQUENCIA_PERSISTIVEIS.has(situacao)) {
+      continue
+    }
+
+    if (mapa.has(participante.clienteId)) {
+      continue
+    }
+
+    mapa.set(participante.clienteId, {
+      clienteId: participante.clienteId,
+      situacao,
+      justificativa: situacao === 'FALTA_JUSTIFICADA' ? normalizarTextoOpcional(participante.justificativa) || null : null,
+      observacao: normalizarTextoOpcional(participante.observacao) || null,
+      tipoParticipacao: normalizarTipoParticipacao(participante.tipoParticipacao),
+    })
+  }
+
+  return [...mapa.values()]
+}
+
+function aplicarSituacaoParticipante(participante) {
+  const situacao = normalizarSituacaoFrequencia(participante.situacao)
+  if (situacao !== 'FALTA_JUSTIFICADA') {
+    participante.justificativa = ''
+  }
+}
+
+function selecionarAula(item = {}) {
+  const aulaId = normalizarIdPositivo(item.id)
+  if (!aulaId) {
+    return
+  }
+
+  router.replace({
+    query: {
+      ...route.query,
+      aulaId: String(aulaId),
+    },
+  })
+}
+
+async function carregarTurmasEProfessores() {
+  carregandoBases.value = true
+
+  try {
+    const [turmasResposta, professoresResposta] = await Promise.all([
+      buscarTurmasBeachTennis(),
+      buscarFuncionarios(),
+    ])
+
+    turmas.value = (Array.isArray(turmasResposta) ? turmasResposta : [])
+      .map((item) => normalizarTurmaOpcao(item))
+      .filter(Boolean)
+
+    professores.value = (Array.isArray(professoresResposta) ? professoresResposta : [])
+      .map((item) => normalizarProfessorOpcao(item))
+      .filter(Boolean)
+  } catch (error) {
+    console.error(error)
+    turmas.value = []
+    professores.value = []
+  } finally {
+    carregandoBases.value = false
+  }
+}
+
+async function carregarListaAulas() {
+  if (modoVisualizacaoEmpresa.value || !moduloAtivo.value) {
+    limparLista()
+    carregandoLista.value = false
+    return true
+  }
+
+  const sequenciaAtual = sequenciaLista.value + 1
+  sequenciaLista.value = sequenciaAtual
+  carregandoLista.value = true
+  erroLista.value = ''
+
+  try {
+    const resposta = await buscarAulasGestaoEsportiva(montarFiltrosConsulta())
+    if (sequenciaAtual !== sequenciaLista.value) {
+      return
+    }
+
+    const listaNormalizada = (Array.isArray(resposta) ? resposta : [])
+      .map((item) => normalizarAulaLista(item))
+      .filter(Boolean)
+
+    aulas.value = listaNormalizada
+    aplicarSelecaoInicial(listaNormalizada)
+  } catch (error) {
+    if (sequenciaAtual !== sequenciaLista.value) {
+      return false
+    }
+
+    aulas.value = []
+    erroLista.value = obterMensagemErro(error, 'Não foi possível carregar as aulas.')
+    return false
+  } finally {
+    if (sequenciaAtual === sequenciaLista.value) {
+      carregandoLista.value = false
+    }
+  }
+
+  return true
+}
+
+async function carregarDetalheAula(aulaId) {
+  if (modoVisualizacaoEmpresa.value || !moduloAtivo.value) {
+    limparDetalhe()
+    carregandoDetalhe.value = false
+    return
+  }
+
+  const id = normalizarIdPositivo(aulaId)
+  if (!id) {
+    limparDetalhe()
+    carregandoDetalhe.value = false
+    erroDetalhe.value = ''
+    return
+  }
+
+  const sequenciaAtual = sequenciaDetalhe.value + 1
+  sequenciaDetalhe.value = sequenciaAtual
+  carregandoDetalhe.value = true
+  erroDetalhe.value = ''
+  aulaDetalhe.value = null
+  participantesEdicao.value = []
+
+  try {
+    const resposta = await buscarAulaGestaoEsportiva(id)
+    if (sequenciaAtual !== sequenciaDetalhe.value) {
+      return
+    }
+
+    const detalheNormalizado = normalizarAulaDetalhe(resposta || {})
+    aulaDetalhe.value = detalheNormalizado
+    participantesEdicao.value = detalheNormalizado.participantes.map((participante) => ({ ...participante }))
+  } catch (error) {
+    if (sequenciaAtual !== sequenciaDetalhe.value) {
+      return
+    }
+
+    limparDetalhe()
+    erroDetalhe.value = obterMensagemErro(error, 'Não foi possível carregar os detalhes da aula.')
+  } finally {
+    if (sequenciaAtual === sequenciaDetalhe.value) {
+      carregandoDetalhe.value = false
+    }
+  }
+}
+
+async function aplicarFiltros() {
+  limparFeedback()
+  const carregou = await carregarListaAulas()
+  if (carregou) {
+    definirFeedback('Filtros aplicados com sucesso.', 'sucesso')
+  }
+}
+
+function limparFiltros() {
+  filtros.value = criarFiltrosPadrao()
+  limparFeedback()
+  carregarListaAulas().catch((error) => {
+    erroLista.value = obterMensagemErro(error, 'Não foi possível carregar as aulas.')
+  })
+}
+
+async function gerarAulas() {
+  if (!podeGerarAulas.value) {
+    return
+  }
+
+  const erroPeriodo = validarPeriodo(geracao.value.dataInicial, geracao.value.dataFinal)
+  if (erroPeriodo) {
+    definirFeedback(erroPeriodo, 'erro')
+    return
+  }
+
+  try {
+    gerandoAulas.value = true
+    limparFeedback()
+
+    const resposta = await gerarAulasGestaoEsportiva(montarPayloadGeracao())
+    const resultado = normalizarResultadoGeracao(resposta)
+    resultadoGeracao.value = resultado
+
+    if (resultado.criadas > 0) {
+      definirFeedback(
+        resultado.existentes > 0
+          ? `${resultado.criadas} aula(s) criada(s) e ${resultado.existentes} já existiam.`
+          : `${resultado.criadas} aula(s) criada(s) com sucesso.`,
+        'sucesso',
+      )
+    } else {
+      definirFeedback(
+        resultado.existentes > 0
+          ? `Nenhuma aula nova foi criada. ${resultado.existentes} já existiam.`
+          : 'Nenhuma aula nova foi criada.',
+        'info',
+      )
+    }
+
+    await carregarListaAulas()
+  } catch (error) {
+    definirFeedback(obterMensagemErro(error, 'Não foi possível gerar as aulas.'), 'erro')
+  } finally {
+    gerandoAulas.value = false
+  }
+}
+
+async function salvarFrequencias() {
+  if (!aulaDetalhe.value?.id) {
+    return
+  }
+
+  if (aulaCancelada.value) {
+    definirFeedback('Esta aula está cancelada e não permite alteração de frequência.', 'aviso')
+    return
+  }
+
+  const validacao = validarLancamentos()
+  if (validacao) {
+    definirFeedback(validacao.mensagem, 'erro')
+    await nextTick()
+    const campo = document.querySelector(
+      `[data-participante-id="${validacao.participanteId}"] [data-campo="justificativa"]`,
+    )
+    if (campo && typeof campo.focus === 'function') {
+      campo.focus()
+    }
+    return
+  }
+
+  const payload = prepararPayloadFrequencias()
+  if (!payload.length) {
+    definirFeedback('Não há lançamentos para salvar nesta aula.', 'info')
+    return
+  }
+
+  try {
+    salvandoFrequencias.value = true
+    limparFeedback()
+    await salvarFrequenciasAulaGestaoEsportiva(aulaDetalhe.value.id, payload)
+    definirFeedback(`${payload.length} lançamento(s) salvo(s) com sucesso.`, 'sucesso')
+    await carregarDetalheAula(aulaSelecionadaId.value)
+    await carregarListaAulas()
+  } catch (error) {
+    definirFeedback(obterMensagemErro(error, 'Não foi possível salvar a frequência.'), 'erro')
+  } finally {
+    salvandoFrequencias.value = false
+  }
+}
+
+async function recarregarTudo() {
+  limparFeedback()
+  await carregarTurmasEProfessores()
+  await carregarListaAulas()
+}
+
+async function atualizarContextoEmpresa() {
+  await recarregarContextoGestaoEsportiva()
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  await carregarTudo()
+}
+
+async function carregarTudo() {
+  await carregarContextoGestaoEsportiva()
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+
+  if (modoVisualizacaoEmpresa.value || !moduloAtivo.value) {
+    aulas.value = []
+    aulaDetalhe.value = null
+    participantesEdicao.value = []
+    carregandoLista.value = false
+    carregandoDetalhe.value = false
+    erroLista.value = ''
+    erroDetalhe.value = ''
+    return
+  }
+
+  carregandoLista.value = true
+  await Promise.all([carregarTurmasEProfessores(), carregarListaAulas()])
+}
+
+watch(
+  () => [aulaSelecionadaId.value, moduloAtivo.value, modoVisualizacaoEmpresa.value],
+  async ([novoId]) => {
+    await carregarDetalheAula(novoId)
+  },
+  { immediate: true },
+)
+
+onMounted(() => {
+  carregarTudo().catch((error) => {
+    console.error(error)
+    erroLista.value = obterMensagemErro(error, 'Não foi possível carregar os dados da tela.')
+  })
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
+})
+</script>
+
+<template>
+  <main class="pagina">
+    <header class="cabecalho-pagina aulas">
+      <div>
+        <p class="subtitulo">Gestão Esportiva</p>
+        <h1>Aulas e frequência</h1>
+        <p class="descricao">
+          Consulte as aulas geradas, filtre o período desejado e lance a frequência dos participantes com segurança.
+        </p>
+      </div>
+
+      <div class="acoes-cabecalho">
+        <button class="botao principal" type="button" :disabled="!podeGerarAulas" @click="gerarAulas">
+          {{ gerandoAulas ? 'Gerando...' : 'Gerar aulas' }}
+        </button>
+        <button class="botao secundario" type="button" :disabled="carregandoLista || gerandoAulas || salvandoFrequencias" @click="carregarListaAulas">
+          {{ carregandoLista ? 'Atualizando...' : 'Atualizar lista' }}
+        </button>
+      </div>
+    </header>
+
+    <section v-if="feedback" class="feedback" :class="tipoFeedback">
+      <p>{{ feedback }}</p>
+    </section>
+
+    <section v-if="modoVisualizacaoEmpresa" class="card aviso">
+      <p>Selecione uma empresa no seletor superior para consultar e lançar as aulas como SUPER_ADMIN.</p>
+    </section>
+
+    <section v-else-if="!moduloAtivo" class="card aviso">
+      <p>Este recurso só fica disponível para empresas com o módulo de Gestão Esportiva ativo.</p>
+    </section>
+
+    <template v-else>
+      <section class="grade-superior">
+        <article class="card painel">
+          <div class="titulo-card">
+            <div>
+              <p class="subtitulo-mini">Filtros</p>
+              <h2>Localize as aulas</h2>
+            </div>
+            <span class="contador">{{ aulasOrdenadas.length }} aula(s)</span>
+          </div>
+
+          <div class="campos-filtros">
+            <label>
+              Data inicial
+              <input v-model="filtros.dataInicial" type="date" />
+            </label>
+
+            <label>
+              Data final
+              <input v-model="filtros.dataFinal" type="date" />
+            </label>
+
+            <label>
+              Turma
+              <select v-model="filtros.turmaId">
+                <option value="">Todas</option>
+                <option v-for="turma in turmasOrdenadas" :key="turma.id" :value="String(turma.id)">
+                  {{ turma.nome }}
+                  <template v-if="rotuloNivelBeachTennis(turma.nivel)"> - {{ rotuloNivelBeachTennis(turma.nivel) }}</template>
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Professor
+              <select v-model="filtros.professorId">
+                <option value="">Todos</option>
+                <option v-for="professor in professoresOrdenados" :key="professor.id" :value="String(professor.id)">
+                  {{ professor.nome }}
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Nível
+              <select v-model="filtros.nivel">
+                <option value="">Todos</option>
+                <option v-for="opcao in ['INICIANTE', 'INTERMEDIARIO', 'AVANCADO']" :key="opcao" :value="opcao">
+                  {{ rotuloNivelBeachTennis(opcao) }}
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Situação da aula
+              <select v-model="filtros.situacao">
+                <option v-for="opcao in OPCOES_SITUACAO_AULA" :key="opcao.valor || 'todas'" :value="opcao.valor">
+                  {{ opcao.rotulo }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <div class="acoes-card">
+            <button class="botao secundario" type="button" @click="aplicarFiltros">Aplicar filtros</button>
+            <button class="botao secundario" type="button" @click="limparFiltros">Limpar filtros</button>
+          </div>
+        </article>
+
+        <article class="card painel">
+          <div class="titulo-card">
+            <div>
+              <p class="subtitulo-mini">Geração</p>
+              <h2>Gerar aulas em lote</h2>
+            </div>
+            <span class="contador">Automático</span>
+          </div>
+
+          <div class="campos-filtros">
+            <label>
+              Data inicial
+              <input v-model="geracao.dataInicial" type="date" />
+            </label>
+
+            <label>
+              Data final
+              <input v-model="geracao.dataFinal" type="date" />
+            </label>
+
+            <label>
+              Turma opcional
+              <select v-model="geracao.turmaId" :disabled="carregandoBases">
+                <option value="">Todas as turmas</option>
+                <option v-for="turma in turmasOrdenadas" :key="turma.id" :value="String(turma.id)">
+                  {{ turma.nome }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <p class="ajuda-campo">
+            Use o botão <strong>Gerar aulas</strong> no topo para criar aulas no período selecionado. Aulas já
+            existentes não geram erro.
+          </p>
+
+          <div v-if="resultadoGeracao" class="resumo-geracao">
+            <div>
+              <span>Criadas</span>
+              <strong>{{ resultadoGeracao.criadas }}</strong>
+            </div>
+            <div>
+              <span>Já existentes</span>
+              <strong>{{ resultadoGeracao.existentes }}</strong>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grade-principal">
+        <article class="card lista-aulas-card">
+          <div class="titulo-card">
+            <div>
+              <p class="subtitulo-mini">Lista</p>
+              <h2>Aulas encontradas</h2>
+              <p class="descricao-card">Clique em uma aula para abrir o detalhe e lançar a frequência.</p>
+            </div>
+            <span class="contador">{{ aulasOrdenadas.length }} item(s)</span>
+          </div>
+
+          <section v-if="carregandoLista && !temAulas" class="estado-vazio">
+            <p>Carregando aulas...</p>
+          </section>
+
+          <section v-else-if="erroLista" class="estado-erro">
+            <p>{{ erroLista }}</p>
+          </section>
+
+          <section v-else-if="!temAulas" class="estado-vazio">
+            <p>Nenhuma aula encontrada para os filtros informados.</p>
+          </section>
+
+          <div v-else class="lista-aulas">
+            <button
+              v-for="aula in aulasOrdenadas"
+              :key="aula.id"
+              class="aula-card"
+              :class="{ selecionada: aulaSelecionadaId === aula.id }"
+              type="button"
+              @click="selecionarAula(aula)"
+            >
+              <div class="aula-card-topo">
+                <div>
+                  <p class="aula-data">{{ formatarDataBrasileira(aula.dataAula) || 'Data não informada' }}</p>
+                  <h3>{{ aula.turmaNome || `Aula ${aula.id}` }}</h3>
+                  <p class="aula-horario">
+                    {{ formatarHorario(aula.horarioInicio) }} · {{ formatarDuracaoMinutos(aula.duracaoMinutos) }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="chips-aula">
+                <span v-if="rotuloNivelBeachTennis(aula.nivel)" class="chip">{{ rotuloNivelBeachTennis(aula.nivel) }}</span>
+                <span v-if="aula.competicao" class="chip competicao">{{ rotuloCompeticaoBeachTennis(true) }}</span>
+                <span v-else class="chip sutileza">Sem competição</span>
+                <span class="chip situacao" :class="estadoSituacaoAula(aula.situacao)">
+                  {{ rotuloSituacaoAula(aula.situacao) }}
+                </span>
+              </div>
+
+              <div class="resumo-aula">
+                <div><span>Participantes</span><strong>{{ aula.quantidadeParticipantes }}</strong></div>
+                <div><span>Presentes</span><strong>{{ aula.presentes }}</strong></div>
+                <div><span>Faltas justificadas</span><strong>{{ aula.faltasJustificadas }}</strong></div>
+                <div><span>Faltas sem justificativa</span><strong>{{ aula.faltasSemJustificativa }}</strong></div>
+                <div><span>Não lançados</span><strong>{{ aula.naoLancados }}</strong></div>
+              </div>
+
+              <div class="rodape-aula">
+                <p>
+                  <strong>Professor:</strong>
+                  {{ aula.professorNome || '-' }}
+                </p>
+                <span class="botao-link">{{ aula.naoLancados < aula.quantidadeParticipantes ? 'Ver frequência' : 'Lançar frequência' }}</span>
+              </div>
+            </button>
+          </div>
+        </article>
+
+        <article class="card detalhe-aula-card">
+          <div class="titulo-card">
+            <div>
+              <p class="subtitulo-mini">Detalhe</p>
+              <h2>{{ aulaDetalhe ? aulaDetalhe.turmaNome || `Aula ${aulaDetalhe.id}` : 'Selecione uma aula' }}</h2>
+              <p class="descricao-card">
+                {{ aulaDetalhe ? 'Revise os dados da aula e ajuste os lançamentos conforme necessário.' : 'Selecione uma aula na lista para abrir os participantes.' }}
+              </p>
+            </div>
+            <div class="acoes-card detalhe-acoes">
+              <button class="botao secundario" type="button" :disabled="carregandoDetalhe" @click="carregarDetalheAula(aulaSelecionadaId)">
+                {{ carregandoDetalhe ? 'Carregando...' : 'Recarregar detalhe' }}
+              </button>
+              <button class="botao principal" type="button" :disabled="!podeSalvarFrequencias" @click="salvarFrequencias">
+                {{ salvandoFrequencias ? 'Salvando...' : 'Salvar frequência' }}
+              </button>
+            </div>
+          </div>
+
+          <section v-if="erroDetalhe" class="estado-erro">
+            <p>{{ erroDetalhe }}</p>
+          </section>
+
+          <section v-else-if="carregandoDetalhe && !aulaDetalhe" class="estado-vazio">
+            <p>Carregando detalhe da aula...</p>
+          </section>
+
+          <section v-else-if="!aulaDetalhe" class="estado-vazio">
+            <p>Selecione uma aula para ver os participantes e lançar a frequência.</p>
+          </section>
+
+          <template v-else>
+            <section class="cabecalho-detalhe">
+              <div class="meta-aula">
+                <div><span>Data</span><strong>{{ formatarDataBrasileira(aulaDetalhe.dataAula) || '-' }}</strong></div>
+                <div><span>Horário</span><strong>{{ formatarHorario(aulaDetalhe.horarioInicio) }}</strong></div>
+                <div><span>Duração</span><strong>{{ formatarDuracaoMinutos(aulaDetalhe.duracaoMinutos) }}</strong></div>
+                <div><span>Turma</span><strong>{{ aulaDetalhe.turmaNome || '-' }}</strong></div>
+                <div><span>Professor</span><strong>{{ aulaDetalhe.professorNome || '-' }}</strong></div>
+                <div><span>Situação</span><strong>{{ rotuloSituacaoAula(aulaDetalhe.situacao) }}</strong></div>
+              </div>
+
+              <div class="chips-aula detalhe">
+                <span v-if="rotuloNivelBeachTennis(aulaDetalhe.nivel)" class="chip">{{ rotuloNivelBeachTennis(aulaDetalhe.nivel) }}</span>
+                <span v-if="aulaDetalhe.competicao" class="chip competicao">{{ rotuloCompeticaoBeachTennis(true) }}</span>
+                <span v-else class="chip sutileza">Sem competição</span>
+                <span class="chip situacao" :class="estadoSituacaoAula(aulaDetalhe.situacao)">
+                  {{ rotuloSituacaoAula(aulaDetalhe.situacao) }}
+                </span>
+              </div>
+
+              <div class="resumo-frequencia">
+                <div><span>Participantes</span><strong>{{ resumoFrequencias.quantidadeParticipantes }}</strong></div>
+                <div><span>Presentes</span><strong>{{ resumoFrequencias.presentes }}</strong></div>
+                <div><span>Faltas justificadas</span><strong>{{ resumoFrequencias.faltasJustificadas }}</strong></div>
+                <div><span>Faltas sem justificativa</span><strong>{{ resumoFrequencias.faltasSemJustificativa }}</strong></div>
+                <div><span>Não lançados</span><strong>{{ resumoFrequencias.naoLancados }}</strong></div>
+              </div>
+
+              <section v-if="aulaCancelada" class="aviso-bloqueio">
+                <p>Esta aula está cancelada. A frequência pode ser visualizada, mas não pode ser alterada.</p>
+              </section>
+            </section>
+
+            <section class="participantes">
+              <article v-for="participante in participantesEdicao" :key="participante.clienteId" class="participante-card">
+                <div class="participante-topo">
+                  <div>
+                    <h3>{{ participante.clienteNome }}</h3>
+                    <p class="participante-meta">
+                      <span v-if="participante.clienteTelefone">{{ participante.clienteTelefone }}</span>
+                      <span v-if="rotuloNivelBeachTennis(participante.clienteNivel)"> · {{ rotuloNivelBeachTennis(participante.clienteNivel) }}</span>
+                      <span v-if="participante.dataEntrada"> · Entrada {{ formatarDataBrasileira(participante.dataEntrada) }}</span>
+                      <span v-if="participante.dataSaida"> · Saída {{ formatarDataBrasileira(participante.dataSaida) }}</span>
+                    </p>
+                  </div>
+                  <div class="chips-participante">
+                    <span class="chip situacao" :class="estadoSituacaoAula(participante.situacao)">
+                      {{ rotuloSituacaoFrequencia(participante.situacao) }}
+                    </span>
+                    <span class="chip sutileza">{{ participante.tipoParticipacao }}</span>
+                  </div>
+                </div>
+
+                <div class="campos-participante">
+                  <label>
+                    Situação
+                    <select
+                      v-model="participante.situacao"
+                      :disabled="aulaCancelada"
+                      @change="aplicarSituacaoParticipante(participante)"
+                    >
+                      <option v-for="opcao in OPCOES_SITUACAO_FREQUENCIA" :key="opcao.valor" :value="opcao.valor">
+                        {{ opcao.rotulo }}
+                      </option>
+                    </select>
+                  </label>
+
+                  <label v-if="participante.situacao === 'FALTA_JUSTIFICADA'" :data-participante-id="participante.clienteId">
+                    Justificativa
+                    <textarea
+                      v-model="participante.justificativa"
+                      rows="2"
+                      :disabled="aulaCancelada"
+                      data-campo="justificativa"
+                      placeholder="Explique o motivo da falta"
+                    ></textarea>
+                  </label>
+
+                  <label>
+                    Observação
+                    <textarea
+                      v-model="participante.observacao"
+                      rows="2"
+                      :disabled="aulaCancelada"
+                      :placeholder="participante.situacao === 'FALTA_JUSTIFICADA' ? 'Comentário opcional sobre o lançamento' : 'Observação opcional'"
+                    ></textarea>
+                  </label>
+                </div>
+
+                <div class="rodape-participante">
+                  <p>
+                    <strong>Lançado em:</strong>
+                    {{ formatarDataHora(participante.lancadoEm) || '-' }}
+                  </p>
+                  <p>
+                    <strong>Atualizado em:</strong>
+                    {{ formatarDataHora(participante.atualizadoEm) || '-' }}
+                  </p>
+                </div>
+              </article>
+            </section>
+          </template>
+        </article>
+      </section>
+    </template>
+  </main>
+</template>
+
+<style scoped>
+.pagina {
+  display: grid;
+  gap: 20px;
+  color: var(--app-text);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.cabecalho-pagina,
+.card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow);
+}
+
+.cabecalho-pagina {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--app-primary) 14%, transparent), transparent 32%),
+    linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 96%, white), var(--app-surface));
+}
+
+.subtitulo,
+.subtitulo-mini {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-primary);
+}
+
+.cabecalho-pagina h1,
+.titulo-card h2,
+.aula-card h3,
+.detalhe-aula-card h2,
+.participante-card h3 {
+  margin: 0;
+}
+
+.descricao,
+.descricao-card,
+.ajuda-campo,
+.estado-vazio p,
+.estado-erro p,
+.feedback p,
+.aviso-bloqueio p,
+.participante-meta,
+.rodape-aula p,
+.rodape-participante p {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+.acoes-cabecalho,
+.acoes-card,
+.chips-aula,
+.chips-participante {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.botao {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 11px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+}
+
+.botao:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.botao:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.botao.principal {
+  background: linear-gradient(135deg, var(--app-primary), var(--app-brand-end));
+  color: #fff;
+}
+
+.botao.secundario {
+  background: var(--app-surface-soft);
+  color: var(--app-primary);
+  border-color: var(--app-border);
+}
+
+.feedback {
+  padding: 16px 18px;
+}
+
+.feedback.erro,
+.estado-erro {
+  border-color: var(--app-danger);
+  background: var(--app-danger-soft);
+}
+
+.feedback.erro {
+  color: var(--app-danger);
+}
+
+.feedback.sucesso {
+  border-color: var(--app-success);
+  background: var(--app-success-soft);
+  color: var(--app-success);
+}
+
+.feedback.info,
+.feedback.aviso {
+  border-color: var(--app-warning);
+  background: var(--app-warning-soft);
+  color: var(--app-warning);
+}
+
+.aviso {
+  padding: 20px 22px;
+  color: var(--app-text);
+}
+
+.grade-superior {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.painel {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.titulo-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.contador {
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.campos-filtros {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 92px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 3px var(--app-focus-ring);
+}
+
+.resumo-geracao {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.resumo-geracao div,
+.resumo-aula div,
+.resumo-frequencia div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+}
+
+.resumo-geracao span,
+.resumo-aula span,
+.resumo-frequencia span {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.resumo-geracao strong,
+.resumo-aula strong,
+.resumo-frequencia strong {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.grade-principal {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.25fr);
+  gap: 20px;
+}
+
+.lista-aulas-card,
+.detalhe-aula-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.lista-aulas {
+  display: grid;
+  gap: 14px;
+}
+
+.aula-card {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.aula-card.selecionada {
+  border-color: var(--app-primary);
+  box-shadow: inset 0 0 0 1px var(--app-primary);
+}
+
+.aula-card-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.aula-data {
+  margin: 0 0 6px;
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.aula-horario {
+  margin: 8px 0 0;
+  color: var(--app-text-muted);
+}
+
+.acao-card,
+.botao-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  min-width: 132px;
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chips-aula .chip,
+.chips-participante .chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chip.sutileza {
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+}
+
+.chip.competicao {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.chip.situacao.estado-agendada,
+.chip.situacao.estado-realizada {
+  background: var(--app-success-soft);
+  color: var(--app-success);
+}
+
+.chip.situacao.estado-cancelada,
+.chip.situacao.estado-nao_realizada {
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
+}
+
+.chip.situacao.estado-nao_lancado {
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+}
+
+.resumo-aula,
+.resumo-frequencia {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rodape-aula {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.detalhe-acoes {
+  justify-content: flex-end;
+}
+
+.cabecalho-detalhe {
+  display: grid;
+  gap: 16px;
+}
+
+.meta-aula {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.meta-aula div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+}
+
+.meta-aula span {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.meta-aula strong {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.aviso-bloqueio {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--app-warning);
+  background: var(--app-warning-soft);
+  color: var(--app-warning);
+}
+
+.participantes {
+  display: grid;
+  gap: 14px;
+}
+
+.participante-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+}
+
+.participante-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.participante-meta {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.campos-participante {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.rodape-participante {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  justify-content: space-between;
+}
+
+.estado-vazio,
+.estado-erro {
+  padding: 24px 18px;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px dashed var(--app-border);
+}
+
+.estado-erro {
+  text-align: left;
+}
+
+.estado-vazio p,
+.estado-erro p {
+  color: var(--app-text-muted);
+}
+
+.estado-erro {
+  color: var(--app-danger);
+}
+
+.botao-link {
+  background: transparent;
+  border: 1px solid var(--app-primary-soft);
+}
+
+@media (max-width: 1100px) {
+  .grade-principal,
+  .grade-superior {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .cabecalho-pagina,
+  .titulo-card,
+  .aula-card-topo,
+  .rodape-aula,
+  .participante-topo {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .campos-filtros,
+  .resumo-geracao,
+  .resumo-aula,
+  .resumo-frequencia,
+  .meta-aula,
+  .campos-participante {
+    grid-template-columns: 1fr;
+  }
+
+  .detalhe-acoes {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .cabecalho-pagina,
+  .painel,
+  .lista-aulas-card,
+  .detalhe-aula-card {
+    padding: 18px;
+  }
+
+  .aula-card {
+    padding: 14px;
+  }
+}
+</style>
