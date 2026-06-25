@@ -81,6 +81,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Aulas e frequência',
     descricao: 'Gere aulas e lance a frequência dos participantes da modalidade.',
   },
+  'aulas-frequencia-detalhe': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Detalhe da frequência',
+    descricao: 'Revise a aula e ajuste os lançamentos de frequência dos participantes.',
+  },
   professores: {
     subtitulo: 'Gestão Esportiva',
     titulo: 'Professores',
@@ -262,6 +267,7 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   'beach-tennis-turma-alunos': 'clientes',
   'beach-tennis-alunos': 'clientes',
   'beach-tennis-financeiro': 'faturas-meu-plano',
+  'aulas-frequencia-detalhe': 'aulas-frequencia',
   professores: 'funcionarios',
   servicos: 'servicos',
   funcionarios: 'funcionarios',
@@ -646,7 +652,10 @@ function alternarGrupoMenu(chave) {
 }
 
 function sincronizarGruposMenu() {
-  const rotaEsportiva = String(routeName.value || '').startsWith('beach-tennis') || routeName.value === 'professores'
+  const rotaEsportiva =
+    String(routeName.value || '').startsWith('beach-tennis') ||
+    routeName.value === 'professores' ||
+    routeName.value === 'aulas-frequencia-detalhe'
   const rotaCadastroParticipantes = moduloGestaoEsportivaVisivel.value && routeName.value === 'clientes'
 
   if (rotaEsportiva || rotaCadastroParticipantes) {

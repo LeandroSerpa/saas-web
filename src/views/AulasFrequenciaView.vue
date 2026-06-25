@@ -71,30 +71,28 @@ const sequenciaLista = ref(0)
 const sequenciaDetalhe = ref(0)
 
 const aulaSelecionadaId = computed(() => normalizarIdPositivo(valorRota(route.query.aulaId)))
-const aulasOrdenadas = computed(() => [...aulas.value].sort(compararAulas))
+const aulasOrdenadas = computed(() => [...aulas.value])
 const turmasOrdenadas = computed(() => [...turmas.value].sort(compararPorNomeComAtivo))
 const professoresOrdenados = computed(() => [...professores.value].sort(compararPorNomeComAtivo))
-const aulaSelecionada = computed(() =>
-  aulaSelecionadaId.value ? aulasOrdenadas.value.find((item) => item.id === aulaSelecionadaId.value) || null : null,
-)
-const situacaoAulaSelecionada = computed(() => String(aulaDetalhe.value?.situacao || '').trim().toUpperCase())
-const aulaCancelada = computed(() => situacaoAulaSelecionada.value === 'CANCELADA')
-const possuiLancamentosPersistiveis = computed(() =>
-  participantesEdicao.value.some((item) => STATUS_FREQUENCIA_PERSISTIVEIS.has(item.situacao)),
-)
-const podeSalvarFrequencias = computed(
-  () =>
-    Boolean(aulaDetalhe.value?.id) &&
-    !aulaCancelada.value &&
-    !salvandoFrequencias.value &&
-    !gerandoAulas.value &&
-    !modoVisualizacaoEmpresa.value &&
-    moduloAtivo.value &&
-    possuiLancamentosPersistiveis.value,
-)
 const podeGerarAulas = computed(() => !gerandoAulas.value && !salvandoFrequencias.value && !modoVisualizacaoEmpresa.value && moduloAtivo.value)
-const resumoFrequencias = computed(() => calcularResumoFrequencias(aulaDetalhe.value, participantesEdicao.value))
 const temAulas = computed(() => aulasOrdenadas.value.length > 0)
+const itensPorPagina = ref(5)
+const paginaAtual = ref(1)
+const totalAulas = computed(() => aulasOrdenadas.value.length)
+const totalPaginas = computed(() => Math.max(1, Math.ceil(totalAulas.value / itensPorPagina.value)))
+const paginaAtualExibida = computed(() => Math.min(Math.max(1, paginaAtual.value), totalPaginas.value))
+const indiceInicioPagina = computed(() => (totalAulas.value === 0 ? 0 : (paginaAtualExibida.value - 1) * itensPorPagina.value + 1))
+const indiceFimPagina = computed(() =>
+  totalAulas.value === 0 ? 0 : Math.min(totalAulas.value, indiceInicioPagina.value + itensPorPagina.value - 1),
+)
+const aulasPaginadas = computed(() =>
+  aulasOrdenadas.value.slice(indiceInicioPagina.value > 0 ? indiceInicioPagina.value - 1 : 0, indiceFimPagina.value),
+)
+const intervaloExibido = computed(() =>
+  totalAulas.value === 0 ? '0 de 0' : `${indiceInicioPagina.value} a ${indiceFimPagina.value} de ${totalAulas.value}`,
+)
+const podeIrAnterior = computed(() => paginaAtualExibida.value > 1)
+const podeIrProxima = computed(() => paginaAtualExibida.value < totalPaginas.value)
 
 function valorRota(valor) {
   return Array.isArray(valor) ? valor[0] : valor
@@ -127,7 +125,7 @@ function formatarDataISO(data) {
 function criarFiltrosPadrao() {
   return {
     dataInicial: criarDataISO(0),
-    dataFinal: criarDataISO(14),
+    dataFinal: criarDataISO(0),
     turmaId: '',
     professorId: '',
     nivel: '',
@@ -138,7 +136,7 @@ function criarFiltrosPadrao() {
 function criarGeracaoPadrao() {
   return {
     dataInicial: criarDataISO(0),
-    dataFinal: criarDataISO(14),
+    dataFinal: criarDataISO(0),
     turmaId: '',
   }
 }
@@ -542,6 +540,69 @@ function filtrosValidos(valor) {
   return String(valor || '').trim()
 }
 
+function normalizarPagina(valor) {
+  const numero = Number.parseInt(String(valor ?? '').trim(), 10)
+  return Number.isInteger(numero) && numero > 0 ? numero : 1
+}
+
+function normalizarQuantidadePorPagina(valor) {
+  const numero = Number.parseInt(String(valor ?? '').trim(), 10)
+  return [5, 10, 20].includes(numero) ? numero : 5
+}
+
+function aplicarEstadoDaQueryNaTela() {
+  const query = route.query || {}
+
+  filtros.value = {
+    dataInicial: String(valorRota(query.dataInicial) || criarDataISO(0)).trim() || criarDataISO(0),
+    dataFinal: String(valorRota(query.dataFinal) || criarDataISO(0)).trim() || criarDataISO(0),
+    turmaId: String(valorRota(query.turmaId) || '').trim(),
+    professorId: String(valorRota(query.professorId) || '').trim(),
+    nivel: String(valorRota(query.nivel) || '').trim().toUpperCase(),
+    situacao: String(valorRota(query.situacao) || '').trim().toUpperCase(),
+  }
+
+  paginaAtual.value = normalizarPagina(valorRota(query.pagina))
+  itensPorPagina.value = normalizarQuantidadePorPagina(valorRota(query.itensPorPagina))
+}
+
+function trocarPagina(valor) {
+  const novaPagina = Math.min(Math.max(1, normalizarPagina(valor)), totalPaginas.value)
+  if (novaPagina === paginaAtual.value) {
+    return
+  }
+
+  paginaAtual.value = novaPagina
+  atualizarQueryListaAulas()
+}
+
+function irParaPaginaAnterior() {
+  if (!podeIrAnterior.value) {
+    return
+  }
+
+  trocarPagina(paginaAtualExibida.value - 1)
+}
+
+function irParaProximaPagina() {
+  if (!podeIrProxima.value) {
+    return
+  }
+
+  trocarPagina(paginaAtualExibida.value + 1)
+}
+
+function alterarItensPorPagina(evento) {
+  const novoValor = normalizarQuantidadePorPagina(evento?.target?.value)
+  if (novoValor === itensPorPagina.value) {
+    return
+  }
+
+  itensPorPagina.value = novoValor
+  paginaAtual.value = 1
+  atualizarQueryListaAulas()
+}
+
 function validarPeriodo(dataInicial, dataFinal) {
   if (!dataInicial || !dataFinal) {
     return 'Informe a data inicial e a data final.'
@@ -631,17 +692,42 @@ function aplicarSituacaoParticipante(participante) {
   }
 }
 
+function montarQueryListaAulas() {
+  const query = { ...route.query }
+  delete query.aulaId
+
+  return {
+    ...query,
+    dataInicial: filtros.value.dataInicial,
+    dataFinal: filtros.value.dataFinal,
+    turmaId: filtros.value.turmaId || undefined,
+    professorId: filtros.value.professorId || undefined,
+    nivel: filtros.value.nivel || undefined,
+    situacao: filtros.value.situacao || undefined,
+    pagina: String(paginaAtual.value),
+    itensPorPagina: String(itensPorPagina.value),
+  }
+}
+
+function atualizarQueryListaAulas() {
+  router.replace({
+    name: 'aulas-frequencia',
+    query: montarQueryListaAulas(),
+  })
+}
+
 function selecionarAula(item = {}) {
   const aulaId = normalizarIdPositivo(item.id)
   if (!aulaId) {
     return
   }
 
-  router.replace({
-    query: {
-      ...route.query,
+  router.push({
+    name: 'aulas-frequencia-detalhe',
+    params: {
       aulaId: String(aulaId),
     },
+    query: montarQueryListaAulas(),
   })
 }
 
@@ -693,7 +779,6 @@ async function carregarListaAulas() {
       .filter(Boolean)
 
     aulas.value = listaNormalizada
-    aplicarSelecaoInicial(listaNormalizada)
   } catch (error) {
     if (sequenciaAtual !== sequenciaLista.value) {
       return false
@@ -758,6 +843,8 @@ async function carregarDetalheAula(aulaId) {
 
 async function aplicarFiltros() {
   limparFeedback()
+  paginaAtual.value = 1
+  atualizarQueryListaAulas()
   const carregou = await carregarListaAulas()
   if (carregou) {
     definirFeedback('Filtros aplicados com sucesso.', 'sucesso')
@@ -766,7 +853,9 @@ async function aplicarFiltros() {
 
 function limparFiltros() {
   filtros.value = criarFiltrosPadrao()
+  paginaAtual.value = 1
   limparFeedback()
+  atualizarQueryListaAulas()
   carregarListaAulas().catch((error) => {
     erroLista.value = obterMensagemErro(error, 'Não foi possível carregar as aulas.')
   })
@@ -808,6 +897,7 @@ async function gerarAulas() {
     }
 
     await carregarListaAulas()
+    atualizarQueryListaAulas()
   } catch (error) {
     definirFeedback(obterMensagemErro(error, 'Não foi possível gerar as aulas.'), 'erro')
   } finally {
@@ -871,6 +961,7 @@ async function atualizarContextoEmpresa() {
 }
 
 async function carregarTudo() {
+  aplicarEstadoDaQueryNaTela()
   await carregarContextoGestaoEsportiva()
   modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
 
@@ -885,17 +976,28 @@ async function carregarTudo() {
     return
   }
 
+  const aulaIdCompat = normalizarIdPositivo(valorRota(route.query.aulaId))
+  if (aulaIdCompat) {
+    await router.replace({
+      name: 'aulas-frequencia-detalhe',
+      params: {
+        aulaId: String(aulaIdCompat),
+      },
+      query: montarQueryListaAulas(),
+    })
+    return
+  }
+
   carregandoLista.value = true
   await Promise.all([carregarTurmasEProfessores(), carregarListaAulas()])
 }
 
-watch(
-  () => [aulaSelecionadaId.value, moduloAtivo.value, modoVisualizacaoEmpresa.value],
-  async ([novoId]) => {
-    await carregarDetalheAula(novoId)
-  },
-  { immediate: true },
-)
+watch(totalPaginas, (novoTotal) => {
+  if (paginaAtual.value > novoTotal) {
+    paginaAtual.value = novoTotal
+    atualizarQueryListaAulas()
+  }
+})
 
 onMounted(() => {
   carregarTudo().catch((error) => {
@@ -1061,7 +1163,7 @@ onBeforeUnmount(() => {
         </article>
       </section>
 
-      <section class="grade-principal">
+      <section class="lista-aulas-section">
         <article class="card lista-aulas-card">
           <div class="titulo-card">
             <div>
@@ -1069,7 +1171,7 @@ onBeforeUnmount(() => {
               <h2>Aulas encontradas</h2>
               <p class="descricao-card">Clique em uma aula para abrir o detalhe e lançar a frequência.</p>
             </div>
-            <span class="contador">{{ aulasOrdenadas.length }} item(s)</span>
+            <span class="contador">{{ totalAulas }} aula(s)</span>
           </div>
 
           <section v-if="carregandoLista && !temAulas" class="estado-vazio">
@@ -1084,185 +1186,98 @@ onBeforeUnmount(() => {
             <p>Nenhuma aula encontrada para os filtros informados.</p>
           </section>
 
-          <div v-else class="lista-aulas">
-            <button
-              v-for="aula in aulasOrdenadas"
-              :key="aula.id"
-              class="aula-card"
-              :class="{ selecionada: aulaSelecionadaId === aula.id }"
-              type="button"
-              @click="selecionarAula(aula)"
-            >
-              <div class="aula-card-topo">
-                <div>
-                  <p class="aula-data">{{ formatarDataBrasileira(aula.dataAula) || 'Data não informada' }}</p>
-                  <h3>{{ aula.turmaNome || `Aula ${aula.id}` }}</h3>
-                  <p class="aula-horario">
-                    {{ formatarHorario(aula.horarioInicio) }} · {{ formatarDuracaoMinutos(aula.duracaoMinutos) }}
-                  </p>
+          <template v-else>
+            <div class="paginacao-superior">
+              <div class="paginacao-info">
+                <p><strong>{{ totalAulas }}</strong> aula(s) no total</p>
+                <p>Página {{ paginaAtualExibida }} de {{ totalPaginas }}</p>
+                <p>Exibindo {{ intervaloExibido }}</p>
+              </div>
+
+              <div class="paginacao-controles">
+                <label class="seletor-paginacao">
+                  Itens por página
+                  <select :value="String(itensPorPagina)" @change="alterarItensPorPagina">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                  </select>
+                </label>
+
+                <div class="acoes-card">
+                  <button class="botao secundario" type="button" :disabled="!podeIrAnterior" @click="irParaPaginaAnterior">
+                    Anterior
+                  </button>
+                  <button class="botao secundario" type="button" :disabled="!podeIrProxima" @click="irParaProximaPagina">
+                    Próxima
+                  </button>
                 </div>
               </div>
-
-              <div class="chips-aula">
-                <span v-if="rotuloNivelBeachTennis(aula.nivel)" class="chip">{{ rotuloNivelBeachTennis(aula.nivel) }}</span>
-                <span v-if="aula.competicao" class="chip competicao">{{ rotuloCompeticaoBeachTennis(true) }}</span>
-                <span v-else class="chip sutileza">Sem competição</span>
-                <span class="chip situacao" :class="estadoSituacaoAula(aula.situacao)">
-                  {{ rotuloSituacaoAula(aula.situacao) }}
-                </span>
-              </div>
-
-              <div class="resumo-aula">
-                <div><span>Participantes</span><strong>{{ aula.quantidadeParticipantes }}</strong></div>
-                <div><span>Presentes</span><strong>{{ aula.presentes }}</strong></div>
-                <div><span>Faltas justificadas</span><strong>{{ aula.faltasJustificadas }}</strong></div>
-                <div><span>Faltas sem justificativa</span><strong>{{ aula.faltasSemJustificativa }}</strong></div>
-                <div><span>Não lançados</span><strong>{{ aula.naoLancados }}</strong></div>
-              </div>
-
-              <div class="rodape-aula">
-                <p>
-                  <strong>Professor:</strong>
-                  {{ aula.professorNome || '-' }}
-                </p>
-                <span class="botao-link">{{ aula.naoLancados < aula.quantidadeParticipantes ? 'Ver frequência' : 'Lançar frequência' }}</span>
-              </div>
-            </button>
-          </div>
-        </article>
-
-        <article class="card detalhe-aula-card">
-          <div class="titulo-card">
-            <div>
-              <p class="subtitulo-mini">Detalhe</p>
-              <h2>{{ aulaDetalhe ? aulaDetalhe.turmaNome || `Aula ${aulaDetalhe.id}` : 'Selecione uma aula' }}</h2>
-              <p class="descricao-card">
-                {{ aulaDetalhe ? 'Revise os dados da aula e ajuste os lançamentos conforme necessário.' : 'Selecione uma aula na lista para abrir os participantes.' }}
-              </p>
             </div>
-            <div class="acoes-card detalhe-acoes">
-              <button class="botao secundario" type="button" :disabled="carregandoDetalhe" @click="carregarDetalheAula(aulaSelecionadaId)">
-                {{ carregandoDetalhe ? 'Carregando...' : 'Recarregar detalhe' }}
-              </button>
-              <button class="botao principal" type="button" :disabled="!podeSalvarFrequencias" @click="salvarFrequencias">
-                {{ salvandoFrequencias ? 'Salvando...' : 'Salvar frequência' }}
-              </button>
-            </div>
-          </div>
 
-          <section v-if="erroDetalhe" class="estado-erro">
-            <p>{{ erroDetalhe }}</p>
-          </section>
-
-          <section v-else-if="carregandoDetalhe && !aulaDetalhe" class="estado-vazio">
-            <p>Carregando detalhe da aula...</p>
-          </section>
-
-          <section v-else-if="!aulaDetalhe" class="estado-vazio">
-            <p>Selecione uma aula para ver os participantes e lançar a frequência.</p>
-          </section>
-
-          <template v-else>
-            <section class="cabecalho-detalhe">
-              <div class="meta-aula">
-                <div><span>Data</span><strong>{{ formatarDataBrasileira(aulaDetalhe.dataAula) || '-' }}</strong></div>
-                <div><span>Horário</span><strong>{{ formatarHorario(aulaDetalhe.horarioInicio) }}</strong></div>
-                <div><span>Duração</span><strong>{{ formatarDuracaoMinutos(aulaDetalhe.duracaoMinutos) }}</strong></div>
-                <div><span>Turma</span><strong>{{ aulaDetalhe.turmaNome || '-' }}</strong></div>
-                <div><span>Professor</span><strong>{{ aulaDetalhe.professorNome || '-' }}</strong></div>
-                <div><span>Situação</span><strong>{{ rotuloSituacaoAula(aulaDetalhe.situacao) }}</strong></div>
-              </div>
-
-              <div class="chips-aula detalhe">
-                <span v-if="rotuloNivelBeachTennis(aulaDetalhe.nivel)" class="chip">{{ rotuloNivelBeachTennis(aulaDetalhe.nivel) }}</span>
-                <span v-if="aulaDetalhe.competicao" class="chip competicao">{{ rotuloCompeticaoBeachTennis(true) }}</span>
-                <span v-else class="chip sutileza">Sem competição</span>
-                <span class="chip situacao" :class="estadoSituacaoAula(aulaDetalhe.situacao)">
-                  {{ rotuloSituacaoAula(aulaDetalhe.situacao) }}
-                </span>
-              </div>
-
-              <div class="resumo-frequencia">
-                <div><span>Participantes</span><strong>{{ resumoFrequencias.quantidadeParticipantes }}</strong></div>
-                <div><span>Presentes</span><strong>{{ resumoFrequencias.presentes }}</strong></div>
-                <div><span>Faltas justificadas</span><strong>{{ resumoFrequencias.faltasJustificadas }}</strong></div>
-                <div><span>Faltas sem justificativa</span><strong>{{ resumoFrequencias.faltasSemJustificativa }}</strong></div>
-                <div><span>Não lançados</span><strong>{{ resumoFrequencias.naoLancados }}</strong></div>
-              </div>
-
-              <section v-if="aulaCancelada" class="aviso-bloqueio">
-                <p>Esta aula está cancelada. A frequência pode ser visualizada, mas não pode ser alterada.</p>
-              </section>
-            </section>
-
-            <section class="participantes">
-              <article v-for="participante in participantesEdicao" :key="participante.clienteId" class="participante-card">
-                <div class="participante-topo">
+            <div class="lista-aulas">
+              <button
+                v-for="aula in aulasPaginadas"
+                :key="aula.id"
+                class="aula-card"
+                type="button"
+                @click="selecionarAula(aula)"
+              >
+                <div class="aula-card-topo">
                   <div>
-                    <h3>{{ participante.clienteNome }}</h3>
-                    <p class="participante-meta">
-                      <span v-if="participante.clienteTelefone">{{ participante.clienteTelefone }}</span>
-                      <span v-if="rotuloNivelBeachTennis(participante.clienteNivel)"> · {{ rotuloNivelBeachTennis(participante.clienteNivel) }}</span>
-                      <span v-if="participante.dataEntrada"> · Entrada {{ formatarDataBrasileira(participante.dataEntrada) }}</span>
-                      <span v-if="participante.dataSaida"> · Saída {{ formatarDataBrasileira(participante.dataSaida) }}</span>
+                    <p class="aula-data">{{ formatarDataBrasileira(aula.dataAula) || 'Data não informada' }}</p>
+                    <h3>{{ aula.turmaNome || `Aula ${aula.id}` }}</h3>
+                    <p class="aula-horario">
+                      {{ formatarHorario(aula.horarioInicio) }} · {{ formatarDuracaoMinutos(aula.duracaoMinutos) }}
                     </p>
                   </div>
-                  <div class="chips-participante">
-                    <span class="chip situacao" :class="estadoSituacaoAula(participante.situacao)">
-                      {{ rotuloSituacaoFrequencia(participante.situacao) }}
-                    </span>
-                    <span class="chip sutileza">{{ participante.tipoParticipacao }}</span>
-                  </div>
                 </div>
 
-                <div class="campos-participante">
-                  <label>
-                    Situação
-                    <select
-                      v-model="participante.situacao"
-                      :disabled="aulaCancelada"
-                      @change="aplicarSituacaoParticipante(participante)"
-                    >
-                      <option v-for="opcao in OPCOES_SITUACAO_FREQUENCIA" :key="opcao.valor" :value="opcao.valor">
-                        {{ opcao.rotulo }}
-                      </option>
-                    </select>
-                  </label>
-
-                  <label v-if="participante.situacao === 'FALTA_JUSTIFICADA'" :data-participante-id="participante.clienteId">
-                    Justificativa
-                    <textarea
-                      v-model="participante.justificativa"
-                      rows="2"
-                      :disabled="aulaCancelada"
-                      data-campo="justificativa"
-                      placeholder="Explique o motivo da falta"
-                    ></textarea>
-                  </label>
-
-                  <label>
-                    Observação
-                    <textarea
-                      v-model="participante.observacao"
-                      rows="2"
-                      :disabled="aulaCancelada"
-                      :placeholder="participante.situacao === 'FALTA_JUSTIFICADA' ? 'Comentário opcional sobre o lançamento' : 'Observação opcional'"
-                    ></textarea>
-                  </label>
+                <div class="chips-aula">
+                  <span v-if="rotuloNivelBeachTennis(aula.nivel)" class="chip">{{ rotuloNivelBeachTennis(aula.nivel) }}</span>
+                  <span v-if="aula.competicao" class="chip competicao">{{ rotuloCompeticaoBeachTennis(true) }}</span>
+                  <span v-else class="chip sutileza">Sem competição</span>
+                  <span class="chip situacao" :class="estadoSituacaoAula(aula.situacao)">
+                    {{ rotuloSituacaoAula(aula.situacao) }}
+                  </span>
                 </div>
 
-                <div class="rodape-participante">
+                <div class="resumo-aula">
+                  <div><span>Participantes</span><strong>{{ aula.quantidadeParticipantes }}</strong></div>
+                  <div><span>Presentes</span><strong>{{ aula.presentes }}</strong></div>
+                  <div><span>Faltas justificadas</span><strong>{{ aula.faltasJustificadas }}</strong></div>
+                  <div><span>Faltas sem justificativa</span><strong>{{ aula.faltasSemJustificativa }}</strong></div>
+                  <div><span>Não lançados</span><strong>{{ aula.naoLancados }}</strong></div>
+                </div>
+
+                <div class="rodape-aula">
                   <p>
-                    <strong>Lançado em:</strong>
-                    {{ formatarDataHora(participante.lancadoEm) || '-' }}
+                    <strong>Professor:</strong>
+                    {{ aula.professorNome || '-' }}
                   </p>
-                  <p>
-                    <strong>Atualizado em:</strong>
-                    {{ formatarDataHora(participante.atualizadoEm) || '-' }}
-                  </p>
+                  <span class="botao-link">
+                    {{ aula.naoLancados < aula.quantidadeParticipantes ? 'Ver frequência' : 'Lançar frequência' }}
+                  </span>
                 </div>
-              </article>
-            </section>
+              </button>
+            </div>
+
+            <div class="paginacao-rodape">
+              <div class="paginacao-info">
+                <p><strong>{{ totalAulas }}</strong> aula(s) no total</p>
+                <p>Página {{ paginaAtualExibida }} de {{ totalPaginas }}</p>
+                <p>Exibindo {{ intervaloExibido }}</p>
+              </div>
+
+              <div class="acoes-card">
+                <button class="botao secundario" type="button" :disabled="!podeIrAnterior" @click="irParaPaginaAnterior">
+                  Anterior
+                </button>
+                <button class="botao secundario" type="button" :disabled="!podeIrProxima" @click="irParaProximaPagina">
+                  Próxima
+                </button>
+              </div>
+            </div>
           </template>
         </article>
       </section>
@@ -1506,7 +1521,7 @@ textarea:focus {
 
 .grade-principal {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.25fr);
+  grid-template-columns: 1fr;
   gap: 20px;
 }
 
@@ -1519,7 +1534,37 @@ textarea:focus {
 
 .lista-aulas {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.paginacao-superior,
+.paginacao-rodape {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.paginacao-info {
+  display: grid;
+  gap: 6px;
+  color: var(--app-text-muted);
+}
+
+.paginacao-info strong {
+  color: var(--app-text);
+}
+
+.paginacao-controles {
+  display: grid;
+  gap: 12px;
+  justify-items: end;
+}
+
+.seletor-paginacao {
+  min-width: 180px;
 }
 
 .aula-card {
@@ -1746,6 +1791,10 @@ textarea:focus {
   .grade-superior {
     grid-template-columns: 1fr;
   }
+
+  .lista-aulas {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1767,8 +1816,14 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .paginacao-superior,
+  .paginacao-rodape,
   .detalhe-acoes {
     justify-content: flex-start;
+  }
+
+  .paginacao-controles {
+    justify-items: flex-start;
   }
 }
 
