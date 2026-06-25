@@ -10,10 +10,12 @@ import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelecto
 import {
   buscarStatusFinanceiroMinhaEmpresa,
   buscarVersaoSistema,
+  buscarMinhaEmpresa,
   carregarUsuarioSessao,
   EVENTO_EMPRESA_VISUALIZACAO,
   limparSessaoAutenticacao,
   obterInfoVersaoSistemaPadrao,
+  obterEmpresaIdOperacao,
   obterTipoSeloAmbiente,
 } from '@/services/api'
 import {
@@ -344,6 +346,34 @@ const temaAparenciaAtual = computed(() => temaAparencia.value)
 const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloGestaoEsportivaVisivel = computed(() => contextoEsportivo.value?.ativo === true)
+const empresaOperacional = ref(null)
+const empresaOperacionalCarregadaPara = ref('')
+const modulosAtivosEmpresa = computed(() => normalizarModulosAtivos(empresaOperacional.value))
+const moduloAgendamentoAtivo = computed(() => moduloAtivo(modulosAtivosEmpresa.value, ['AGEND']))
+const moduloEstoqueAtivo = computed(() => moduloAtivo(modulosAtivosEmpresa.value, ['ESTOQ']))
+const mostrarServicosOperacao = computed(() => moduloAgendamentoAtivo.value)
+const mostrarFuncionariosOperacao = computed(() => moduloAgendamentoAtivo.value)
+const mostrarEstoqueOperacao = computed(() => podeGerenciarUsuarios.value && moduloEstoqueAtivo.value)
+const mostrarCatalogoPublicoOperacao = computed(() => podeGerenciarUsuarios.value && moduloEstoqueAtivo.value)
+const mostrarDisponibilidadeOperacao = computed(
+  () => modoNavegacaoCompleto.value && podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value,
+)
+const mostrarRelatoriosOperacao = computed(
+  () => modoNavegacaoCompleto.value && podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value,
+)
+const mostrarPrimeirosPassosOperacao = computed(
+  () => modoNavegacaoCompleto.value && adminEmpresa.value && moduloAgendamentoAtivo.value,
+)
+const mostrarGrupoOperacao = computed(
+  () =>
+    mostrarServicosOperacao.value ||
+    mostrarFuncionariosOperacao.value ||
+    mostrarEstoqueOperacao.value ||
+    mostrarCatalogoPublicoOperacao.value ||
+    mostrarDisponibilidadeOperacao.value ||
+    mostrarRelatoriosOperacao.value ||
+    mostrarPrimeirosPassosOperacao.value,
+)
 const tituloMenuGestaoEsportiva = computed(() => formatarNomeModalidadeEmCaixaAlta(contextoEsportivo.value?.nomeModalidade))
 const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const rotuloCadastroParticipanteMenu = computed(
@@ -480,6 +510,28 @@ function normalizarTextoCabecalho(valor) {
     .toLocaleLowerCase('pt-BR')
 }
 
+function normalizarModulosAtivos(empresa = {}) {
+  const lista = Array.isArray(empresa?.modulosAtivos) ? empresa.modulosAtivos : []
+
+  return [...new Set(
+    lista
+      .map((item) => {
+        if (item && typeof item === 'object') {
+          return String(item.codigo || item.codigoModulo || item.nome || item.id || '').trim().toUpperCase()
+        }
+
+        return String(item || '').trim().toUpperCase()
+      })
+      .filter(Boolean),
+  )]
+}
+
+function moduloAtivo(modulos = [], candidatos = []) {
+  return candidatos.some((candidato) =>
+    modulos.some((modulo) => modulo === candidato || modulo.includes(candidato)),
+  )
+}
+
 function obterTextoCabecalho(elemento) {
   return String(elemento?.textContent || '')
     .replace(/\s+/g, ' ')
@@ -552,6 +604,8 @@ function atualizarUsuarioLogado() {
   ) {
     usuario.value = null
     statusFinanceiro.value = null
+    empresaOperacional.value = null
+    empresaOperacionalCarregadaPara.value = ''
     limparContextoGestaoEsportiva()
     return
   }
@@ -561,11 +615,40 @@ function atualizarUsuarioLogado() {
   if (usuario.value) {
     sincronizarModoNavegacao(usuario.value)
     carregarContextoGestaoEsportiva()
+    void carregarEmpresaOperacional()
   } else {
+    empresaOperacional.value = null
+    empresaOperacionalCarregadaPara.value = ''
     limparContextoGestaoEsportiva()
   }
 
   carregarStatusFinanceiro()
+}
+
+async function carregarEmpresaOperacional() {
+  const empresaIdOperacao = String(obterEmpresaIdOperacao() || '').trim()
+
+  if (superAdmin.value && !empresaIdOperacao) {
+    empresaOperacional.value = null
+    empresaOperacionalCarregadaPara.value = ''
+    return
+  }
+
+  if (empresaOperacionalCarregadaPara.value && empresaOperacionalCarregadaPara.value === empresaIdOperacao) {
+    return
+  }
+
+  try {
+    const empresa = await buscarMinhaEmpresa()
+    const empresaIdCarregada = String(empresa?.id || empresaIdOperacao || '').trim()
+
+    empresaOperacional.value = empresa && typeof empresa === 'object' ? empresa : null
+    empresaOperacionalCarregadaPara.value = empresaIdCarregada
+  } catch (error) {
+    console.error(error)
+    empresaOperacional.value = null
+    empresaOperacionalCarregadaPara.value = ''
+  }
 }
 
 async function atualizarVisualizacaoEmpresaGlobal() {
@@ -574,6 +657,7 @@ async function atualizarVisualizacaoEmpresaGlobal() {
   }
 
   await recarregarContextoGestaoEsportiva()
+  await carregarEmpresaOperacional()
   recarregamentoVisualizacaoEmpresa.value += 1
   await nextTick()
   observarCabecalhoPagina()
@@ -903,23 +987,23 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <section class="grupo-menu">
+        <section v-if="mostrarGrupoOperacao" class="grupo-menu">
           <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('operacao')">
             <span>Operação</span>
             <span>{{ grupoMenuAberto('operacao') ? '−' : '+' }}</span>
           </button>
           <div v-if="grupoMenuAberto('operacao')" class="submenu">
-            <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
-            <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/catalogo-publico" @click="fecharMenuMobile">Catálogo público</RouterLink>
-            <RouterLink v-if="modoNavegacaoCompleto && podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">
+            <RouterLink v-if="mostrarServicosOperacao" to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
+            <RouterLink v-if="mostrarFuncionariosOperacao" to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
+            <RouterLink v-if="mostrarEstoqueOperacao" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
+            <RouterLink v-if="mostrarCatalogoPublicoOperacao" to="/catalogo-publico" @click="fecharMenuMobile">Catálogo público</RouterLink>
+            <RouterLink v-if="mostrarDisponibilidadeOperacao" to="/disponibilidade" @click="fecharMenuMobile">
               Disponibilidade
             </RouterLink>
-            <RouterLink v-if="modoNavegacaoCompleto && podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">
+            <RouterLink v-if="mostrarRelatoriosOperacao" to="/relatorios" @click="fecharMenuMobile">
               Relatórios
             </RouterLink>
-            <RouterLink v-if="modoNavegacaoCompleto && adminEmpresa" to="/onboarding" @click="fecharMenuMobile">
+            <RouterLink v-if="mostrarPrimeirosPassosOperacao" to="/onboarding" @click="fecharMenuMobile">
               Primeiros passos
             </RouterLink>
           </div>
