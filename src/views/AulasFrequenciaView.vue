@@ -17,6 +17,7 @@ import {
   contextoGestaoEsportiva,
   recarregarContextoGestaoEsportiva,
 } from '@/utils/gestaoEsportiva'
+import { formatarMensagemQuantidade } from '@/utils/aulasFrequencia'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,6 +41,8 @@ const OPCOES_SITUACAO_FREQUENCIA = [
 const STATUS_FREQUENCIA_PERSISTIVEIS = new Set(
   OPCOES_SITUACAO_FREQUENCIA.map((opcao) => opcao.valor).filter((valor) => valor !== 'NAO_LANCADO'),
 )
+
+const OPCOES_ITENS_POR_PAGINA = Object.freeze([1, 2, 3, 5, 7, 10, 20])
 
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloAtivo = computed(() => contextoEsportivo.value?.ativo === true)
@@ -547,7 +550,17 @@ function normalizarPagina(valor) {
 
 function normalizarQuantidadePorPagina(valor) {
   const numero = Number.parseInt(String(valor ?? '').trim(), 10)
-  return [5, 10, 20].includes(numero) ? numero : 5
+  return OPCOES_ITENS_POR_PAGINA.includes(numero) ? numero : 5
+}
+
+function rotuloAcaoAula(aula = {}) {
+  const quantidadeParticipantes = normalizarNumero(aula.quantidadeParticipantes, 0)
+  if (quantidadeParticipantes === 0) {
+    return 'Ver detalhes'
+  }
+
+  const naoLancados = normalizarNumero(aula.naoLancados, 0)
+  return naoLancados < quantidadeParticipantes ? 'Ver frequência' : 'Lançar frequência'
 }
 
 function aplicarEstadoDaQueryNaTela() {
@@ -929,8 +942,9 @@ async function salvarFrequencias() {
   }
 
   const payload = prepararPayloadFrequencias()
+  const quantidadeLancamentos = payload.length
   if (!payload.length) {
-    definirFeedback('Não há lançamentos para salvar nesta aula.', 'info')
+    definirFeedback('Nenhuma alteração pendente.', 'info')
     return
   }
 
@@ -938,7 +952,14 @@ async function salvarFrequencias() {
     salvandoFrequencias.value = true
     limparFeedback()
     await salvarFrequenciasAulaGestaoEsportiva(aulaDetalhe.value.id, payload)
-    definirFeedback(`${payload.length} lançamento(s) salvo(s) com sucesso.`, 'sucesso')
+    definirFeedback(
+      formatarMensagemQuantidade(
+        quantidadeLancamentos,
+        'lançamento salvo com sucesso.',
+        'lançamentos salvos com sucesso.',
+      ),
+      'sucesso',
+    )
     await carregarDetalheAula(aulaSelecionadaId.value)
     await carregarListaAulas()
   } catch (error) {
@@ -1198,9 +1219,9 @@ onBeforeUnmount(() => {
                 <label class="seletor-paginacao">
                   Itens por página
                   <select :value="String(itensPorPagina)" @change="alterarItensPorPagina">
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
+                    <option v-for="opcao in OPCOES_ITENS_POR_PAGINA" :key="opcao" :value="String(opcao)">
+                      {{ opcao }}
+                    </option>
                   </select>
                 </label>
 
@@ -1256,7 +1277,7 @@ onBeforeUnmount(() => {
                     {{ aula.professorNome || '-' }}
                   </p>
                   <span class="botao-link">
-                    {{ aula.naoLancados < aula.quantidadeParticipantes ? 'Ver frequência' : 'Lançar frequência' }}
+                    {{ rotuloAcaoAula(aula) }}
                   </span>
                 </div>
               </button>

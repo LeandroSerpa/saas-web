@@ -12,6 +12,7 @@ import { formatarDataPtBrSemFuso } from '@/utils/datas'
 import {
   calcularResumoFrequencias,
   criarSnapshotParticipantes,
+  formatarMensagemQuantidade,
   estadoSituacaoAula,
   formatarDuracaoMinutos,
   formatarHorario,
@@ -62,7 +63,22 @@ const participantesAlterados = computed(() =>
 const participantesAlteradosValidos = computed(() =>
   participantesAlterados.value.filter((participante) => normalizarSituacaoFrequencia(participante.situacao) !== 'NAO_LANCADO'),
 )
-const temAlteracoesPendentes = computed(() => participantesAlteradosValidos.value.length > 0)
+const temParticipantes = computed(() => participantesEdicao.value.length > 0)
+const lancamentosPendentes = computed(() =>
+  prepararPayloadFrequenciasAlteradas(participantesEdicao.value, snapshotParticipantes.value),
+)
+const temAlteracoesPendentes = computed(() => lancamentosPendentes.value.length > 0)
+const mensagemEstadoAlteracoes = computed(() => {
+  if (!temParticipantes.value) {
+    return 'Esta aula ainda não possui participantes vinculados.'
+  }
+
+  if (!temAlteracoesPendentes.value) {
+    return 'Nenhuma alteração pendente.'
+  }
+
+  return formatarMensagemQuantidade(lancamentosPendentes.value.length, 'alteração pendente.', 'alterações pendentes.')
+})
 const podeSalvarFrequencias = computed(
   () =>
     Boolean(aulaDetalhe.value?.id) &&
@@ -149,7 +165,7 @@ function validarLancamentosPendentes() {
 }
 
 function prepararPayloadFrequencias() {
-  return prepararPayloadFrequenciasAlteradas(participantesEdicao.value, snapshotParticipantes.value)
+  return lancamentosPendentes.value
 }
 
 async function carregarDetalheAula(aulaIdAtual = aulaId.value) {
@@ -210,7 +226,7 @@ async function salvarFrequencias() {
     }
 
     if (!temAlteracoesPendentes.value) {
-      definirFeedback('Não há alterações válidas para salvar nesta aula.', 'info')
+      definirFeedback(mensagemEstadoAlteracoes.value, 'info')
     }
     return
   }
@@ -229,8 +245,9 @@ async function salvarFrequencias() {
   }
 
   const payload = prepararPayloadFrequencias()
+  const quantidadeLancamentos = payload.length
   if (!payload.length) {
-    definirFeedback('Não há alterações válidas para salvar nesta aula.', 'info')
+    definirFeedback(mensagemEstadoAlteracoes.value, 'info')
     return
   }
 
@@ -239,7 +256,14 @@ async function salvarFrequencias() {
     limparFeedback()
     await salvarFrequenciasAulaGestaoEsportiva(aulaDetalhe.value.id, payload)
     await carregarDetalheAula(aulaDetalhe.value.id)
-    definirFeedback(`${payload.length} lançamento(s) salvo(s) com sucesso.`, 'sucesso')
+    definirFeedback(
+      formatarMensagemQuantidade(
+        quantidadeLancamentos,
+        'lançamento salvo com sucesso.',
+        'lançamentos salvos com sucesso.',
+      ),
+      'sucesso',
+    )
   } catch (error) {
     definirFeedback(obterMensagemErro(error, 'Não foi possível salvar a frequência.'), 'erro')
   } finally {
@@ -389,11 +413,11 @@ onBeforeUnmount(() => {
             </section>
           </section>
 
-          <section v-if="!aulaCancelada && !temAlteracoesPendentes" class="estado-vazio estado-vazio-compacto">
-            <p>Não há alterações válidas para salvar nesta aula.</p>
+          <section v-if="!aulaCancelada" class="estado-vazio estado-vazio-compacto">
+            <p>{{ mensagemEstadoAlteracoes }}</p>
           </section>
 
-          <section class="participantes">
+          <section v-if="temParticipantes" class="participantes">
             <article v-for="participante in participantesEdicao" :key="participante.clienteId" class="participante-card">
               <div class="participante-topo">
                 <div>

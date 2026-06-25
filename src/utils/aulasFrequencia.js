@@ -62,6 +62,12 @@ export function normalizarTipoParticipacao(valor) {
   return texto || 'REGULAR'
 }
 
+export function formatarMensagemQuantidade(quantidade, singular, plural) {
+  const numero = Number(quantidade)
+  const total = Number.isFinite(numero) && numero >= 0 ? numero : 0
+  return `${total} ${total === 1 ? singular : plural}`
+}
+
 export function obterNumeroDeCampo(fontes = [], chaves = [], fallback = 0) {
   for (const fonte of fontes) {
     if (!fonte || typeof fonte !== 'object') {
@@ -317,9 +323,20 @@ export function temAlteracaoParticipante(participante = {}, snapshotParticipante
 
 export function prepararPayloadFrequenciasAlteradas(participantes = [], snapshotParticipantes = new Map()) {
   const mapa = new Map()
+  const payload = []
 
   for (const participante of Array.isArray(participantes) ? participantes : []) {
-    if (!temAlteracaoParticipante(participante, snapshotParticipantes)) {
+    const original = snapshotParticipantes.get(participante.clienteId)
+    if (!original) {
+      continue
+    }
+
+    const atual = normalizarComparacaoParticipante(participante)
+    if (!STATUS_FREQUENCIA_PERSISTIVEIS.has(atual.situacao)) {
+      continue
+    }
+
+    if (saoParticipantesIguais(atual, original)) {
       continue
     }
 
@@ -327,17 +344,19 @@ export function prepararPayloadFrequenciasAlteradas(participantes = [], snapshot
       continue
     }
 
-    const atual = normalizarComparacaoParticipante(participante)
-    mapa.set(participante.clienteId, {
+    const lancamento = {
       clienteId: participante.clienteId,
       situacao: atual.situacao,
       justificativa: atual.situacao === 'FALTA_JUSTIFICADA' ? atual.justificativa || null : null,
       observacao: atual.observacao || null,
       tipoParticipacao: atual.tipoParticipacao || 'REGULAR',
-    })
+    }
+
+    mapa.set(participante.clienteId, lancamento)
+    payload.push(lancamento)
   }
 
-  return [...mapa.values()]
+  return payload
 }
 
 export function opcoesSituacaoParticipante(participante = {}, snapshotParticipantes = new Map()) {
