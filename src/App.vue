@@ -9,8 +9,10 @@ import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
   buscarStatusFinanceiroMinhaEmpresa,
+  buscarMinhaAssinatura,
   buscarVersaoSistema,
   buscarMinhaEmpresa,
+  buscarUsoPlano,
   carregarUsuarioSessao,
   EVENTO_EMPRESA_VISUALIZACAO,
   limparSessaoAutenticacao,
@@ -348,21 +350,28 @@ const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloGestaoEsportivaVisivel = computed(() => contextoEsportivo.value?.ativo === true)
 const empresaOperacional = ref(null)
 const empresaOperacionalCarregadaPara = ref('')
+const empresaOperacionalCarregando = ref(false)
+const assinaturaOperacional = ref(null)
+const usoPlanoOperacional = ref(null)
 const modulosAtivosEmpresa = computed(() => normalizarModulosAtivos(empresaOperacional.value))
-const moduloAgendamentoAtivo = computed(() => moduloAtivo(modulosAtivosEmpresa.value, ['AGEND']))
-const moduloEstoqueAtivo = computed(() => moduloAtivo(modulosAtivosEmpresa.value, ['ESTOQ']))
+const moduloAgendamentoAtivo = computed(() =>
+  avaliarVisibilidadeOperacao(['AGEND'], () => true, avaliarCapacidadeAgendamentoOperacional),
+)
+const moduloEstoqueAtivo = computed(() =>
+  avaliarVisibilidadeOperacao(['ESTOQ'], () => podeGerenciarUsuarios.value, avaliarCapacidadeEstoqueOperacional),
+)
 const mostrarServicosOperacao = computed(() => moduloAgendamentoAtivo.value)
 const mostrarFuncionariosOperacao = computed(() => moduloAgendamentoAtivo.value)
-const mostrarEstoqueOperacao = computed(() => podeGerenciarUsuarios.value && moduloEstoqueAtivo.value)
-const mostrarCatalogoPublicoOperacao = computed(() => podeGerenciarUsuarios.value && moduloEstoqueAtivo.value)
+const mostrarEstoqueOperacao = computed(() => moduloEstoqueAtivo.value)
+const mostrarCatalogoPublicoOperacao = computed(() => moduloEstoqueAtivo.value)
 const mostrarDisponibilidadeOperacao = computed(
-  () => modoNavegacaoCompleto.value && podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value,
+  () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && podeGerenciarUsuarios.value,
 )
 const mostrarRelatoriosOperacao = computed(
-  () => modoNavegacaoCompleto.value && podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value,
+  () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && podeGerenciarUsuarios.value,
 )
 const mostrarPrimeirosPassosOperacao = computed(
-  () => modoNavegacaoCompleto.value && adminEmpresa.value && moduloAgendamentoAtivo.value,
+  () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && adminEmpresa.value,
 )
 const mostrarGrupoOperacao = computed(
   () =>
@@ -511,7 +520,12 @@ function normalizarTextoCabecalho(valor) {
 }
 
 function normalizarModulosAtivos(empresa = {}) {
-  const lista = Array.isArray(empresa?.modulosAtivos) ? empresa.modulosAtivos : []
+  if (!empresa || typeof empresa !== 'object' || !Object.prototype.hasOwnProperty.call(empresa, 'modulosAtivos')) {
+    return []
+  }
+
+  const valorModulos = empresa.modulosAtivos
+  const lista = Array.isArray(valorModulos) ? valorModulos : valorModulos ? [valorModulos] : []
 
   return [...new Set(
     lista
@@ -530,6 +544,167 @@ function moduloAtivo(modulos = [], candidatos = []) {
   return candidatos.some((candidato) =>
     modulos.some((modulo) => modulo === candidato || modulo.includes(candidato)),
   )
+}
+
+function obterPlanoOperacional() {
+  return (
+    assinaturaOperacional.value?.plano ||
+    assinaturaOperacional.value ||
+    empresaOperacional.value?.plano ||
+    empresaOperacional.value?.assinatura?.plano ||
+    {}
+  )
+}
+
+function obterUsoPlanoOperacional() {
+  return usoPlanoOperacional.value || empresaOperacional.value?.usoPlano || empresaOperacional.value?.assinatura?.usoPlano || {}
+}
+
+function obterCapacidadeOperacional(fonte, campo, alternativo = '') {
+  if (!fonte || typeof fonte !== 'object') {
+    return { encontrado: false, valor: undefined }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(fonte, campo)) {
+    return { encontrado: true, valor: fonte[campo] }
+  }
+
+  if (alternativo && Object.prototype.hasOwnProperty.call(fonte, alternativo)) {
+    return { encontrado: true, valor: fonte[alternativo] }
+  }
+
+  if (fonte.limites && typeof fonte.limites === 'object') {
+    if (Object.prototype.hasOwnProperty.call(fonte.limites, campo)) {
+      return { encontrado: true, valor: fonte.limites[campo] }
+    }
+
+    if (alternativo && Object.prototype.hasOwnProperty.call(fonte.limites, alternativo)) {
+      return { encontrado: true, valor: fonte.limites[alternativo] }
+    }
+  }
+
+  return { encontrado: false, valor: undefined }
+}
+
+function obterCapacidadeOperacionalGlobal(campo, alternativo = '') {
+  const fontes = [obterUsoPlanoOperacional(), obterPlanoOperacional()]
+
+  for (const fonte of fontes) {
+    const resultado = obterCapacidadeOperacional(fonte, campo, alternativo)
+    if (resultado.encontrado) {
+      return resultado
+    }
+  }
+
+  return { encontrado: false, valor: undefined }
+}
+
+function avaliarLimiteCapacidadeOperacional(resultado) {
+  if (!resultado.encontrado) {
+    return null
+  }
+
+  if (resultado.valor === null) {
+    return true
+  }
+
+  if (resultado.valor === true) {
+    return true
+  }
+
+  if (resultado.valor === false) {
+    return false
+  }
+
+  const numero = Number(resultado.valor)
+  if (!Number.isNaN(numero)) {
+    return numero > 0
+  }
+
+  return null
+}
+
+function avaliarPermissaoCapacidadeOperacional(resultado) {
+  if (!resultado.encontrado) {
+    return null
+  }
+
+  if (resultado.valor === true || resultado.valor === 1) {
+    return true
+  }
+
+  if (resultado.valor === false || resultado.valor === 0) {
+    return false
+  }
+
+  const texto = String(resultado.valor || '').trim().toLowerCase()
+  if (['true', '1', 'sim', 's', 'ativo', 'on'].includes(texto)) {
+    return true
+  }
+
+  if (['false', '0', 'nao', 'não', 'inativo', 'off'].includes(texto)) {
+    return false
+  }
+
+  return null
+}
+
+function avaliarCapacidadeAgendamentoOperacional() {
+  const capacidades = [
+    avaliarLimiteCapacidadeOperacional(obterCapacidadeOperacionalGlobal('limiteServicos')),
+    avaliarLimiteCapacidadeOperacional(obterCapacidadeOperacionalGlobal('limiteFuncionarios')),
+    avaliarLimiteCapacidadeOperacional(obterCapacidadeOperacionalGlobal('limiteAgendamentosMes', 'limiteAgendamentos')),
+  ]
+
+  if (capacidades.some((valor) => valor === true)) {
+    return true
+  }
+
+  if (capacidades.some((valor) => valor === false)) {
+    return false
+  }
+
+  return null
+}
+
+function avaliarCapacidadeEstoqueOperacional() {
+  const capacidades = [
+    avaliarPermissaoCapacidadeOperacional(obterCapacidadeOperacionalGlobal('permiteEstoque')),
+    avaliarLimiteCapacidadeOperacional(obterCapacidadeOperacionalGlobal('limiteProdutos')),
+  ]
+
+  if (capacidades.some((valor) => valor === true)) {
+    return true
+  }
+
+  if (capacidades.some((valor) => valor === false)) {
+    return false
+  }
+
+  return null
+}
+
+function avaliarVisibilidadeOperacao(candidatos, fallback, avaliarCapacidade) {
+  if (empresaOperacionalCarregando.value) {
+    return false
+  }
+
+  if (superAdmin.value && !String(obterEmpresaIdOperacao() || '').trim()) {
+    return false
+  }
+
+  if (moduloAtivo(modulosAtivosEmpresa.value, candidatos)) {
+    return true
+  }
+
+  if (typeof avaliarCapacidade === 'function') {
+    const visibilidadeCapacidade = avaliarCapacidade()
+    if (visibilidadeCapacidade !== null) {
+      return visibilidadeCapacidade
+    }
+  }
+
+  return typeof fallback === 'function' ? fallback() : Boolean(fallback)
 }
 
 function obterTextoCabecalho(elemento) {
@@ -606,6 +781,9 @@ function atualizarUsuarioLogado() {
     statusFinanceiro.value = null
     empresaOperacional.value = null
     empresaOperacionalCarregadaPara.value = ''
+    empresaOperacionalCarregando.value = false
+    assinaturaOperacional.value = null
+    usoPlanoOperacional.value = null
     limparContextoGestaoEsportiva()
     return
   }
@@ -619,6 +797,9 @@ function atualizarUsuarioLogado() {
   } else {
     empresaOperacional.value = null
     empresaOperacionalCarregadaPara.value = ''
+    empresaOperacionalCarregando.value = false
+    assinaturaOperacional.value = null
+    usoPlanoOperacional.value = null
     limparContextoGestaoEsportiva()
   }
 
@@ -631,23 +812,69 @@ async function carregarEmpresaOperacional() {
   if (superAdmin.value && !empresaIdOperacao) {
     empresaOperacional.value = null
     empresaOperacionalCarregadaPara.value = ''
+    empresaOperacionalCarregando.value = false
+    assinaturaOperacional.value = null
+    usoPlanoOperacional.value = null
     return
   }
 
-  if (empresaOperacionalCarregadaPara.value && empresaOperacionalCarregadaPara.value === empresaIdOperacao) {
+  if (
+    empresaOperacionalCarregadaPara.value &&
+    empresaOperacionalCarregadaPara.value === empresaIdOperacao &&
+    empresaOperacional.value
+  ) {
     return
   }
+
+  empresaOperacionalCarregando.value = true
+  empresaOperacional.value = null
+  assinaturaOperacional.value = null
+  usoPlanoOperacional.value = null
 
   try {
     const empresa = await buscarMinhaEmpresa()
     const empresaIdCarregada = String(empresa?.id || empresaIdOperacao || '').trim()
 
+    if (String(obterEmpresaIdOperacao() || '').trim() !== empresaIdOperacao) {
+      return
+    }
+
     empresaOperacional.value = empresa && typeof empresa === 'object' ? empresa : null
     empresaOperacionalCarregadaPara.value = empresaIdCarregada
+
+    const modulosOperacionaisEmpresa = normalizarModulosAtivos(empresaOperacional.value)
+    const possuiModuloAgendamento = moduloAtivo(modulosOperacionaisEmpresa, ['AGEND'])
+    const possuiModuloEstoque = moduloAtivo(modulosOperacionaisEmpresa, ['ESTOQ'])
+
+    if (!possuiModuloAgendamento || !possuiModuloEstoque) {
+      const [assinatura, usoPlano] = await Promise.all([
+        buscarMinhaAssinatura().catch((error) => {
+          console.error(error)
+          return null
+        }),
+        buscarUsoPlano().catch((error) => {
+          console.error(error)
+          return null
+        }),
+      ])
+
+      if (String(obterEmpresaIdOperacao() || '').trim() !== empresaIdOperacao) {
+        return
+      }
+
+      assinaturaOperacional.value = assinatura && typeof assinatura === 'object' ? assinatura : null
+      usoPlanoOperacional.value = usoPlano && typeof usoPlano === 'object' ? usoPlano : null
+    }
   } catch (error) {
     console.error(error)
     empresaOperacional.value = null
     empresaOperacionalCarregadaPara.value = ''
+    assinaturaOperacional.value = null
+    usoPlanoOperacional.value = null
+  } finally {
+    if (String(obterEmpresaIdOperacao() || '').trim() === empresaIdOperacao) {
+      empresaOperacionalCarregando.value = false
+    }
   }
 }
 
