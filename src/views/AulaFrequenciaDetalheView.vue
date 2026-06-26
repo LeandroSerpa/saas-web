@@ -27,7 +27,6 @@ import {
   rotuloSituacaoAula,
   rotuloSituacaoFrequencia,
   temAlteracaoParticipante,
-  temFrequenciaPersistidaNaAula,
   temLancamentoPersistido,
 } from '@/utils/aulasFrequencia'
 import {
@@ -87,16 +86,38 @@ const mensagemEstadoAlteracoes = computed(() => {
 
   return formatarMensagemQuantidade(lancamentosPendentes.value.length, 'alteração pendente.', 'alterações pendentes.')
 })
+function obterContadorResumoAula(...chaves) {
+  const fontes = [aulaDetalhe.value, aulaDetalhe.value?.resumoFrequencias]
+
+  for (const fonte of fontes) {
+    if (!fonte || typeof fonte !== 'object') {
+      continue
+    }
+
+    for (const chave of chaves) {
+      const numero = Number(fonte[chave])
+      if (Number.isFinite(numero) && numero >= 0) {
+        return numero
+      }
+    }
+  }
+
+  return 0
+}
+
 const temFrequenciaPersistida = computed(() =>
-  temFrequenciaPersistidaNaAula(aulaDetalhe.value, participantesEdicao.value, snapshotParticipantes.value),
+  participantesEdicao.value.some((participante) => temLancamentoPersistido(participante, snapshotParticipantes.value)) ||
+  obterContadorResumoAula('presentes', 'qtdPresentes', 'quantidadePresentes') > 0 ||
+  obterContadorResumoAula('faltasJustificadas', 'qtdFaltasJustificadas', 'faltasComJustificativa') > 0 ||
+  obterContadorResumoAula('faltasSemJustificativa', 'qtdFaltasSemJustificativa') > 0 ||
+  obterContadorResumoAula('reposicoesRealizadas', 'qtdReposicoesRealizadas', 'reposicoes') > 0,
 )
 const podeCancelarAula = computed(
   () =>
+    Boolean(aulaDetalhe.value?.id) &&
     situacaoAulaSelecionada.value === 'AGENDADA' &&
-    !aulaCancelada.value &&
     !temFrequenciaPersistida.value &&
-    !modoVisualizacaoEmpresa.value &&
-    moduloAtivo.value,
+    !processandoCancelamento.value,
 )
 const podeReverterCancelamento = computed(
   () => aulaCancelada.value && !modoVisualizacaoEmpresa.value && moduloAtivo.value && Boolean(aulaDetalhe.value?.id),
