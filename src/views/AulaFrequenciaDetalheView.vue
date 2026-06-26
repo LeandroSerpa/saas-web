@@ -86,31 +86,14 @@ const mensagemEstadoAlteracoes = computed(() => {
 
   return formatarMensagemQuantidade(lancamentosPendentes.value.length, 'alteração pendente.', 'alterações pendentes.')
 })
-function obterContadorResumoAula(...chaves) {
-  const fontes = [aulaDetalhe.value, aulaDetalhe.value?.resumoFrequencias]
-
-  for (const fonte of fontes) {
-    if (!fonte || typeof fonte !== 'object') {
-      continue
-    }
-
-    for (const chave of chaves) {
-      const numero = Number(fonte[chave])
-      if (Number.isFinite(numero) && numero >= 0) {
-        return numero
-      }
-    }
-  }
-
-  return 0
-}
-
-const temFrequenciaPersistida = computed(() =>
-  participantesEdicao.value.some((participante) => temLancamentoPersistido(participante, snapshotParticipantes.value)) ||
-  obterContadorResumoAula('presentes', 'qtdPresentes', 'quantidadePresentes') > 0 ||
-  obterContadorResumoAula('faltasJustificadas', 'qtdFaltasJustificadas', 'faltasComJustificativa') > 0 ||
-  obterContadorResumoAula('faltasSemJustificativa', 'qtdFaltasSemJustificativa') > 0 ||
-  obterContadorResumoAula('reposicoesRealizadas', 'qtdReposicoesRealizadas', 'reposicoes') > 0,
+const resumoFrequencias = computed(() => calcularResumoFrequencias(null, participantesEdicao.value))
+const temFrequenciaPersistida = computed(
+  () =>
+    participantesEdicao.value.some((participante) => temLancamentoPersistido(participante, snapshotParticipantes.value)) ||
+    resumoFrequencias.value.presentes > 0 ||
+    resumoFrequencias.value.faltasJustificadas > 0 ||
+    resumoFrequencias.value.faltasSemJustificativa > 0 ||
+    resumoFrequencias.value.reposicoesRealizadas > 0,
 )
 const podeCancelarAula = computed(
   () =>
@@ -167,7 +150,6 @@ const podeSalvarFrequencias = computed(
     moduloAtivo.value &&
     temAlteracoesPendentes.value,
 )
-const resumoFrequencias = computed(() => calcularResumoFrequencias(aulaDetalhe.value, participantesEdicao.value))
 const queryRetorno = computed(() => {
   const query = { ...route.query }
   delete query.aulaId
