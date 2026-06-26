@@ -6,6 +6,8 @@ import {
   buscarAulaGestaoEsportiva,
   buscarAulasGestaoEsportiva,
   buscarFuncionarios,
+  buscarPreviaCancelamentoAulasGestaoEsportiva,
+  cancelarAulasGestaoEsportivaEmLote,
   buscarTurmasBeachTennis,
   gerarAulasGestaoEsportiva,
   modoVisualizacaoEmpresaAtivo,
@@ -43,6 +45,17 @@ const STATUS_FREQUENCIA_PERSISTIVEIS = new Set(
 )
 
 const OPCOES_ITENS_POR_PAGINA = Object.freeze([1, 2, 3, 5, 7, 10, 20])
+const OPCOES_ESCOPO_CANCELAMENTO_LOTE = Object.freeze([
+  { valor: 'AULAS_ESPECIFICAS', rotulo: 'Aulas específicas' },
+  { valor: 'TURMAS_NA_DATA', rotulo: 'Turmas em uma data' },
+  { valor: 'TODAS_DA_DATA', rotulo: 'Todas as aulas da data' },
+  { valor: 'PERIODO_DA_DATA', rotulo: 'Período do dia' },
+])
+const OPCOES_PERIODO_CANCELAMENTO_LOTE = Object.freeze([
+  { valor: 'MANHA', rotulo: 'Manhã' },
+  { valor: 'TARDE', rotulo: 'Tarde' },
+  { valor: 'NOITE', rotulo: 'Noite' },
+])
 
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloAtivo = computed(() => contextoEsportivo.value?.ativo === true)
@@ -72,6 +85,13 @@ const filtros = ref(criarFiltrosPadrao())
 const geracao = ref(criarGeracaoPadrao())
 const sequenciaLista = ref(0)
 const sequenciaDetalhe = ref(0)
+const modalCancelamentoLoteAberto = ref(false)
+const carregandoPreviaCancelamentoLote = ref(false)
+const processandoCancelamentoLote = ref(false)
+const erroCancelamentoLote = ref('')
+const previaCancelamentoLote = ref(null)
+const assinaturaPreviaCancelamentoLote = ref('')
+const cancelamentoLote = ref(criarCancelamentoLotePadrao())
 
 const aulaSelecionadaId = computed(() => normalizarIdPositivo(valorRota(route.query.aulaId)))
 const aulasOrdenadas = computed(() => [...aulas.value])
@@ -91,6 +111,63 @@ const indiceFimPagina = computed(() =>
 const aulasPaginadas = computed(() =>
   aulasOrdenadas.value.slice(indiceInicioPagina.value > 0 ? indiceInicioPagina.value - 1 : 0, indiceFimPagina.value),
 )
+const aulasSelecionaveisCancelamentoLote = computed(() => [...aulasOrdenadas.value])
+const turmasSelecionaveisCancelamentoLote = computed(() => [...turmasOrdenadas.value])
+const professoresSelecionaveisCancelamentoLote = computed(() => [...professoresOrdenados.value])
+const escopoCancelamentoLote = computed(() => String(cancelamentoLote.value.escopo || 'PERIODO_DA_DATA').trim())
+const previewCancelamentoLoteValida = computed(() => Boolean(previaCancelamentoLote.value && assinaturaPreviaCancelamentoLote.value))
+const previewCancelamentoLoteSemResultados = computed(
+  () => previewCancelamentoLoteValida.value && normalizarNumero(previaCancelamentoLote.value?.quantidadeEncontrada, 0) === 0,
+)
+const previewCancelamentoLoteBloqueado = computed(() => {
+  const resumo = previaCancelamentoLote.value
+  if (!resumo) {
+    return false
+  }
+
+  return normalizarNumero(resumo.quantidadeBloqueada, 0) > 0
+})
+const previewCancelamentoLoteSemAlteracao = computed(
+  () =>
+    previewCancelamentoLoteValida.value &&
+    !previewCancelamentoLoteSemResultados.value &&
+    normalizarNumero(previaCancelamentoLote.value?.quantidadeCancelavel, 0) === 0,
+)
+const mensagemPreviewCancelamentoLote = computed(() => {
+  if (!previewCancelamentoLoteValida.value) {
+    return 'Clique em Ver prévia para analisar o escopo selecionado antes de cancelar as aulas.'
+  }
+
+  if (previewCancelamentoLoteSemResultados.value) {
+    return 'Nenhuma aula foi encontrada para o escopo selecionado.'
+  }
+
+  if (previewCancelamentoLoteBloqueado.value) {
+    return 'O backend não permitirá cancelamento parcial neste cenário. Ajuste o escopo ou a seleção e consulte uma nova prévia.'
+  }
+
+  if (previewCancelamentoLoteSemAlteracao.value) {
+    return 'Todas as aulas encontradas já estão canceladas. Nenhuma nova alteração será executada.'
+  }
+
+  return 'A prévia está pronta. Confira os itens e informe o motivo para confirmar o cancelamento em lote.'
+})
+const podeConfirmarCancelamentoLote = computed(() => {
+  if (!previewCancelamentoLoteValida.value) {
+    return false
+  }
+
+  if (previewCancelamentoLoteSemResultados.value || previewCancelamentoLoteBloqueado.value || previewCancelamentoLoteSemAlteracao.value) {
+    return false
+  }
+
+  if (carregandoPreviaCancelamentoLote.value || processandoCancelamentoLote.value) {
+    return false
+  }
+
+  return Boolean(String(cancelamentoLote.value.motivo || '').trim())
+})
+const assinaturaAtualCancelamentoLote = computed(() => assinaturaCancelamentoLote(montarPayloadCancelamentoLote()))
 const intervaloExibido = computed(() =>
   totalAulas.value === 0 ? '0 de 0' : `${indiceInicioPagina.value} a ${indiceFimPagina.value} de ${totalAulas.value}`,
 )
@@ -234,6 +311,26 @@ function normalizarAulaLista(item = {}) {
     professorId: normalizarIdPositivo(item.professorId ?? item.funcionarioId),
     professorNome: normalizarTextoOpcional(item.professorNome || item.funcionarioNome || ''),
     situacao: normalizarSituacaoAula(item.situacao),
+    motivoCancelamento: normalizarTextoOpcional(
+      item.motivoCancelamento ||
+        item.motivo_cancelamento ||
+        item.motivoCancelamentoAula ||
+        item.motivoCancelacao ||
+        item.motivo_cancelacao ||
+        item.motivoCancelacaoAula ||
+        item.motivo,
+    ),
+    canceladoEm: normalizarTextoOpcional(
+      item.canceladoEm || item.cancelado_em || item.dataCancelamento || item.data_cancelamento || item.canceladoEmAula,
+    ),
+    canceladoPorUsuarioNome: normalizarTextoOpcional(
+      item.canceladoPorUsuarioNome ||
+        item.cancelado_por_usuario_nome ||
+        item.usuarioCancelamentoNome ||
+        item.usuario_cancelamento_nome ||
+        item.canceladoPorNome ||
+        item.cancelado_por_nome,
+    ),
     quantidadeParticipantes: obterNumeroDeCampo([item, resumo], ['quantidadeParticipantes', 'totalParticipantes', 'total', 'quantidadeTotal'], 0),
     presentes: obterNumeroDeCampo([item, resumo], ['presentes', 'qtdPresentes', 'quantidadePresentes'], 0),
     faltasJustificadas: obterNumeroDeCampo([item, resumo], ['faltasJustificadas', 'qtdFaltasJustificadas', 'faltasComJustificativa'], 0),
@@ -306,6 +403,22 @@ function normalizarAulaDetalhe(item = {}) {
     resumoFrequencias: item.resumoFrequencias && typeof item.resumoFrequencias === 'object' ? item.resumoFrequencias : {},
     quantidadeParticipantes: base.quantidadeParticipantes || participantesNormalizados.length,
     participantes: participantesNormalizados,
+    motivoCancelamento:
+      base.motivoCancelamento ||
+      normalizarTextoOpcional(
+        item.motivoCancelamento || item.motivo_cancelamento || item.motivoCancelacao || item.motivo_cancelacao || item.motivo,
+      ),
+    canceladoEm:
+      base.canceladoEm ||
+      normalizarTextoOpcional(item.canceladoEm || item.cancelado_em || item.dataCancelamento || item.data_cancelamento),
+    canceladoPorUsuarioNome:
+      base.canceladoPorUsuarioNome ||
+      normalizarTextoOpcional(
+        item.canceladoPorUsuarioNome ||
+          item.cancelado_por_usuario_nome ||
+          item.usuarioCancelamentoNome ||
+          item.usuario_cancelamento_nome,
+      ),
   }
 }
 
@@ -554,6 +667,10 @@ function normalizarQuantidadePorPagina(valor) {
 }
 
 function rotuloAcaoAula(aula = {}) {
+  if (normalizarSituacaoAula(aula.situacao) === 'CANCELADA') {
+    return 'Ver detalhes'
+  }
+
   const quantidadeParticipantes = normalizarNumero(aula.quantidadeParticipantes, 0)
   if (quantidadeParticipantes === 0) {
     return 'Ver detalhes'
@@ -561,6 +678,324 @@ function rotuloAcaoAula(aula = {}) {
 
   const naoLancados = normalizarNumero(aula.naoLancados, 0)
   return naoLancados < quantidadeParticipantes ? 'Ver frequência' : 'Lançar frequência'
+}
+
+function criarCancelamentoLotePadrao() {
+  return {
+    escopo: 'PERIODO_DA_DATA',
+    data: criarDataISO(0),
+    aulaIds: [],
+    turmaIds: [],
+    professorId: '',
+    periodo: 'MANHA',
+    motivo: '',
+  }
+}
+
+function normalizarIdsSelecionados(lista = []) {
+  const ids = []
+  const vistos = new Set()
+
+  for (const item of Array.isArray(lista) ? lista : []) {
+    const id = normalizarIdPositivo(item)
+    if (!id || vistos.has(id)) {
+      continue
+    }
+
+    vistos.add(id)
+    ids.push(id)
+  }
+
+  return ids.sort((a, b) => a - b)
+}
+
+function formatarEscopoCancelamentoLote(valor) {
+  return OPCOES_ESCOPO_CANCELAMENTO_LOTE.find((opcao) => opcao.valor === String(valor || '').trim().toUpperCase())?.rotulo || 'Escopo'
+}
+
+function formatarPeriodoCancelamentoLote(valor) {
+  return OPCOES_PERIODO_CANCELAMENTO_LOTE.find((opcao) => opcao.valor === String(valor || '').trim().toUpperCase())?.rotulo || 'Período'
+}
+
+function montarPayloadCancelamentoLote({ incluirMotivo = false } = {}) {
+  const escopo = String(cancelamentoLote.value.escopo || 'PERIODO_DA_DATA').trim().toUpperCase()
+  const data = String(cancelamentoLote.value.data || '').trim()
+  const professorId = normalizarIdPositivo(cancelamentoLote.value.professorId)
+  const payload = {
+    escopo,
+    data: data || null,
+    aulaIds: [],
+    turmaIds: [],
+    professorId: professorId || null,
+    periodo: null,
+    motivo: incluirMotivo ? String(cancelamentoLote.value.motivo || '').trim() || null : null,
+  }
+
+  if (escopo === 'AULAS_ESPECIFICAS') {
+    payload.aulaIds = normalizarIdsSelecionados(cancelamentoLote.value.aulaIds)
+  }
+
+  if (escopo === 'TURMAS_NA_DATA' || escopo === 'PERIODO_DA_DATA') {
+    payload.turmaIds = normalizarIdsSelecionados(cancelamentoLote.value.turmaIds)
+  }
+
+  if (escopo === 'PERIODO_DA_DATA') {
+    payload.periodo = String(cancelamentoLote.value.periodo || '').trim().toUpperCase() || null
+  }
+
+  return payload
+}
+
+function assinaturaCancelamentoLote(payload = montarPayloadCancelamentoLote()) {
+  return JSON.stringify({
+    escopo: payload.escopo,
+    data: payload.data || '',
+    aulaIds: normalizarIdsSelecionados(payload.aulaIds),
+    turmaIds: normalizarIdsSelecionados(payload.turmaIds),
+    professorId: payload.professorId || null,
+    periodo: payload.periodo || null,
+  })
+}
+
+function normalizarAulaPreviaCancelamentoLote(item = {}) {
+  const aulaId = normalizarIdPositivo(item.aulaId ?? item.id)
+  if (!aulaId) {
+    return null
+  }
+
+  return {
+    aulaId,
+    data: normalizarTextoOpcional(item.data || item.dataAula || item.data_aula),
+    horario: normalizarTextoOpcional(item.horario || item.horarioInicio || item.horario_inicio),
+    turmaId: normalizarIdPositivo(item.turmaId ?? item.turma_id),
+    turmaNome: normalizarTextoOpcional(item.turmaNome || item.turma_nome || item.turma || ''),
+    professorId: normalizarIdPositivo(item.professorId ?? item.professor_id ?? item.funcionarioId),
+    professorNome: normalizarTextoOpcional(item.professorNome || item.professor_nome || item.funcionarioNome || ''),
+    situacao: normalizarSituacaoAula(item.situacao),
+    cancelavel: item.cancelavel === true || item.cancelavel === 'true' || item.cancelavel === 1,
+    motivoBloqueio: normalizarTextoOpcional(item.motivoBloqueio || item.motivo_bloqueio),
+    jaCancelada: item.jaCancelada === true || item.ja_cancelada === true || item.jaCancelada === 1,
+    canceladaAgora: item.canceladaAgora === true || item.cancelada_agora === true || item.canceladaAgora === 1,
+  }
+}
+
+function normalizarPreviaCancelamentoLote(resposta = {}) {
+  const base = resposta && typeof resposta === 'object' ? resposta : {}
+  const aulasNormalizadas = (Array.isArray(base.aulas) ? base.aulas : [])
+    .map((item) => normalizarAulaPreviaCancelamentoLote(item))
+    .filter(Boolean)
+
+  return {
+    escopo: String(base.escopo || '').trim().toUpperCase(),
+    dataProcessada: normalizarTextoOpcional(base.dataProcessada || base.data),
+    quantidadeEncontrada: obterNumeroDeCampo([base], ['quantidadeEncontrada', 'totalEncontrado', 'encontradas'], aulasNormalizadas.length),
+    quantidadeCancelavel: obterNumeroDeCampo([base], ['quantidadeCancelavel', 'totalCancelavel', 'cancelaveis'], aulasNormalizadas.filter((item) => item.cancelavel).length),
+    quantidadeJaCancelada: obterNumeroDeCampo([base], ['quantidadeJaCancelada', 'totalJaCancelada', 'jaCanceladas'], aulasNormalizadas.filter((item) => item.jaCancelada).length),
+    quantidadeBloqueada: obterNumeroDeCampo([base], ['quantidadeBloqueada', 'totalBloqueada', 'bloqueadas'], aulasNormalizadas.filter((item) => !item.cancelavel && !item.jaCancelada).length),
+    aulas: aulasNormalizadas,
+  }
+}
+
+function rotuloStatusPreviaCancelamentoLote(item = {}) {
+  if (item.jaCancelada) {
+    return 'Já cancelada'
+  }
+
+  if (item.cancelavel) {
+    return 'Cancelável'
+  }
+
+  return 'Bloqueada'
+}
+
+function classeStatusPreviaCancelamentoLote(item = {}) {
+  if (item.jaCancelada) {
+    return 'ja-cancelada'
+  }
+
+  if (item.cancelavel) {
+    return 'cancelavel'
+  }
+
+  return 'bloqueada'
+}
+
+function descricaoAulaCancelamentoLote(item = {}) {
+  const trechos = [formatarDataBrasileira(item.data), item.horario, item.turmaNome].filter(Boolean)
+  return trechos.join(' · ')
+}
+
+function abrirModalCancelamentoLote() {
+  modalCancelamentoLoteAberto.value = true
+  cancelamentoLote.value = criarCancelamentoLotePadrao()
+  previaCancelamentoLote.value = null
+  assinaturaPreviaCancelamentoLote.value = ''
+  erroCancelamentoLote.value = ''
+}
+
+function fecharModalCancelamentoLote(forcar = false) {
+  if ((carregandoPreviaCancelamentoLote.value || processandoCancelamentoLote.value) && !forcar) {
+    return
+  }
+
+  modalCancelamentoLoteAberto.value = false
+  cancelamentoLote.value = criarCancelamentoLotePadrao()
+  previaCancelamentoLote.value = null
+  assinaturaPreviaCancelamentoLote.value = ''
+  erroCancelamentoLote.value = ''
+}
+
+function limparPreviaCancelamentoLote(mensagem = '') {
+  previaCancelamentoLote.value = null
+  assinaturaPreviaCancelamentoLote.value = ''
+  erroCancelamentoLote.value = String(mensagem || '').trim()
+}
+
+function validarFormularioCancelamentoLote() {
+  const escopo = escopoCancelamentoLote.value
+  const data = String(cancelamentoLote.value.data || '').trim()
+
+  if (!['AULAS_ESPECIFICAS', 'TURMAS_NA_DATA', 'TODAS_DA_DATA', 'PERIODO_DA_DATA'].includes(escopo)) {
+    return 'Selecione um escopo válido para o cancelamento.'
+  }
+
+  if (!data) {
+    return 'Informe a data do cancelamento.'
+  }
+
+  if (escopo === 'AULAS_ESPECIFICAS' && normalizarIdsSelecionados(cancelamentoLote.value.aulaIds).length === 0) {
+    return 'Selecione pelo menos uma aula para cancelar.'
+  }
+
+  if (escopo === 'TURMAS_NA_DATA' && normalizarIdsSelecionados(cancelamentoLote.value.turmaIds).length === 0) {
+    return 'Selecione pelo menos uma turma para cancelar.'
+  }
+
+  if (escopo === 'PERIODO_DA_DATA' && !String(cancelamentoLote.value.periodo || '').trim()) {
+    return 'Selecione o período do dia.'
+  }
+
+  return ''
+}
+
+async function consultarPreviaCancelamentoLote() {
+  if (!modalCancelamentoLoteAberto.value || carregandoPreviaCancelamentoLote.value || processandoCancelamentoLote.value) {
+    return
+  }
+
+  const erroFormulario = validarFormularioCancelamentoLote()
+  if (erroFormulario) {
+    erroCancelamentoLote.value = erroFormulario
+    return
+  }
+
+  const payload = montarPayloadCancelamentoLote()
+  const assinaturaSolicitada = assinaturaCancelamentoLote(payload)
+  assinaturaPreviaCancelamentoLote.value = assinaturaSolicitada
+  carregandoPreviaCancelamentoLote.value = true
+  erroCancelamentoLote.value = ''
+
+  try {
+    const resposta = await buscarPreviaCancelamentoAulasGestaoEsportiva(payload)
+    if (assinaturaAtualCancelamentoLote.value !== assinaturaSolicitada) {
+      return
+    }
+
+    previaCancelamentoLote.value = normalizarPreviaCancelamentoLote(resposta || {})
+  } catch (error) {
+    previaCancelamentoLote.value = null
+    assinaturaPreviaCancelamentoLote.value = ''
+    erroCancelamentoLote.value = obterMensagemErro(error, 'Não foi possível consultar a prévia do cancelamento.')
+  } finally {
+    carregandoPreviaCancelamentoLote.value = false
+  }
+}
+
+async function confirmarCancelamentoLote() {
+  if (!modalCancelamentoLoteAberto.value || processandoCancelamentoLote.value) {
+    return
+  }
+
+  if (!previewCancelamentoLoteValida.value) {
+    erroCancelamentoLote.value = 'Gere a prévia antes de confirmar o cancelamento em lote.'
+    return
+  }
+
+  if (assinaturaCancelamentoLote(montarPayloadCancelamentoLote()) !== assinaturaPreviaCancelamentoLote.value) {
+    erroCancelamentoLote.value = 'As seleções foram alteradas. Consulte uma nova prévia antes de confirmar.'
+    previaCancelamentoLote.value = null
+    assinaturaPreviaCancelamentoLote.value = ''
+    return
+  }
+
+  const erroFormulario = validarFormularioCancelamentoLote()
+  if (erroFormulario) {
+    erroCancelamentoLote.value = erroFormulario
+    return
+  }
+
+  const motivo = String(cancelamentoLote.value.motivo || '').trim()
+  if (!motivo) {
+    erroCancelamentoLote.value = 'Informe o motivo para confirmar o cancelamento.'
+    return
+  }
+
+  if (previewCancelamentoLoteBloqueado.value) {
+    erroCancelamentoLote.value = 'Ajuste o escopo ou a seleção antes de confirmar. O backend não permite cancelamento parcial neste cenário.'
+    return
+  }
+
+  if (previewCancelamentoLoteSemAlteracao.value) {
+    erroCancelamentoLote.value = 'Nenhuma nova aula será alterada porque todas já estão canceladas.'
+    return
+  }
+
+  const payload = montarPayloadCancelamentoLote({ incluirMotivo: true })
+  const quantidadeCancelavel = normalizarNumero(previaCancelamentoLote.value?.quantidadeCancelavel, 0)
+
+  try {
+    processandoCancelamentoLote.value = true
+    erroCancelamentoLote.value = ''
+    const resposta = await cancelarAulasGestaoEsportivaEmLote(payload)
+    const resultado = resposta && typeof resposta === 'object' ? resposta : {}
+    const quantidadeCancelada = obterNumeroDeCampo([resultado], ['quantidadeCancelada', 'totalCancelada', 'canceladas'], quantidadeCancelavel)
+    const quantidadeJaCancelada = obterNumeroDeCampo(
+      [resultado],
+      ['quantidadeJaCancelada', 'totalJaCancelada', 'jaCanceladas'],
+      normalizarNumero(previaCancelamentoLote.value?.quantidadeJaCancelada, 0),
+    )
+    const mensagemSucesso = [
+      formatarMensagemQuantidade(quantidadeCancelada, 'aula cancelada com sucesso.', 'aulas canceladas com sucesso.'),
+      quantidadeJaCancelada > 0
+        ? formatarMensagemQuantidade(quantidadeJaCancelada, 'já estava cancelada.', 'já estavam canceladas.')
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    fecharModalCancelamentoLote(true)
+    definirFeedback(mensagemSucesso, 'sucesso')
+    await carregarListaAulas()
+  } catch (error) {
+    erroCancelamentoLote.value = obterMensagemErro(error, 'Não foi possível concluir o cancelamento em lote.')
+  } finally {
+    processandoCancelamentoLote.value = false
+  }
+}
+
+function selecionarTodasAulasCancelamentoLote() {
+  cancelamentoLote.value.aulaIds = aulasSelecionaveisCancelamentoLote.value.map((aula) => aula.id)
+}
+
+function limparSelecaoAulasCancelamentoLote() {
+  cancelamentoLote.value.aulaIds = []
+}
+
+function alternarEscopoCancelamentoLote(novoEscopo) {
+  cancelamentoLote.value.escopo = String(novoEscopo || '').trim().toUpperCase()
+  if (previaCancelamentoLote.value) {
+    limparPreviaCancelamentoLote('As seleções foram alteradas. Consulte uma nova prévia.')
+  }
 }
 
 function aplicarEstadoDaQueryNaTela() {
@@ -1020,6 +1455,16 @@ watch(totalPaginas, (novoTotal) => {
   }
 })
 
+watch(assinaturaAtualCancelamentoLote, (novaAssinatura) => {
+  if (!modalCancelamentoLoteAberto.value || !previaCancelamentoLote.value) {
+    return
+  }
+
+  if (novaAssinatura !== assinaturaPreviaCancelamentoLote.value) {
+    limparPreviaCancelamentoLote('As seleções foram alteradas. Consulte uma nova prévia.')
+  }
+})
+
 onMounted(() => {
   carregarTudo().catch((error) => {
     console.error(error)
@@ -1050,6 +1495,9 @@ onBeforeUnmount(() => {
         </button>
         <button class="botao secundario" type="button" :disabled="carregandoLista || gerandoAulas || salvandoFrequencias" @click="carregarListaAulas">
           {{ carregandoLista ? 'Atualizando...' : 'Atualizar lista' }}
+        </button>
+        <button class="botao perigo" type="button" :disabled="carregandoLista || gerandoAulas || salvandoFrequencias" @click="abrirModalCancelamentoLote">
+          Cancelar aulas em lote
         </button>
       </div>
     </header>
@@ -1263,6 +1711,10 @@ onBeforeUnmount(() => {
                   </span>
                 </div>
 
+                <p v-if="aula.situacao === 'CANCELADA' && aula.motivoCancelamento" class="motivo-cancelamento">
+                  <strong>Motivo:</strong> {{ aula.motivoCancelamento }}
+                </p>
+
                 <div class="resumo-aula">
                   <div><span>Participantes</span><strong>{{ aula.quantidadeParticipantes }}</strong></div>
                   <div><span>Presentes</span><strong>{{ aula.presentes }}</strong></div>
@@ -1301,6 +1753,214 @@ onBeforeUnmount(() => {
             </div>
           </template>
         </article>
+      </section>
+
+      <section v-if="modalCancelamentoLoteAberto" class="modal-fundo" @click.self="fecharModalCancelamentoLote">
+        <form class="card modal modal-lote" @submit.prevent="confirmarCancelamentoLote">
+          <div class="cabecalho-card">
+            <div>
+              <p class="subtitulo-mini">Cancelamento em lote</p>
+              <h2>Cancelar aulas em lote</h2>
+              <p class="descricao-card">Consulte a prévia antes de confirmar e informe o motivo do cancelamento.</p>
+            </div>
+
+            <button type="button" class="botao secundario" :disabled="carregandoPreviaCancelamentoLote || processandoCancelamentoLote" @click="fecharModalCancelamentoLote">
+              Fechar
+            </button>
+          </div>
+
+          <div class="lote-grid">
+            <div class="lote-formulario">
+              <div class="campos-lote">
+                <label>
+                  Escopo
+                  <select v-model="cancelamentoLote.escopo">
+                    <option v-for="opcao in OPCOES_ESCOPO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
+                      {{ opcao.rotulo }}
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  Data
+                  <input v-model="cancelamentoLote.data" type="date" />
+                </label>
+
+                <label>
+                  Professor, opcional
+                  <select v-model="cancelamentoLote.professorId">
+                    <option value="">Todos os professores</option>
+                    <option v-for="professor in professoresSelecionaveisCancelamentoLote" :key="professor.id" :value="String(professor.id)">
+                      {{ professor.nome }}
+                    </option>
+                  </select>
+                </label>
+
+                <label v-if="escopoCancelamentoLote === 'PERIODO_DA_DATA'">
+                  Período
+                  <select v-model="cancelamentoLote.periodo">
+                    <option v-for="opcao in OPCOES_PERIODO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
+                      {{ opcao.rotulo }}
+                    </option>
+                  </select>
+                  <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até antes de 18h. Noite: a partir de 18h.</small>
+                </label>
+              </div>
+
+              <section v-if="escopoCancelamentoLote === 'AULAS_ESPECIFICAS'" class="bloco-selecao">
+                <div class="secao-cabecalho">
+                  <div>
+                    <h3>Aulas específicas</h3>
+                    <p>Selecione uma ou mais aulas já carregadas na lista.</p>
+                  </div>
+                  <div class="acoes-mini">
+                    <button type="button" class="botao secundario compacto" @click="selecionarTodasAulasCancelamentoLote">
+                      Selecionar todas
+                    </button>
+                    <button type="button" class="botao secundario compacto" @click="limparSelecaoAulasCancelamentoLote">
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="!aulasSelecionaveisCancelamentoLote.length" class="estado-vazio estado-vazio-compacto">
+                  <p>Nenhuma aula carregada para seleção específica.</p>
+                </div>
+
+                <div v-else class="lista-selecao aulas">
+                  <label v-for="aula in aulasSelecionaveisCancelamentoLote" :key="aula.id" class="card-selecao">
+                    <input v-model="cancelamentoLote.aulaIds" type="checkbox" :value="aula.id" />
+                    <div>
+                      <strong>{{ formatarDataBrasileira(aula.dataAula) || 'Data não informada' }}</strong>
+                      <p>{{ formatarHorario(aula.horarioInicio) }} · {{ aula.turmaNome || `Aula ${aula.id}` }}</p>
+                      <span class="chip situacao" :class="estadoSituacaoAula(aula.situacao)">
+                        {{ rotuloSituacaoAula(aula.situacao) }}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </section>
+
+              <section v-if="escopoCancelamentoLote === 'TURMAS_NA_DATA' || escopoCancelamentoLote === 'PERIODO_DA_DATA'" class="bloco-selecao">
+                <div class="secao-cabecalho">
+                  <div>
+                    <h3>Turmas</h3>
+                    <p>{{ escopoCancelamentoLote === 'TURMAS_NA_DATA' ? 'Selecione as turmas da data.' : 'As turmas são opcionais neste escopo.' }}</p>
+                  </div>
+                </div>
+
+                <div v-if="!turmasSelecionaveisCancelamentoLote.length" class="estado-vazio estado-vazio-compacto">
+                  <p>Nenhuma turma encontrada.</p>
+                </div>
+
+                <div v-else class="lista-selecao turmas">
+                  <label v-for="turma in turmasSelecionaveisCancelamentoLote" :key="turma.id" class="card-selecao">
+                    <input v-model="cancelamentoLote.turmaIds" type="checkbox" :value="turma.id" />
+                    <div>
+                      <strong>{{ turma.nome }}</strong>
+                      <p>
+                        {{ [rotuloNivelBeachTennis(turma.nivel), turma.competicao ? rotuloCompeticaoBeachTennis(true) : ''].filter(Boolean).join(' · ') || 'Turma sem classificação' }}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </section>
+
+              <section class="bloco-selecao">
+                <div class="secao-cabecalho">
+                  <div>
+                    <h3>Motivo</h3>
+                    <p>O motivo é obrigatório na confirmação final.</p>
+                  </div>
+                </div>
+
+                <label class="campo-grande">
+                  Motivo do cancelamento
+                  <textarea
+                    v-model="cancelamentoLote.motivo"
+                    rows="4"
+                    :disabled="processandoCancelamentoLote"
+                    placeholder="Ex.: Chuva intensa durante a manhã"
+                  ></textarea>
+                </label>
+              </section>
+            </div>
+
+            <aside class="lote-previa">
+              <div class="secao-cabecalho">
+                <div>
+                  <h3>Prévia obrigatória</h3>
+                  <p>{{ formatarEscopoCancelamentoLote(cancelamentoLote.escopo) }}</p>
+                </div>
+                <span class="contador">{{ previewCancelamentoLoteValida ? 'Prévia pronta' : 'Aguardando' }}</span>
+              </div>
+
+              <p class="ajuda-campo">{{ mensagemPreviewCancelamentoLote }}</p>
+
+              <p v-if="erroCancelamentoLote" class="estado-erro">{{ erroCancelamentoLote }}</p>
+
+              <section v-if="carregandoPreviaCancelamentoLote" class="estado-vazio estado-vazio-compacto">
+                <p>Consultando prévia...</p>
+              </section>
+
+              <template v-else-if="previaCancelamentoLote">
+                <div class="grade-resumo-lote">
+                  <article class="mini-card">
+                    <span>Encontradas</span>
+                    <strong>{{ previaCancelamentoLote.quantidadeEncontrada }}</strong>
+                  </article>
+                  <article class="mini-card">
+                    <span>Canceláveis</span>
+                    <strong>{{ previaCancelamentoLote.quantidadeCancelavel }}</strong>
+                  </article>
+                  <article class="mini-card">
+                    <span>Já canceladas</span>
+                    <strong>{{ previaCancelamentoLote.quantidadeJaCancelada }}</strong>
+                  </article>
+                  <article class="mini-card">
+                    <span>Bloqueadas</span>
+                    <strong>{{ previaCancelamentoLote.quantidadeBloqueada }}</strong>
+                  </article>
+                </div>
+
+                <section v-if="!previaCancelamentoLote.aulas.length" class="estado-vazio estado-vazio-compacto">
+                  <p>Nenhuma aula retornou na prévia.</p>
+                </section>
+
+                <div v-else class="lista-previa">
+                  <article v-for="aula in previaCancelamentoLote.aulas" :key="aula.aulaId" class="card-previa">
+                    <div class="card-previa-topo">
+                      <div>
+                        <strong>{{ formatarDataBrasileira(aula.data) || 'Data não informada' }}</strong>
+                        <p>{{ [formatarHorario(aula.horario), aula.turmaNome || `Aula ${aula.aulaId}`].filter(Boolean).join(' · ') }}</p>
+                      </div>
+                      <span class="chip previa-status" :class="classeStatusPreviaCancelamentoLote(aula)">
+                        {{ rotuloStatusPreviaCancelamentoLote(aula) }}
+                      </span>
+                    </div>
+
+                    <p v-if="aula.professorNome"><strong>Professor:</strong> {{ aula.professorNome }}</p>
+                    <p><strong>Situação:</strong> {{ rotuloSituacaoAula(aula.situacao) }}</p>
+                    <p v-if="aula.motivoBloqueio"><strong>Bloqueio:</strong> {{ aula.motivoBloqueio }}</p>
+                  </article>
+                </div>
+              </template>
+
+              <section v-else class="estado-vazio estado-vazio-compacto">
+                <p>Gere a prévia para visualizar os contadores e a lista de aulas encontradas.</p>
+              </section>
+            </aside>
+          </div>
+
+          <div class="acoes-card acoes-lote">
+            <button type="button" class="botao secundario" :disabled="carregandoPreviaCancelamentoLote || processandoCancelamentoLote" @click="consultarPreviaCancelamentoLote">
+              {{ carregandoPreviaCancelamentoLote ? 'Consultando...' : 'Ver prévia' }}
+            </button>
+            <button type="submit" class="botao perigo" :disabled="!podeConfirmarCancelamentoLote">
+              {{ processandoCancelamentoLote ? 'Cancelando...' : 'Confirmar cancelamento em lote' }}
+            </button>
+          </div>
+        </form>
       </section>
     </template>
   </main>
@@ -1408,6 +2068,11 @@ onBeforeUnmount(() => {
   border-color: var(--app-border);
 }
 
+.botao.perigo {
+  background: linear-gradient(135deg, var(--app-danger), color-mix(in srgb, var(--app-danger) 88%, black));
+  color: #fff;
+}
+
 .feedback {
   padding: 16px 18px;
 }
@@ -1440,6 +2105,193 @@ onBeforeUnmount(() => {
   color: var(--app-text);
 }
 
+.modal-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: min(100%, 1180px);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-lote {
+  display: grid;
+  gap: 18px;
+}
+
+.lote-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 18px;
+}
+
+.lote-formulario,
+.lote-previa {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.campos-lote {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.secao-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.secao-cabecalho h3 {
+  margin: 0;
+}
+
+.secao-cabecalho p {
+  margin: 6px 0 0;
+  color: var(--app-text-muted);
+}
+
+.acoes-mini,
+.acoes-lote {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.acoes-lote {
+  justify-content: flex-end;
+}
+
+.bloco-selecao {
+  display: grid;
+  gap: 14px;
+}
+
+.lista-selecao {
+  display: grid;
+  gap: 12px;
+}
+
+.lista-selecao.aulas,
+.lista-selecao.turmas {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.card-selecao {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+}
+
+.card-selecao input {
+  width: auto;
+  margin-top: 3px;
+}
+
+.card-selecao strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.card-selecao p {
+  margin: 0 0 8px;
+  color: var(--app-text-muted);
+}
+
+.grade-resumo-lote {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mini-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+}
+
+.mini-card span {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mini-card strong {
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.lista-previa {
+  display: grid;
+  gap: 12px;
+}
+
+.card-previa {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+}
+
+.card-previa-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.card-previa-topo p,
+.card-previa p {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+.previa-status.cancelavel {
+  background: var(--app-success-soft);
+  color: var(--app-success);
+}
+
+.previa-status.ja-cancelada {
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+}
+
+.previa-status.bloqueada {
+  background: var(--app-warning-soft);
+  color: var(--app-warning);
+}
+
+.motivo-cancelamento {
+  margin: 0;
+  color: var(--app-text-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .grade-superior {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1457,6 +2309,18 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
+}
+
+.cabecalho-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.cabecalho-card p {
+  margin-top: 6px;
+  color: var(--app-text-muted);
 }
 
 .contador {
@@ -1802,6 +2666,11 @@ textarea:focus {
   color: var(--app-danger);
 }
 
+.estado-vazio-compacto {
+  padding: 16px 14px;
+  text-align: left;
+}
+
 .botao-link {
   background: transparent;
   border: 1px solid var(--app-primary-soft);
@@ -1823,7 +2692,9 @@ textarea:focus {
   .titulo-card,
   .aula-card-topo,
   .rodape-aula,
-  .participante-topo {
+  .participante-topo,
+  .secao-cabecalho,
+  .card-previa-topo {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -1833,18 +2704,25 @@ textarea:focus {
   .resumo-aula,
   .resumo-frequencia,
   .meta-aula,
-  .campos-participante {
+  .campos-participante,
+  .campos-lote,
+  .grade-resumo-lote,
+  .lista-selecao.aulas,
+  .lista-selecao.turmas,
+  .lote-grid {
     grid-template-columns: 1fr;
   }
 
   .paginacao-superior,
   .paginacao-rodape,
-  .detalhe-acoes {
+  .detalhe-acoes,
+  .acoes-lote {
     justify-content: flex-start;
   }
 
-  .paginacao-controles {
-    justify-items: flex-start;
+  .paginacao-controles,
+  .acoes-mini {
+    justify-content: flex-start;
   }
 }
 
@@ -1857,6 +2735,10 @@ textarea:focus {
   }
 
   .aula-card {
+    padding: 14px;
+  }
+
+  .modal-fundo {
     padding: 14px;
   }
 }

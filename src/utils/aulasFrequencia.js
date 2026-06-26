@@ -118,6 +118,24 @@ export function formatarHorario(valor) {
   return texto
 }
 
+export function formatarDataHoraSemConversaoFuso(valor) {
+  const texto = String(valor ?? '').trim()
+  if (!texto) {
+    return '-'
+  }
+
+  const correspondencia = texto.match(
+    /^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2})(?::\d{2}(?:[.,]\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/,
+  )
+
+  if (!correspondencia) {
+    return '-'
+  }
+
+  const [, ano, mes, dia, hora, minuto] = correspondencia
+  return `${dia}/${mes}/${ano}, ${hora}:${minuto}`
+}
+
 export function rotuloSituacaoAula(valor) {
   const situacao = normalizarSituacaoAula(valor)
 
@@ -170,6 +188,26 @@ export function normalizarAulaLista(item = {}) {
     professorId: normalizarIdPositivo(item.professorId ?? item.funcionarioId),
     professorNome: normalizarTextoOpcional(item.professorNome || item.funcionarioNome || ''),
     situacao: normalizarSituacaoAula(item.situacao),
+    motivoCancelamento: normalizarTextoOpcional(
+      item.motivoCancelamento ||
+        item.motivo_cancelamento ||
+        item.motivoCancelamentoAula ||
+        item.motivoCancelacao ||
+        item.motivo_cancelacao ||
+        item.motivoCancelacaoAula ||
+        item.motivo,
+    ),
+    canceladoEm: normalizarTextoOpcional(
+      item.canceladoEm || item.cancelado_em || item.dataCancelamento || item.data_cancelamento || item.canceladoEmAula,
+    ),
+    canceladoPorUsuarioNome: normalizarTextoOpcional(
+      item.canceladoPorUsuarioNome ||
+        item.cancelado_por_usuario_nome ||
+        item.usuarioCancelamentoNome ||
+        item.usuario_cancelamento_nome ||
+        item.canceladoPorNome ||
+        item.cancelado_por_nome,
+    ),
     quantidadeParticipantes: obterNumeroDeCampo([item, resumo], ['quantidadeParticipantes', 'totalParticipantes', 'total', 'quantidadeTotal'], 0),
     presentes: obterNumeroDeCampo([item, resumo], ['presentes', 'qtdPresentes', 'quantidadePresentes'], 0),
     faltasJustificadas: obterNumeroDeCampo([item, resumo], ['faltasJustificadas', 'qtdFaltasJustificadas', 'faltasComJustificativa'], 0),
@@ -242,6 +280,22 @@ export function normalizarAulaDetalhe(item = {}) {
     resumoFrequencias: item.resumoFrequencias && typeof item.resumoFrequencias === 'object' ? item.resumoFrequencias : {},
     quantidadeParticipantes: base.quantidadeParticipantes || participantesNormalizados.length,
     participantes: participantesNormalizados,
+    motivoCancelamento:
+      base.motivoCancelamento ||
+      normalizarTextoOpcional(
+        item.motivoCancelamento || item.motivo_cancelamento || item.motivoCancelacao || item.motivo_cancelacao || item.motivo,
+      ),
+    canceladoEm:
+      base.canceladoEm ||
+      normalizarTextoOpcional(item.canceladoEm || item.cancelado_em || item.dataCancelamento || item.data_cancelamento),
+    canceladoPorUsuarioNome:
+      base.canceladoPorUsuarioNome ||
+      normalizarTextoOpcional(
+        item.canceladoPorUsuarioNome ||
+          item.cancelado_por_usuario_nome ||
+          item.usuarioCancelamentoNome ||
+          item.usuario_cancelamento_nome,
+      ),
   }
 }
 

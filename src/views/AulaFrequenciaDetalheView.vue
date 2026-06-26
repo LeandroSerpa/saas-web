@@ -4,7 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   EVENTO_EMPRESA_VISUALIZACAO,
   buscarAulaGestaoEsportiva,
+  cancelarAulaGestaoEsportiva,
   modoVisualizacaoEmpresaAtivo,
+  reverterCancelamentoAulaGestaoEsportiva,
   salvarFrequenciasAulaGestaoEsportiva,
 } from '@/services/api'
 import { rotuloCompeticaoBeachTennis, rotuloNivelBeachTennis } from '@/utils/beachTennis'
@@ -16,6 +18,7 @@ import {
   estadoSituacaoAula,
   formatarDuracaoMinutos,
   formatarHorario,
+  formatarDataHoraSemConversaoFuso,
   normalizarAulaDetalhe,
   normalizarIdPositivo,
   normalizarSituacaoFrequencia,
@@ -53,6 +56,10 @@ const aulaDetalhe = ref(null)
 const participantesEdicao = ref([])
 const snapshotParticipantes = ref(new Map())
 const sequenciaDetalhe = ref(0)
+const acaoCancelamento = ref('')
+const motivoCancelamento = ref('')
+const processandoCancelamento = ref(false)
+const erroCancelamento = ref('')
 
 const aulaId = computed(() => normalizarIdPositivo(route.params.aulaId ?? route.query.aulaId))
 const situacaoAulaSelecionada = computed(() => String(aulaDetalhe.value?.situacao || '').trim().toUpperCase())
@@ -79,6 +86,56 @@ const mensagemEstadoAlteracoes = computed(() => {
 
   return formatarMensagemQuantidade(lancamentosPendentes.value.length, 'alteração pendente.', 'alterações pendentes.')
 })
+const temFrequenciaPersistida = computed(() =>
+  participantesEdicao.value.some((participante) => temLancamentoPersistido(participante, snapshotParticipantes.value)),
+)
+const podeCancelarAula = computed(
+  () =>
+    situacaoAulaSelecionada.value === 'AGENDADA' &&
+    !aulaCancelada.value &&
+    !temFrequenciaPersistida.value &&
+    !modoVisualizacaoEmpresa.value &&
+    moduloAtivo.value,
+)
+const podeReverterCancelamento = computed(
+  () => aulaCancelada.value && !modoVisualizacaoEmpresa.value && moduloAtivo.value && Boolean(aulaDetalhe.value?.id),
+)
+const mensagemBloqueioCancelamento = computed(() => {
+  if (!aulaDetalhe.value?.id || aulaCancelada.value) {
+    return ''
+  }
+
+  if (temFrequenciaPersistida.value) {
+    return 'Aulas com frequÃªncia lanÃ§ada nÃ£o podem ser canceladas nesta etapa.'
+  }
+
+  if (situacaoAulaSelecionada.value === 'REALIZADA') {
+    return 'Esta aula jÃ¡ foi realizada e nÃ£o pode ser cancelada.'
+  }
+
+  if (situacaoAulaSelecionada.value === 'NAO_REALIZADA') {
+    return 'Esta aula foi marcada como nÃ£o realizada e nÃ£o pode ser cancelada.'
+  }
+
+  return ''
+})
+const tituloModalCancelamento = computed(() =>
+  acaoCancelamento.value === 'reverter' ? 'Reverter cancelamento' : 'Cancelar aula',
+)
+const textoBotaoModalCancelamento = computed(() =>
+  acaoCancelamento.value === 'reverter'
+    ? processandoCancelamento.value
+      ? 'Revertendo...'
+      : 'Confirmar reversÃ£o'
+    : processandoCancelamento.value
+      ? 'Cancelando...'
+      : 'Confirmar cancelamento',
+)
+const textoConfirmacaoCancelamento = computed(() =>
+  acaoCancelamento.value === 'reverter'
+    ? 'A aula voltarÃ¡ para a situaÃ§Ã£o Agendada. A turma, o horÃ¡rio e os participantes permanecem inalterados.'
+    : 'A aula serÃ¡ cancelada sem exclusÃ£o do registro. NÃ£o serÃ¡ criada reposiÃ§Ã£o automaticamente nesta fase.',
+)
 const podeSalvarFrequencias = computed(
   () =>
     Boolean(aulaDetalhe.value?.id) &&
@@ -132,6 +189,67 @@ function voltarParaAulas() {
     name: 'aulas-frequencia',
     query: queryRetorno.value,
   })
+}
+
+function abrirCancelamentoAula() {
+  if (!podeCancelarAula.value || !aulaDetalhe.value?.id) {
+    return
+  }
+
+  acaoCancelamento.value = 'cancelar'
+  motivoCancelamento.value = ''
+  erroCancelamento.value = ''
+}
+
+function abrirReversaoCancelamento() {
+  if (!podeReverterCancelamento.value) {
+    return
+  }
+
+  acaoCancelamento.value = 'reverter'
+  motivoCancelamento.value = ''
+  erroCancelamento.value = ''
+}
+
+function fecharModalCancelamento(forcar = false) {
+  if (processandoCancelamento.value && !forcar) {
+    return
+  }
+
+  acaoCancelamento.value = ''
+  motivoCancelamento.value = ''
+  erroCancelamento.value = ''
+}
+
+async function confirmarCancelamentoAula() {
+  if (!aulaDetalhe.value?.id || !acaoCancelamento.value || processandoCancelamento.value) {
+    return
+  }
+
+  if (acaoCancelamento.value === 'cancelar' && !String(motivoCancelamento.value || '').trim()) {
+    erroCancelamento.value = 'Informe o motivo do cancelamento.'
+    return
+  }
+
+  try {
+    processandoCancelamento.value = true
+    erroCancelamento.value = ''
+
+    if (acaoCancelamento.value === 'cancelar') {
+      await cancelarAulaGestaoEsportiva(aulaDetalhe.value.id, motivoCancelamento.value)
+      definirFeedback('Aula cancelada com sucesso.', 'sucesso')
+    } else {
+      await reverterCancelamentoAulaGestaoEsportiva(aulaDetalhe.value.id)
+      definirFeedback('Cancelamento revertido com sucesso. A aula voltou para agendada.', 'sucesso')
+    }
+
+    fecharModalCancelamento(true)
+    await carregarDetalheAula(aulaDetalhe.value.id)
+  } catch (error) {
+    erroCancelamento.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
+  } finally {
+    processandoCancelamento.value = false
+  }
 }
 
 function aplicarSituacaoParticipante(participante) {
@@ -326,6 +444,12 @@ onBeforeUnmount(() => {
 
       <div class="acoes-cabecalho">
         <button class="botao secundario" type="button" @click="voltarParaAulas">Voltar para aulas</button>
+        <button v-if="podeCancelarAula" class="botao perigo" type="button" @click="abrirCancelamentoAula">
+          Cancelar aula
+        </button>
+        <button v-if="podeReverterCancelamento" class="botao secundario" type="button" @click="abrirReversaoCancelamento">
+          Reverter cancelamento
+        </button>
         <button class="botao principal" type="button" :disabled="!podeSalvarFrequencias" @click="salvarFrequencias">
           {{ salvandoFrequencias ? 'Salvando...' : 'Salvar frequência' }}
         </button>
@@ -408,8 +532,21 @@ onBeforeUnmount(() => {
               <div><span>Não lançados</span><strong>{{ resumoFrequencias.naoLancados }}</strong></div>
             </div>
 
-            <section v-if="aulaCancelada" class="aviso-bloqueio">
-              <p>Esta aula está cancelada. A frequência pode ser visualizada, mas não pode ser alterada.</p>
+            <section v-if="aulaCancelada" class="aviso-bloqueio aula-cancelada">
+              <p><strong>Esta aula está cancelada.</strong> A frequência pode ser visualizada, mas não pode ser alterada.</p>
+              <p v-if="aulaDetalhe.motivoCancelamento">
+                <strong>Motivo:</strong> {{ aulaDetalhe.motivoCancelamento }}
+              </p>
+              <p v-if="aulaDetalhe.canceladoEm">
+                <strong>Cancelada em:</strong> {{ formatarDataHoraSemConversaoFuso(aulaDetalhe.canceladoEm) }}
+              </p>
+              <p v-if="aulaDetalhe.canceladoPorUsuarioNome">
+                <strong>Cancelada por:</strong> {{ aulaDetalhe.canceladoPorUsuarioNome }}
+              </p>
+            </section>
+
+            <section v-else-if="mensagemBloqueioCancelamento" class="aviso-bloqueio bloqueio-cancelamento">
+              <p>{{ mensagemBloqueioCancelamento }}</p>
             </section>
           </section>
 
@@ -505,6 +642,43 @@ onBeforeUnmount(() => {
           </div>
         </template>
       </article>
+    </section>
+
+    <section v-if="acaoCancelamento" class="modal-fundo" @click.self="fecharModalCancelamento">
+      <form class="card modal pequena" @submit.prevent="confirmarCancelamentoAula">
+        <div class="cabecalho-card">
+          <div>
+            <h2>{{ tituloModalCancelamento }}</h2>
+            <p>{{ aulaDetalhe?.turmaNome || `Aula ${aulaDetalhe?.id || ''}` }}</p>
+          </div>
+          <button type="button" class="botao secundario" :disabled="processandoCancelamento" @click="fecharModalCancelamento">
+            Fechar
+          </button>
+        </div>
+
+        <section class="aviso-bloqueio cancelamento-resumo">
+          <p>{{ textoConfirmacaoCancelamento }}</p>
+          <p><strong>Turma:</strong> {{ aulaDetalhe?.turmaNome || '-' }}</p>
+          <p><strong>Data:</strong> {{ formatarDataPtBrSemFuso(aulaDetalhe?.dataAula) || '-' }}</p>
+          <p><strong>Horário:</strong> {{ formatarHorario(aulaDetalhe?.horarioInicio) }}</p>
+        </section>
+
+        <label v-if="acaoCancelamento === 'cancelar'">
+          Motivo do cancelamento
+          <textarea
+            v-model="motivoCancelamento"
+            rows="4"
+            :disabled="processandoCancelamento"
+            placeholder="Ex.: Professor indisponível"
+          ></textarea>
+        </label>
+
+        <p v-if="erroCancelamento" class="estado-erro">{{ erroCancelamento }}</p>
+
+        <button class="botao" :class="acaoCancelamento === 'reverter' ? 'secundario' : 'perigo'" type="submit" :disabled="processandoCancelamento">
+          {{ textoBotaoModalCancelamento }}
+        </button>
+      </form>
     </section>
   </main>
 </template>
@@ -608,6 +782,11 @@ onBeforeUnmount(() => {
   border-color: var(--app-border);
 }
 
+.botao.perigo {
+  background: linear-gradient(135deg, var(--app-danger), color-mix(in srgb, var(--app-danger) 88%, black));
+  color: #fff;
+}
+
 .feedback {
   padding: 16px 18px;
 }
@@ -635,9 +814,41 @@ onBeforeUnmount(() => {
   color: var(--app-warning);
 }
 
+.cabecalho-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.cabecalho-card p {
+  margin-top: 6px;
+  color: var(--app-text-muted);
+}
+
 .aviso {
   padding: 20px 22px;
   color: var(--app-text);
+}
+
+.modal-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: min(100%, 920px);
+  max-height: 88vh;
+  overflow: auto;
+}
+
+.pequena {
+  width: min(100%, 620px);
 }
 
 .detalhe-layout {
@@ -717,6 +928,27 @@ onBeforeUnmount(() => {
   border: 1px solid var(--app-warning);
   background: var(--app-warning-soft);
   color: var(--app-warning);
+}
+
+.aula-cancelada {
+  border-color: var(--app-danger);
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
+}
+
+.bloqueio-cancelamento {
+  border-color: var(--app-warning);
+  background: var(--app-warning-soft);
+  color: var(--app-warning);
+}
+
+.cancelamento-resumo {
+  display: grid;
+  gap: 8px;
+}
+
+.cancelamento-resumo p {
+  margin: 0;
 }
 
 .participantes {

@@ -4280,6 +4280,42 @@ export async function buscarAulaGestaoEsportiva(aulaId) {
   return tratarResposta(response)
 }
 
+export async function cancelarAulaGestaoEsportiva(aulaId, motivo = '') {
+  const id = String(aulaId || '').trim()
+
+  if (!id) {
+    return null
+  }
+
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/${id}/cancelar${montarQueryEmpresaOperacional()}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify({
+      motivo: String(motivo || '').trim(),
+    }),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function reverterCancelamentoAulaGestaoEsportiva(aulaId) {
+  const id = String(aulaId || '').trim()
+
+  if (!id) {
+    return null
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/aulas/${id}/reverter-cancelamento${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'PUT',
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
 export async function gerarAulasGestaoEsportiva(payload = {}) {
   const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/gerar${montarQueryEmpresaOperacional()}`, {
     method: 'POST',
@@ -4301,6 +4337,26 @@ export async function salvarFrequenciasAulaGestaoEsportiva(aulaId, frequencias =
     method: 'PUT',
     headers: montarHeaders(true),
     body: JSON.stringify(frequencias),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarPreviaCancelamentoAulasGestaoEsportiva(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/previa${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cancelarAulasGestaoEsportivaEmLote(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/lote${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
   })
 
   return tratarResposta(response)
