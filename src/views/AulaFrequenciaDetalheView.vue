@@ -27,6 +27,7 @@ import {
   rotuloSituacaoAula,
   rotuloSituacaoFrequencia,
   temAlteracaoParticipante,
+  temFrequenciaPersistidaNaAula,
   temLancamentoPersistido,
 } from '@/utils/aulasFrequencia'
 import {
@@ -87,7 +88,7 @@ const mensagemEstadoAlteracoes = computed(() => {
   return formatarMensagemQuantidade(lancamentosPendentes.value.length, 'alteração pendente.', 'alterações pendentes.')
 })
 const temFrequenciaPersistida = computed(() =>
-  participantesEdicao.value.some((participante) => temLancamentoPersistido(participante, snapshotParticipantes.value)),
+  temFrequenciaPersistidaNaAula(aulaDetalhe.value, participantesEdicao.value, snapshotParticipantes.value),
 )
 const podeCancelarAula = computed(
   () =>
@@ -106,15 +107,15 @@ const mensagemBloqueioCancelamento = computed(() => {
   }
 
   if (temFrequenciaPersistida.value) {
-    return 'Aulas com frequÃªncia lanÃ§ada nÃ£o podem ser canceladas nesta etapa.'
+    return 'Aulas com frequência lançada não podem ser canceladas nesta etapa.'
   }
 
   if (situacaoAulaSelecionada.value === 'REALIZADA') {
-    return 'Esta aula jÃ¡ foi realizada e nÃ£o pode ser cancelada.'
+    return 'Esta aula já foi realizada e não pode ser cancelada.'
   }
 
   if (situacaoAulaSelecionada.value === 'NAO_REALIZADA') {
-    return 'Esta aula foi marcada como nÃ£o realizada e nÃ£o pode ser cancelada.'
+    return 'Esta aula foi marcada como não realizada e não pode ser cancelada.'
   }
 
   return ''
@@ -126,15 +127,15 @@ const textoBotaoModalCancelamento = computed(() =>
   acaoCancelamento.value === 'reverter'
     ? processandoCancelamento.value
       ? 'Revertendo...'
-      : 'Confirmar reversÃ£o'
+      : 'Confirmar reversão'
     : processandoCancelamento.value
       ? 'Cancelando...'
       : 'Confirmar cancelamento',
 )
 const textoConfirmacaoCancelamento = computed(() =>
   acaoCancelamento.value === 'reverter'
-    ? 'A aula voltarÃ¡ para a situaÃ§Ã£o Agendada. A turma, o horÃ¡rio e os participantes permanecem inalterados.'
-    : 'A aula serÃ¡ cancelada sem exclusÃ£o do registro. NÃ£o serÃ¡ criada reposiÃ§Ã£o automaticamente nesta fase.',
+    ? 'A aula voltará para a situação Agendada. A turma, o horário e os participantes permanecem inalterados.'
+    : 'A aula será cancelada sem exclusão do registro. Não será criada reposição automaticamente nesta fase.',
 )
 const podeSalvarFrequencias = computed(
   () =>

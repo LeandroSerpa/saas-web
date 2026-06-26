@@ -212,6 +212,7 @@ export function normalizarAulaLista(item = {}) {
     presentes: obterNumeroDeCampo([item, resumo], ['presentes', 'qtdPresentes', 'quantidadePresentes'], 0),
     faltasJustificadas: obterNumeroDeCampo([item, resumo], ['faltasJustificadas', 'qtdFaltasJustificadas', 'faltasComJustificativa'], 0),
     faltasSemJustificativa: obterNumeroDeCampo([item, resumo], ['faltasSemJustificativa', 'qtdFaltasSemJustificativa'], 0),
+    reposicoesRealizadas: obterNumeroDeCampo([item, resumo], ['reposicoesRealizadas', 'qtdReposicoesRealizadas', 'reposicoes'], 0),
     naoLancados: obterNumeroDeCampo([item, resumo], ['naoLancados', 'naoLancados', 'qtdNaoLancados'], 0),
   }
 }
@@ -256,6 +257,7 @@ export function normalizarAulaDetalhe(item = {}) {
     presentes: 0,
     faltasJustificadas: 0,
     faltasSemJustificativa: 0,
+    reposicoesRealizadas: 0,
     naoLancados: 0,
   }
 
@@ -321,6 +323,11 @@ export function calcularResumoFrequencias(aula = null, participantes = []) {
       ['faltasSemJustificativa', 'qtdFaltasSemJustificativa'],
       contarSituacao(lista, 'FALTA_SEM_JUSTIFICATIVA'),
     ),
+    reposicoesRealizadas: obterNumeroDeCampo(
+      [aula, resumo],
+      ['reposicoesRealizadas', 'qtdReposicoesRealizadas', 'reposicoes'],
+      contarSituacao(lista, 'REPOSICAO_REALIZADA'),
+    ),
     naoLancados: obterNumeroDeCampo([aula, resumo], ['naoLancados', 'naoLancados', 'qtdNaoLancados'], contarSituacao(lista, 'NAO_LANCADO')),
   }
 }
@@ -358,6 +365,21 @@ export function temLancamentoPersistido(participante = {}, snapshotParticipantes
   }
 
   return STATUS_FREQUENCIA_PERSISTIVEIS.has(original.situacao)
+}
+
+export function temFrequenciaPersistidaNaAula(aula = null, participantes = [], snapshotParticipantes = new Map()) {
+  const listaParticipantes = Array.isArray(participantes) ? participantes : []
+  if (listaParticipantes.some((participante) => temLancamentoPersistido(participante, snapshotParticipantes))) {
+    return true
+  }
+
+  const resumo = calcularResumoFrequencias(aula, listaParticipantes)
+  return (
+    resumo.presentes > 0 ||
+    resumo.faltasJustificadas > 0 ||
+    resumo.faltasSemJustificativa > 0 ||
+    resumo.reposicoesRealizadas > 0
+  )
 }
 
 export function temAlteracaoParticipante(participante = {}, snapshotParticipantes = new Map()) {

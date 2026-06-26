@@ -353,6 +353,9 @@ const empresaOperacionalCarregadaPara = ref('')
 const empresaOperacionalCarregando = ref(false)
 const assinaturaOperacional = ref(null)
 const usoPlanoOperacional = ref(null)
+const empresaPossuiModulosAtivosExplicitos = computed(
+  () => Object.prototype.hasOwnProperty.call(empresaOperacional.value || {}, 'modulosAtivos'),
+)
 const modulosAtivosEmpresa = computed(() => normalizarModulosAtivos(empresaOperacional.value))
 const moduloAgendamentoAtivo = computed(() =>
   avaliarVisibilidadeOperacao(['AGEND'], () => true, avaliarCapacidadeAgendamentoOperacional),
@@ -697,11 +700,19 @@ function avaliarVisibilidadeOperacao(candidatos, fallback, avaliarCapacidade) {
     return true
   }
 
+  if (empresaPossuiModulosAtivosExplicitos.value) {
+    return false
+  }
+
   if (typeof avaliarCapacidade === 'function') {
     const visibilidadeCapacidade = avaliarCapacidade()
     if (visibilidadeCapacidade !== null) {
       return visibilidadeCapacidade
     }
+  }
+
+  if (moduloGestaoEsportivaVisivel.value) {
+    return false
   }
 
   return typeof fallback === 'function' ? fallback() : Boolean(fallback)
