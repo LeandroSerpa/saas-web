@@ -186,6 +186,12 @@ function voltarParaAulas() {
 
 function abrirCancelamentoAula() {
   if (!aulaDetalhe.value?.id) {
+    definirFeedback('Carregue uma aula antes de tentar cancelar.', 'aviso')
+    return
+  }
+
+  if (situacaoAulaSelecionada.value !== 'AGENDADA') {
+    definirFeedback('Apenas aulas agendadas podem ser canceladas.', 'aviso')
     return
   }
 
@@ -446,9 +452,6 @@ onBeforeUnmount(() => {
 
       <div class="acoes-cabecalho">
         <button class="botao secundario" type="button" @click="voltarParaAulas">Voltar para aulas</button>
-        <button v-if="situacaoAulaSelecionada === 'AGENDADA'" class="botao perigo" type="button" @click="abrirCancelamentoAula">
-          Cancelar aula
-        </button>
         <button v-if="podeReverterCancelamento" class="botao secundario" type="button" @click="abrirReversaoCancelamento">
           Reverter cancelamento
         </button>
@@ -486,6 +489,16 @@ onBeforeUnmount(() => {
           <div class="acoes-card">
             <button class="botao secundario" type="button" :disabled="carregandoDetalhe" @click="carregarDetalheAula(aulaId)">
               {{ carregandoDetalhe ? 'Carregando...' : 'Recarregar' }}
+            </button>
+            <button
+              id="btn-cancelar-aula"
+              data-testid="cancelar-aula"
+              class="botao perigo botao-cancelar-aula"
+              type="button"
+              :disabled="processandoCancelamento || situacaoAulaSelecionada !== 'AGENDADA'"
+              @click="abrirCancelamentoAula"
+            >
+              {{ processandoCancelamento ? 'Processando...' : 'Cancelar aula' }}
             </button>
           </div>
         </div>
@@ -784,6 +797,12 @@ onBeforeUnmount(() => {
 .botao.perigo {
   background: linear-gradient(135deg, var(--app-danger), color-mix(in srgb, var(--app-danger) 88%, black));
   color: #fff;
+}
+
+.botao-cancelar-aula {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .feedback {
