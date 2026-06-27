@@ -125,15 +125,34 @@ export function formatarDataHoraSemConversaoFuso(valor) {
   }
 
   const correspondencia = texto.match(
-    /^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2})(?::\d{2}(?:[.,]\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/,
+    /^(\d{4})-(\d{2})-(\d{2})(?:[Tt ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})?)?$/,
   )
 
   if (!correspondencia) {
     return '-'
   }
 
-  const [, ano, mes, dia, hora, minuto] = correspondencia
-  return `${dia}/${mes}/${ano}, ${hora}:${minuto}`
+  const [, ano, mes, dia, hora = '00', minuto = '00', segundo = '00', milissegundos = '0', fuso = ''] = correspondencia
+  const data = fuso
+    ? new Date(texto)
+    : new Date(
+        Number.parseInt(ano, 10),
+        Number.parseInt(mes, 10) - 1,
+        Number.parseInt(dia, 10),
+        Number.parseInt(hora, 10),
+        Number.parseInt(minuto, 10),
+        Number.parseInt(segundo, 10),
+        Number.parseInt(String(milissegundos).padEnd(3, '0').slice(0, 3), 10),
+      )
+
+  if (Number.isNaN(data.getTime())) {
+    return '-'
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(data)
 }
 
 export function rotuloSituacaoAula(valor) {
