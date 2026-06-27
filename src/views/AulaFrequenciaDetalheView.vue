@@ -87,43 +87,9 @@ const mensagemEstadoAlteracoes = computed(() => {
   return formatarMensagemQuantidade(lancamentosPendentes.value.length, 'alteração pendente.', 'alterações pendentes.')
 })
 const resumoFrequencias = computed(() => calcularResumoFrequencias(null, participantesEdicao.value))
-const temFrequenciaPersistida = computed(
-  () =>
-    participantesEdicao.value.some((participante) => temLancamentoPersistido(participante, snapshotParticipantes.value)) ||
-    resumoFrequencias.value.presentes > 0 ||
-    resumoFrequencias.value.faltasJustificadas > 0 ||
-    resumoFrequencias.value.faltasSemJustificativa > 0 ||
-    resumoFrequencias.value.reposicoesRealizadas > 0,
-)
-const podeCancelarAula = computed(
-  () =>
-    Boolean(aulaDetalhe.value?.id) &&
-    situacaoAulaSelecionada.value === 'AGENDADA' &&
-    !temFrequenciaPersistida.value &&
-    !processandoCancelamento.value,
-)
 const podeReverterCancelamento = computed(
   () => aulaCancelada.value && !modoVisualizacaoEmpresa.value && moduloAtivo.value && Boolean(aulaDetalhe.value?.id),
 )
-const mensagemBloqueioCancelamento = computed(() => {
-  if (!aulaDetalhe.value?.id || aulaCancelada.value) {
-    return ''
-  }
-
-  if (temFrequenciaPersistida.value) {
-    return 'Aulas com frequência lançada não podem ser canceladas nesta etapa.'
-  }
-
-  if (situacaoAulaSelecionada.value === 'REALIZADA') {
-    return 'Esta aula já foi realizada e não pode ser cancelada.'
-  }
-
-  if (situacaoAulaSelecionada.value === 'NAO_REALIZADA') {
-    return 'Esta aula foi marcada como não realizada e não pode ser cancelada.'
-  }
-
-  return ''
-})
 const tituloModalCancelamento = computed(() =>
   acaoCancelamento.value === 'reverter' ? 'Reverter cancelamento' : 'Cancelar aula',
 )
@@ -167,8 +133,31 @@ function limparFeedback() {
 }
 
 function obterMensagemErro(error, fallback) {
-  const mensagem = String(error?.message || '').trim()
+  const mensagem = obterMensagemBackend(error)
   return mensagem || fallback
+}
+
+function obterMensagemBackend(error) {
+  const candidatos = [
+    error?.response?.data?.message,
+    error?.response?.data?.mensagem,
+    error?.response?.data?.detail,
+    error?.response?.data?.error,
+    error?.data?.message,
+    error?.data?.mensagem,
+    error?.data?.detail,
+    error?.data?.error,
+    error?.message,
+  ]
+
+  for (const candidato of candidatos) {
+    const mensagem = String(candidato || '').trim()
+    if (mensagem) {
+      return mensagem
+    }
+  }
+
+  return ''
 }
 
 function formatarDataHora(valor) {
@@ -196,7 +185,7 @@ function voltarParaAulas() {
 }
 
 function abrirCancelamentoAula() {
-  if (!podeCancelarAula.value || !aulaDetalhe.value?.id) {
+  if (!aulaDetalhe.value?.id) {
     return
   }
 
@@ -230,7 +219,10 @@ async function confirmarCancelamentoAula() {
     return
   }
 
-  if (acaoCancelamento.value === 'cancelar' && !String(motivoCancelamento.value || '').trim()) {
+  const acaoAtual = acaoCancelamento.value
+  const aulaIdAtual = aulaDetalhe.value.id
+
+  if (acaoAtual === 'cancelar' && !String(motivoCancelamento.value || '').trim()) {
     erroCancelamento.value = 'Informe o motivo do cancelamento.'
     return
   }
@@ -239,16 +231,22 @@ async function confirmarCancelamentoAula() {
     processandoCancelamento.value = true
     erroCancelamento.value = ''
 
-    if (acaoCancelamento.value === 'cancelar') {
-      await cancelarAulaGestaoEsportiva(aulaDetalhe.value.id, motivoCancelamento.value)
-      definirFeedback('Aula cancelada com sucesso.', 'sucesso')
+    if (acaoAtual === 'cancelar') {
+      await cancelarAulaGestaoEsportiva(aulaIdAtual, motivoCancelamento.value)
     } else {
-      await reverterCancelamentoAulaGestaoEsportiva(aulaDetalhe.value.id)
-      definirFeedback('Cancelamento revertido com sucesso. A aula voltou para agendada.', 'sucesso')
+      await reverterCancelamentoAulaGestaoEsportiva(aulaIdAtual)
     }
 
     fecharModalCancelamento(true)
-    await carregarDetalheAula(aulaDetalhe.value.id)
+    definirFeedback(
+      acaoAtual === 'cancelar'
+        ? 'Aula cancelada com sucesso.'
+        : 'Cancelamento revertido com sucesso. A aula voltou para agendada.',
+      'sucesso',
+    )
+    void carregarDetalheAula(aulaIdAtual).catch((error) => {
+      console.error(error)
+    })
   } catch (error) {
     erroCancelamento.value = obterMensagemErro(error, 'Não foi possível concluir a operação.')
   } finally {
@@ -448,7 +446,7 @@ onBeforeUnmount(() => {
 
       <div class="acoes-cabecalho">
         <button class="botao secundario" type="button" @click="voltarParaAulas">Voltar para aulas</button>
-        <button v-if="podeCancelarAula" class="botao perigo" type="button" @click="abrirCancelamentoAula">
+        <button v-if="situacaoAulaSelecionada === 'AGENDADA'" class="botao perigo" type="button" @click="abrirCancelamentoAula">
           Cancelar aula
         </button>
         <button v-if="podeReverterCancelamento" class="botao secundario" type="button" @click="abrirReversaoCancelamento">
@@ -549,9 +547,6 @@ onBeforeUnmount(() => {
               </p>
             </section>
 
-            <section v-else-if="mensagemBloqueioCancelamento" class="aviso-bloqueio bloqueio-cancelamento">
-              <p>{{ mensagemBloqueioCancelamento }}</p>
-            </section>
           </section>
 
           <section v-if="!aulaCancelada" class="estado-vazio estado-vazio-compacto">
