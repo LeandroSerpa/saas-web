@@ -48,16 +48,60 @@ const STATUS_FREQUENCIA_PERSISTIVEIS = new Set(
 
 const OPCOES_ITENS_POR_PAGINA = Object.freeze([1, 2, 3, 5, 7, 10, 20])
 const OPCOES_ESCOPO_CANCELAMENTO_LOTE = Object.freeze([
-  { valor: 'AULAS_ESPECIFICAS', rotulo: 'Aulas específicas' },
-  { valor: 'TURMAS_NA_DATA', rotulo: 'Turmas em uma data' },
-  { valor: 'TODAS_DA_DATA', rotulo: 'Todas as aulas da data' },
-  { valor: 'PERIODO_DA_DATA', rotulo: 'Período do dia' },
+  { valor: 'AULAS_ESPECIFICAS', rotulo: 'Aulas específicas da data' },
+  { valor: 'TURMAS_NA_DATA', rotulo: 'Turmas específicas na data' },
+  { valor: 'TODAS_DA_DATA', rotulo: 'Todas as aulas da data escolhida' },
+  { valor: 'PERIODO_DA_DATA', rotulo: 'Aulas por período na data escolhida' },
 ])
 const OPCOES_PERIODO_CANCELAMENTO_LOTE = Object.freeze([
   { valor: 'MANHA', rotulo: 'Manhã' },
   { valor: 'TARDE', rotulo: 'Tarde' },
   { valor: 'NOITE', rotulo: 'Noite' },
 ])
+
+function rotuloPeriodoLote(valor) {
+  const periodo = String(valor || '').trim().toUpperCase()
+  return (
+    {
+      MANHA: 'Manhã',
+      TARDE: 'Tarde',
+      NOITE: 'Noite',
+    }[periodo] || ''
+  )
+}
+
+function obterDescricaoEscopoLote(escopo) {
+  const valor = String(escopo || '').trim().toUpperCase()
+
+  return (
+    {
+      AULAS_ESPECIFICAS: 'Carrega todas as aulas da data selecionada para você escolher manualmente.',
+      TURMAS_NA_DATA: 'Considera somente as aulas das turmas marcadas na data selecionada.',
+      TODAS_DA_DATA: 'Considera todas as aulas existentes somente na data selecionada, em qualquer horário.',
+      PERIODO_DA_DATA: 'Considera somente as aulas da data selecionada dentro do período escolhido.',
+    }[valor] || ''
+  )
+}
+
+function obterRotuloPreviaLote({ data = '', escopo = '', periodo = '', totalTurmasSelecionadas = 0 } = {}) {
+  const dataFormatada = formatarDataBrasileira(data) || 'data selecionada'
+  const partes = [`Prévia de ${dataFormatada}`]
+  const escopoNormalizado = String(escopo || '').trim().toUpperCase()
+
+  if (escopoNormalizado === 'PERIODO_DA_DATA') {
+    const rotuloPeriodo = rotuloPeriodoLote(periodo)
+    if (rotuloPeriodo) {
+      partes.push(`— ${rotuloPeriodo}`)
+    }
+  }
+
+  if (escopoNormalizado === 'TURMAS_NA_DATA') {
+    const quantidade = Number(totalTurmasSelecionadas) || 0
+    partes.push(`— ${quantidade} turma${quantidade === 1 ? '' : 's'} selecionada${quantidade === 1 ? '' : 's'}`)
+  }
+
+  return partes.join(' ')
+}
 
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloAtivo = computed(() => contextoEsportivo.value?.ativo === true)
@@ -141,6 +185,15 @@ const aulasPaginadas = computed(() =>
 const turmasSelecionaveisCancelamentoLote = computed(() => [...turmasOrdenadas.value])
 const professoresSelecionaveisCancelamentoLote = computed(() => [...professoresOrdenados.value])
 const escopoCancelamentoLote = computed(() => String(cancelamentoLote.value.escopo || 'PERIODO_DA_DATA').trim())
+const descricaoEscopoCancelamentoLote = computed(() => obterDescricaoEscopoLote(escopoCancelamentoLote.value))
+const tituloPreviaCancelamentoLote = computed(() =>
+  obterRotuloPreviaLote({
+    data: cancelamentoLote.value.data,
+    escopo: escopoCancelamentoLote.value,
+    periodo: cancelamentoLote.value.periodo,
+    totalTurmasSelecionadas: normalizarIdsSelecionados(cancelamentoLote.value.turmaIds).length,
+  }),
+)
 const formularioCancelamentoLoteValidoParaPrevia = computed(() => !validarFormularioCancelamentoLote())
 const previewCancelamentoLoteValida = computed(() => Boolean(previaCancelamentoLote.value && assinaturaPreviaCancelamentoLote.value))
 const previewCancelamentoLoteAtualizada = computed(
@@ -175,7 +228,7 @@ const mensagemBloqueioConfirmacaoCancelamentoLote = computed(() => {
   }
 
   if (carregandoPreviaCancelamentoLote.value || previsaoCancelamentoLotePendente.value) {
-    return 'Aguarde a atualizaÃ§Ã£o da prÃ©via.'
+    return 'Aguarde a atualização da prévia.'
   }
 
   if (
@@ -198,7 +251,7 @@ const mensagemBloqueioConfirmacaoCancelamentoLote = computed(() => {
   }
 
   if (previewCancelamentoLoteBloqueado.value) {
-    return 'O lote possui aulas bloqueadas e nÃ£o pode ser processado parcialmente.'
+    return 'O lote possui aulas bloqueadas e não pode ser processado parcialmente.'
   }
 
   if (previewCancelamentoLoteSemResultados.value) {
@@ -206,11 +259,11 @@ const mensagemBloqueioConfirmacaoCancelamentoLote = computed(() => {
   }
 
   if (previewCancelamentoLoteSemAlteracao.value) {
-    return 'Todas as aulas encontradas jÃ¡ estÃ£o canceladas.'
+    return 'Todas as aulas encontradas já estão canceladas.'
   }
 
   if (!previewCancelamentoLoteAtualizada.value) {
-    return 'Aguarde a atualizaÃ§Ã£o da prÃ©via.'
+    return 'Aguarde a atualização da prévia.'
   }
 
   return ''
@@ -267,6 +320,15 @@ const podeAtualizarPreviaCancelamentoLote = computed(
 )
 const assinaturaAtualCancelamentoLote = computed(() => assinaturaCancelamentoLote(montarPayloadCancelamentoLote()))
 const escopoRetomadaLote = computed(() => String(retomadaLote.value.escopo || 'PERIODO_DA_DATA').trim())
+const descricaoEscopoRetomadaLote = computed(() => obterDescricaoEscopoLote(escopoRetomadaLote.value))
+const tituloPreviaRetomadaLote = computed(() =>
+  obterRotuloPreviaLote({
+    data: retomadaLote.value.data,
+    escopo: escopoRetomadaLote.value,
+    periodo: retomadaLote.value.periodo,
+    totalTurmasSelecionadas: normalizarIdsSelecionados(retomadaLote.value.turmaIds).length,
+  }),
+)
 const formularioRetomadaLoteValidoParaPrevia = computed(() => !validarFormularioRetomadaLote())
 const previewRetomadaLoteValida = computed(() => Boolean(previaRetomadaLote.value && assinaturaPreviaRetomadaLote.value))
 const previewRetomadaLoteAtualizada = computed(
@@ -301,7 +363,7 @@ const mensagemBloqueioConfirmacaoRetomadaLote = computed(() => {
   }
 
   if (carregandoPreviaRetomadaLote.value || previsaoRetomadaLotePendente.value) {
-    return 'Aguarde a atualizaÃ§Ã£o da prÃ©via.'
+    return 'Aguarde a atualização da prévia.'
   }
 
   if (
@@ -319,7 +381,7 @@ const mensagemBloqueioConfirmacaoRetomadaLote = computed(() => {
   }
 
   if (previewRetomadaLoteBloqueado.value) {
-    return 'O lote possui aulas bloqueadas e nÃ£o pode ser processado parcialmente.'
+    return 'O lote possui aulas bloqueadas e não pode ser processado parcialmente.'
   }
 
   if (previewRetomadaLoteSemResultados.value) {
@@ -327,11 +389,11 @@ const mensagemBloqueioConfirmacaoRetomadaLote = computed(() => {
   }
 
   if (previewRetomadaLoteSemAlteracao.value) {
-    return 'Todas as aulas encontradas jÃ¡ estÃ£o ativas.'
+    return 'Todas as aulas encontradas já estão ativas.'
   }
 
   if (!previewRetomadaLoteAtualizada.value) {
-    return 'Aguarde a atualizaÃ§Ã£o da prÃ©via.'
+    return 'Aguarde a atualização da prévia.'
   }
 
   return ''
@@ -2805,7 +2867,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-if="modalCancelamentoLoteAberto" class="modal-fundo" @click.self="fecharModalCancelamentoLote">
-        <form class="card modal modal-lote modal-lote-painel" @submit.prevent="confirmarCancelamentoLote">
+        <form id="modal-cancelamento-lote-painel" class="card modal modal-lote modal-lote-painel" @submit.prevent="confirmarCancelamentoLote">
           <div class="cabecalho-card">
             <div>
               <p class="subtitulo-mini">Cancelamento em lote</p>
@@ -2835,6 +2897,7 @@ onBeforeUnmount(() => {
                           {{ opcao.rotulo }}
                         </option>
                       </select>
+                      <small class="ajuda-campo">{{ descricaoEscopoCancelamentoLote }}</small>
                     </label>
 
                     <label>
@@ -2858,35 +2921,35 @@ onBeforeUnmount(() => {
                         <option v-for="opcao in OPCOES_PERIODO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
                           {{ opcao.rotulo }}
                         </option>
-                        </select>
-                        <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até antes de 18h. Noite: a partir de 18h.</small>
-                      </label>
+                      </select>
+                      <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até 17h59. Noite: a partir de 18h.</small>
+                    </label>
                     </div>
 
-                    <section class="bloco-selecao">
-                      <div class="secao-cabecalho">
-                        <div>
-                          <h3>Motivo</h3>
-                          <p>O motivo é obrigatório na confirmação final.</p>
+                  <section class="bloco-selecao">
+                    <div class="secao-cabecalho">
+                      <div>
+                        <h3>Motivo</h3>
+                        <p>O motivo é obrigatório na confirmação final.</p>
                         </div>
                       </div>
 
-                      <label class="campo-grande">
-                        Motivo do cancelamento
-                        <textarea
-                          v-model="cancelamentoLote.motivo"
-                          rows="4"
+                    <label class="campo-grande">
+                      Motivo do cancelamento
+                      <textarea
+                        v-model="cancelamentoLote.motivo"
+                        rows="4"
                           placeholder="Ex.: Chuva intensa durante a manhã"
                         ></textarea>
                       </label>
                     </section>
 
-                    <section v-if="escopoCancelamentoLote === 'AULAS_ESPECIFICAS'" class="bloco-selecao">
-                      <div class="secao-cabecalho">
-                        <div>
-                          <h3>Aulas específicas</h3>
-                          <p>Carregue as aulas da data e selecione uma ou mais opções.</p>
-                        </div>
+                  <section v-if="escopoCancelamentoLote === 'AULAS_ESPECIFICAS'" class="bloco-selecao">
+                    <div class="secao-cabecalho">
+                      <div>
+                        <h3>Aulas específicas</h3>
+                        <p>Carregue as aulas da data e selecione uma ou mais opções.</p>
+                      </div>
                         <div class="acoes-mini">
                           <button type="button" class="botao secundario compacto" @click="selecionarTodasAulasCancelamentoLote">
                             Selecionar todas
@@ -2967,7 +3030,8 @@ onBeforeUnmount(() => {
                   <div class="secao-cabecalho">
                     <div>
                       <h3>Prévia obrigatória</h3>
-                      <p>{{ formatarEscopoCancelamentoLote(cancelamentoLote.escopo) }}</p>
+                      <p>{{ tituloPreviaCancelamentoLote }}</p>
+                      <small class="ajuda-campo">{{ formatarEscopoCancelamentoLote(cancelamentoLote.escopo) }}</small>
                     </div>
                     <span class="contador">
                       {{
@@ -3064,7 +3128,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-if="modalRetomadaLoteAberto" class="modal-fundo" @click.self="fecharModalRetomadaLote">
-        <form class="card modal modal-lote modal-lote-painel" @submit.prevent="confirmarRetomadaLote">
+        <form id="modal-retomada-lote-painel" class="card modal modal-lote modal-lote-painel" @submit.prevent="confirmarRetomadaLote">
           <div class="cabecalho-card">
             <div>
               <p class="subtitulo-mini">Retomada em lote</p>
@@ -3094,6 +3158,7 @@ onBeforeUnmount(() => {
                           {{ opcao.rotulo }}
                         </option>
                       </select>
+                      <small class="ajuda-campo">{{ descricaoEscopoRetomadaLote }}</small>
                     </label>
 
                     <label>
@@ -3118,7 +3183,7 @@ onBeforeUnmount(() => {
                           {{ opcao.rotulo }}
                         </option>
                       </select>
-                      <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até antes de 18h. Noite: a partir de 18h.</small>
+                      <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até 17h59. Noite: a partir de 18h.</small>
                     </label>
                   </div>
 
@@ -3202,7 +3267,8 @@ onBeforeUnmount(() => {
                   <div class="secao-cabecalho">
                     <div>
                       <h3>Prévia obrigatória</h3>
-                      <p>{{ formatarEscopoCancelamentoLote(retomadaLote.escopo) }}</p>
+                      <p>{{ tituloPreviaRetomadaLote }}</p>
+                      <small class="ajuda-campo">{{ formatarEscopoCancelamentoLote(retomadaLote.escopo) }}</small>
                     </div>
                     <span class="contador">
                       {{
@@ -3457,10 +3523,18 @@ onBeforeUnmount(() => {
 }
 
 .modal-lote-painel {
-  width: min(1180px, calc(100vw - 32px));
-  max-width: 1180px;
-  min-width: min(900px, calc(100vw - 32px));
   min-height: 0;
+}
+
+#modal-cancelamento-lote-painel,
+#modal-retomada-lote-painel {
+  box-sizing: border-box;
+  width: min(1180px, calc(100vw - 32px)) !important;
+  min-width: min(1050px, calc(100vw - 32px)) !important;
+  max-width: 1180px !important;
+  flex: 0 1 1180px !important;
+  flex-shrink: 0 !important;
+  max-height: calc(100vh - 32px);
 }
 
 .modal-lote {
@@ -4146,9 +4220,15 @@ textarea:focus {
   }
 
   .modal-lote-painel {
-    width: calc(100vw - 16px);
-    min-width: 0;
-    max-width: none;
+    min-height: 0;
+  }
+
+  #modal-cancelamento-lote-painel,
+  #modal-retomada-lote-painel {
+    width: calc(100vw - 16px) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px) !important;
+    flex: 0 1 auto !important;
     max-height: calc(100vh - 16px);
   }
 
