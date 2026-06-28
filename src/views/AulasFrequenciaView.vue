@@ -89,17 +89,23 @@ const sequenciaLista = ref(0)
 const sequenciaDetalhe = ref(0)
 const modalCancelamentoLoteAberto = ref(false)
 const carregandoPreviaCancelamentoLote = ref(false)
+const previsaoCancelamentoLotePendente = ref(false)
 const processandoCancelamentoLote = ref(false)
 const erroCancelamentoLote = ref('')
 const previaCancelamentoLote = ref(null)
 const assinaturaPreviaCancelamentoLote = ref('')
+const sequenciaPreviaCancelamentoLote = ref(0)
+let debouncePreviaCancelamentoLote = null
 const cancelamentoLote = ref(criarCancelamentoLotePadrao())
 const modalRetomadaLoteAberto = ref(false)
 const carregandoPreviaRetomadaLote = ref(false)
+const previsaoRetomadaLotePendente = ref(false)
 const processandoRetomadaLote = ref(false)
 const erroRetomadaLote = ref('')
 const previaRetomadaLote = ref(null)
 const assinaturaPreviaRetomadaLote = ref('')
+const sequenciaPreviaRetomadaLote = ref(0)
+let debouncePreviaRetomadaLote = null
 const retomadaLote = ref(criarRetomadaLotePadrao())
 
 const aulaSelecionadaId = computed(() => normalizarIdPositivo(valorRota(route.query.aulaId)))
@@ -125,7 +131,15 @@ const aulasSelecionaveisRetomadaLote = computed(() => [...aulasOrdenadas.value])
 const turmasSelecionaveisCancelamentoLote = computed(() => [...turmasOrdenadas.value])
 const professoresSelecionaveisCancelamentoLote = computed(() => [...professoresOrdenados.value])
 const escopoCancelamentoLote = computed(() => String(cancelamentoLote.value.escopo || 'PERIODO_DA_DATA').trim())
+const formularioCancelamentoLoteValidoParaPrevia = computed(() => !validarFormularioCancelamentoLote())
 const previewCancelamentoLoteValida = computed(() => Boolean(previaCancelamentoLote.value && assinaturaPreviaCancelamentoLote.value))
+const previewCancelamentoLoteAtualizada = computed(
+  () =>
+    previewCancelamentoLoteValida.value &&
+    assinaturaPreviaCancelamentoLote.value === assinaturaAtualCancelamentoLote.value &&
+    !carregandoPreviaCancelamentoLote.value &&
+    !previsaoCancelamentoLotePendente.value,
+)
 const previewCancelamentoLoteSemResultados = computed(
   () => previewCancelamentoLoteValida.value && normalizarNumero(previaCancelamentoLote.value?.quantidadeEncontrada, 0) === 0,
 )
@@ -144,8 +158,17 @@ const previewCancelamentoLoteSemAlteracao = computed(
     normalizarNumero(previaCancelamentoLote.value?.quantidadeCancelavel, 0) === 0,
 )
 const mensagemPreviewCancelamentoLote = computed(() => {
+  if (carregandoPreviaCancelamentoLote.value || previsaoCancelamentoLotePendente.value) {
+    return 'Atualizando prévia...'
+  }
+
+  const erroFormulario = validarFormularioCancelamentoLote()
+  if (erroFormulario) {
+    return erroFormulario
+  }
+
   if (!previewCancelamentoLoteValida.value) {
-    return 'Clique em Ver prévia para analisar o escopo selecionado antes de cancelar as aulas.'
+    return 'A prévia será atualizada automaticamente quando os dados estiverem completos.'
   }
 
   if (previewCancelamentoLoteSemResultados.value) {
@@ -163,7 +186,7 @@ const mensagemPreviewCancelamentoLote = computed(() => {
   return 'A prévia está pronta. Confira os itens e informe o motivo para confirmar o cancelamento em lote.'
 })
 const podeConfirmarCancelamentoLote = computed(() => {
-  if (!previewCancelamentoLoteValida.value) {
+  if (!previewCancelamentoLoteAtualizada.value) {
     return false
   }
 
@@ -177,9 +200,24 @@ const podeConfirmarCancelamentoLote = computed(() => {
 
   return Boolean(String(cancelamentoLote.value.motivo || '').trim())
 })
+const podeAtualizarPreviaCancelamentoLote = computed(
+  () =>
+    modalCancelamentoLoteAberto.value &&
+    formularioCancelamentoLoteValidoParaPrevia.value &&
+    !carregandoPreviaCancelamentoLote.value &&
+    !processandoCancelamentoLote.value,
+)
 const assinaturaAtualCancelamentoLote = computed(() => assinaturaCancelamentoLote(montarPayloadCancelamentoLote()))
 const escopoRetomadaLote = computed(() => String(retomadaLote.value.escopo || 'PERIODO_DA_DATA').trim())
+const formularioRetomadaLoteValidoParaPrevia = computed(() => !validarFormularioRetomadaLote())
 const previewRetomadaLoteValida = computed(() => Boolean(previaRetomadaLote.value && assinaturaPreviaRetomadaLote.value))
+const previewRetomadaLoteAtualizada = computed(
+  () =>
+    previewRetomadaLoteValida.value &&
+    assinaturaPreviaRetomadaLote.value === assinaturaAtualRetomadaLote.value &&
+    !carregandoPreviaRetomadaLote.value &&
+    !previsaoRetomadaLotePendente.value,
+)
 const previewRetomadaLoteSemResultados = computed(
   () => previewRetomadaLoteValida.value && normalizarNumero(previaRetomadaLote.value?.quantidadeEncontrada, 0) === 0,
 )
@@ -200,8 +238,17 @@ const previewRetomadaLoteSemAlteracao = computed(
       normalizarNumero(previaRetomadaLote.value?.quantidadeEncontrada, 0),
 )
 const mensagemPreviewRetomadaLote = computed(() => {
+  if (carregandoPreviaRetomadaLote.value || previsaoRetomadaLotePendente.value) {
+    return 'Atualizando prévia...'
+  }
+
+  const erroFormulario = validarFormularioRetomadaLote()
+  if (erroFormulario) {
+    return erroFormulario
+  }
+
   if (!previewRetomadaLoteValida.value) {
-    return 'Clique em Ver prévia para analisar o escopo selecionado antes de retomar as aulas.'
+    return 'A prévia será atualizada automaticamente quando os dados estiverem completos.'
   }
 
   if (previewRetomadaLoteSemResultados.value) {
@@ -219,7 +266,7 @@ const mensagemPreviewRetomadaLote = computed(() => {
   return 'A prévia está pronta. Confira os itens antes de confirmar a retomada em lote.'
 })
 const podeConfirmarRetomadaLote = computed(() => {
-  if (!previewRetomadaLoteValida.value) {
+  if (!previewRetomadaLoteAtualizada.value) {
     return false
   }
 
@@ -237,6 +284,13 @@ const podeConfirmarRetomadaLote = computed(() => {
 
   return true
 })
+const podeAtualizarPreviaRetomadaLote = computed(
+  () =>
+    modalRetomadaLoteAberto.value &&
+    formularioRetomadaLoteValidoParaPrevia.value &&
+    !carregandoPreviaRetomadaLote.value &&
+    !processandoRetomadaLote.value,
+)
 const assinaturaAtualRetomadaLote = computed(() => assinaturaRetomadaLote(montarPayloadRetomadaLote()))
 const intervaloExibido = computed(() =>
   totalAulas.value === 0 ? '0 de 0' : `${indiceInicioPagina.value} a ${indiceFimPagina.value} de ${totalAulas.value}`,
@@ -1033,12 +1087,44 @@ function descricaoAulaRetomadaLote(item = {}) {
   return trechos.join(' · ')
 }
 
-function abrirModalCancelamentoLote() {
-  modalCancelamentoLoteAberto.value = true
-  cancelamentoLote.value = criarCancelamentoLotePadrao()
+function cancelarAgendamentoPreviaCancelamentoLote() {
+  if (debouncePreviaCancelamentoLote) {
+    clearTimeout(debouncePreviaCancelamentoLote)
+    debouncePreviaCancelamentoLote = null
+  }
+}
+
+function cancelarAgendamentoPreviaRetomadaLote() {
+  if (debouncePreviaRetomadaLote) {
+    clearTimeout(debouncePreviaRetomadaLote)
+    debouncePreviaRetomadaLote = null
+  }
+}
+
+function redefinirEstadoPreviaCancelamentoLote() {
+  cancelarAgendamentoPreviaCancelamentoLote()
+  sequenciaPreviaCancelamentoLote.value += 1
+  previsaoCancelamentoLotePendente.value = false
+  carregandoPreviaCancelamentoLote.value = false
   previaCancelamentoLote.value = null
   assinaturaPreviaCancelamentoLote.value = ''
   erroCancelamentoLote.value = ''
+}
+
+function redefinirEstadoPreviaRetomadaLote() {
+  cancelarAgendamentoPreviaRetomadaLote()
+  sequenciaPreviaRetomadaLote.value += 1
+  previsaoRetomadaLotePendente.value = false
+  carregandoPreviaRetomadaLote.value = false
+  previaRetomadaLote.value = null
+  assinaturaPreviaRetomadaLote.value = ''
+  erroRetomadaLote.value = ''
+}
+
+function abrirModalCancelamentoLote() {
+  redefinirEstadoPreviaCancelamentoLote()
+  modalCancelamentoLoteAberto.value = true
+  cancelamentoLote.value = criarCancelamentoLotePadrao()
 }
 
 function fecharModalCancelamentoLote(forcar = false) {
@@ -1048,23 +1134,22 @@ function fecharModalCancelamentoLote(forcar = false) {
 
   modalCancelamentoLoteAberto.value = false
   cancelamentoLote.value = criarCancelamentoLotePadrao()
-  previaCancelamentoLote.value = null
-  assinaturaPreviaCancelamentoLote.value = ''
-  erroCancelamentoLote.value = ''
+  redefinirEstadoPreviaCancelamentoLote()
 }
 
 function limparPreviaCancelamentoLote(mensagem = '') {
+  cancelarAgendamentoPreviaCancelamentoLote()
   previaCancelamentoLote.value = null
   assinaturaPreviaCancelamentoLote.value = ''
+  previsaoCancelamentoLotePendente.value = false
+  carregandoPreviaCancelamentoLote.value = false
   erroCancelamentoLote.value = String(mensagem || '').trim()
 }
 
 function abrirModalRetomadaLote() {
+  redefinirEstadoPreviaRetomadaLote()
   modalRetomadaLoteAberto.value = true
   retomadaLote.value = criarRetomadaLotePadrao()
-  previaRetomadaLote.value = null
-  assinaturaPreviaRetomadaLote.value = ''
-  erroRetomadaLote.value = ''
 }
 
 function fecharModalRetomadaLote(forcar = false) {
@@ -1074,14 +1159,15 @@ function fecharModalRetomadaLote(forcar = false) {
 
   modalRetomadaLoteAberto.value = false
   retomadaLote.value = criarRetomadaLotePadrao()
-  previaRetomadaLote.value = null
-  assinaturaPreviaRetomadaLote.value = ''
-  erroRetomadaLote.value = ''
+  redefinirEstadoPreviaRetomadaLote()
 }
 
 function limparPreviaRetomadaLote(mensagem = '') {
+  cancelarAgendamentoPreviaRetomadaLote()
   previaRetomadaLote.value = null
   assinaturaPreviaRetomadaLote.value = ''
+  previsaoRetomadaLotePendente.value = false
+  carregandoPreviaRetomadaLote.value = false
   erroRetomadaLote.value = String(mensagem || '').trim()
 }
 
@@ -1139,69 +1225,139 @@ function validarFormularioRetomadaLote() {
   return ''
 }
 
-async function consultarPreviaCancelamentoLote() {
-  if (!modalCancelamentoLoteAberto.value || carregandoPreviaCancelamentoLote.value || processandoCancelamentoLote.value) {
+function agendarConsultaPreviaCancelamentoLote({ forcar = false } = {}) {
+  if (!modalCancelamentoLoteAberto.value || processandoCancelamentoLote.value) {
+    return
+  }
+
+  cancelarAgendamentoPreviaCancelamentoLote()
+  sequenciaPreviaCancelamentoLote.value += 1
+  previsaoCancelamentoLotePendente.value = true
+  carregandoPreviaCancelamentoLote.value = false
+  erroCancelamentoLote.value = ''
+  previaCancelamentoLote.value = null
+  assinaturaPreviaCancelamentoLote.value = ''
+
+  if (forcar) {
+    void consultarPreviaCancelamentoLote(true)
+    return
+  }
+
+  debouncePreviaCancelamentoLote = setTimeout(() => {
+    debouncePreviaCancelamentoLote = null
+    void consultarPreviaCancelamentoLote(false)
+  }, 420)
+}
+
+function agendarConsultaPreviaRetomadaLote({ forcar = false } = {}) {
+  if (!modalRetomadaLoteAberto.value || processandoRetomadaLote.value) {
+    return
+  }
+
+  cancelarAgendamentoPreviaRetomadaLote()
+  sequenciaPreviaRetomadaLote.value += 1
+  previsaoRetomadaLotePendente.value = true
+  carregandoPreviaRetomadaLote.value = false
+  erroRetomadaLote.value = ''
+  previaRetomadaLote.value = null
+  assinaturaPreviaRetomadaLote.value = ''
+
+  if (forcar) {
+    void consultarPreviaRetomadaLote(true)
+    return
+  }
+
+  debouncePreviaRetomadaLote = setTimeout(() => {
+    debouncePreviaRetomadaLote = null
+    void consultarPreviaRetomadaLote(false)
+  }, 420)
+}
+
+async function consultarPreviaCancelamentoLote(forcar = false) {
+  if (!modalCancelamentoLoteAberto.value || processandoCancelamentoLote.value) {
     return
   }
 
   const erroFormulario = validarFormularioCancelamentoLote()
   if (erroFormulario) {
-    erroCancelamentoLote.value = erroFormulario
+    previsaoCancelamentoLotePendente.value = false
+    if (forcar || erroCancelamentoLote.value !== erroFormulario) {
+      erroCancelamentoLote.value = erroFormulario
+    }
     return
   }
 
   const payload = montarPayloadCancelamentoLote()
   const assinaturaSolicitada = assinaturaCancelamentoLote(payload)
+  const sequenciaAtual = ++sequenciaPreviaCancelamentoLote.value
   assinaturaPreviaCancelamentoLote.value = assinaturaSolicitada
   carregandoPreviaCancelamentoLote.value = true
   erroCancelamentoLote.value = ''
 
   try {
     const resposta = await buscarPreviaCancelamentoAulasGestaoEsportiva(payload)
-    if (assinaturaAtualCancelamentoLote.value !== assinaturaSolicitada) {
+    if (!modalCancelamentoLoteAberto.value || sequenciaAtual !== sequenciaPreviaCancelamentoLote.value) {
       return
     }
 
     previaCancelamentoLote.value = normalizarPreviaCancelamentoLote(resposta || {})
   } catch (error) {
+    if (!modalCancelamentoLoteAberto.value || sequenciaAtual !== sequenciaPreviaCancelamentoLote.value) {
+      return
+    }
+
     previaCancelamentoLote.value = null
     assinaturaPreviaCancelamentoLote.value = ''
     erroCancelamentoLote.value = obterMensagemErro(error, 'Não foi possível consultar a prévia do cancelamento.')
   } finally {
-    carregandoPreviaCancelamentoLote.value = false
+    if (sequenciaAtual === sequenciaPreviaCancelamentoLote.value) {
+      carregandoPreviaCancelamentoLote.value = false
+      previsaoCancelamentoLotePendente.value = false
+    }
   }
 }
 
-async function consultarPreviaRetomadaLote() {
-  if (!modalRetomadaLoteAberto.value || carregandoPreviaRetomadaLote.value || processandoRetomadaLote.value) {
+async function consultarPreviaRetomadaLote(forcar = false) {
+  if (!modalRetomadaLoteAberto.value || processandoRetomadaLote.value) {
     return
   }
 
   const erroFormulario = validarFormularioRetomadaLote()
   if (erroFormulario) {
-    erroRetomadaLote.value = erroFormulario
+    previsaoRetomadaLotePendente.value = false
+    if (forcar || erroRetomadaLote.value !== erroFormulario) {
+      erroRetomadaLote.value = erroFormulario
+    }
     return
   }
 
   const payload = montarPayloadRetomadaLote()
   const assinaturaSolicitada = assinaturaRetomadaLote(payload)
+  const sequenciaAtual = ++sequenciaPreviaRetomadaLote.value
   assinaturaPreviaRetomadaLote.value = assinaturaSolicitada
   carregandoPreviaRetomadaLote.value = true
   erroRetomadaLote.value = ''
 
   try {
     const resposta = await buscarPreviaReversaoAulasGestaoEsportiva(payload)
-    if (assinaturaAtualRetomadaLote.value !== assinaturaSolicitada) {
+    if (!modalRetomadaLoteAberto.value || sequenciaAtual !== sequenciaPreviaRetomadaLote.value) {
       return
     }
 
     previaRetomadaLote.value = normalizarPreviaRetomadaLote(resposta || {})
   } catch (error) {
+    if (!modalRetomadaLoteAberto.value || sequenciaAtual !== sequenciaPreviaRetomadaLote.value) {
+      return
+    }
+
     previaRetomadaLote.value = null
     assinaturaPreviaRetomadaLote.value = ''
     erroRetomadaLote.value = obterMensagemErro(error, 'Não foi possível consultar a prévia da retomada.')
   } finally {
-    carregandoPreviaRetomadaLote.value = false
+    if (sequenciaAtual === sequenciaPreviaRetomadaLote.value) {
+      carregandoPreviaRetomadaLote.value = false
+      previsaoRetomadaLotePendente.value = false
+    }
   }
 }
 
@@ -1835,23 +1991,43 @@ watch(totalPaginas, (novoTotal) => {
 })
 
 watch(assinaturaAtualCancelamentoLote, (novaAssinatura) => {
-  if (!modalCancelamentoLoteAberto.value || !previaCancelamentoLote.value) {
+  if (!modalCancelamentoLoteAberto.value) {
     return
   }
 
-  if (novaAssinatura !== assinaturaPreviaCancelamentoLote.value) {
-    limparPreviaCancelamentoLote('As seleções foram alteradas. Consulte uma nova prévia.')
+  if (novaAssinatura !== assinaturaPreviaCancelamentoLote.value || !previaCancelamentoLote.value) {
+    agendarConsultaPreviaCancelamentoLote()
   }
 })
 
 watch(assinaturaAtualRetomadaLote, (novaAssinatura) => {
-  if (!modalRetomadaLoteAberto.value || !previaRetomadaLote.value) {
+  if (!modalRetomadaLoteAberto.value) {
     return
   }
 
-  if (novaAssinatura !== assinaturaPreviaRetomadaLote.value) {
-    limparPreviaRetomadaLote('As seleções foram alteradas. Consulte uma nova prévia.')
+  if (novaAssinatura !== assinaturaPreviaRetomadaLote.value || !previaRetomadaLote.value) {
+    agendarConsultaPreviaRetomadaLote()
   }
+})
+
+watch(modalCancelamentoLoteAberto, (aberto) => {
+  if (aberto) {
+    agendarConsultaPreviaCancelamentoLote()
+    return
+  }
+
+  cancelarAgendamentoPreviaCancelamentoLote()
+  previsaoCancelamentoLotePendente.value = false
+})
+
+watch(modalRetomadaLoteAberto, (aberto) => {
+  if (aberto) {
+    agendarConsultaPreviaRetomadaLote()
+    return
+  }
+
+  cancelarAgendamentoPreviaRetomadaLote()
+  previsaoRetomadaLotePendente.value = false
 })
 
 onMounted(() => {
@@ -1864,6 +2040,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
+  cancelarAgendamentoPreviaCancelamentoLote()
+  cancelarAgendamentoPreviaRetomadaLote()
+  sequenciaPreviaCancelamentoLote.value += 1
+  sequenciaPreviaRetomadaLote.value += 1
 })
 </script>
 
@@ -2219,16 +2399,34 @@ onBeforeUnmount(() => {
                         <option v-for="opcao in OPCOES_PERIODO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
                           {{ opcao.rotulo }}
                         </option>
-                      </select>
-                      <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até antes de 18h. Noite: a partir de 18h.</small>
-                    </label>
-                  </div>
+                        </select>
+                        <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até antes de 18h. Noite: a partir de 18h.</small>
+                      </label>
+                    </div>
 
-                  <section v-if="escopoCancelamentoLote === 'AULAS_ESPECIFICAS'" class="bloco-selecao">
-                    <div class="secao-cabecalho">
-                      <div>
-                        <h3>Aulas específicas</h3>
-                        <p>Selecione uma ou mais aulas já carregadas na lista.</p>
+                    <section class="bloco-selecao">
+                      <div class="secao-cabecalho">
+                        <div>
+                          <h3>Motivo</h3>
+                          <p>O motivo é obrigatório na confirmação final.</p>
+                        </div>
+                      </div>
+
+                      <label class="campo-grande">
+                        Motivo do cancelamento
+                        <textarea
+                          v-model="cancelamentoLote.motivo"
+                          rows="4"
+                          placeholder="Ex.: Chuva intensa durante a manhã"
+                        ></textarea>
+                      </label>
+                    </section>
+
+                    <section v-if="escopoCancelamentoLote === 'AULAS_ESPECIFICAS'" class="bloco-selecao">
+                      <div class="secao-cabecalho">
+                        <div>
+                          <h3>Aulas específicas</h3>
+                          <p>Selecione uma ou mais aulas já carregadas na lista.</p>
                       </div>
                       <div class="acoes-mini">
                         <button type="button" class="botao secundario compacto" @click="selecionarTodasAulasCancelamentoLote">
@@ -2244,7 +2442,7 @@ onBeforeUnmount(() => {
                       <p>Nenhuma aula carregada para seleção específica.</p>
                     </div>
 
-                    <div v-else class="lista-selecao aulas">
+                    <div v-else class="lista-selecao aulas lista-selecao-rolavel">
                       <label v-for="aula in aulasSelecionaveisCancelamentoLote" :key="aula.id" class="card-selecao">
                         <input v-model="cancelamentoLote.aulaIds" type="checkbox" :value="aula.id" />
                         <div>
@@ -2286,24 +2484,7 @@ onBeforeUnmount(() => {
                     </div>
                   </section>
 
-                  <section class="bloco-selecao">
-                    <div class="secao-cabecalho">
-                      <div>
-                        <h3>Motivo</h3>
-                        <p>O motivo é obrigatório na confirmação final.</p>
-                      </div>
-                    </div>
-
-                    <label class="campo-grande">
-                      Motivo do cancelamento
-                      <textarea
-                        v-model="cancelamentoLote.motivo"
-                        rows="4"
-                        placeholder="Ex.: Chuva intensa durante a manhã"
-                      ></textarea>
-                    </label>
-                  </section>
-                </div>
+                  </div>
 
                 <aside class="lote-previa">
                   <div class="secao-cabecalho">
@@ -2311,8 +2492,20 @@ onBeforeUnmount(() => {
                       <h3>Prévia obrigatória</h3>
                       <p>{{ formatarEscopoCancelamentoLote(cancelamentoLote.escopo) }}</p>
                     </div>
-                    <span class="contador">{{ previewCancelamentoLoteValida ? 'Prévia pronta' : 'Aguardando' }}</span>
+                    <span class="contador">
+                      {{
+                        carregandoPreviaCancelamentoLote || previsaoCancelamentoLotePendente
+                          ? 'Atualizando...'
+                          : previewCancelamentoLoteAtualizada
+                            ? 'Prévia pronta'
+                            : 'Aguardando'
+                      }}
+                    </span>
                   </div>
+
+                  <p v-if="escopoCancelamentoLote !== 'AULAS_ESPECIFICAS'" class="ajuda-campo ajuda-auto-previa">
+                    As aulas correspondentes ao escopo selecionado aparecerão automaticamente na prévia.
+                  </p>
 
                   <p class="ajuda-campo">{{ mensagemPreviewCancelamentoLote }}</p>
 
@@ -2374,8 +2567,13 @@ onBeforeUnmount(() => {
           </fieldset>
 
           <div class="acoes-card acoes-lote modal-lote-rodape">
-            <button type="button" class="botao secundario" @click="consultarPreviaCancelamentoLote">
-              {{ carregandoPreviaCancelamentoLote ? 'Consultando...' : 'Ver prévia' }}
+            <button
+              type="button"
+              class="botao secundario"
+              :disabled="!podeAtualizarPreviaCancelamentoLote"
+              @click="agendarConsultaPreviaCancelamentoLote({ forcar: true })"
+            >
+              {{ carregandoPreviaCancelamentoLote ? 'Atualizando...' : 'Atualizar prévia' }}
             </button>
             <button type="submit" class="botao perigo" :disabled="!podeConfirmarCancelamentoLote">
               {{ processandoCancelamentoLote ? 'Cancelando...' : 'Confirmar cancelamento em lote' }}
@@ -2463,7 +2661,7 @@ onBeforeUnmount(() => {
                       <p>Nenhuma aula carregada para seleção específica.</p>
                     </div>
 
-                    <div v-else class="lista-selecao aulas">
+                    <div v-else class="lista-selecao aulas lista-selecao-rolavel">
                       <label v-for="aula in aulasSelecionaveisRetomadaLote" :key="aula.id" class="card-selecao">
                         <input v-model="retomadaLote.aulaIds" type="checkbox" :value="aula.id" />
                         <div>
@@ -2512,8 +2710,20 @@ onBeforeUnmount(() => {
                       <h3>Prévia obrigatória</h3>
                       <p>{{ formatarEscopoCancelamentoLote(retomadaLote.escopo) }}</p>
                     </div>
-                    <span class="contador">{{ previewRetomadaLoteValida ? 'Prévia pronta' : 'Aguardando' }}</span>
+                    <span class="contador">
+                      {{
+                        carregandoPreviaRetomadaLote || previsaoRetomadaLotePendente
+                          ? 'Atualizando...'
+                          : previewRetomadaLoteAtualizada
+                            ? 'Prévia pronta'
+                            : 'Aguardando'
+                      }}
+                    </span>
                   </div>
+
+                  <p v-if="escopoRetomadaLote !== 'AULAS_ESPECIFICAS'" class="ajuda-campo ajuda-auto-previa">
+                    As aulas correspondentes ao escopo selecionado aparecerão automaticamente na prévia.
+                  </p>
 
                   <p class="ajuda-campo">{{ mensagemPreviewRetomadaLote }}</p>
 
@@ -2575,8 +2785,13 @@ onBeforeUnmount(() => {
           </fieldset>
 
           <div class="acoes-card acoes-lote modal-lote-rodape">
-            <button type="button" class="botao secundario" @click="consultarPreviaRetomadaLote">
-              {{ carregandoPreviaRetomadaLote ? 'Consultando...' : 'Ver prévia' }}
+            <button
+              type="button"
+              class="botao secundario"
+              :disabled="!podeAtualizarPreviaRetomadaLote"
+              @click="agendarConsultaPreviaRetomadaLote({ forcar: true })"
+            >
+              {{ carregandoPreviaRetomadaLote ? 'Atualizando...' : 'Atualizar prévia' }}
             </button>
             <button type="submit" class="botao principal" :disabled="!podeConfirmarRetomadaLote">
               {{ processandoRetomadaLote ? 'Retomando...' : 'Confirmar retomada em lote' }}
@@ -2738,25 +2953,32 @@ onBeforeUnmount(() => {
 }
 
 .modal {
-  width: min(100%, 1120px);
-  max-height: 90vh;
+  width: min(1180px, calc(100vw - 32px));
+  max-width: 1180px;
+  max-height: calc(100vh - 32px);
   overflow: hidden;
+  min-width: 0;
 }
 
 .modal-lote {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  min-height: 0;
 }
 
 .modal-lote-campo {
+  display: flex;
+  flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
   border: 0;
   margin: 0;
   padding: 0;
 }
 
 .modal-lote-corpo {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   overflow-x: hidden;
@@ -2770,8 +2992,10 @@ onBeforeUnmount(() => {
 
 .lote-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: 18px;
+  align-items: start;
+  min-width: 0;
 }
 
 .lote-formulario,
@@ -2779,6 +3003,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 16px;
   align-content: start;
+  min-width: 0;
 }
 
 .campos-lote {
@@ -2831,6 +3056,14 @@ onBeforeUnmount(() => {
 .lista-selecao.aulas,
 .lista-selecao.turmas {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lista-selecao-rolavel {
+  max-height: 340px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  overscroll-behavior: contain;
 }
 
 .card-selecao {
@@ -3341,6 +3574,10 @@ textarea:focus {
   text-align: left;
 }
 
+.ajuda-auto-previa {
+  font-weight: 600;
+}
+
 .botao-link {
   background: transparent;
   border: 1px solid var(--app-primary-soft);
@@ -3375,20 +3612,14 @@ textarea:focus {
   .resumo-aula,
   .resumo-frequencia,
   .meta-aula,
-  .campos-participante,
-  .campos-lote,
-  .grade-resumo-lote,
-  .lista-selecao.aulas,
-  .lista-selecao.turmas,
-  .lote-grid {
+  .campos-participante {
     grid-template-columns: 1fr;
   }
 
   .paginacao-superior,
   .paginacao-rodape,
   .detalhe-acoes,
-  .acoes-lote,
-  .modal-lote-rodape {
+  .acoes-lote {
     justify-content: flex-start;
   }
 
@@ -3406,6 +3637,40 @@ textarea:focus {
   }
 }
 
+@media (max-width: 768px) {
+  .modal-fundo {
+    padding: 8px;
+  }
+
+  .modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .lote-grid,
+  .campos-lote,
+  .grade-resumo-lote,
+  .lista-selecao.aulas,
+  .lista-selecao.turmas {
+    grid-template-columns: 1fr;
+  }
+
+  .lista-selecao-rolavel {
+    max-height: clamp(260px, 38vh, 320px);
+  }
+
+  .acoes-lote,
+  .modal-lote-rodape {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .acoes-lote .botao,
+  .modal-lote-rodape .botao {
+    width: 100%;
+  }
+}
+
 @media (max-width: 640px) {
   .cabecalho-pagina,
   .painel,
@@ -3419,7 +3684,7 @@ textarea:focus {
   }
 
   .modal-fundo {
-    padding: 14px;
+    padding: 8px;
   }
 }
 </style>
