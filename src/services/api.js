@@ -1,4 +1,4 @@
-﻿import { debugLog } from '@/utils/devDebug'
+import { debugLog } from '@/utils/devDebug'
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
 import {
   HEADER_EMPRESA_OPERACIONAL,
@@ -4354,6 +4354,26 @@ export async function buscarPreviaCancelamentoAulasGestaoEsportiva(payload = {})
 
 export async function cancelarAulasGestaoEsportivaEmLote(payload = {}) {
   const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/lote${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarPreviaReversaoAulasGestaoEsportiva(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/reversao/previa${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function reverterAulasGestaoEsportivaEmLote(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/reversao/lote${montarQueryEmpresaOperacional()}`, {
     method: 'POST',
     headers: montarHeaders(true),
     body: JSON.stringify(payload || {}),

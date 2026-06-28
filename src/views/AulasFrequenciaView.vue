@@ -7,11 +7,13 @@ import {
   buscarAulasGestaoEsportiva,
   buscarFuncionarios,
   buscarPreviaCancelamentoAulasGestaoEsportiva,
+  buscarPreviaReversaoAulasGestaoEsportiva,
   cancelarAulasGestaoEsportivaEmLote,
   buscarTurmasBeachTennis,
   gerarAulasGestaoEsportiva,
   modoVisualizacaoEmpresaAtivo,
   salvarFrequenciasAulaGestaoEsportiva,
+  reverterAulasGestaoEsportivaEmLote,
 } from '@/services/api'
 import { formatarDataBrasileira, rotuloCompeticaoBeachTennis, rotuloNivelBeachTennis } from '@/utils/beachTennis'
 import {
@@ -92,6 +94,13 @@ const erroCancelamentoLote = ref('')
 const previaCancelamentoLote = ref(null)
 const assinaturaPreviaCancelamentoLote = ref('')
 const cancelamentoLote = ref(criarCancelamentoLotePadrao())
+const modalRetomadaLoteAberto = ref(false)
+const carregandoPreviaRetomadaLote = ref(false)
+const processandoRetomadaLote = ref(false)
+const erroRetomadaLote = ref('')
+const previaRetomadaLote = ref(null)
+const assinaturaPreviaRetomadaLote = ref('')
+const retomadaLote = ref(criarRetomadaLotePadrao())
 
 const aulaSelecionadaId = computed(() => normalizarIdPositivo(valorRota(route.query.aulaId)))
 const aulasOrdenadas = computed(() => [...aulas.value])
@@ -112,6 +121,7 @@ const aulasPaginadas = computed(() =>
   aulasOrdenadas.value.slice(indiceInicioPagina.value > 0 ? indiceInicioPagina.value - 1 : 0, indiceFimPagina.value),
 )
 const aulasSelecionaveisCancelamentoLote = computed(() => [...aulasOrdenadas.value])
+const aulasSelecionaveisRetomadaLote = computed(() => [...aulasOrdenadas.value])
 const turmasSelecionaveisCancelamentoLote = computed(() => [...turmasOrdenadas.value])
 const professoresSelecionaveisCancelamentoLote = computed(() => [...professoresOrdenados.value])
 const escopoCancelamentoLote = computed(() => String(cancelamentoLote.value.escopo || 'PERIODO_DA_DATA').trim())
@@ -168,6 +178,66 @@ const podeConfirmarCancelamentoLote = computed(() => {
   return Boolean(String(cancelamentoLote.value.motivo || '').trim())
 })
 const assinaturaAtualCancelamentoLote = computed(() => assinaturaCancelamentoLote(montarPayloadCancelamentoLote()))
+const escopoRetomadaLote = computed(() => String(retomadaLote.value.escopo || 'PERIODO_DA_DATA').trim())
+const previewRetomadaLoteValida = computed(() => Boolean(previaRetomadaLote.value && assinaturaPreviaRetomadaLote.value))
+const previewRetomadaLoteSemResultados = computed(
+  () => previewRetomadaLoteValida.value && normalizarNumero(previaRetomadaLote.value?.quantidadeEncontrada, 0) === 0,
+)
+const previewRetomadaLoteBloqueado = computed(() => {
+  const resumo = previaRetomadaLote.value
+  if (!resumo) {
+    return false
+  }
+
+  return normalizarNumero(resumo.quantidadeBloqueada, 0) > 0
+})
+const previewRetomadaLoteSemAlteracao = computed(
+  () =>
+    previewRetomadaLoteValida.value &&
+    !previewRetomadaLoteSemResultados.value &&
+    normalizarNumero(previaRetomadaLote.value?.quantidadeReversivel, 0) === 0 &&
+    normalizarNumero(previaRetomadaLote.value?.quantidadeJaAtiva, 0) ===
+      normalizarNumero(previaRetomadaLote.value?.quantidadeEncontrada, 0),
+)
+const mensagemPreviewRetomadaLote = computed(() => {
+  if (!previewRetomadaLoteValida.value) {
+    return 'Clique em Ver prévia para analisar o escopo selecionado antes de retomar as aulas.'
+  }
+
+  if (previewRetomadaLoteSemResultados.value) {
+    return 'Nenhuma aula foi encontrada para o escopo selecionado.'
+  }
+
+  if (previewRetomadaLoteBloqueado.value) {
+    return 'O backend não permite processamento parcial neste cenário. Ajuste o escopo ou a seleção e consulte uma nova prévia.'
+  }
+
+  if (previewRetomadaLoteSemAlteracao.value) {
+    return 'Todas as aulas encontradas já estão ativas. Nenhuma nova alteração será executada.'
+  }
+
+  return 'A prévia está pronta. Confira os itens antes de confirmar a retomada em lote.'
+})
+const podeConfirmarRetomadaLote = computed(() => {
+  if (!previewRetomadaLoteValida.value) {
+    return false
+  }
+
+  if (
+    previewRetomadaLoteSemResultados.value ||
+    previewRetomadaLoteBloqueado.value ||
+    previewRetomadaLoteSemAlteracao.value
+  ) {
+    return false
+  }
+
+  if (carregandoPreviaRetomadaLote.value || processandoRetomadaLote.value) {
+    return false
+  }
+
+  return true
+})
+const assinaturaAtualRetomadaLote = computed(() => assinaturaRetomadaLote(montarPayloadRetomadaLote()))
 const intervaloExibido = computed(() =>
   totalAulas.value === 0 ? '0 de 0' : `${indiceInicioPagina.value} a ${indiceFimPagina.value} de ${totalAulas.value}`,
 )
@@ -692,6 +762,17 @@ function criarCancelamentoLotePadrao() {
   }
 }
 
+function criarRetomadaLotePadrao() {
+  return {
+    escopo: 'PERIODO_DA_DATA',
+    data: criarDataISO(0),
+    aulaIds: [],
+    turmaIds: [],
+    professorId: '',
+    periodo: 'MANHA',
+  }
+}
+
 function normalizarIdsSelecionados(lista = []) {
   const ids = []
   const vistos = new Set()
@@ -746,7 +827,46 @@ function montarPayloadCancelamentoLote({ incluirMotivo = false } = {}) {
   return payload
 }
 
+function montarPayloadRetomadaLote() {
+  const escopo = String(retomadaLote.value.escopo || 'PERIODO_DA_DATA').trim().toUpperCase()
+  const data = String(retomadaLote.value.data || '').trim()
+  const professorId = normalizarIdPositivo(retomadaLote.value.professorId)
+  const payload = {
+    escopo,
+    data: data || null,
+    aulaIds: [],
+    turmaIds: [],
+    professorId: professorId || null,
+    periodo: null,
+  }
+
+  if (escopo === 'AULAS_ESPECIFICAS') {
+    payload.aulaIds = normalizarIdsSelecionados(retomadaLote.value.aulaIds)
+  }
+
+  if (escopo === 'TURMAS_NA_DATA' || escopo === 'PERIODO_DA_DATA') {
+    payload.turmaIds = normalizarIdsSelecionados(retomadaLote.value.turmaIds)
+  }
+
+  if (escopo === 'PERIODO_DA_DATA') {
+    payload.periodo = String(retomadaLote.value.periodo || '').trim().toUpperCase() || null
+  }
+
+  return payload
+}
+
 function assinaturaCancelamentoLote(payload = montarPayloadCancelamentoLote()) {
+  return JSON.stringify({
+    escopo: payload.escopo,
+    data: payload.data || '',
+    aulaIds: normalizarIdsSelecionados(payload.aulaIds),
+    turmaIds: normalizarIdsSelecionados(payload.turmaIds),
+    professorId: payload.professorId || null,
+    periodo: payload.periodo || null,
+  })
+}
+
+function assinaturaRetomadaLote(payload = montarPayloadRetomadaLote()) {
   return JSON.stringify({
     escopo: payload.escopo,
     data: payload.data || '',
@@ -779,6 +899,35 @@ function normalizarAulaPreviaCancelamentoLote(item = {}) {
   }
 }
 
+function normalizarAulaPreviaRetomadaLote(item = {}) {
+  const aulaId = normalizarIdPositivo(item.aulaId ?? item.id)
+  if (!aulaId) {
+    return null
+  }
+
+  const situacao = normalizarSituacaoAula(item.situacao)
+  const bloqueada = item.bloqueada === true || item.bloqueada === 'true' || item.bloqueada === 1
+  const reversivelExplicita = item.reversivel === true || item.reversivel === 'true' || item.reversivel === 1
+  const jaAtivaExplicita = item.jaAtiva === true || item.ja_ativa === true || item.jaAtiva === 1
+  const reversivel = reversivelExplicita || (!bloqueada && situacao === 'CANCELADA')
+  const jaAtiva = jaAtivaExplicita || (!bloqueada && !reversivel && situacao !== 'CANCELADA')
+
+  return {
+    aulaId,
+    data: normalizarTextoOpcional(item.data || item.dataAula || item.data_aula),
+    horario: normalizarTextoOpcional(item.horario || item.horarioInicio || item.horario_inicio),
+    turmaId: normalizarIdPositivo(item.turmaId ?? item.turma_id),
+    turmaNome: normalizarTextoOpcional(item.turmaNome || item.turma_nome || item.turma || ''),
+    professorId: normalizarIdPositivo(item.professorId ?? item.professor_id ?? item.funcionarioId),
+    professorNome: normalizarTextoOpcional(item.professorNome || item.professor_nome || item.funcionarioNome || ''),
+    situacao,
+    reversivel,
+    jaAtiva,
+    bloqueada,
+    motivoBloqueio: normalizarTextoOpcional(item.motivoBloqueio || item.motivo_bloqueio),
+  }
+}
+
 function normalizarPreviaCancelamentoLote(resposta = {}) {
   const base = resposta && typeof resposta === 'object' ? resposta : {}
   const aulasNormalizadas = (Array.isArray(base.aulas) ? base.aulas : [])
@@ -792,6 +941,36 @@ function normalizarPreviaCancelamentoLote(resposta = {}) {
     quantidadeCancelavel: obterNumeroDeCampo([base], ['quantidadeCancelavel', 'totalCancelavel', 'cancelaveis'], aulasNormalizadas.filter((item) => item.cancelavel).length),
     quantidadeJaCancelada: obterNumeroDeCampo([base], ['quantidadeJaCancelada', 'totalJaCancelada', 'jaCanceladas'], aulasNormalizadas.filter((item) => item.jaCancelada).length),
     quantidadeBloqueada: obterNumeroDeCampo([base], ['quantidadeBloqueada', 'totalBloqueada', 'bloqueadas'], aulasNormalizadas.filter((item) => !item.cancelavel && !item.jaCancelada).length),
+    aulas: aulasNormalizadas,
+  }
+}
+
+function normalizarPreviaRetomadaLote(resposta = {}) {
+  const base = resposta && typeof resposta === 'object' ? resposta : {}
+  const aulasFonte = Array.isArray(base.aulas) ? base.aulas : Array.isArray(base.itens) ? base.itens : []
+  const aulasNormalizadas = aulasFonte
+    .map((item) => normalizarAulaPreviaRetomadaLote(item))
+    .filter(Boolean)
+
+  return {
+    escopo: String(base.escopo || '').trim().toUpperCase(),
+    dataProcessada: normalizarTextoOpcional(base.dataProcessada || base.data),
+    quantidadeEncontrada: obterNumeroDeCampo([base], ['quantidadeEncontrada', 'totalEncontrado', 'encontradas'], aulasNormalizadas.length),
+    quantidadeReversivel: obterNumeroDeCampo(
+      [base],
+      ['quantidadeReversivel', 'totalReversivel', 'reversiveis'],
+      aulasNormalizadas.filter((item) => item.reversivel).length,
+    ),
+    quantidadeJaAtiva: obterNumeroDeCampo(
+      [base],
+      ['quantidadeJaAtiva', 'totalJaAtiva', 'jaAtivas'],
+      aulasNormalizadas.filter((item) => item.jaAtiva).length,
+    ),
+    quantidadeBloqueada: obterNumeroDeCampo(
+      [base],
+      ['quantidadeBloqueada', 'totalBloqueada', 'bloqueadas'],
+      aulasNormalizadas.filter((item) => item.bloqueada).length,
+    ),
     aulas: aulasNormalizadas,
   }
 }
@@ -825,6 +1004,35 @@ function descricaoAulaCancelamentoLote(item = {}) {
   return trechos.join(' · ')
 }
 
+function rotuloStatusPreviaRetomadaLote(item = {}) {
+  if (item.bloqueada) {
+    return 'Bloqueada'
+  }
+
+  if (item.reversivel) {
+    return 'Reversível'
+  }
+
+  return 'Já ativa'
+}
+
+function classeStatusPreviaRetomadaLote(item = {}) {
+  if (item.bloqueada) {
+    return 'bloqueada'
+  }
+
+  if (item.reversivel) {
+    return 'reversivel'
+  }
+
+  return 'ja-ativa'
+}
+
+function descricaoAulaRetomadaLote(item = {}) {
+  const trechos = [formatarDataBrasileira(item.data), item.horario, item.turmaNome].filter(Boolean)
+  return trechos.join(' · ')
+}
+
 function abrirModalCancelamentoLote() {
   modalCancelamentoLoteAberto.value = true
   cancelamentoLote.value = criarCancelamentoLotePadrao()
@@ -851,6 +1059,32 @@ function limparPreviaCancelamentoLote(mensagem = '') {
   erroCancelamentoLote.value = String(mensagem || '').trim()
 }
 
+function abrirModalRetomadaLote() {
+  modalRetomadaLoteAberto.value = true
+  retomadaLote.value = criarRetomadaLotePadrao()
+  previaRetomadaLote.value = null
+  assinaturaPreviaRetomadaLote.value = ''
+  erroRetomadaLote.value = ''
+}
+
+function fecharModalRetomadaLote(forcar = false) {
+  if ((carregandoPreviaRetomadaLote.value || processandoRetomadaLote.value) && !forcar) {
+    return
+  }
+
+  modalRetomadaLoteAberto.value = false
+  retomadaLote.value = criarRetomadaLotePadrao()
+  previaRetomadaLote.value = null
+  assinaturaPreviaRetomadaLote.value = ''
+  erroRetomadaLote.value = ''
+}
+
+function limparPreviaRetomadaLote(mensagem = '') {
+  previaRetomadaLote.value = null
+  assinaturaPreviaRetomadaLote.value = ''
+  erroRetomadaLote.value = String(mensagem || '').trim()
+}
+
 function validarFormularioCancelamentoLote() {
   const escopo = escopoCancelamentoLote.value
   const data = String(cancelamentoLote.value.data || '').trim()
@@ -872,6 +1106,33 @@ function validarFormularioCancelamentoLote() {
   }
 
   if (escopo === 'PERIODO_DA_DATA' && !String(cancelamentoLote.value.periodo || '').trim()) {
+    return 'Selecione o período do dia.'
+  }
+
+  return ''
+}
+
+function validarFormularioRetomadaLote() {
+  const escopo = escopoRetomadaLote.value
+  const data = String(retomadaLote.value.data || '').trim()
+
+  if (!['AULAS_ESPECIFICAS', 'TURMAS_NA_DATA', 'TODAS_DA_DATA', 'PERIODO_DA_DATA'].includes(escopo)) {
+    return 'Selecione um escopo válido para a retomada.'
+  }
+
+  if (!data) {
+    return 'Informe a data da retomada.'
+  }
+
+  if (escopo === 'AULAS_ESPECIFICAS' && normalizarIdsSelecionados(retomadaLote.value.aulaIds).length === 0) {
+    return 'Selecione pelo menos uma aula para retomar.'
+  }
+
+  if (escopo === 'TURMAS_NA_DATA' && normalizarIdsSelecionados(retomadaLote.value.turmaIds).length === 0) {
+    return 'Selecione pelo menos uma turma para retomar.'
+  }
+
+  if (escopo === 'PERIODO_DA_DATA' && !String(retomadaLote.value.periodo || '').trim()) {
     return 'Selecione o período do dia.'
   }
 
@@ -908,6 +1169,39 @@ async function consultarPreviaCancelamentoLote() {
     erroCancelamentoLote.value = obterMensagemErro(error, 'Não foi possível consultar a prévia do cancelamento.')
   } finally {
     carregandoPreviaCancelamentoLote.value = false
+  }
+}
+
+async function consultarPreviaRetomadaLote() {
+  if (!modalRetomadaLoteAberto.value || carregandoPreviaRetomadaLote.value || processandoRetomadaLote.value) {
+    return
+  }
+
+  const erroFormulario = validarFormularioRetomadaLote()
+  if (erroFormulario) {
+    erroRetomadaLote.value = erroFormulario
+    return
+  }
+
+  const payload = montarPayloadRetomadaLote()
+  const assinaturaSolicitada = assinaturaRetomadaLote(payload)
+  assinaturaPreviaRetomadaLote.value = assinaturaSolicitada
+  carregandoPreviaRetomadaLote.value = true
+  erroRetomadaLote.value = ''
+
+  try {
+    const resposta = await buscarPreviaReversaoAulasGestaoEsportiva(payload)
+    if (assinaturaAtualRetomadaLote.value !== assinaturaSolicitada) {
+      return
+    }
+
+    previaRetomadaLote.value = normalizarPreviaRetomadaLote(resposta || {})
+  } catch (error) {
+    previaRetomadaLote.value = null
+    assinaturaPreviaRetomadaLote.value = ''
+    erroRetomadaLote.value = obterMensagemErro(error, 'Não foi possível consultar a prévia da retomada.')
+  } finally {
+    carregandoPreviaRetomadaLote.value = false
   }
 }
 
@@ -983,6 +1277,76 @@ async function confirmarCancelamentoLote() {
   }
 }
 
+async function confirmarRetomadaLote() {
+  if (!modalRetomadaLoteAberto.value || processandoRetomadaLote.value) {
+    return
+  }
+
+  if (!previewRetomadaLoteValida.value) {
+    erroRetomadaLote.value = 'Gere a prévia antes de confirmar a retomada em lote.'
+    return
+  }
+
+  if (assinaturaRetomadaLote(montarPayloadRetomadaLote()) !== assinaturaPreviaRetomadaLote.value) {
+    erroRetomadaLote.value = 'As seleções foram alteradas. Consulte uma nova prévia antes de confirmar.'
+    previaRetomadaLote.value = null
+    assinaturaPreviaRetomadaLote.value = ''
+    return
+  }
+
+  const erroFormulario = validarFormularioRetomadaLote()
+  if (erroFormulario) {
+    erroRetomadaLote.value = erroFormulario
+    return
+  }
+
+  if (previewRetomadaLoteBloqueado.value) {
+    erroRetomadaLote.value = 'Ajuste o escopo ou a seleção antes de confirmar. O backend não permite processamento parcial neste cenário.'
+    return
+  }
+
+  if (previewRetomadaLoteSemAlteracao.value) {
+    erroRetomadaLote.value = 'Nenhuma nova aula será alterada porque todas já estão ativas.'
+    return
+  }
+
+  const payload = montarPayloadRetomadaLote()
+  const quantidadeReversivel = normalizarNumero(previaRetomadaLote.value?.quantidadeReversivel, 0)
+
+  try {
+    processandoRetomadaLote.value = true
+    erroRetomadaLote.value = ''
+    const resposta = await reverterAulasGestaoEsportivaEmLote(payload)
+    const resultado = resposta && typeof resposta === 'object' ? resposta : {}
+    const quantidadeRevertida = obterNumeroDeCampo(
+      [resultado],
+      ['quantidadeRevertida', 'quantidadeRetomada', 'totalRevertida', 'totalRetomada', 'revertidas', 'retomadas'],
+      quantidadeReversivel,
+    )
+    const quantidadeJaAtiva = obterNumeroDeCampo(
+      [resultado],
+      ['quantidadeJaAtiva', 'totalJaAtiva', 'jaAtivas'],
+      normalizarNumero(previaRetomadaLote.value?.quantidadeJaAtiva, 0),
+    )
+    const mensagemSucesso = [
+      formatarMensagemQuantidade(quantidadeRevertida, 'aula retomada com sucesso.', 'aulas retomadas com sucesso.'),
+      quantidadeJaAtiva > 0
+        ? formatarMensagemQuantidade(quantidadeJaAtiva, 'já estava ativa.', 'já estavam ativas.')
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    fecharModalRetomadaLote(true)
+    definirFeedback(mensagemSucesso, 'sucesso')
+    await carregarListaAulas()
+  } catch (error) {
+    erroRetomadaLote.value = obterMensagemErro(error, 'Não foi possível concluir a retomada em lote.')
+  } finally {
+    processandoRetomadaLote.value = false
+  }
+}
+
 function selecionarTodasAulasCancelamentoLote() {
   cancelamentoLote.value.aulaIds = aulasSelecionaveisCancelamentoLote.value.map((aula) => aula.id)
 }
@@ -995,6 +1359,21 @@ function alternarEscopoCancelamentoLote(novoEscopo) {
   cancelamentoLote.value.escopo = String(novoEscopo || '').trim().toUpperCase()
   if (previaCancelamentoLote.value) {
     limparPreviaCancelamentoLote('As seleções foram alteradas. Consulte uma nova prévia.')
+  }
+}
+
+function selecionarTodasAulasRetomadaLote() {
+  retomadaLote.value.aulaIds = aulasSelecionaveisRetomadaLote.value.map((aula) => aula.id)
+}
+
+function limparSelecaoAulasRetomadaLote() {
+  retomadaLote.value.aulaIds = []
+}
+
+function alternarEscopoRetomadaLote(novoEscopo) {
+  retomadaLote.value.escopo = String(novoEscopo || '').trim().toUpperCase()
+  if (previaRetomadaLote.value) {
+    limparPreviaRetomadaLote('As seleções foram alteradas. Consulte uma nova prévia.')
   }
 }
 
@@ -1465,6 +1844,16 @@ watch(assinaturaAtualCancelamentoLote, (novaAssinatura) => {
   }
 })
 
+watch(assinaturaAtualRetomadaLote, (novaAssinatura) => {
+  if (!modalRetomadaLoteAberto.value || !previaRetomadaLote.value) {
+    return
+  }
+
+  if (novaAssinatura !== assinaturaPreviaRetomadaLote.value) {
+    limparPreviaRetomadaLote('As seleções foram alteradas. Consulte uma nova prévia.')
+  }
+})
+
 onMounted(() => {
   carregarTudo().catch((error) => {
     console.error(error)
@@ -1495,9 +1884,6 @@ onBeforeUnmount(() => {
         </button>
         <button class="botao secundario" type="button" :disabled="carregandoLista || gerandoAulas || salvandoFrequencias" @click="carregarListaAulas">
           {{ carregandoLista ? 'Atualizando...' : 'Atualizar lista' }}
-        </button>
-        <button class="botao perigo" type="button" :disabled="carregandoLista || gerandoAulas || salvandoFrequencias" @click="abrirModalCancelamentoLote">
-          Cancelar aulas em lote
         </button>
       </div>
     </header>
@@ -1640,7 +2026,31 @@ onBeforeUnmount(() => {
               <h2>Aulas encontradas</h2>
               <p class="descricao-card">Clique em uma aula para abrir o detalhe e lançar a frequência.</p>
             </div>
-            <span class="contador">{{ totalAulas }} aula(s)</span>
+            <div class="titulo-card-lado">
+              <div class="acoes-cabecalho acoes-cabecalho-lista">
+                <button
+                  id="btn-cancelar-aulas-lote"
+                  data-testid="cancelar-aulas-lote"
+                  class="botao perigo"
+                  type="button"
+                  :disabled="carregandoLista || carregandoBases || gerandoAulas || salvandoFrequencias || carregandoPreviaCancelamentoLote || processandoCancelamentoLote || carregandoPreviaRetomadaLote || processandoRetomadaLote"
+                  @click="abrirModalCancelamentoLote"
+                >
+                  Cancelar aulas em lote
+                </button>
+                <button
+                  id="btn-retomar-aulas-lote"
+                  data-testid="retomar-aulas-lote"
+                  class="botao secundario"
+                  type="button"
+                  :disabled="carregandoLista || carregandoBases || gerandoAulas || salvandoFrequencias || carregandoPreviaCancelamentoLote || processandoCancelamentoLote || carregandoPreviaRetomadaLote || processandoRetomadaLote"
+                  @click="abrirModalRetomadaLote"
+                >
+                  Retomar aulas em lote
+                </button>
+              </div>
+              <span class="contador">{{ totalAulas }} aula(s)</span>
+            </div>
           </div>
 
           <section v-if="carregandoLista && !temAulas" class="estado-vazio">
@@ -1764,200 +2174,412 @@ onBeforeUnmount(() => {
               <p class="descricao-card">Consulte a prévia antes de confirmar e informe o motivo do cancelamento.</p>
             </div>
 
-            <button type="button" class="botao secundario" :disabled="carregandoPreviaCancelamentoLote || processandoCancelamentoLote" @click="fecharModalCancelamentoLote">
+            <button
+              type="button"
+              class="botao secundario"
+              :disabled="carregandoPreviaCancelamentoLote || processandoCancelamentoLote"
+              @click="fecharModalCancelamentoLote"
+            >
               Fechar
             </button>
           </div>
 
-          <div class="lote-grid">
-            <div class="lote-formulario">
-              <div class="campos-lote">
-                <label>
-                  Escopo
-                  <select v-model="cancelamentoLote.escopo">
-                    <option v-for="opcao in OPCOES_ESCOPO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
-                      {{ opcao.rotulo }}
-                    </option>
-                  </select>
-                </label>
+          <fieldset class="modal-lote-campo" :disabled="carregandoPreviaCancelamentoLote || processandoCancelamentoLote">
+            <div class="modal-lote-corpo">
+              <div class="lote-grid">
+                <div class="lote-formulario">
+                  <div class="campos-lote">
+                    <label>
+                      Escopo
+                      <select v-model="cancelamentoLote.escopo">
+                        <option v-for="opcao in OPCOES_ESCOPO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
+                          {{ opcao.rotulo }}
+                        </option>
+                      </select>
+                    </label>
 
-                <label>
-                  Data
-                  <input v-model="cancelamentoLote.data" type="date" />
-                </label>
+                    <label>
+                      Data
+                      <input v-model="cancelamentoLote.data" type="date" />
+                    </label>
 
-                <label>
-                  Professor, opcional
-                  <select v-model="cancelamentoLote.professorId">
-                    <option value="">Todos os professores</option>
-                    <option v-for="professor in professoresSelecionaveisCancelamentoLote" :key="professor.id" :value="String(professor.id)">
-                      {{ professor.nome }}
-                    </option>
-                  </select>
-                </label>
+                    <label>
+                      Professor, opcional
+                      <select v-model="cancelamentoLote.professorId">
+                        <option value="">Todos os professores</option>
+                        <option v-for="professor in professoresSelecionaveisCancelamentoLote" :key="professor.id" :value="String(professor.id)">
+                          {{ professor.nome }}
+                        </option>
+                      </select>
+                    </label>
 
-                <label v-if="escopoCancelamentoLote === 'PERIODO_DA_DATA'">
-                  Período
-                  <select v-model="cancelamentoLote.periodo">
-                    <option v-for="opcao in OPCOES_PERIODO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
-                      {{ opcao.rotulo }}
-                    </option>
-                  </select>
-                  <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até antes de 18h. Noite: a partir de 18h.</small>
-                </label>
-              </div>
-
-              <section v-if="escopoCancelamentoLote === 'AULAS_ESPECIFICAS'" class="bloco-selecao">
-                <div class="secao-cabecalho">
-                  <div>
-                    <h3>Aulas específicas</h3>
-                    <p>Selecione uma ou mais aulas já carregadas na lista.</p>
+                    <label v-if="escopoCancelamentoLote === 'PERIODO_DA_DATA'">
+                      Período
+                      <select v-model="cancelamentoLote.periodo">
+                        <option v-for="opcao in OPCOES_PERIODO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
+                          {{ opcao.rotulo }}
+                        </option>
+                      </select>
+                      <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até antes de 18h. Noite: a partir de 18h.</small>
+                    </label>
                   </div>
-                  <div class="acoes-mini">
-                    <button type="button" class="botao secundario compacto" @click="selecionarTodasAulasCancelamentoLote">
-                      Selecionar todas
-                    </button>
-                    <button type="button" class="botao secundario compacto" @click="limparSelecaoAulasCancelamentoLote">
-                      Limpar
-                    </button>
-                  </div>
-                </div>
 
-                <div v-if="!aulasSelecionaveisCancelamentoLote.length" class="estado-vazio estado-vazio-compacto">
-                  <p>Nenhuma aula carregada para seleção específica.</p>
-                </div>
-
-                <div v-else class="lista-selecao aulas">
-                  <label v-for="aula in aulasSelecionaveisCancelamentoLote" :key="aula.id" class="card-selecao">
-                    <input v-model="cancelamentoLote.aulaIds" type="checkbox" :value="aula.id" />
-                    <div>
-                      <strong>{{ formatarDataBrasileira(aula.dataAula) || 'Data não informada' }}</strong>
-                      <p>{{ formatarHorario(aula.horarioInicio) }} · {{ aula.turmaNome || `Aula ${aula.id}` }}</p>
-                      <span class="chip situacao" :class="estadoSituacaoAula(aula.situacao)">
-                        {{ rotuloSituacaoAula(aula.situacao) }}
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              </section>
-
-              <section v-if="escopoCancelamentoLote === 'TURMAS_NA_DATA' || escopoCancelamentoLote === 'PERIODO_DA_DATA'" class="bloco-selecao">
-                <div class="secao-cabecalho">
-                  <div>
-                    <h3>Turmas</h3>
-                    <p>{{ escopoCancelamentoLote === 'TURMAS_NA_DATA' ? 'Selecione as turmas da data.' : 'As turmas são opcionais neste escopo.' }}</p>
-                  </div>
-                </div>
-
-                <div v-if="!turmasSelecionaveisCancelamentoLote.length" class="estado-vazio estado-vazio-compacto">
-                  <p>Nenhuma turma encontrada.</p>
-                </div>
-
-                <div v-else class="lista-selecao turmas">
-                  <label v-for="turma in turmasSelecionaveisCancelamentoLote" :key="turma.id" class="card-selecao">
-                    <input v-model="cancelamentoLote.turmaIds" type="checkbox" :value="turma.id" />
-                    <div>
-                      <strong>{{ turma.nome }}</strong>
-                      <p>
-                        {{ [rotuloNivelBeachTennis(turma.nivel), turma.competicao ? rotuloCompeticaoBeachTennis(true) : ''].filter(Boolean).join(' · ') || 'Turma sem classificação' }}
-                      </p>
-                    </div>
-                  </label>
-                </div>
-              </section>
-
-              <section class="bloco-selecao">
-                <div class="secao-cabecalho">
-                  <div>
-                    <h3>Motivo</h3>
-                    <p>O motivo é obrigatório na confirmação final.</p>
-                  </div>
-                </div>
-
-                <label class="campo-grande">
-                  Motivo do cancelamento
-                  <textarea
-                    v-model="cancelamentoLote.motivo"
-                    rows="4"
-                    :disabled="processandoCancelamentoLote"
-                    placeholder="Ex.: Chuva intensa durante a manhã"
-                  ></textarea>
-                </label>
-              </section>
-            </div>
-
-            <aside class="lote-previa">
-              <div class="secao-cabecalho">
-                <div>
-                  <h3>Prévia obrigatória</h3>
-                  <p>{{ formatarEscopoCancelamentoLote(cancelamentoLote.escopo) }}</p>
-                </div>
-                <span class="contador">{{ previewCancelamentoLoteValida ? 'Prévia pronta' : 'Aguardando' }}</span>
-              </div>
-
-              <p class="ajuda-campo">{{ mensagemPreviewCancelamentoLote }}</p>
-
-              <p v-if="erroCancelamentoLote" class="estado-erro">{{ erroCancelamentoLote }}</p>
-
-              <section v-if="carregandoPreviaCancelamentoLote" class="estado-vazio estado-vazio-compacto">
-                <p>Consultando prévia...</p>
-              </section>
-
-              <template v-else-if="previaCancelamentoLote">
-                <div class="grade-resumo-lote">
-                  <article class="mini-card">
-                    <span>Encontradas</span>
-                    <strong>{{ previaCancelamentoLote.quantidadeEncontrada }}</strong>
-                  </article>
-                  <article class="mini-card">
-                    <span>Canceláveis</span>
-                    <strong>{{ previaCancelamentoLote.quantidadeCancelavel }}</strong>
-                  </article>
-                  <article class="mini-card">
-                    <span>Já canceladas</span>
-                    <strong>{{ previaCancelamentoLote.quantidadeJaCancelada }}</strong>
-                  </article>
-                  <article class="mini-card">
-                    <span>Bloqueadas</span>
-                    <strong>{{ previaCancelamentoLote.quantidadeBloqueada }}</strong>
-                  </article>
-                </div>
-
-                <section v-if="!previaCancelamentoLote.aulas.length" class="estado-vazio estado-vazio-compacto">
-                  <p>Nenhuma aula retornou na prévia.</p>
-                </section>
-
-                <div v-else class="lista-previa">
-                  <article v-for="aula in previaCancelamentoLote.aulas" :key="aula.aulaId" class="card-previa">
-                    <div class="card-previa-topo">
+                  <section v-if="escopoCancelamentoLote === 'AULAS_ESPECIFICAS'" class="bloco-selecao">
+                    <div class="secao-cabecalho">
                       <div>
-                        <strong>{{ formatarDataBrasileira(aula.data) || 'Data não informada' }}</strong>
-                        <p>{{ [formatarHorario(aula.horario), aula.turmaNome || `Aula ${aula.aulaId}`].filter(Boolean).join(' · ') }}</p>
+                        <h3>Aulas específicas</h3>
+                        <p>Selecione uma ou mais aulas já carregadas na lista.</p>
                       </div>
-                      <span class="chip previa-status" :class="classeStatusPreviaCancelamentoLote(aula)">
-                        {{ rotuloStatusPreviaCancelamentoLote(aula) }}
-                      </span>
+                      <div class="acoes-mini">
+                        <button type="button" class="botao secundario compacto" @click="selecionarTodasAulasCancelamentoLote">
+                          Selecionar todas
+                        </button>
+                        <button type="button" class="botao secundario compacto" @click="limparSelecaoAulasCancelamentoLote">
+                          Limpar
+                        </button>
+                      </div>
                     </div>
 
-                    <p v-if="aula.professorNome"><strong>Professor:</strong> {{ aula.professorNome }}</p>
-                    <p><strong>Situação:</strong> {{ rotuloSituacaoAula(aula.situacao) }}</p>
-                    <p v-if="aula.motivoBloqueio"><strong>Bloqueio:</strong> {{ aula.motivoBloqueio }}</p>
-                  </article>
+                    <div v-if="!aulasSelecionaveisCancelamentoLote.length" class="estado-vazio estado-vazio-compacto">
+                      <p>Nenhuma aula carregada para seleção específica.</p>
+                    </div>
+
+                    <div v-else class="lista-selecao aulas">
+                      <label v-for="aula in aulasSelecionaveisCancelamentoLote" :key="aula.id" class="card-selecao">
+                        <input v-model="cancelamentoLote.aulaIds" type="checkbox" :value="aula.id" />
+                        <div>
+                          <strong>{{ formatarDataBrasileira(aula.dataAula) || 'Data não informada' }}</strong>
+                          <p>{{ formatarHorario(aula.horarioInicio) }} · {{ aula.turmaNome || `Aula ${aula.id}` }}</p>
+                          <span class="chip situacao" :class="estadoSituacaoAula(aula.situacao)">
+                            {{ rotuloSituacaoAula(aula.situacao) }}
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section
+                    v-if="escopoCancelamentoLote === 'TURMAS_NA_DATA' || escopoCancelamentoLote === 'PERIODO_DA_DATA'"
+                    class="bloco-selecao"
+                  >
+                    <div class="secao-cabecalho">
+                      <div>
+                        <h3>Turmas</h3>
+                        <p>{{ escopoCancelamentoLote === 'TURMAS_NA_DATA' ? 'Selecione as turmas da data.' : 'As turmas são opcionais neste escopo.' }}</p>
+                      </div>
+                    </div>
+
+                    <div v-if="!turmasSelecionaveisCancelamentoLote.length" class="estado-vazio estado-vazio-compacto">
+                      <p>Nenhuma turma encontrada.</p>
+                    </div>
+
+                    <div v-else class="lista-selecao turmas">
+                      <label v-for="turma in turmasSelecionaveisCancelamentoLote" :key="turma.id" class="card-selecao">
+                        <input v-model="cancelamentoLote.turmaIds" type="checkbox" :value="turma.id" />
+                        <div>
+                          <strong>{{ turma.nome }}</strong>
+                          <p>
+                            {{ [rotuloNivelBeachTennis(turma.nivel), turma.competicao ? rotuloCompeticaoBeachTennis(true) : ''].filter(Boolean).join(' · ') || 'Turma sem classificação' }}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section class="bloco-selecao">
+                    <div class="secao-cabecalho">
+                      <div>
+                        <h3>Motivo</h3>
+                        <p>O motivo é obrigatório na confirmação final.</p>
+                      </div>
+                    </div>
+
+                    <label class="campo-grande">
+                      Motivo do cancelamento
+                      <textarea
+                        v-model="cancelamentoLote.motivo"
+                        rows="4"
+                        placeholder="Ex.: Chuva intensa durante a manhã"
+                      ></textarea>
+                    </label>
+                  </section>
                 </div>
-              </template>
 
-              <section v-else class="estado-vazio estado-vazio-compacto">
-                <p>Gere a prévia para visualizar os contadores e a lista de aulas encontradas.</p>
-              </section>
-            </aside>
-          </div>
+                <aside class="lote-previa">
+                  <div class="secao-cabecalho">
+                    <div>
+                      <h3>Prévia obrigatória</h3>
+                      <p>{{ formatarEscopoCancelamentoLote(cancelamentoLote.escopo) }}</p>
+                    </div>
+                    <span class="contador">{{ previewCancelamentoLoteValida ? 'Prévia pronta' : 'Aguardando' }}</span>
+                  </div>
 
-          <div class="acoes-card acoes-lote">
-            <button type="button" class="botao secundario" :disabled="carregandoPreviaCancelamentoLote || processandoCancelamentoLote" @click="consultarPreviaCancelamentoLote">
+                  <p class="ajuda-campo">{{ mensagemPreviewCancelamentoLote }}</p>
+
+                  <p v-if="erroCancelamentoLote" class="estado-erro">{{ erroCancelamentoLote }}</p>
+
+                  <section v-if="carregandoPreviaCancelamentoLote" class="estado-vazio estado-vazio-compacto">
+                    <p>Consultando prévia...</p>
+                  </section>
+
+                  <template v-else-if="previaCancelamentoLote">
+                    <div class="grade-resumo-lote">
+                      <article class="mini-card">
+                        <span>Encontradas</span>
+                        <strong>{{ previaCancelamentoLote.quantidadeEncontrada }}</strong>
+                      </article>
+                      <article class="mini-card">
+                        <span>Canceláveis</span>
+                        <strong>{{ previaCancelamentoLote.quantidadeCancelavel }}</strong>
+                      </article>
+                      <article class="mini-card">
+                        <span>Já canceladas</span>
+                        <strong>{{ previaCancelamentoLote.quantidadeJaCancelada }}</strong>
+                      </article>
+                      <article class="mini-card">
+                        <span>Bloqueadas</span>
+                        <strong>{{ previaCancelamentoLote.quantidadeBloqueada }}</strong>
+                      </article>
+                    </div>
+
+                    <section v-if="!previaCancelamentoLote.aulas.length" class="estado-vazio estado-vazio-compacto">
+                      <p>Nenhuma aula retornou na prévia.</p>
+                    </section>
+
+                    <div v-else class="lista-previa">
+                      <article v-for="aula in previaCancelamentoLote.aulas" :key="aula.aulaId" class="card-previa">
+                        <div class="card-previa-topo">
+                          <div>
+                            <strong>{{ formatarDataBrasileira(aula.data) || 'Data não informada' }}</strong>
+                            <p>{{ [formatarHorario(aula.horario), aula.turmaNome || `Aula ${aula.aulaId}`].filter(Boolean).join(' · ') }}</p>
+                          </div>
+                          <span class="chip previa-status" :class="classeStatusPreviaCancelamentoLote(aula)">
+                            {{ rotuloStatusPreviaCancelamentoLote(aula) }}
+                          </span>
+                        </div>
+
+                        <p v-if="aula.professorNome"><strong>Professor:</strong> {{ aula.professorNome }}</p>
+                        <p><strong>Situação:</strong> {{ rotuloSituacaoAula(aula.situacao) }}</p>
+                        <p v-if="aula.motivoBloqueio"><strong>Bloqueio:</strong> {{ aula.motivoBloqueio }}</p>
+                      </article>
+                    </div>
+                  </template>
+
+                  <section v-else class="estado-vazio estado-vazio-compacto">
+                    <p>Gere a prévia para visualizar os contadores e a lista de aulas encontradas.</p>
+                  </section>
+                </aside>
+              </div>
+            </div>
+          </fieldset>
+
+          <div class="acoes-card acoes-lote modal-lote-rodape">
+            <button type="button" class="botao secundario" @click="consultarPreviaCancelamentoLote">
               {{ carregandoPreviaCancelamentoLote ? 'Consultando...' : 'Ver prévia' }}
             </button>
             <button type="submit" class="botao perigo" :disabled="!podeConfirmarCancelamentoLote">
               {{ processandoCancelamentoLote ? 'Cancelando...' : 'Confirmar cancelamento em lote' }}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section v-if="modalRetomadaLoteAberto" class="modal-fundo" @click.self="fecharModalRetomadaLote">
+        <form class="card modal modal-lote" @submit.prevent="confirmarRetomadaLote">
+          <div class="cabecalho-card">
+            <div>
+              <p class="subtitulo-mini">Retomada em lote</p>
+              <h2>Retomar aulas em lote</h2>
+              <p class="descricao-card">Consulte a prévia antes de confirmar a retomada das aulas canceladas.</p>
+            </div>
+
+            <button
+              type="button"
+              class="botao secundario"
+              :disabled="carregandoPreviaRetomadaLote || processandoRetomadaLote"
+              @click="fecharModalRetomadaLote"
+            >
+              Fechar
+            </button>
+          </div>
+
+          <fieldset class="modal-lote-campo" :disabled="carregandoPreviaRetomadaLote || processandoRetomadaLote">
+            <div class="modal-lote-corpo">
+              <div class="lote-grid">
+                <div class="lote-formulario">
+                  <div class="campos-lote">
+                    <label>
+                      Escopo
+                      <select v-model="retomadaLote.escopo">
+                        <option v-for="opcao in OPCOES_ESCOPO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
+                          {{ opcao.rotulo }}
+                        </option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Data
+                      <input v-model="retomadaLote.data" type="date" />
+                    </label>
+
+                    <label>
+                      Professor, opcional
+                      <select v-model="retomadaLote.professorId">
+                        <option value="">Todos os professores</option>
+                        <option v-for="professor in professoresSelecionaveisCancelamentoLote" :key="professor.id" :value="String(professor.id)">
+                          {{ professor.nome }}
+                        </option>
+                      </select>
+                    </label>
+
+                    <label v-if="escopoRetomadaLote === 'PERIODO_DA_DATA'">
+                      Período
+                      <select v-model="retomadaLote.periodo">
+                        <option v-for="opcao in OPCOES_PERIODO_CANCELAMENTO_LOTE" :key="opcao.valor" :value="opcao.valor">
+                          {{ opcao.rotulo }}
+                        </option>
+                      </select>
+                      <small class="ajuda-campo">Manhã: antes de 12h. Tarde: de 12h até antes de 18h. Noite: a partir de 18h.</small>
+                    </label>
+                  </div>
+
+                  <section v-if="escopoRetomadaLote === 'AULAS_ESPECIFICAS'" class="bloco-selecao">
+                    <div class="secao-cabecalho">
+                      <div>
+                        <h3>Aulas específicas</h3>
+                        <p>Selecione uma ou mais aulas já carregadas na lista.</p>
+                      </div>
+                      <div class="acoes-mini">
+                        <button type="button" class="botao secundario compacto" @click="selecionarTodasAulasRetomadaLote">
+                          Selecionar todas
+                        </button>
+                        <button type="button" class="botao secundario compacto" @click="limparSelecaoAulasRetomadaLote">
+                          Limpar
+                        </button>
+                      </div>
+                    </div>
+
+                    <div v-if="!aulasSelecionaveisRetomadaLote.length" class="estado-vazio estado-vazio-compacto">
+                      <p>Nenhuma aula carregada para seleção específica.</p>
+                    </div>
+
+                    <div v-else class="lista-selecao aulas">
+                      <label v-for="aula in aulasSelecionaveisRetomadaLote" :key="aula.id" class="card-selecao">
+                        <input v-model="retomadaLote.aulaIds" type="checkbox" :value="aula.id" />
+                        <div>
+                          <strong>{{ formatarDataBrasileira(aula.dataAula) || 'Data não informada' }}</strong>
+                          <p>{{ formatarHorario(aula.horarioInicio) }} · {{ aula.turmaNome || `Aula ${aula.id}` }}</p>
+                          <span class="chip situacao" :class="estadoSituacaoAula(aula.situacao)">
+                            {{ rotuloSituacaoAula(aula.situacao) }}
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section
+                    v-if="escopoRetomadaLote === 'TURMAS_NA_DATA' || escopoRetomadaLote === 'PERIODO_DA_DATA'"
+                    class="bloco-selecao"
+                  >
+                    <div class="secao-cabecalho">
+                      <div>
+                        <h3>Turmas</h3>
+                        <p>{{ escopoRetomadaLote === 'TURMAS_NA_DATA' ? 'Selecione as turmas da data.' : 'As turmas são opcionais neste escopo.' }}</p>
+                      </div>
+                    </div>
+
+                    <div v-if="!turmasSelecionaveisCancelamentoLote.length" class="estado-vazio estado-vazio-compacto">
+                      <p>Nenhuma turma encontrada.</p>
+                    </div>
+
+                    <div v-else class="lista-selecao turmas">
+                      <label v-for="turma in turmasSelecionaveisCancelamentoLote" :key="turma.id" class="card-selecao">
+                        <input v-model="retomadaLote.turmaIds" type="checkbox" :value="turma.id" />
+                        <div>
+                          <strong>{{ turma.nome }}</strong>
+                          <p>
+                            {{ [rotuloNivelBeachTennis(turma.nivel), turma.competicao ? rotuloCompeticaoBeachTennis(true) : ''].filter(Boolean).join(' · ') || 'Turma sem classificação' }}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </section>
+                </div>
+
+                <aside class="lote-previa">
+                  <div class="secao-cabecalho">
+                    <div>
+                      <h3>Prévia obrigatória</h3>
+                      <p>{{ formatarEscopoCancelamentoLote(retomadaLote.escopo) }}</p>
+                    </div>
+                    <span class="contador">{{ previewRetomadaLoteValida ? 'Prévia pronta' : 'Aguardando' }}</span>
+                  </div>
+
+                  <p class="ajuda-campo">{{ mensagemPreviewRetomadaLote }}</p>
+
+                  <p v-if="erroRetomadaLote" class="estado-erro">{{ erroRetomadaLote }}</p>
+
+                  <section v-if="carregandoPreviaRetomadaLote" class="estado-vazio estado-vazio-compacto">
+                    <p>Consultando prévia...</p>
+                  </section>
+
+                  <template v-else-if="previaRetomadaLote">
+                    <div class="grade-resumo-lote">
+                      <article class="mini-card">
+                        <span>Encontradas</span>
+                        <strong>{{ previaRetomadaLote.quantidadeEncontrada }}</strong>
+                      </article>
+                      <article class="mini-card">
+                        <span>Reversíveis</span>
+                        <strong>{{ previaRetomadaLote.quantidadeReversivel }}</strong>
+                      </article>
+                      <article class="mini-card">
+                        <span>Já ativas</span>
+                        <strong>{{ previaRetomadaLote.quantidadeJaAtiva }}</strong>
+                      </article>
+                      <article class="mini-card">
+                        <span>Bloqueadas</span>
+                        <strong>{{ previaRetomadaLote.quantidadeBloqueada }}</strong>
+                      </article>
+                    </div>
+
+                    <section v-if="!previaRetomadaLote.aulas.length" class="estado-vazio estado-vazio-compacto">
+                      <p>Nenhuma aula retornou na prévia.</p>
+                    </section>
+
+                    <div v-else class="lista-previa">
+                      <article v-for="aula in previaRetomadaLote.aulas" :key="aula.aulaId" class="card-previa">
+                        <div class="card-previa-topo">
+                          <div>
+                            <strong>{{ formatarDataBrasileira(aula.data) || 'Data não informada' }}</strong>
+                            <p>{{ descricaoAulaRetomadaLote(aula) }}</p>
+                          </div>
+                          <span class="chip previa-status" :class="classeStatusPreviaRetomadaLote(aula)">
+                            {{ rotuloStatusPreviaRetomadaLote(aula) }}
+                          </span>
+                        </div>
+
+                        <p v-if="aula.professorNome"><strong>Professor:</strong> {{ aula.professorNome }}</p>
+                        <p><strong>Situação:</strong> {{ rotuloSituacaoAula(aula.situacao) }}</p>
+                        <p v-if="aula.motivoBloqueio"><strong>Bloqueio:</strong> {{ aula.motivoBloqueio }}</p>
+                      </article>
+                    </div>
+                  </template>
+
+                  <section v-else class="estado-vazio estado-vazio-compacto">
+                    <p>Gere a prévia para visualizar os contadores e a lista de aulas encontradas.</p>
+                  </section>
+                </aside>
+              </div>
+            </div>
+          </fieldset>
+
+          <div class="acoes-card acoes-lote modal-lote-rodape">
+            <button type="button" class="botao secundario" @click="consultarPreviaRetomadaLote">
+              {{ carregandoPreviaRetomadaLote ? 'Consultando...' : 'Ver prévia' }}
+            </button>
+            <button type="submit" class="botao principal" :disabled="!podeConfirmarRetomadaLote">
+              {{ processandoRetomadaLote ? 'Retomando...' : 'Confirmar retomada em lote' }}
             </button>
           </div>
         </form>
@@ -2116,14 +2738,34 @@ onBeforeUnmount(() => {
 }
 
 .modal {
-  width: min(100%, 1180px);
+  width: min(100%, 1120px);
   max-height: 90vh;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .modal-lote {
   display: grid;
-  gap: 18px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
+}
+
+.modal-lote-campo {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.modal-lote-corpo {
+  min-height: 0;
+  overflow: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+.modal-lote-rodape {
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border);
 }
 
 .lote-grid {
@@ -2166,6 +2808,10 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.acoes-cabecalho-lista {
+  justify-content: flex-end;
 }
 
 .acoes-lote {
@@ -2273,7 +2919,17 @@ onBeforeUnmount(() => {
   color: var(--app-success);
 }
 
+.previa-status.reversivel {
+  background: var(--app-success-soft);
+  color: var(--app-success);
+}
+
 .previa-status.ja-cancelada {
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+}
+
+.previa-status.ja-ativa {
   background: var(--app-surface-soft);
   color: var(--app-text-muted);
 }
@@ -2309,6 +2965,16 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.titulo-card-lado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 1 1 320px;
+  flex-wrap: wrap;
 }
 
 .cabecalho-card {
@@ -2321,6 +2987,10 @@ onBeforeUnmount(() => {
 .cabecalho-card p {
   margin-top: 6px;
   color: var(--app-text-muted);
+}
+
+.titulo-card-lado .contador {
+  margin-left: auto;
 }
 
 .contador {
@@ -2694,7 +3364,8 @@ textarea:focus {
   .rodape-aula,
   .participante-topo,
   .secao-cabecalho,
-  .card-previa-topo {
+  .card-previa-topo,
+  .titulo-card-lado {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -2716,13 +3387,22 @@ textarea:focus {
   .paginacao-superior,
   .paginacao-rodape,
   .detalhe-acoes,
-  .acoes-lote {
+  .acoes-lote,
+  .modal-lote-rodape {
     justify-content: flex-start;
   }
 
   .paginacao-controles,
   .acoes-mini {
     justify-content: flex-start;
+  }
+
+  .titulo-card-lado {
+    width: 100%;
+  }
+
+  .titulo-card-lado .contador {
+    margin-left: 0;
   }
 }
 
