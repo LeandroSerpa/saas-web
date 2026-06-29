@@ -132,6 +132,12 @@ const geracao = ref(criarGeracaoPadrao())
 const sequenciaLista = ref(0)
 const sequenciaDetalhe = ref(0)
 const modalCancelamentoLoteAberto = ref(false)
+const ABA_LOTE_MOBILE = Object.freeze({
+  CONFIGURACAO: 'CONFIGURACAO',
+  PREVIA: 'PREVIA',
+})
+const janelaEhMobile = ref(false)
+const abaCancelamentoLoteMobile = ref(ABA_LOTE_MOBILE.CONFIGURACAO)
 const aulasEspecificasCancelamentoLote = ref([])
 const carregandoAulasEspecificasCancelamentoLote = ref(false)
 const aulasEspecificasCancelamentoLoteCarregadas = ref(false)
@@ -163,6 +169,7 @@ const assinaturaPreviaRetomadaLote = ref('')
 const sequenciaPreviaRetomadaLote = ref(0)
 let debouncePreviaRetomadaLote = null
 const retomadaLote = ref(criarRetomadaLotePadrao())
+const abaRetomadaLoteMobile = ref(ABA_LOTE_MOBILE.CONFIGURACAO)
 
 const aulaSelecionadaId = computed(() => normalizarIdPositivo(valorRota(route.query.aulaId)))
 const aulasOrdenadas = computed(() => [...aulas.value])
@@ -318,6 +325,12 @@ const podeAtualizarPreviaCancelamentoLote = computed(
     !carregandoPreviaCancelamentoLote.value &&
     !processandoCancelamentoLote.value,
 )
+const classeModalCancelamentoLote = computed(() => ({
+  'modal-lote-mobile': janelaEhMobile.value,
+  'modal-lote-aba-configuracao':
+    janelaEhMobile.value && abaCancelamentoLoteMobile.value === ABA_LOTE_MOBILE.CONFIGURACAO,
+  'modal-lote-aba-previa': janelaEhMobile.value && abaCancelamentoLoteMobile.value === ABA_LOTE_MOBILE.PREVIA,
+}))
 const assinaturaAtualCancelamentoLote = computed(() => assinaturaCancelamentoLote(montarPayloadCancelamentoLote()))
 const escopoRetomadaLote = computed(() => String(retomadaLote.value.escopo || 'PERIODO_DA_DATA').trim())
 const descricaoEscopoRetomadaLote = computed(() => obterDescricaoEscopoLote(escopoRetomadaLote.value))
@@ -448,6 +461,12 @@ const podeAtualizarPreviaRetomadaLote = computed(
     !carregandoPreviaRetomadaLote.value &&
     !processandoRetomadaLote.value,
 )
+const classeModalRetomadaLote = computed(() => ({
+  'modal-lote-mobile': janelaEhMobile.value,
+  'modal-lote-aba-configuracao':
+    janelaEhMobile.value && abaRetomadaLoteMobile.value === ABA_LOTE_MOBILE.CONFIGURACAO,
+  'modal-lote-aba-previa': janelaEhMobile.value && abaRetomadaLoteMobile.value === ABA_LOTE_MOBILE.PREVIA,
+}))
 const assinaturaAtualRetomadaLote = computed(() => assinaturaRetomadaLote(montarPayloadRetomadaLote()))
 const assinaturaBuscaAulasEspecificasCancelamentoLote = computed(() =>
   modalCancelamentoLoteAberto.value && escopoCancelamentoLote.value === 'AULAS_ESPECIFICAS'
@@ -1324,8 +1343,49 @@ function redefinirEstadoPreviaRetomadaLote() {
   erroRetomadaLote.value = ''
 }
 
+function atualizarJanelaEhMobile() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  janelaEhMobile.value = window.innerWidth <= 768
+}
+
+function reiniciarAbaCancelamentoLoteMobile() {
+  abaCancelamentoLoteMobile.value = ABA_LOTE_MOBILE.CONFIGURACAO
+}
+
+function reiniciarAbaRetomadaLoteMobile() {
+  abaRetomadaLoteMobile.value = ABA_LOTE_MOBILE.CONFIGURACAO
+}
+
+function abrirAbaPreviaCancelamentoLoteMobile() {
+  if (!previewCancelamentoLoteAtualizada.value) {
+    return
+  }
+
+  abaCancelamentoLoteMobile.value = ABA_LOTE_MOBILE.PREVIA
+}
+
+function voltarAConfiguracaoCancelamentoLoteMobile() {
+  abaCancelamentoLoteMobile.value = ABA_LOTE_MOBILE.CONFIGURACAO
+}
+
+function abrirAbaPreviaRetomadaLoteMobile() {
+  if (!previewRetomadaLoteAtualizada.value) {
+    return
+  }
+
+  abaRetomadaLoteMobile.value = ABA_LOTE_MOBILE.PREVIA
+}
+
+function voltarAConfiguracaoRetomadaLoteMobile() {
+  abaRetomadaLoteMobile.value = ABA_LOTE_MOBILE.CONFIGURACAO
+}
+
 function abrirModalCancelamentoLote() {
   redefinirEstadoPreviaCancelamentoLote()
+  reiniciarAbaCancelamentoLoteMobile()
   modalCancelamentoLoteAberto.value = true
   cancelamentoLote.value = criarCancelamentoLotePadrao()
 }
@@ -1338,6 +1398,7 @@ function fecharModalCancelamentoLote(forcar = false) {
   modalCancelamentoLoteAberto.value = false
   cancelamentoLote.value = criarCancelamentoLotePadrao()
   redefinirEstadoPreviaCancelamentoLote()
+  reiniciarAbaCancelamentoLoteMobile()
 }
 
 function limparPreviaCancelamentoLote(mensagem = '') {
@@ -1351,6 +1412,7 @@ function limparPreviaCancelamentoLote(mensagem = '') {
 
 function abrirModalRetomadaLote() {
   redefinirEstadoPreviaRetomadaLote()
+  reiniciarAbaRetomadaLoteMobile()
   modalRetomadaLoteAberto.value = true
   retomadaLote.value = criarRetomadaLotePadrao()
 }
@@ -1363,6 +1425,7 @@ function fecharModalRetomadaLote(forcar = false) {
   modalRetomadaLoteAberto.value = false
   retomadaLote.value = criarRetomadaLotePadrao()
   redefinirEstadoPreviaRetomadaLote()
+  reiniciarAbaRetomadaLoteMobile()
 }
 
 function limparPreviaRetomadaLote(mensagem = '') {
@@ -2547,7 +2610,23 @@ watch(modalRetomadaLoteAberto, (aberto) => {
   limparAulasEspecificasRetomadaLote()
 })
 
+watch(janelaEhMobile, (ehMobile) => {
+  if (!ehMobile) {
+    return
+  }
+
+  if (modalCancelamentoLoteAberto.value && !previewCancelamentoLoteAtualizada.value) {
+    reiniciarAbaCancelamentoLoteMobile()
+  }
+
+  if (modalRetomadaLoteAberto.value && !previewRetomadaLoteAtualizada.value) {
+    reiniciarAbaRetomadaLoteMobile()
+  }
+})
+
 onMounted(() => {
+  atualizarJanelaEhMobile()
+  window.addEventListener('resize', atualizarJanelaEhMobile)
   carregarTudo().catch((error) => {
     console.error(error)
     erroLista.value = obterMensagemErro(error, 'Não foi possível carregar os dados da tela.')
@@ -2556,6 +2635,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', atualizarJanelaEhMobile)
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
   cancelarAgendamentoPreviaCancelamentoLote()
   cancelarAgendamentoPreviaRetomadaLote()
@@ -2867,8 +2947,13 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-if="modalCancelamentoLoteAberto" class="modal-fundo" @click.self="fecharModalCancelamentoLote">
-        <form id="modal-cancelamento-lote-painel" class="card modal modal-lote modal-lote-painel" @submit.prevent="confirmarCancelamentoLote">
-          <div class="cabecalho-card">
+        <form
+          id="modal-cancelamento-lote-painel"
+          class="card modal modal-lote modal-lote-painel"
+          :class="classeModalCancelamentoLote"
+          @submit.prevent="confirmarCancelamentoLote"
+        >
+          <div class="cabecalho-card modal-lote-cabecalho">
             <div>
               <p class="subtitulo-mini">Cancelamento em lote</p>
               <h2>Cancelar aulas em lote</h2>
@@ -2884,6 +2969,29 @@ onBeforeUnmount(() => {
               Fechar
             </button>
           </div>
+
+          <nav v-if="janelaEhMobile" class="modal-lote-abas" aria-label="Etapas do cancelamento em lote">
+            <button
+              type="button"
+              class="aba-lote"
+              :class="{ ativa: abaCancelamentoLoteMobile === ABA_LOTE_MOBILE.CONFIGURACAO }"
+              :aria-selected="abaCancelamentoLoteMobile === ABA_LOTE_MOBILE.CONFIGURACAO"
+              @click="voltarAConfiguracaoCancelamentoLoteMobile"
+            >
+              Configuração
+            </button>
+            <button
+              type="button"
+              class="aba-lote"
+              :class="{ ativa: abaCancelamentoLoteMobile === ABA_LOTE_MOBILE.PREVIA }"
+              :aria-selected="abaCancelamentoLoteMobile === ABA_LOTE_MOBILE.PREVIA"
+              :disabled="!previewCancelamentoLoteAtualizada"
+              @click="abrirAbaPreviaCancelamentoLoteMobile"
+            >
+              <span>Prévia</span>
+              <span v-if="previewCancelamentoLoteAtualizada" class="aba-indicador" aria-hidden="true"></span>
+            </button>
+          </nav>
 
           <fieldset class="modal-lote-campo" :disabled="carregandoPreviaCancelamentoLote || processandoCancelamentoLote">
             <div class="modal-lote-corpo">
@@ -3107,29 +3215,57 @@ onBeforeUnmount(() => {
             </div>
           </fieldset>
 
-          <p v-if="mensagemBloqueioConfirmacaoCancelamentoLote" class="ajuda-campo ajuda-bloqueio-confirmacao">
-            {{ mensagemBloqueioConfirmacaoCancelamentoLote }}
-          </p>
+          <div class="acoes-card modal-lote-rodape">
+            <p v-if="mensagemBloqueioConfirmacaoCancelamentoLote" class="ajuda-campo ajuda-bloqueio-confirmacao">
+              {{ mensagemBloqueioConfirmacaoCancelamentoLote }}
+            </p>
 
-          <div class="acoes-card acoes-lote modal-lote-rodape">
-            <button
-              type="button"
-              class="botao secundario"
-              :disabled="!podeAtualizarPreviaCancelamentoLote"
-              @click="agendarConsultaPreviaCancelamentoLote({ forcar: true })"
-            >
-              {{ carregandoPreviaCancelamentoLote ? 'Atualizando...' : 'Atualizar prévia' }}
-            </button>
-            <button type="submit" class="botao perigo" :disabled="!podeConfirmarCancelamentoLote">
-              {{ processandoCancelamentoLote ? 'Cancelando...' : 'Confirmar cancelamento em lote' }}
-            </button>
+            <div v-if="!janelaEhMobile" class="acoes-lote-botoes">
+              <button
+                type="button"
+                class="botao secundario"
+                :disabled="!podeAtualizarPreviaCancelamentoLote"
+                @click="agendarConsultaPreviaCancelamentoLote({ forcar: true })"
+              >
+                {{ carregandoPreviaCancelamentoLote ? 'Atualizando...' : 'Atualizar prévia' }}
+              </button>
+              <button type="submit" class="botao perigo" :disabled="!podeConfirmarCancelamentoLote">
+                {{ processandoCancelamentoLote ? 'Cancelando...' : 'Confirmar cancelamento em lote' }}
+              </button>
+            </div>
+
+            <div v-else-if="abaCancelamentoLoteMobile === ABA_LOTE_MOBILE.CONFIGURACAO" class="acoes-lote-botoes acoes-lote-botoes-mobile">
+              <button type="button" class="botao secundario" @click="fecharModalCancelamentoLote">Fechar</button>
+              <button
+                type="button"
+                class="botao principal"
+                :disabled="!previewCancelamentoLoteAtualizada"
+                @click="abrirAbaPreviaCancelamentoLoteMobile"
+              >
+                Ver prévia
+              </button>
+            </div>
+
+            <div v-else class="acoes-lote-botoes acoes-lote-botoes-mobile">
+              <button type="button" class="botao secundario" @click="voltarAConfiguracaoCancelamentoLoteMobile">
+                Voltar à configuração
+              </button>
+              <button type="submit" class="botao perigo" :disabled="!podeConfirmarCancelamentoLote">
+                {{ processandoCancelamentoLote ? 'Cancelando...' : 'Confirmar cancelamento em lote' }}
+              </button>
+            </div>
           </div>
         </form>
       </section>
 
       <section v-if="modalRetomadaLoteAberto" class="modal-fundo" @click.self="fecharModalRetomadaLote">
-        <form id="modal-retomada-lote-painel" class="card modal modal-lote modal-lote-painel" @submit.prevent="confirmarRetomadaLote">
-          <div class="cabecalho-card">
+        <form
+          id="modal-retomada-lote-painel"
+          class="card modal modal-lote modal-lote-painel"
+          :class="classeModalRetomadaLote"
+          @submit.prevent="confirmarRetomadaLote"
+        >
+          <div class="cabecalho-card modal-lote-cabecalho">
             <div>
               <p class="subtitulo-mini">Retomada em lote</p>
               <h2>Retomar aulas em lote</h2>
@@ -3145,6 +3281,29 @@ onBeforeUnmount(() => {
               Fechar
             </button>
           </div>
+
+          <nav v-if="janelaEhMobile" class="modal-lote-abas" aria-label="Etapas da retomada em lote">
+            <button
+              type="button"
+              class="aba-lote"
+              :class="{ ativa: abaRetomadaLoteMobile === ABA_LOTE_MOBILE.CONFIGURACAO }"
+              :aria-selected="abaRetomadaLoteMobile === ABA_LOTE_MOBILE.CONFIGURACAO"
+              @click="voltarAConfiguracaoRetomadaLoteMobile"
+            >
+              Configuração
+            </button>
+            <button
+              type="button"
+              class="aba-lote"
+              :class="{ ativa: abaRetomadaLoteMobile === ABA_LOTE_MOBILE.PREVIA }"
+              :aria-selected="abaRetomadaLoteMobile === ABA_LOTE_MOBILE.PREVIA"
+              :disabled="!previewRetomadaLoteAtualizada"
+              @click="abrirAbaPreviaRetomadaLoteMobile"
+            >
+              <span>Prévia</span>
+              <span v-if="previewRetomadaLoteAtualizada" class="aba-indicador" aria-hidden="true"></span>
+            </button>
+          </nav>
 
           <fieldset class="modal-lote-campo" :disabled="carregandoPreviaRetomadaLote || processandoRetomadaLote">
             <div class="modal-lote-corpo">
@@ -3344,22 +3503,45 @@ onBeforeUnmount(() => {
             </div>
           </fieldset>
 
-          <p v-if="mensagemBloqueioConfirmacaoRetomadaLote" class="ajuda-campo ajuda-bloqueio-confirmacao">
-            {{ mensagemBloqueioConfirmacaoRetomadaLote }}
-          </p>
+          <div class="acoes-card modal-lote-rodape">
+            <p v-if="mensagemBloqueioConfirmacaoRetomadaLote" class="ajuda-campo ajuda-bloqueio-confirmacao">
+              {{ mensagemBloqueioConfirmacaoRetomadaLote }}
+            </p>
 
-          <div class="acoes-card acoes-lote modal-lote-rodape">
-            <button
-              type="button"
-              class="botao secundario"
-              :disabled="!podeAtualizarPreviaRetomadaLote"
-              @click="agendarConsultaPreviaRetomadaLote({ forcar: true })"
-            >
-              {{ carregandoPreviaRetomadaLote ? 'Atualizando...' : 'Atualizar prévia' }}
-            </button>
-            <button type="submit" class="botao principal" :disabled="!podeConfirmarRetomadaLote">
-              {{ processandoRetomadaLote ? 'Retomando...' : 'Confirmar retomada em lote' }}
-            </button>
+            <div v-if="!janelaEhMobile" class="acoes-lote-botoes">
+              <button
+                type="button"
+                class="botao secundario"
+                :disabled="!podeAtualizarPreviaRetomadaLote"
+                @click="agendarConsultaPreviaRetomadaLote({ forcar: true })"
+              >
+                {{ carregandoPreviaRetomadaLote ? 'Atualizando...' : 'Atualizar prévia' }}
+              </button>
+              <button type="submit" class="botao principal" :disabled="!podeConfirmarRetomadaLote">
+                {{ processandoRetomadaLote ? 'Retomando...' : 'Confirmar retomada em lote' }}
+              </button>
+            </div>
+
+            <div v-else-if="abaRetomadaLoteMobile === ABA_LOTE_MOBILE.CONFIGURACAO" class="acoes-lote-botoes acoes-lote-botoes-mobile">
+              <button type="button" class="botao secundario" @click="fecharModalRetomadaLote">Fechar</button>
+              <button
+                type="button"
+                class="botao principal"
+                :disabled="!previewRetomadaLoteAtualizada"
+                @click="abrirAbaPreviaRetomadaLoteMobile"
+              >
+                Ver prévia
+              </button>
+            </div>
+
+            <div v-else class="acoes-lote-botoes acoes-lote-botoes-mobile">
+              <button type="button" class="botao secundario" @click="voltarAConfiguracaoRetomadaLoteMobile">
+                Voltar à configuração
+              </button>
+              <button type="submit" class="botao principal" :disabled="!podeConfirmarRetomadaLote">
+                {{ processandoRetomadaLote ? 'Retomando...' : 'Confirmar retomada em lote' }}
+              </button>
+            </div>
           </div>
         </form>
       </section>
@@ -3526,6 +3708,10 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+.modal-lote-cabecalho {
+  padding: 18px 22px 0;
+}
+
 #modal-cancelamento-lote-painel,
 #modal-retomada-lote-painel {
   box-sizing: border-box;
@@ -3540,8 +3726,12 @@ onBeforeUnmount(() => {
 .modal-lote {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
   min-height: 0;
+}
+
+.modal-lote-abas {
+  display: none;
 }
 
 .modal-lote-campo {
@@ -3551,7 +3741,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   border: 0;
   margin: 0;
-  padding: 0;
+  padding: 20px 22px 0;
 }
 
 .modal-lote-corpo {
@@ -3563,14 +3753,52 @@ onBeforeUnmount(() => {
 }
 
 .modal-lote-rodape {
-  padding-top: 16px;
+  display: grid;
+  gap: 14px;
+  padding: 16px 22px 18px;
   border-top: 1px solid var(--app-border);
+}
+
+.ajuda-bloqueio-confirmacao {
+  margin: 0;
+}
+
+.aba-lote {
+  appearance: none;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.aba-lote.ativa {
+  border-color: var(--app-primary);
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+}
+
+.aba-lote:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.aba-indicador {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--app-primary);
+  vertical-align: middle;
 }
 
 .lote-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 18px;
+  gap: 28px;
   align-items: start;
   min-width: 0;
 }
@@ -3578,7 +3806,7 @@ onBeforeUnmount(() => {
 .lote-formulario,
 .lote-previa {
   display: grid;
-  gap: 16px;
+  gap: 20px;
   align-content: start;
   min-width: 0;
 }
@@ -3586,13 +3814,13 @@ onBeforeUnmount(() => {
 .campos-lote {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .secao-cabecalho {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   align-items: flex-start;
 }
 
@@ -3601,12 +3829,12 @@ onBeforeUnmount(() => {
 }
 
 .secao-cabecalho p {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   color: var(--app-text-muted);
 }
 
 .acoes-mini,
-.acoes-lote {
+.acoes-lote-botoes {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -3616,18 +3844,18 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
-.acoes-lote {
+.acoes-lote-botoes {
   justify-content: flex-end;
 }
 
 .bloco-selecao {
   display: grid;
-  gap: 14px;
+  gap: 20px;
 }
 
 .lista-selecao {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .lista-selecao.aulas,
@@ -3648,7 +3876,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 18px minmax(0, 1fr);
   gap: 12px;
   align-items: flex-start;
-  padding: 14px;
+  padding: 16px;
   border-radius: 16px;
   border: 1px solid var(--app-border);
   background: var(--app-surface-soft);
@@ -3672,13 +3900,13 @@ onBeforeUnmount(() => {
 .grade-resumo-lote {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .mini-card {
   display: grid;
   gap: 6px;
-  padding: 14px;
+  padding: 16px;
   border-radius: 14px;
   background: var(--app-surface-soft);
   border: 1px solid var(--app-border);
@@ -3699,13 +3927,13 @@ onBeforeUnmount(() => {
 
 .lista-previa {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .card-previa {
   display: grid;
   gap: 8px;
-  padding: 14px;
+  padding: 16px;
   border-radius: 16px;
   border: 1px solid var(--app-border);
   background: var(--app-surface-soft);
@@ -4196,7 +4424,7 @@ textarea:focus {
   .paginacao-superior,
   .paginacao-rodape,
   .detalhe-acoes,
-  .acoes-lote {
+  .acoes-lote-botoes {
     justify-content: flex-start;
   }
 
@@ -4216,20 +4444,46 @@ textarea:focus {
 
 @media (max-width: 768px) {
   .modal-fundo {
-    padding: 8px;
+    padding: 0;
+    place-items: stretch;
   }
 
   .modal-lote-painel {
-    min-height: 0;
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    border-radius: 0;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    width: 100vw !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 100vh;
+    max-height: none;
+    overflow: hidden;
+    flex: none !important;
   }
 
   #modal-cancelamento-lote-painel,
   #modal-retomada-lote-painel {
-    width: calc(100vw - 16px) !important;
+    width: 100vw !important;
     min-width: 0 !important;
-    max-width: calc(100vw - 16px) !important;
-    flex: 0 1 auto !important;
-    max-height: calc(100vh - 16px);
+    max-width: none !important;
+    flex: none !important;
+    max-height: none;
+  }
+
+  @supports (width: 100dvw) {
+    #modal-cancelamento-lote-painel,
+    #modal-retomada-lote-painel {
+      width: 100dvw !important;
+    }
+  }
+
+  @supports (height: 100dvh) {
+    .modal-lote-painel {
+      height: 100dvh;
+    }
   }
 
   .lote-grid,
@@ -4240,19 +4494,78 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .modal-lote-cabecalho {
+    padding: 14px 16px 0;
+    align-items: flex-start;
+  }
+
+  .modal-lote-cabecalho > div {
+    min-width: 0;
+  }
+
+  .modal-lote-cabecalho .botao {
+    min-width: 0;
+    width: auto;
+    align-self: flex-start;
+    min-height: 42px;
+    padding-inline: 14px;
+  }
+
+  .modal-lote-abas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px 16px 0;
+  }
+
+  .modal-lote-campo {
+    padding: 16px;
+  }
+
+  .modal-lote-corpo {
+    padding-right: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-lote-mobile .lote-grid {
+    gap: 0;
+  }
+
+  .modal-lote-mobile.modal-lote-aba-configuracao .lote-previa,
+  .modal-lote-mobile.modal-lote-aba-previa .lote-formulario {
+    display: none;
+  }
+
+  .modal-lote-mobile .lote-formulario,
+  .modal-lote-mobile .lote-previa {
+    gap: 16px;
+  }
+
   .lista-selecao-rolavel {
-    max-height: clamp(240px, 36vh, 280px);
+    max-height: clamp(180px, 35vh, 220px);
   }
 
-  .acoes-lote,
   .modal-lote-rodape {
-    flex-direction: column;
-    align-items: stretch;
+    padding: 14px 16px max(12px, env(safe-area-inset-bottom));
   }
 
-  .acoes-lote .botao,
-  .modal-lote-rodape .botao {
+  .acoes-lote-botoes {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
     width: 100%;
+  }
+
+  .acoes-lote-botoes .botao {
+    width: 100%;
+    min-height: 42px;
+    white-space: normal;
+  }
+
+  .modal-lote-rodape .ajuda-campo {
+    font-size: 14px;
   }
 }
 
@@ -4266,10 +4579,6 @@ textarea:focus {
 
   .aula-card {
     padding: 14px;
-  }
-
-  .modal-fundo {
-    padding: 8px;
   }
 }
 </style>
