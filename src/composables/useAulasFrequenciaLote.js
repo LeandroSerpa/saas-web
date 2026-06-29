@@ -42,6 +42,20 @@ function valorRota(valor) {
   return Array.isArray(valor) ? valor[0] : valor
 }
 
+function resolverTipoLoteDaRota(nomeRota) {
+  const rota = String(nomeRota || '').trim()
+
+  if (rota === 'aulas-frequencia-lote-retomar') {
+    return TIPOS_LOTE.RETOMADA
+  }
+
+  if (rota === 'aulas-frequencia-lote-cancelar') {
+    return TIPOS_LOTE.CANCELAMENTO
+  }
+
+  return ''
+}
+
 function criarDataISO(dias = 0) {
   const data = new Date()
   data.setHours(0, 0, 0, 0)
@@ -52,11 +66,11 @@ function criarDataISO(dias = 0) {
   return `${ano}-${mes}-${dia}`
 }
 
-function criarEstadoInicial(tipo) {
+function criarEstadoInicial(tipo, { data = criarDataISO(0), professorId = '' } = {}) {
   return {
     escopo: 'PERIODO_DA_DATA',
-    data: criarDataISO(0),
-    professorId: '',
+    data,
+    professorId,
     periodo: '',
     motivo: tipo === TIPOS_LOTE.CANCELAMENTO ? '' : undefined,
     aulaIds: [],
@@ -449,13 +463,18 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   const route = useRoute()
   const router = useRouter()
 
-  const tipo = computed(() => String(tipoEntrada || '').trim().toUpperCase() === TIPOS_LOTE.RETOMADA ? TIPOS_LOTE.RETOMADA : TIPOS_LOTE.CANCELAMENTO)
+  const tipoRota = computed(() => resolverTipoLoteDaRota(route.name))
+  const tipo = computed(() => {
+    const tipoResolvido = tipoRota.value || String(tipoEntrada || '').trim().toUpperCase()
+    return tipoResolvido === TIPOS_LOTE.RETOMADA ? TIPOS_LOTE.RETOMADA : TIPOS_LOTE.CANCELAMENTO
+  })
   const retornoQuery = computed(() => validarReturnToAulasFrequencia(valorRota(route.query.returnTo)))
   const filtrosBase = computed(() => extrairFiltrosDoReturnTo(valorRota(route.query.returnTo)))
   const retornoSeguro = computed(() => retornoQuery.value || '/aulas-frequencia')
 
   const carregandoInicial = ref(true)
   const erroInicial = ref('')
+  const inicializacaoConcluida = ref(false)
   const carregandoBase = ref(false)
   const carregandoLista = ref(false)
   const carregandoTurmas = ref(false)
@@ -472,6 +491,11 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   const erroAulasEspecificas = ref('')
   const sequenciaAulasEspecificas = ref(0)
   let debounceAulasEspecificas = null
+  let promessaInicializacao = null
+  let componenteAtivo = true
+  let sequenciaInicializacao = 0
+  let assinaturaInicializacaoEmAndamento = ''
+  let reinicializacaoPendente = false
   const carregandoPrevia = ref(false)
   const previsaoPendente = ref(false)
   const processando = ref(false)
@@ -698,6 +722,33 @@ export function useAulasFrequenciaLote(tipoEntrada) {
     }
   }
 
+  function redefinirEstadoInicial() {
+    limparTimers()
+    sequenciaAulasEspecificas.value += 1
+    sequenciaPrevia.value += 1
+    baseAulas.value = []
+    turmas.value = []
+    professores.value = []
+    aulasEspecificas.value = []
+    aulasEspecificasCarregadas.value = false
+    carregandoAulasEspecificas.value = false
+    erroAulasEspecificas.value = ''
+    previa.value = null
+    assinaturaPrevia.value = ''
+    previsaoPendente.value = false
+    carregandoPrevia.value = false
+    erro.value = ''
+    carregandoBase.value = false
+    carregandoLista.value = false
+    carregandoTurmas.value = false
+    carregandoProfessores.value = false
+    etapaAtual.value = ETAPAS_LOTE.CONFIGURACAO
+    lote.value = criarEstadoInicial(tipo.value, {
+      data: filtrosBase.value?.dataInicial || criarDataISO(0),
+      professorId: filtrosBase.value?.professorId || '',
+    })
+  }
+
   function limparAulasEspecificas() {
     limparTimers()
     sequenciaAulasEspecificas.value += 1
@@ -775,6 +826,10 @@ export function useAulasFrequenciaLote(tipoEntrada) {
     return ''
   }
 
+  function carregarBasesObrigatorias() {
+    return Promise.all([buscarTurmasBeachTennis(), buscarFuncionarios()])
+  }
+
   function montarFiltroConsultaAulasEspecificas() {
     const filtros = {
       dataInicial: dataLote.value,
@@ -794,7 +849,7 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   }
 
   function agendarConsultaAulasEspecificas({ forcar = false } = {}) {
-    if (processando.value || escopo.value !== 'AULAS_ESPECIFICAS') {
+    if (!inicializacaoConcluida.value || processando.value || escopo.value !== 'AULAS_ESPECIFICAS') {
       return
     }
 
@@ -828,7 +883,12 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   }
 
   async function consultarAulasEspecificas(sequenciaSolicitada) {
-    if (processando.value || sequenciaSolicitada !== sequenciaAulasEspecificas.value || escopo.value !== 'AULAS_ESPECIFICAS') {
+    if (
+      !inicializacaoConcluida.value ||
+      processando.value ||
+      sequenciaSolicitada !== sequenciaAulasEspecificas.value ||
+      escopo.value !== 'AULAS_ESPECIFICAS'
+    ) {
       return
     }
 
@@ -856,7 +916,11 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   }
 
   function agendarConsultaPrevia({ forcar = false } = {}) {
-    if (processando.value || (escopo.value === 'AULAS_ESPECIFICAS' && carregandoAulasEspecificas.value)) {
+    if (
+      !inicializacaoConcluida.value ||
+      processando.value ||
+      (escopo.value === 'AULAS_ESPECIFICAS' && carregandoAulasEspecificas.value)
+    ) {
       return
     }
 
@@ -886,7 +950,11 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   }
 
   async function consultarPrevia(forcar = false) {
-    if (processando.value || (escopo.value === 'AULAS_ESPECIFICAS' && carregandoAulasEspecificas.value)) {
+    if (
+      !inicializacaoConcluida.value ||
+      processando.value ||
+      (escopo.value === 'AULAS_ESPECIFICAS' && carregandoAulasEspecificas.value)
+    ) {
       return
     }
 
@@ -1021,57 +1089,111 @@ export function useAulasFrequenciaLote(tipoEntrada) {
     }
   }
 
-  async function carregarDadosBase() {
-    if (!retornoQuery.value) {
-      erroInicial.value = 'Rota de retorno inválida.'
-      router.replace('/aulas-frequencia')
-      return false
+  async function inicializarPagina() {
+    const assinaturaSolicitada = JSON.stringify({
+      rota: valorRota(route.name),
+      returnTo: valorRota(route.query.returnTo),
+    })
+
+    if (promessaInicializacao) {
+      if (assinaturaSolicitada !== assinaturaInicializacaoEmAndamento) {
+        reinicializacaoPendente = true
+        sequenciaInicializacao += 1
+      }
+
+      return promessaInicializacao
     }
 
-    carregandoInicial.value = true
-    erroInicial.value = ''
+    const sequenciaAtual = ++sequenciaInicializacao
+    assinaturaInicializacaoEmAndamento = assinaturaSolicitada
+    reinicializacaoPendente = false
+    let acaoPosInicializacao = null
 
-    try {
-      await carregarContextoGestaoEsportiva()
-      modoVisualizacaoEmpresa.value = false
+    promessaInicializacao = (async () => {
+      carregandoInicial.value = true
+      erroInicial.value = ''
+      inicializacaoConcluida.value = false
+      redefinirEstadoInicial()
 
-      if (contextoEsportivo.value?.ativo !== true) {
-        erroInicial.value = 'O módulo de Gestão Esportiva não está disponível.'
-        router.replace('/aulas-frequencia')
+      try {
+        if (!tipoRota.value) {
+          throw new Error('Rota de fluxo em lote inválida.')
+        }
+
+        await carregarContextoGestaoEsportiva()
+
+        if (!componenteAtivo || sequenciaAtual !== sequenciaInicializacao) {
+          return false
+        }
+
+        modoVisualizacaoEmpresa.value = false
+
+        if (contextoEsportivo.value?.ativo !== true) {
+          throw new Error('O módulo de Gestão Esportiva não está disponível.')
+        }
+
+        carregandoTurmas.value = true
+        carregandoProfessores.value = true
+
+        const [turmasResposta, professoresResposta] = await carregarBasesObrigatorias()
+
+        if (!componenteAtivo || sequenciaAtual !== sequenciaInicializacao) {
+          return false
+        }
+
+        turmas.value = (Array.isArray(turmasResposta) ? turmasResposta : []).map((item) => normalizarTurmaOpcao(item)).filter(Boolean)
+        professores.value = (Array.isArray(professoresResposta) ? professoresResposta : []).map((item) => normalizarProfessorOpcao(item)).filter(Boolean)
+
+        inicializacaoConcluida.value = true
+
+        if (escopo.value === 'AULAS_ESPECIFICAS') {
+          acaoPosInicializacao = () => agendarConsultaAulasEspecificas({ forcar: true })
+        } else if (!validarFormulario()) {
+          acaoPosInicializacao = () => agendarConsultaPrevia({ forcar: true })
+        }
+
+        return true
+      } catch (error) {
+        if (componenteAtivo && sequenciaAtual === sequenciaInicializacao) {
+          console.error('Falha ao inicializar a página de aulas em lote', error)
+          erroInicial.value = formatarErro(error, 'Não foi possível carregar os dados necessários. Tente novamente.')
+        }
+
         return false
+      } finally {
+        if (componenteAtivo && sequenciaAtual === sequenciaInicializacao) {
+          carregandoInicial.value = false
+        }
+
+        carregandoBase.value = false
+        carregandoLista.value = false
+        carregandoTurmas.value = false
+        carregandoProfessores.value = false
+        promessaInicializacao = null
+        assinaturaInicializacaoEmAndamento = ''
+      }
+    })()
+
+    promessaInicializacao.finally(() => {
+      if (
+        componenteAtivo &&
+        sequenciaAtual === sequenciaInicializacao &&
+        typeof acaoPosInicializacao === 'function'
+      ) {
+        acaoPosInicializacao()
       }
 
-      carregandoBase.value = true
-      carregandoLista.value = true
-      carregandoTurmas.value = true
-      carregandoProfessores.value = true
-
-      const filtros = filtrosBase.value || {}
-      const [aulasResposta, turmasResposta, professoresResposta] = await Promise.all([
-        buscarAulasGestaoEsportiva(filtros),
-        buscarTurmasBeachTennis(),
-        buscarFuncionarios(),
-      ])
-
-      baseAulas.value = (Array.isArray(aulasResposta) ? aulasResposta : []).map((item) => normalizarAulaLista(item)).filter(Boolean)
-      turmas.value = (Array.isArray(turmasResposta) ? turmasResposta : []).map((item) => normalizarTurmaOpcao(item)).filter(Boolean)
-      professores.value = (Array.isArray(professoresResposta) ? professoresResposta : []).map((item) => normalizarProfessorOpcao(item)).filter(Boolean)
-
-      if (escopo.value !== 'AULAS_ESPECIFICAS') {
-        agendarConsultaPrevia({ forcar: true })
+      if (reinicializacaoPendente && componenteAtivo) {
+        reinicializacaoPendente = false
+        void inicializarPagina()
       }
+    })
 
-      return true
-    } catch (error) {
-      erroInicial.value = formatarErro(error, 'Não foi possível carregar os dados da tela.')
-      return false
-    } finally {
-      carregandoInicial.value = false
-      carregandoBase.value = false
-      carregandoLista.value = false
-      carregandoTurmas.value = false
-      carregandoProfessores.value = false
-    }
+    return promessaInicializacao
+  }
+
+  async function carregarDadosBase() {
+    return inicializarPagina()
   }
 
   function aplicarMensagensDeRetorno() {
@@ -1079,6 +1201,10 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   }
 
   watch(assinaturaBuscaAulasEspecificas, (novaAssinatura, assinaturaAnterior) => {
+    if (!inicializacaoConcluida.value) {
+      return
+    }
+
     if (escopo.value !== 'AULAS_ESPECIFICAS') {
       limparAulasEspecificas()
       return
@@ -1101,6 +1227,10 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   })
 
   watch(assinaturaGatilhoPrevia, (novaAssinatura, assinaturaAnterior) => {
+    if (!inicializacaoConcluida.value) {
+      return
+    }
+
     if (escopo.value === 'AULAS_ESPECIFICAS') {
       const temSelecao = normalizarListaIds(lote.value.aulaIds).length > 0
       if (!temSelecao) {
@@ -1125,6 +1255,10 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   })
 
   watch(escopo, (novoEscopo) => {
+    if (!inicializacaoConcluida.value) {
+      return
+    }
+
     if (novoEscopo !== 'AULAS_ESPECIFICAS') {
       limparAulasEspecificas()
     } else {
@@ -1137,6 +1271,10 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   watch(
     () => lote.value.data,
     () => {
+      if (!inicializacaoConcluida.value) {
+        return
+      }
+
       if (escopo.value === 'AULAS_ESPECIFICAS') {
         agendarConsultaAulasEspecificas()
       } else {
@@ -1148,6 +1286,10 @@ export function useAulasFrequenciaLote(tipoEntrada) {
   watch(
     () => lote.value.professorId,
     () => {
+      if (!inicializacaoConcluida.value) {
+        return
+      }
+
       if (escopo.value === 'AULAS_ESPECIFICAS') {
         agendarConsultaAulasEspecificas()
       } else {
@@ -1166,16 +1308,30 @@ export function useAulasFrequenciaLote(tipoEntrada) {
     }
   })
 
+  watch(
+    () => [route.name, route.query.returnTo],
+    () => {
+      if (!componenteAtivo) {
+        return
+      }
+
+      void inicializarPagina()
+    },
+  )
+
   onMounted(() => {
     carregarJanelaMobile()
     window.addEventListener('resize', carregarJanelaMobile)
   })
 
   onBeforeUnmount(() => {
+    componenteAtivo = false
     window.removeEventListener('resize', carregarJanelaMobile)
     limparTimers()
     sequenciaAulasEspecificas.value += 1
     sequenciaPrevia.value += 1
+    sequenciaInicializacao += 1
+    promessaInicializacao = null
   })
 
   return {
@@ -1184,11 +1340,13 @@ export function useAulasFrequenciaLote(tipoEntrada) {
     OPCOES_ESCOPO,
     OPCOES_PERIODO,
     tipo,
+    tipoRotaValido: computed(() => Boolean(tipoRota.value)),
     retornoSeguro,
     retornoQuery,
     filtrosBase,
     carregandoInicial,
     erroInicial,
+    inicializacaoConcluida,
     carregandoBase,
     carregandoLista,
     carregandoTurmas,
@@ -1249,6 +1407,7 @@ export function useAulasFrequenciaLote(tipoEntrada) {
     agendarConsultaPrevia,
     confirmar,
     fechar,
+    inicializarPagina,
     carregarDadosBase,
     aplicarMensagensDeRetorno,
     validarFormulario,

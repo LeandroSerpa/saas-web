@@ -1,25 +1,27 @@
 <script setup>
 import { computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
 import { ETAPAS_LOTE, TIPOS_LOTE, useAulasFrequenciaLote } from '@/composables/useAulasFrequenciaLote'
 import { formatarDataBrasileira } from '@/utils/beachTennis'
 
-const route = useRoute()
-const tipoLote = route.name === 'aulas-frequencia-lote-retomar' ? TIPOS_LOTE.RETOMADA : TIPOS_LOTE.CANCELAMENTO
-
-const fluxo = useAulasFrequenciaLote(tipoLote)
+const fluxo = useAulasFrequenciaLote()
 
 const ehCancelamento = computed(() => fluxo.tipo.value === TIPOS_LOTE.CANCELAMENTO)
-const tituloPagina = computed(() => (ehCancelamento.value ? 'Cancelar aulas em lote' : 'Retomar aulas em lote'))
-const subtituloPagina = computed(() => (ehCancelamento.value ? 'Cancelamento em lote' : 'Retomada em lote'))
+const tituloPagina = computed(() =>
+  !fluxo.tipoRotaValido.value ? 'Aulas em lote' : ehCancelamento.value ? 'Cancelar aulas em lote' : 'Retomar aulas em lote',
+)
+const subtituloPagina = computed(() =>
+  !fluxo.tipoRotaValido.value ? 'Fluxo em lote' : ehCancelamento.value ? 'Cancelamento em lote' : 'Retomada em lote',
+)
 const descricaoPagina = computed(() =>
-  ehCancelamento.value
-    ? 'Use esta página para revisar a prévia, informar o motivo e concluir o cancelamento em lote.'
-    : 'Use esta página para revisar a prévia e concluir a retomada em lote.',
+  !fluxo.tipoRotaValido.value
+    ? 'Use o botão Voltar para retornar à tela anterior.'
+    : ehCancelamento.value
+      ? 'Use esta página para revisar a prévia, informar o motivo e concluir o cancelamento em lote.'
+      : 'Use esta página para revisar a prévia e concluir a retomada em lote.',
 )
 
-onMounted(async () => {
-  await fluxo.carregarDadosBase()
+onMounted(() => {
+  void fluxo.inicializarPagina()
 })
 </script>
 
@@ -43,7 +45,12 @@ onMounted(async () => {
     </section>
 
     <section v-else-if="fluxo.erroInicial" class="card lote-estado erro">
-      <p>{{ fluxo.erroInicial }}</p>
+      <p>{{ fluxo.erroInicial || 'Não foi possível carregar os dados necessários. Tente novamente.' }}</p>
+      <div class="acoes-erro">
+        <button type="button" class="botao principal" @click="() => fluxo.inicializarPagina()">
+          Tentar novamente
+        </button>
+      </div>
     </section>
 
     <template v-else>
@@ -327,6 +334,25 @@ onMounted(async () => {
 
 .cabecalho-lote-texto h1 {
   margin: 0;
+}
+
+.lote-estado {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.lote-estado.erro {
+  place-items: start;
+  text-align: left;
+}
+
+.acoes-erro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .botao-voltar-lote {
