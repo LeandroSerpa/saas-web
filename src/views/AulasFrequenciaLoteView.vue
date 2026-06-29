@@ -5,15 +5,50 @@ import { formatarDataBrasileira } from '@/utils/beachTennis'
 
 const fluxo = useAulasFrequenciaLote()
 
-const ehCancelamento = computed(() => fluxo.tipo.value === TIPOS_LOTE.CANCELAMENTO)
+const carregandoInicial = fluxo.carregandoInicial
+const erroInicializacao = fluxo.erroInicial
+const tipoRotaValido = fluxo.tipoRotaValido
+const tipo = fluxo.tipo
+const etapaAtual = fluxo.etapaAtual
+const previewAtualizada = fluxo.previewAtualizada
+const lote = fluxo.lote
+const OPCOES_ESCOPO = fluxo.OPCOES_ESCOPO
+const descricaoEscopo = fluxo.descricaoEscopo
+const professoresSelecionaveis = fluxo.professoresSelecionaveis
+const escopo = fluxo.escopo
+const OPCOES_PERIODO = fluxo.OPCOES_PERIODO
+const erroAulasEspecificas = fluxo.erroAulasEspecificas
+const carregandoAulasEspecificas = fluxo.carregandoAulasEspecificas
+const aulasSelecionaveis = fluxo.aulasSelecionaveis
+const aulasEspecificasCarregadas = fluxo.aulasEspecificasCarregadas
+const turmasSelecionaveis = fluxo.turmasSelecionaveis
+const tituloPrevia = fluxo.tituloPrevia
+const carregandoPrevia = fluxo.carregandoPrevia
+const previsaoPendente = fluxo.previsaoPendente
+const previa = fluxo.previa
+const mensagemPreview = fluxo.mensagemPreview
+const erro = fluxo.erro
+const mensagemBloqueioConfirmacao = fluxo.mensagemBloqueioConfirmacao
+const processando = fluxo.processando
+const podeConfirmar = fluxo.podeConfirmar
+const textoBotaoConfirmar = fluxo.textoBotaoConfirmar
+const inicializarPagina = fluxo.inicializarPagina
+const fechar = fluxo.fechar
+const voltarAConfiguracao = fluxo.voltarAConfiguracao
+const abrirPrevia = fluxo.abrirPrevia
+const selecionarTodasAulas = fluxo.selecionarTodasAulas
+const limparSelecaoAulas = fluxo.limparSelecaoAulas
+const confirmar = fluxo.confirmar
+
+const ehCancelamento = computed(() => tipo.value === TIPOS_LOTE.CANCELAMENTO)
 const tituloPagina = computed(() =>
-  !fluxo.tipoRotaValido.value ? 'Aulas em lote' : ehCancelamento.value ? 'Cancelar aulas em lote' : 'Retomar aulas em lote',
+  !tipoRotaValido.value ? 'Aulas em lote' : ehCancelamento.value ? 'Cancelar aulas em lote' : 'Retomar aulas em lote',
 )
 const subtituloPagina = computed(() =>
-  !fluxo.tipoRotaValido.value ? 'Fluxo em lote' : ehCancelamento.value ? 'Cancelamento em lote' : 'Retomada em lote',
+  !tipoRotaValido.value ? 'Fluxo em lote' : ehCancelamento.value ? 'Cancelamento em lote' : 'Retomada em lote',
 )
 const descricaoPagina = computed(() =>
-  !fluxo.tipoRotaValido.value
+  !tipoRotaValido.value
     ? 'Use o botão Voltar para retornar à tela anterior.'
     : ehCancelamento.value
       ? 'Use esta página para revisar a prévia, informar o motivo e concluir o cancelamento em lote.'
@@ -21,14 +56,14 @@ const descricaoPagina = computed(() =>
 )
 
 onMounted(() => {
-  void fluxo.inicializarPagina()
+  void inicializarPagina()
 })
 </script>
 
 <template>
   <main class="pagina lote-pagina">
     <header class="cabecalho-lote">
-      <button type="button" class="botao secundario botao-voltar-lote" @click="fluxo.fechar">
+      <button type="button" class="botao secundario botao-voltar-lote" @click="fechar">
         <span aria-hidden="true">←</span>
         <span>Voltar</span>
       </button>
@@ -40,14 +75,14 @@ onMounted(() => {
       </div>
     </header>
 
-    <section v-if="fluxo.carregandoInicial" class="card lote-estado">
+    <section v-if="carregandoInicial" class="card lote-estado">
       <p>Carregando dados da página...</p>
     </section>
 
-    <section v-else-if="fluxo.erroInicial" class="card lote-estado erro">
-      <p>{{ fluxo.erroInicial || 'Não foi possível carregar os dados necessários. Tente novamente.' }}</p>
+    <section v-else-if="erroInicializacao" class="card lote-estado erro">
+      <p>{{ erroInicializacao || 'Não foi possível carregar os dados necessários. Tente novamente.' }}</p>
       <div class="acoes-erro">
-        <button type="button" class="botao principal" @click="() => fluxo.inicializarPagina()">
+        <button type="button" class="botao principal" @click="inicializarPagina">
           Tentar novamente
         </button>
       </div>
@@ -55,62 +90,62 @@ onMounted(() => {
 
     <template v-else>
       <nav class="etapas-lote" aria-label="Etapas do fluxo em lote">
-        <button
-          type="button"
-          class="etapa-lote"
-          :class="{ ativa: fluxo.etapaAtual === ETAPAS_LOTE.CONFIGURACAO }"
-          :aria-selected="fluxo.etapaAtual === ETAPAS_LOTE.CONFIGURACAO"
-          @click="fluxo.voltarAConfiguracao"
-        >
-          Configuração
-        </button>
-        <button
-          type="button"
-          class="etapa-lote"
-          :class="{ ativa: fluxo.etapaAtual === ETAPAS_LOTE.PREVIA }"
-          :aria-selected="fluxo.etapaAtual === ETAPAS_LOTE.PREVIA"
-          :disabled="!fluxo.previewAtualizada"
-          @click="fluxo.abrirPrevia"
-        >
-          Prévia
-        </button>
-      </nav>
+          <button
+            type="button"
+            class="etapa-lote"
+            :class="{ ativa: etapaAtual === ETAPAS_LOTE.CONFIGURACAO }"
+            :aria-selected="etapaAtual === ETAPAS_LOTE.CONFIGURACAO"
+            @click="voltarAConfiguracao"
+          >
+            Configuração
+          </button>
+          <button
+            type="button"
+            class="etapa-lote"
+            :class="{ ativa: etapaAtual === ETAPAS_LOTE.PREVIA }"
+            :aria-selected="etapaAtual === ETAPAS_LOTE.PREVIA"
+            :disabled="!previewAtualizada"
+            @click="abrirPrevia"
+          >
+            Prévia
+          </button>
+        </nav>
 
       <section class="conteudo-lote">
-        <section v-if="fluxo.etapaAtual === ETAPAS_LOTE.CONFIGURACAO" class="card painel-lote">
+        <section v-if="etapaAtual === ETAPAS_LOTE.CONFIGURACAO" class="card painel-lote">
           <div class="lote-bloco">
             <div class="lote-linha-campos">
               <label class="lote-campo">
                 <span class="lote-rotulo">Escopo</span>
-                <select v-model="fluxo.lote.escopo">
-                  <option v-for="opcao in fluxo.OPCOES_ESCOPO" :key="opcao.valor" :value="opcao.valor">
+                <select v-model="lote.escopo">
+                  <option v-for="opcao in OPCOES_ESCOPO" :key="opcao.valor" :value="opcao.valor">
                     {{ opcao.rotulo }}
                   </option>
                 </select>
-                <small class="ajuda-campo">{{ fluxo.descricaoEscopo }}</small>
+                <small class="ajuda-campo">{{ descricaoEscopo }}</small>
               </label>
 
               <label class="lote-campo">
                 <span class="lote-rotulo">Data</span>
-                <input v-model="fluxo.lote.data" type="date" />
+                <input v-model="lote.data" type="date" />
               </label>
             </div>
 
             <div class="lote-linha-campos">
               <label class="lote-campo">
                 <span class="lote-rotulo">Professor, opcional</span>
-                <select v-model="fluxo.lote.professorId">
+                <select v-model="lote.professorId">
                   <option value="">Todos os professores</option>
-                  <option v-for="professor in fluxo.professoresSelecionaveis" :key="professor.id" :value="String(professor.id)">
+                  <option v-for="professor in professoresSelecionaveis" :key="professor.id" :value="String(professor.id)">
                     {{ professor.nome }}
                   </option>
                 </select>
               </label>
 
-              <label v-if="fluxo.escopo === 'PERIODO_DA_DATA'" class="lote-campo">
+              <label v-if="escopo === 'PERIODO_DA_DATA'" class="lote-campo">
                 <span class="lote-rotulo">Período</span>
-                <select v-model="fluxo.lote.periodo">
-                  <option v-for="opcao in fluxo.OPCOES_PERIODO" :key="opcao.valor" :value="opcao.valor">
+                <select v-model="lote.periodo">
+                  <option v-for="opcao in OPCOES_PERIODO" :key="opcao.valor" :value="opcao.valor">
                     {{ opcao.rotulo }}
                   </option>
                 </select>
@@ -122,7 +157,7 @@ onMounted(() => {
               <label class="lote-campo lote-campo-total">
                 <span class="lote-rotulo">Motivo do cancelamento</span>
                 <textarea
-                  v-model="fluxo.lote.motivo"
+                  v-model="lote.motivo"
                   rows="4"
                   placeholder="Ex.: Chuva intensa durante a manhã"
                   :data-scroll-margin="true"
@@ -131,35 +166,35 @@ onMounted(() => {
               </label>
             </section>
 
-            <section v-if="fluxo.escopo === 'AULAS_ESPECIFICAS'" class="lote-bloco-interno">
+            <section v-if="escopo === 'AULAS_ESPECIFICAS'" class="lote-bloco-interno">
               <div class="lote-cabecalho-bloco">
                 <div>
                   <h2>Aulas específicas</h2>
                   <p>Carregue as aulas da data e selecione uma ou mais opções.</p>
                 </div>
                 <div class="acoes-mini">
-                  <button type="button" class="botao secundario compacto" @click="fluxo.selecionarTodasAulas">Selecionar todas</button>
-                  <button type="button" class="botao secundario compacto" @click="fluxo.limparSelecaoAulas">Limpar</button>
+                  <button type="button" class="botao secundario compacto" @click="selecionarTodasAulas">Selecionar todas</button>
+                  <button type="button" class="botao secundario compacto" @click="limparSelecaoAulas">Limpar</button>
                 </div>
               </div>
 
-              <p v-if="fluxo.erroAulasEspecificas" class="estado-erro">{{ fluxo.erroAulasEspecificas }}</p>
+              <p v-if="erroAulasEspecificas" class="estado-erro">{{ erroAulasEspecificas }}</p>
 
-              <div v-if="fluxo.carregandoAulasEspecificas" class="estado-vazio">
+              <div v-if="carregandoAulasEspecificas" class="estado-vazio">
                 <p>Carregando aulas da data...</p>
               </div>
 
-              <div v-else-if="!fluxo.aulasSelecionaveis.length && fluxo.aulasEspecificasCarregadas" class="estado-vazio">
+              <div v-else-if="!aulasSelecionaveis.length && aulasEspecificasCarregadas" class="estado-vazio">
                 <p>Nenhuma aula foi encontrada para a data selecionada.</p>
               </div>
 
-              <div v-else-if="!fluxo.aulasSelecionaveis.length" class="estado-vazio">
+              <div v-else-if="!aulasSelecionaveis.length" class="estado-vazio">
                 <p>Selecione uma data para carregar as aulas.</p>
               </div>
 
               <div v-else class="lista-selecao">
-                <label v-for="aula in fluxo.aulasSelecionaveis" :key="aula.id" class="card-selecao">
-                  <input v-model="fluxo.lote.aulaIds" type="checkbox" :value="aula.id" />
+                <label v-for="aula in aulasSelecionaveis" :key="aula.id" class="card-selecao">
+                  <input v-model="lote.aulaIds" type="checkbox" :value="aula.id" />
                   <div>
                     <strong>{{ formatarDataBrasileira(aula.dataAula) || 'Data não informada' }}</strong>
                     <p>{{ aula.horarioInicio || 'Horário não informado' }} · {{ aula.turmaNome || `Aula ${aula.id}` }}</p>
@@ -170,21 +205,21 @@ onMounted(() => {
               </div>
             </section>
 
-            <section v-if="fluxo.escopo === 'TURMAS_NA_DATA' || fluxo.escopo === 'PERIODO_DA_DATA'" class="lote-bloco-interno">
+            <section v-if="escopo === 'TURMAS_NA_DATA' || escopo === 'PERIODO_DA_DATA'" class="lote-bloco-interno">
               <div class="lote-cabecalho-bloco">
                 <div>
                   <h2>Turmas</h2>
-                  <p>{{ fluxo.escopo === 'TURMAS_NA_DATA' ? 'Selecione as turmas da data.' : 'As turmas são opcionais neste escopo.' }}</p>
+                  <p>{{ escopo === 'TURMAS_NA_DATA' ? 'Selecione as turmas da data.' : 'As turmas são opcionais neste escopo.' }}</p>
                 </div>
               </div>
 
-              <div v-if="!fluxo.turmasSelecionaveis.length" class="estado-vazio">
+              <div v-if="!turmasSelecionaveis.length" class="estado-vazio">
                 <p>Nenhuma turma encontrada.</p>
               </div>
 
               <div v-else class="lista-selecao">
-                <label v-for="turma in fluxo.turmasSelecionaveis" :key="turma.id" class="card-selecao">
-                  <input v-model="fluxo.lote.turmaIds" type="checkbox" :value="turma.id" />
+                <label v-for="turma in turmasSelecionaveis" :key="turma.id" class="card-selecao">
+                  <input v-model="lote.turmaIds" type="checkbox" :value="turma.id" />
                   <div>
                     <strong>{{ turma.nome }}</strong>
                     <p>{{ turma.nivel || 'Turma sem classificação' }}</p>
@@ -199,53 +234,53 @@ onMounted(() => {
           <div class="lote-previa-cabecalho">
             <div>
               <h2>Prévia obrigatória</h2>
-              <p>{{ fluxo.tituloPrevia }}</p>
-              <small class="ajuda-campo">{{ fluxo.descricaoEscopo }}</small>
+              <p>{{ tituloPrevia }}</p>
+              <small class="ajuda-campo">{{ descricaoEscopo }}</small>
             </div>
             <span class="contador">
               {{
-                fluxo.carregandoPrevia || fluxo.previsaoPendente
+                carregandoPrevia || previsaoPendente
                   ? 'Atualizando...'
-                  : fluxo.previewAtualizada
+                  : previewAtualizada
                     ? 'Prévia pronta'
                     : 'Aguardando'
               }}
             </span>
           </div>
 
-          <p class="ajuda-campo">{{ fluxo.mensagemPreview }}</p>
-          <p v-if="fluxo.erro" class="estado-erro">{{ fluxo.erro }}</p>
+          <p class="ajuda-campo">{{ mensagemPreview }}</p>
+          <p v-if="erro" class="estado-erro">{{ erro }}</p>
 
-          <div v-if="fluxo.carregandoPrevia" class="estado-vazio">
+          <div v-if="carregandoPrevia" class="estado-vazio">
             <p>Consultando prévia...</p>
           </div>
 
-          <template v-else-if="fluxo.previa">
+          <template v-else-if="previa">
             <div class="grade-resumo">
               <article class="mini-card">
                 <span>Encontradas</span>
-                <strong>{{ fluxo.previa.quantidadeEncontrada }}</strong>
+                <strong>{{ previa.quantidadeEncontrada }}</strong>
               </article>
               <article class="mini-card">
                 <span>{{ ehCancelamento ? 'Canceláveis' : 'Reversíveis' }}</span>
-                <strong>{{ ehCancelamento ? fluxo.previa.quantidadeCancelavel : fluxo.previa.quantidadeReversivel }}</strong>
+                <strong>{{ ehCancelamento ? previa.quantidadeCancelavel : previa.quantidadeReversivel }}</strong>
               </article>
               <article class="mini-card">
                 <span>{{ ehCancelamento ? 'Já canceladas' : 'Já ativas' }}</span>
-                <strong>{{ ehCancelamento ? fluxo.previa.quantidadeJaCancelada : fluxo.previa.quantidadeJaAtiva }}</strong>
+                <strong>{{ ehCancelamento ? previa.quantidadeJaCancelada : previa.quantidadeJaAtiva }}</strong>
               </article>
               <article class="mini-card">
                 <span>Bloqueadas</span>
-                <strong>{{ fluxo.previa.quantidadeBloqueada }}</strong>
+                <strong>{{ previa.quantidadeBloqueada }}</strong>
               </article>
             </div>
 
-            <div v-if="!fluxo.previa.aulas.length" class="estado-vazio">
+            <div v-if="!previa.aulas.length" class="estado-vazio">
               <p>Nenhuma aula retornou na prévia.</p>
             </div>
 
             <div v-else class="lista-previa">
-              <article v-for="aula in fluxo.previa.aulas" :key="aula.aulaId" class="card-previa">
+              <article v-for="aula in previa.aulas" :key="aula.aulaId" class="card-previa">
                 <div class="card-previa-topo">
                   <div>
                     <strong>{{ formatarDataBrasileira(aula.data) || 'Data não informada' }}</strong>
@@ -268,39 +303,39 @@ onMounted(() => {
       </section>
 
       <footer class="barra-acoes-lote">
-        <p v-if="fluxo.mensagemBloqueioConfirmacao" class="ajuda-campo ajuda-bloqueio-confirmacao">
-          {{ fluxo.mensagemBloqueioConfirmacao }}
+        <p v-if="mensagemBloqueioConfirmacao" class="ajuda-campo ajuda-bloqueio-confirmacao">
+          {{ mensagemBloqueioConfirmacao }}
         </p>
 
         <div class="acoes-lote-botoes">
           <button
             type="button"
             class="botao secundario"
-            @click="fluxo.etapaAtual === ETAPAS_LOTE.CONFIGURACAO ? fluxo.fechar() : fluxo.voltarAConfiguracao()"
+            @click="etapaAtual === ETAPAS_LOTE.CONFIGURACAO ? fechar() : voltarAConfiguracao()"
           >
-            {{ fluxo.etapaAtual === ETAPAS_LOTE.CONFIGURACAO ? 'Voltar' : 'Voltar à configuração' }}
+            {{ etapaAtual === ETAPAS_LOTE.CONFIGURACAO ? 'Voltar' : 'Voltar à configuração' }}
           </button>
           <button
-            v-if="fluxo.etapaAtual === ETAPAS_LOTE.CONFIGURACAO"
+            v-if="etapaAtual === ETAPAS_LOTE.CONFIGURACAO"
             type="button"
             class="botao principal"
-            :disabled="!fluxo.previewAtualizada"
-            @click="fluxo.abrirPrevia"
+            :disabled="!previewAtualizada"
+            @click="abrirPrevia"
           >
-            {{ fluxo.previewAtualizada ? 'Ver prévia' : 'Aguardando prévia' }}
+            {{ previewAtualizada ? 'Ver prévia' : 'Aguardando prévia' }}
           </button>
           <button
             v-else
             type="button"
             class="botao principal"
-            :disabled="!fluxo.podeConfirmar"
-            @click="fluxo.confirmar"
+            :disabled="!podeConfirmar"
+            @click="confirmar"
           >
-            {{ fluxo.processando ? 'Processando...' : fluxo.textoBotaoConfirmar }}
+            {{ processando ? 'Processando...' : textoBotaoConfirmar }}
           </button>
         </div>
 
-        <p v-if="fluxo.etapaAtual === ETAPAS_LOTE.CONFIGURACAO && !fluxo.previewAtualizada" class="ajuda-campo">
+        <p v-if="etapaAtual === ETAPAS_LOTE.CONFIGURACAO && !previewAtualizada" class="ajuda-campo">
           A prévia é gerada automaticamente quando os dados estiverem completos.
         </p>
       </footer>
