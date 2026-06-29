@@ -8,6 +8,7 @@ const BeachTennisFinanceiroView = () => import('../views/BeachTennisFinanceiroVi
 const AulasFrequenciaView = () => import('../views/AulasFrequenciaView.vue')
 const AulasFrequenciaLoteView = () => import('../views/AulasFrequenciaLoteView.vue')
 const AulaFrequenciaDetalheView = () => import('../views/AulaFrequenciaDetalheView.vue')
+const ReposicoesView = () => import('../views/ReposicoesView.vue')
 const ServicosView = () => import('../views/ServicosView.vue')
 const FuncionariosView = () => import('../views/FuncionariosView.vue')
 const DisponibilidadeView = () => import('../views/DisponibilidadeView.vue')
@@ -174,6 +175,12 @@ const router = createRouter({
       path: '/aulas-frequencia/:aulaId',
       name: 'aulas-frequencia-detalhe',
       component: AulaFrequenciaDetalheView,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
+    },
+    {
+      path: '/reposicoes',
+      name: 'reposicoes',
+      component: ReposicoesView,
       meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {

@@ -4262,7 +4262,7 @@ export async function buscarAulasGestaoEsportiva(filtros = {}) {
   })
 
   const dados = await tratarResposta(response)
-  return normalizarColecaoResposta(dados)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
 }
 
 export async function buscarAulaGestaoEsportiva(aulaId) {
@@ -4275,6 +4275,116 @@ export async function buscarAulaGestaoEsportiva(aulaId) {
   const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/${id}${montarQueryEmpresaOperacional()}`, {
     headers: montarHeaders(),
     cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function listarReposicoesGestaoEsportiva(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/reposicoes${montarQueryEmpresaOperacional(filtros)}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarReposicaoGestaoEsportiva(id) {
+  const reposicaoId = String(id || '').trim()
+
+  if (!reposicaoId) {
+    return null
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/reposicoes/${reposicaoId}${montarQueryEmpresaOperacional()}`,
+    {
+      headers: montarHeaders(),
+      cache: 'no-store',
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function listarDisponiveisPorAlunoReposicaoGestaoEsportiva(alunoId, filtros = {}) {
+  const id = String(alunoId || '').trim()
+
+  if (!id) {
+    return []
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/reposicoes/aluno/${id}/disponiveis${montarQueryEmpresaOperacional(filtros)}`,
+    {
+      headers: montarHeaders(),
+      cache: 'no-store',
+    },
+  )
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function gerarPreviaAgendamentoReposicaoGestaoEsportiva(direitoId, payload = {}) {
+  const reposicaoId = String(direitoId || '').trim()
+
+  if (!reposicaoId) {
+    return null
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/reposicoes/${reposicaoId}/agendamento/previa${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'POST',
+      headers: montarHeaders(true),
+      body: JSON.stringify(payload || {}),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function agendarReposicaoGestaoEsportiva(direitoId, payload = {}) {
+  const reposicaoId = String(direitoId || '').trim()
+
+  if (!reposicaoId) {
+    return null
+  }
+
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/reposicoes/${reposicaoId}/agendar${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cancelarAgendamentoReposicaoGestaoEsportiva(direitoId, payload = {}) {
+  const reposicaoId = String(direitoId || '').trim()
+
+  if (!reposicaoId) {
+    return null
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/reposicoes/${reposicaoId}/cancelar-agendamento${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'POST',
+      headers: montarHeaders(true),
+      body: JSON.stringify(payload || {}),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function criarAjusteManualReposicaoGestaoEsportiva(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/reposicoes/ajuste-manual${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
   })
 
   return tratarResposta(response)

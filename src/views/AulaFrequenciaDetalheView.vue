@@ -101,8 +101,8 @@ const textoBotaoModalCancelamento = computed(() =>
 )
 const textoConfirmacaoCancelamento = computed(() =>
   acaoCancelamento.value === 'reverter'
-    ? 'Esta aula voltará para a situação Agendada. Os participantes e os demais dados da aula serão mantidos.'
-    : 'A aula será cancelada sem excluir o registro. Nenhuma reposição será criada automaticamente nesta etapa.',
+    ? 'Os direitos de reposição ainda disponíveis gerados por este cancelamento serão cancelados. A reversão será bloqueada caso algum direito já esteja reservado ou utilizado.'
+    : 'O cancelamento criará automaticamente um direito de reposição para cada aluno elegível desta aula.',
 )
 const podeSalvarFrequencias = computed(
   () =>
@@ -594,7 +594,9 @@ onBeforeUnmount(() => {
                   <span class="chip situacao" :class="estadoSituacaoAula(participante.situacao)">
                     {{ rotuloSituacaoFrequencia(participante.situacao) }}
                   </span>
-                  <span class="chip sutileza">{{ participante.tipoParticipacao }}</span>
+                  <span v-if="String(participante.tipoParticipacao || '').trim().toUpperCase() === 'REPOSICAO'" class="chip sutileza">
+                    Reposição
+                  </span>
                 </div>
               </div>
 

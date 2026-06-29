@@ -90,6 +90,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Detalhe da frequência',
     descricao: 'Revise a aula e ajuste os lançamentos de frequência dos participantes.',
   },
+  reposicoes: {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Reposições',
+    descricao: 'Acompanhe direitos de reposição, agendamentos e ajustes manuais.',
+  },
   professores: {
     subtitulo: 'Gestão Esportiva',
     titulo: 'Professores',
@@ -272,6 +277,7 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   'beach-tennis-alunos': 'clientes',
   'beach-tennis-financeiro': 'faturas-meu-plano',
   'aulas-frequencia-detalhe': 'aulas-frequencia',
+  reposicoes: 'aulas-frequencia',
   professores: 'funcionarios',
   servicos: 'servicos',
   funcionarios: 'funcionarios',
@@ -483,6 +489,14 @@ function obterCabecalhoPadrao(nomeRota) {
         subtitulo: contextoEsportivo.value.nomeModalidade,
         titulo: `Financeiro - ${contextoEsportivo.value.nomeModalidade}`,
         descricao: 'Acompanhe acordos, mensalidades e a configuração financeira da modalidade.',
+      }
+    }
+
+    if (nomeRota === 'reposicoes') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: 'Reposições',
+        descricao: 'Acompanhe direitos de reposição, agendamentos e ajustes manuais.',
       }
     }
 
@@ -977,7 +991,8 @@ function sincronizarGruposMenu() {
   const rotaEsportiva =
     String(routeName.value || '').startsWith('beach-tennis') ||
     routeName.value === 'professores' ||
-    routeName.value === 'aulas-frequencia-detalhe'
+    routeName.value === 'aulas-frequencia-detalhe' ||
+    routeName.value === 'reposicoes'
   const rotaCadastroParticipantes = moduloGestaoEsportivaVisivel.value && routeName.value === 'clientes'
 
   if (rotaEsportiva || rotaCadastroParticipantes) {
@@ -1218,6 +1233,7 @@ onBeforeUnmount(() => {
           <div v-if="grupoMenuAberto('beachTennis')" class="submenu">
             <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">{{ rotuloGrupoEsportivoPlural }}</RouterLink>
             <RouterLink to="/aulas-frequencia" @click="fecharMenuMobile">Aulas e frequência</RouterLink>
+            <RouterLink to="/reposicoes" @click="fecharMenuMobile">Reposições</RouterLink>
             <RouterLink to="/professores" @click="fecharMenuMobile">Professores</RouterLink>
             <RouterLink to="/clientes" @click="fecharMenuMobile">{{ rotuloCadastroParticipanteMenu }}</RouterLink>
             <RouterLink to="/beach-tennis/alunos" @click="fecharMenuMobile">{{ rotuloParticipantePorGrupoMenu }}</RouterLink>
