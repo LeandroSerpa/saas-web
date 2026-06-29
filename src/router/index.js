@@ -6,6 +6,7 @@ const BeachTennisTurmasView = () => import('../views/BeachTennisTurmasView.vue')
 const BeachTennisTurmaAlunosView = () => import('../views/BeachTennisTurmaAlunosView.vue')
 const BeachTennisFinanceiroView = () => import('../views/BeachTennisFinanceiroView.vue')
 const AulasFrequenciaView = () => import('../views/AulasFrequenciaView.vue')
+const AulasFrequenciaLoteView = () => import('../views/AulasFrequenciaLoteView.vue')
 const AulaFrequenciaDetalheView = () => import('../views/AulaFrequenciaDetalheView.vue')
 const ServicosView = () => import('../views/ServicosView.vue')
 const FuncionariosView = () => import('../views/FuncionariosView.vue')
@@ -155,6 +156,18 @@ const router = createRouter({
       path: '/aulas-frequencia',
       name: 'aulas-frequencia',
       component: AulasFrequenciaView,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
+    },
+    {
+      path: '/aulas-frequencia/lote/cancelar',
+      name: 'aulas-frequencia-lote-cancelar',
+      component: AulasFrequenciaLoteView,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
+    },
+    {
+      path: '/aulas-frequencia/lote/retomar',
+      name: 'aulas-frequencia-lote-retomar',
+      component: AulasFrequenciaLoteView,
       meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {

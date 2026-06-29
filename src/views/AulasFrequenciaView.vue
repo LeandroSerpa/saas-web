@@ -22,6 +22,7 @@ import {
   recarregarContextoGestaoEsportiva,
 } from '@/utils/gestaoEsportiva'
 import { formatarMensagemQuantidade } from '@/utils/aulasFrequencia'
+import { consumirMensagemSucessoLote } from '@/composables/useAulasFrequenciaLote'
 
 const route = useRoute()
 const router = useRouter()
@@ -1417,6 +1418,38 @@ function abrirModalRetomadaLote() {
   retomadaLote.value = criarRetomadaLotePadrao()
 }
 
+function janelaAtualEhLoteMobile() {
+  return typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+}
+
+function abrirFluxoCancelamentoLote() {
+  if (janelaAtualEhLoteMobile()) {
+    router.push({
+      name: 'aulas-frequencia-lote-cancelar',
+      query: {
+        returnTo: route.fullPath,
+      },
+    })
+    return
+  }
+
+  abrirModalCancelamentoLote()
+}
+
+function abrirFluxoRetomadaLote() {
+  if (janelaAtualEhLoteMobile()) {
+    router.push({
+      name: 'aulas-frequencia-lote-retomar',
+      query: {
+        returnTo: route.fullPath,
+      },
+    })
+    return
+  }
+
+  abrirModalRetomadaLote()
+}
+
 function fecharModalRetomadaLote(forcar = false) {
   if ((carregandoPreviaRetomadaLote.value || processandoRetomadaLote.value) && !forcar) {
     return
@@ -2627,10 +2660,17 @@ watch(janelaEhMobile, (ehMobile) => {
 onMounted(() => {
   atualizarJanelaEhMobile()
   window.addEventListener('resize', atualizarJanelaEhMobile)
-  carregarTudo().catch((error) => {
-    console.error(error)
-    erroLista.value = obterMensagemErro(error, 'Não foi possível carregar os dados da tela.')
-  })
+  carregarTudo()
+    .then(() => {
+      const mensagemRetornoLote = consumirMensagemSucessoLote()
+      if (mensagemRetornoLote) {
+        definirFeedback(mensagemRetornoLote, 'sucesso')
+      }
+    })
+    .catch((error) => {
+      console.error(error)
+      erroLista.value = obterMensagemErro(error, 'Não foi possível carregar os dados da tela.')
+    })
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
 })
 
@@ -2815,7 +2855,7 @@ onBeforeUnmount(() => {
                   class="botao perigo"
                   type="button"
                   :disabled="carregandoLista || carregandoBases || gerandoAulas || salvandoFrequencias || carregandoPreviaCancelamentoLote || processandoCancelamentoLote || carregandoPreviaRetomadaLote || processandoRetomadaLote"
-                  @click="abrirModalCancelamentoLote"
+                  @click="abrirFluxoCancelamentoLote"
                 >
                   Cancelar aulas em lote
                 </button>
@@ -2825,7 +2865,7 @@ onBeforeUnmount(() => {
                   class="botao secundario"
                   type="button"
                   :disabled="carregandoLista || carregandoBases || gerandoAulas || salvandoFrequencias || carregandoPreviaCancelamentoLote || processandoCancelamentoLote || carregandoPreviaRetomadaLote || processandoRetomadaLote"
-                  @click="abrirModalRetomadaLote"
+                  @click="abrirFluxoRetomadaLote"
                 >
                   Retomar aulas em lote
                 </button>
@@ -3709,7 +3749,7 @@ onBeforeUnmount(() => {
 }
 
 .modal-lote-cabecalho {
-  padding: 18px 22px 0;
+  padding: 18px 28px 0;
 }
 
 #modal-cancelamento-lote-painel,
@@ -3741,7 +3781,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   border: 0;
   margin: 0;
-  padding: 20px 22px 0;
+  padding: 28px;
 }
 
 .modal-lote-corpo {
@@ -3755,7 +3795,7 @@ onBeforeUnmount(() => {
 .modal-lote-rodape {
   display: grid;
   gap: 14px;
-  padding: 16px 22px 18px;
+  padding: 18px 28px;
   border-top: 1px solid var(--app-border);
 }
 
@@ -3814,7 +3854,14 @@ onBeforeUnmount(() => {
 .campos-lote {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 24px;
+  align-items: start;
+}
+
+.campos-lote > label {
+  display: grid;
+  gap: 8px;
+  align-content: start;
 }
 
 .secao-cabecalho {
