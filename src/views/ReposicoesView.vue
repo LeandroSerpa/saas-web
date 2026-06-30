@@ -19,7 +19,11 @@ import {
   listarDisponiveisPorAlunoReposicaoGestaoEsportiva,
   listarReposicoesGestaoEsportiva,
 } from '@/services/reposicoes'
-import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
+import {
+  carregarContextoGestaoEsportiva,
+  contextoGestaoEsportiva,
+  recarregarContextoGestaoEsportiva,
+} from '@/utils/gestaoEsportiva'
 import { formatarDataPtBrSemFuso } from '@/utils/datas'
 import {
   criarDataHojeISO,
@@ -93,25 +97,34 @@ let debounceClientesAjuste = null
 
 const acaoAtual = computed(() => normalizarTextoOpcional(route.query.acao).trim().toLowerCase())
 const reposicaoSelecionadaId = computed(() => normalizarIdPositivo(route.query.reposicaoId))
-const painelDetalheAberto = computed(() => acaoAtual.value === 'detalhe' && Boolean(reposicaoSelecionadaId.value))
-const painelAgendamentoAberto = computed(() => acaoAtual.value === 'agendar' && Boolean(reposicaoSelecionadaId.value))
-const modalCancelamentoAberto = computed(() => acaoAtual.value === 'cancelar' && Boolean(reposicaoSelecionadaId.value))
+const painelDetalheAberto = computed(
+  () => acaoAtual.value === 'detalhe' && Boolean(reposicaoSelecionadaId.value),
+)
+const painelAgendamentoAberto = computed(
+  () => acaoAtual.value === 'agendar' && Boolean(reposicaoSelecionadaId.value),
+)
+const modalCancelamentoAberto = computed(
+  () => acaoAtual.value === 'cancelar' && Boolean(reposicaoSelecionadaId.value),
+)
 const modalAjusteAberto = computed(() => acaoAtual.value === 'ajuste')
-const possuiFiltrosAtivos = computed(
-  () =>
-    Boolean(
-      filtros.value.alunoId ||
-        filtros.value.situacao ||
-        filtros.value.motivoOrigem ||
-        filtros.value.validadeInicial ||
-        filtros.value.validadeFinal ||
-        filtros.value.texto,
-    ),
+const possuiFiltrosAtivos = computed(() =>
+  Boolean(
+    filtros.value.alunoId ||
+    filtros.value.situacao ||
+    filtros.value.motivoOrigem ||
+    filtros.value.validadeInicial ||
+    filtros.value.validadeFinal ||
+    filtros.value.texto,
+  ),
 )
 const paginaAtualHumana = computed(() => paginacaoLista.value.page + 1)
-const podeIrParaAnterior = computed(() => !paginacaoLista.value.first && paginacaoLista.value.page > 0)
+const podeIrParaAnterior = computed(
+  () => !paginacaoLista.value.first && paginacaoLista.value.page > 0,
+)
 const podeIrParaProxima = computed(
-  () => !paginacaoLista.value.last && paginaAtualHumana.value < Math.max(paginacaoLista.value.totalPages || 1, 1),
+  () =>
+    !paginacaoLista.value.last &&
+    paginaAtualHumana.value < Math.max(paginacaoLista.value.totalPages || 1, 1),
 )
 const resumoFonte = computed(() =>
   resumoLista.value.usouResumoBackend ? 'Totais da consulta' : 'Contagem da página atual',
@@ -123,13 +136,19 @@ const listaVaziaTexto = computed(() => {
 
   return 'Nenhum direito de reposição foi encontrado.'
 })
-const totalListaExibido = computed(() => paginacaoLista.value.totalElements || reposicoes.value.length)
+const totalListaExibido = computed(
+  () => paginacaoLista.value.totalElements || reposicoes.value.length,
+)
 const totalPaginasLista = computed(() => Math.max(Number(paginacaoLista.value.totalPages || 1), 1))
 const resumoCards = computed(() => {
   const rotuloEscopo = resumoLista.value.usouResumoBackend ? '' : ' na página atual'
 
   return [
-    { chave: 'disponivel', rotulo: `Disponíveis${rotuloEscopo}`, valor: resumoLista.value.disponivel },
+    {
+      chave: 'disponivel',
+      rotulo: `Disponíveis${rotuloEscopo}`,
+      valor: resumoLista.value.disponivel,
+    },
     { chave: 'reservado', rotulo: `Reservadas${rotuloEscopo}`, valor: resumoLista.value.reservado },
     { chave: 'utilizado', rotulo: `Utilizadas${rotuloEscopo}`, valor: resumoLista.value.utilizado },
     { chave: 'expirado', rotulo: `Expiradas${rotuloEscopo}`, valor: resumoLista.value.expirado },
@@ -141,10 +160,13 @@ const descricaoPagina = computed(
   () =>
     'Consulte direitos de reposição, acompanhe agendamentos, revise o histórico essencial e conceda novas reposições quando necessário.',
 )
-const classSelecionadaAgendamento = computed(() =>
-  (Array.isArray(aulasAgendamento.value)
-    ? aulasAgendamento.value.find((item) => String(item.id) === String(agendamentoAtual.value.aulaDestinoId))
-    : null) || null,
+const classSelecionadaAgendamento = computed(
+  () =>
+    (Array.isArray(aulasAgendamento.value)
+      ? aulasAgendamento.value.find(
+          (item) => String(item.id) === String(agendamentoAtual.value.aulaDestinoId),
+        )
+      : null) || null,
 )
 const agendamentoAtual = computed(() => ({
   direitoId: String(reposicaoSelecionadaId.value || '').trim(),
@@ -152,11 +174,15 @@ const agendamentoAtual = computed(() => ({
   confirmarTurmaLotada: filtrosAgendamento.value.confirmarTurmaLotada === true,
   observacao: String(filtrosAgendamento.value.observacao || '').trim(),
 }))
-const previaPermiteConfirmar = computed(
-  () => Boolean(previaAgendamento.value && previaAgendamento.value.permitido !== false),
+const previaPermiteConfirmar = computed(() =>
+  Boolean(previaAgendamento.value && previaAgendamento.value.permitido !== false),
 )
-const previaExigeConfirmacao = computed(() => Boolean(previaAgendamento.value?.exigeConfirmacao === true))
-const turmaLotadaExigeConfirmacao = computed(() => Boolean(previaAgendamento.value?.turmaLotada === true))
+const previaExigeConfirmacao = computed(() =>
+  Boolean(previaAgendamento.value?.exigeConfirmacao === true),
+)
+const turmaLotadaExigeConfirmacao = computed(() =>
+  Boolean(previaAgendamento.value?.turmaLotada === true),
+)
 const bloquearConfirmacaoAgendamento = computed(() => {
   if (!painelAgendamentoAberto.value) {
     return true
@@ -178,7 +204,10 @@ const bloquearConfirmacaoAgendamento = computed(() => {
     return true
   }
 
-  if ((previaExigeConfirmacao.value || turmaLotadaExigeConfirmacao.value) && !filtrosAgendamento.value.confirmarTurmaLotada) {
+  if (
+    (previaExigeConfirmacao.value || turmaLotadaExigeConfirmacao.value) &&
+    !filtrosAgendamento.value.confirmarTurmaLotada
+  ) {
     return true
   }
 
@@ -187,8 +216,12 @@ const bloquearConfirmacaoAgendamento = computed(() => {
 const textoBotaoConfirmarAgendamento = computed(() =>
   carregandoAgendamento.value ? 'Confirmando...' : 'Confirmar agendamento',
 )
-const textoBotaoSalvarAjuste = computed(() => (carregandoAjuste.value ? 'Criando...' : 'Conceder reposição'))
-const situacaoSelecionadaDetalhe = computed(() => normalizarTextoOpcional(detalhe.value?.situacao).trim().toUpperCase())
+const textoBotaoSalvarAjuste = computed(() =>
+  carregandoAjuste.value ? 'Criando...' : 'Conceder reposição',
+)
+const situacaoSelecionadaDetalhe = computed(() =>
+  normalizarTextoOpcional(detalhe.value?.situacao).trim().toUpperCase(),
+)
 const podeAgendarDaLista = computed(() => situacaoSelecionadaDetalhe.value === 'DISPONIVEL')
 const podeCancelarDaLista = computed(() => situacaoSelecionadaDetalhe.value === 'RESERVADO')
 const textoEstadoDetalhe = computed(() => {
@@ -327,7 +360,11 @@ function primeiroValor(...valores) {
 function obterListaTextos(valor) {
   if (Array.isArray(valor)) {
     return valor
-      .map((item) => (typeof item === 'string' ? item.trim() : normalizarTexto(item?.mensagem || item?.texto || item?.message)))
+      .map((item) =>
+        typeof item === 'string'
+          ? item.trim()
+          : normalizarTexto(item?.mensagem || item?.texto || item?.message),
+      )
       .filter(Boolean)
   }
 
@@ -426,20 +463,42 @@ function normalizarResumoAula(fonte = {}, fallback = {}) {
   return {
     id: normalizarIdPositivo(item.id ?? item.aulaId ?? base.id ?? fallback.id ?? null) || null,
     dataAula: normalizarTexto(item.dataAula || item.data || base.dataAula || fallback.dataAula),
-    horarioInicio: normalizarTexto(item.horarioInicio || item.horario || base.horarioInicio || fallback.horarioInicio),
+    horarioInicio: normalizarTexto(
+      item.horarioInicio || item.horario || base.horarioInicio || fallback.horarioInicio,
+    ),
     turmaNome: normalizarTexto(
-      item.turmaNome || item.turma || base.turmaNome || item.nomeTurma || item.grupoNome || fallback.turmaNome,
+      item.turmaNome ||
+        item.turma ||
+        base.turmaNome ||
+        item.nomeTurma ||
+        item.grupoNome ||
+        fallback.turmaNome,
     ),
     professorNome: normalizarTexto(
-      item.professorNome || item.funcionarioNome || base.professorNome || item.profissionalNome || fallback.professorNome,
+      item.professorNome ||
+        item.funcionarioNome ||
+        base.professorNome ||
+        item.profissionalNome ||
+        fallback.professorNome,
     ),
-    nivel: normalizarTexto(item.nivel || item.nivelBeachTennis || base.nivel || fallback.nivel).toUpperCase(),
+    nivel: normalizarTexto(
+      item.nivel || item.nivelBeachTennis || base.nivel || fallback.nivel,
+    ).toUpperCase(),
     competicao: normalizarBooleano(item.competicao ?? base.competicao ?? fallback.competicao),
     vagasDisponiveis: normalizarNumero(
-      primeiroValor(item.vagasDisponiveis, item.vagasLivres, item.vagas, item.disponiveis, item.disponivel),
+      primeiroValor(
+        item.vagasDisponiveis,
+        item.vagasLivres,
+        item.vagas,
+        item.disponiveis,
+        item.disponivel,
+      ),
       0,
     ),
-    ocupacaoAtual: normalizarNumero(primeiroValor(item.ocupacaoAtual, item.ocupacao, item.quantidadeAtual), 0),
+    ocupacaoAtual: normalizarNumero(
+      primeiroValor(item.ocupacaoAtual, item.ocupacao, item.quantidadeAtual),
+      0,
+    ),
     limite: normalizarNumero(primeiroValor(item.limite, item.capacidade, item.quantidadeLimite), 0),
   }
 }
@@ -483,15 +542,21 @@ function normalizarHistorico(item = {}) {
       }
 
       return {
-        data: normalizarTexto(entrada.data || entrada.dataHora || entrada.criadoEm || entrada.createdAt),
-        texto: normalizarTexto(entrada.texto || entrada.descricao || entrada.mensagem || entrada.status),
+        data: normalizarTexto(
+          entrada.data || entrada.dataHora || entrada.criadoEm || entrada.createdAt,
+        ),
+        texto: normalizarTexto(
+          entrada.texto || entrada.descricao || entrada.mensagem || entrada.status,
+        ),
       }
     })
     .filter((entrada) => entrada && entrada.texto)
 }
 
 function normalizarReposicaoLista(item = {}) {
-  const id = normalizarIdPositivo(item.id ?? item.direitoId ?? item.reposicaoId ?? item.requisicaoId)
+  const id = normalizarIdPositivo(
+    item.id ?? item.direitoId ?? item.reposicaoId ?? item.requisicaoId,
+  )
   if (!id) {
     return null
   }
@@ -518,15 +583,26 @@ function normalizarReposicaoLista(item = {}) {
         '',
       'Aluno não informado',
     ),
-    situacao: normalizarTexto(item.situacao || item.status || item.estado, 'DESCONHECIDA').toUpperCase(),
+    situacao: normalizarTexto(
+      item.situacao || item.status || item.estado,
+      'DESCONHECIDA',
+    ).toUpperCase(),
     motivoOrigem: normalizarTexto(item.motivoOrigem || item.motivo || item.origemMotivo),
     aulaOrigem: origem,
     turmaOrigem: normalizarTexto(item.turmaOrigemNome || item.origemTurmaNome || origem.turmaNome),
-    frequenciaOrigem: normalizarTexto(item.frequenciaOrigem || item.frequenciaAulaOrigem || item.frequencia),
-    dataGeracao: normalizarTexto(item.dataGeracao || item.geradoEm || item.criadoEm || item.createdAt),
-    validade: normalizarTexto(item.validade || item.dataValidade || item.validadeEm || item.vigencia),
+    frequenciaOrigem: normalizarTexto(
+      item.frequenciaOrigem || item.frequenciaAulaOrigem || item.frequencia,
+    ),
+    dataGeracao: normalizarTexto(
+      item.dataGeracao || item.geradoEm || item.criadoEm || item.createdAt,
+    ),
+    validade: normalizarTexto(
+      item.validade || item.dataValidade || item.validadeEm || item.vigencia,
+    ),
     aulaReposicao: destino,
-    turmaReposicao: normalizarTexto(item.turmaReposicaoNome || item.reposicaoTurmaNome || destino.turmaNome),
+    turmaReposicao: normalizarTexto(
+      item.turmaReposicaoNome || item.reposicaoTurmaNome || destino.turmaNome,
+    ),
     reservadoEm: normalizarTexto(item.reservadoEm || item.dataReserva || item.agendadoEm),
     utilizadoEm: normalizarTexto(item.utilizadoEm || item.dataUso || item.reposicaoUtilizadaEm),
     canceladoEm: normalizarTexto(item.canceladoEm || item.dataCancelamento || item.cancelado_em),
@@ -546,15 +622,32 @@ function normalizarReposicaoDetalhe(item = {}) {
   return {
     ...base,
     frequenciaOrigem: normalizarTexto(
-      item.frequenciaOrigem || item.frequenciaAulaOrigem || item.frequencia || base.frequenciaOrigem,
+      item.frequenciaOrigem ||
+        item.frequenciaAulaOrigem ||
+        item.frequencia ||
+        base.frequenciaOrigem,
     ),
-    aulaOrigem: normalizarResumoAula(primeiroValor(item.aulaOrigem, item.origemAula, item.aula, {}), item),
+    aulaOrigem: normalizarResumoAula(
+      primeiroValor(item.aulaOrigem, item.origemAula, item.aula, {}),
+      item,
+    ),
     turmaOrigem: normalizarTexto(
-      item.turmaOrigemNome || item.origemTurmaNome || item.turmaOrigem || item.turmaNomeOrigem || base.turmaOrigem,
+      item.turmaOrigemNome ||
+        item.origemTurmaNome ||
+        item.turmaOrigem ||
+        item.turmaNomeOrigem ||
+        base.turmaOrigem,
     ),
-    aulaReposicao: normalizarResumoAula(primeiroValor(item.aulaReposicao, item.reposicaoAula, item.aulaDestino, {}), item),
+    aulaReposicao: normalizarResumoAula(
+      primeiroValor(item.aulaReposicao, item.reposicaoAula, item.aulaDestino, {}),
+      item,
+    ),
     turmaReposicao: normalizarTexto(
-      item.turmaReposicaoNome || item.reposicaoTurmaNome || item.turmaReposicao || item.turmaNomeReposicao || base.turmaReposicao,
+      item.turmaReposicaoNome ||
+        item.reposicaoTurmaNome ||
+        item.turmaReposicao ||
+        item.turmaNomeReposicao ||
+        base.turmaReposicao,
     ),
     historico: normalizarHistorico(item),
     observacao: normalizarTexto(item.observacao || item.observacoes || item.obs || base.observacao),
@@ -563,9 +656,14 @@ function normalizarReposicaoDetalhe(item = {}) {
 
 function normalizarPreviaAgendamento(item = {}, aulaSelecionada = null, direito = null) {
   const base = item && typeof item === 'object' ? item : {}
-  const capacidadeBase = base.capacidade && typeof base.capacidade === 'object' ? base.capacidade : {}
-  const aulaDestino = normalizarResumoAula(primeiroValor(base.aulaDestino, aulaSelecionada, {}), base)
-  const dadosDireito = normalizarReposicaoLista(primeiroValor(base.direito, direito, {})) || direito || null
+  const capacidadeBase =
+    base.capacidade && typeof base.capacidade === 'object' ? base.capacidade : {}
+  const aulaDestino = normalizarResumoAula(
+    primeiroValor(base.aulaDestino, aulaSelecionada, {}),
+    base,
+  )
+  const dadosDireito =
+    normalizarReposicaoLista(primeiroValor(base.direito, direito, {})) || direito || null
 
   return {
     permitido: base.permitido !== false,
@@ -577,12 +675,18 @@ function normalizarPreviaAgendamento(item = {}, aulaSelecionada = null, direito 
     aulaDestino,
     capacidade: {
       limite: normalizarNumero(primeiroValor(capacidadeBase.limite, base.limite), 0),
-      ocupacaoAtual: normalizarNumero(primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual), 0),
+      ocupacaoAtual: normalizarNumero(
+        primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual),
+        0,
+      ),
       lotada: normalizarBooleano(primeiroValor(capacidadeBase.lotada, base.turmaLotada)),
     },
     turmaLotada: normalizarBooleano(primeiroValor(capacidadeBase.lotada, base.turmaLotada)),
     limite: normalizarNumero(primeiroValor(capacidadeBase.limite, base.limite), 0),
-    ocupacaoAtual: normalizarNumero(primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual), 0),
+    ocupacaoAtual: normalizarNumero(
+      primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual),
+      0,
+    ),
     raw: base,
   }
 }
@@ -606,8 +710,14 @@ function normalizarRespostaLista(resposta, sizePadrao = 10) {
   const content = lista.map((item) => normalizarReposicaoLista(item)).filter(Boolean)
   const page = normalizarNumero(base.page ?? base.number ?? 0, 0)
   const size = normalizarNumero(base.size ?? sizePadrao, sizePadrao)
-  const totalElements = normalizarNumero(base.totalElements ?? base.total ?? base.quantidadeTotal ?? content.length, content.length)
-  const totalPages = normalizarNumero(base.totalPages, totalElements > 0 ? Math.ceil(totalElements / Math.max(size, 1)) : 1)
+  const totalElements = normalizarNumero(
+    base.totalElements ?? base.total ?? base.quantidadeTotal ?? content.length,
+    content.length,
+  )
+  const totalPages = normalizarNumero(
+    base.totalPages,
+    totalElements > 0 ? Math.ceil(totalElements / Math.max(size, 1)) : 1,
+  )
   const resumoBase = base.resumo || base.summary || base.totais || base.contadores || {}
 
   return {
@@ -618,13 +728,31 @@ function normalizarRespostaLista(resposta, sizePadrao = 10) {
     totalPages: Math.max(totalPages, 1),
     first: base.first === true || page <= 0,
     last: base.last === true || totalPages <= 1 || page >= totalPages - 1,
-    numberOfElements: normalizarNumero(base.numberOfElements ?? base.number ?? content.length, content.length),
+    numberOfElements: normalizarNumero(
+      base.numberOfElements ?? base.number ?? content.length,
+      content.length,
+    ),
     resumo: {
-      disponivel: normalizarNumero(primeiroValor(resumoBase.disponivel, base.disponivel), contarPorSituacao(content, 'DISPONIVEL')),
-      reservado: normalizarNumero(primeiroValor(resumoBase.reservado, base.reservado), contarPorSituacao(content, 'RESERVADO')),
-      utilizado: normalizarNumero(primeiroValor(resumoBase.utilizado, base.utilizado), contarPorSituacao(content, 'UTILIZADO')),
-      expirado: normalizarNumero(primeiroValor(resumoBase.expirado, base.expirado), contarPorSituacao(content, 'EXPIRADO')),
-      cancelado: normalizarNumero(primeiroValor(resumoBase.cancelado, base.cancelado), contarPorSituacao(content, 'CANCELADO')),
+      disponivel: normalizarNumero(
+        primeiroValor(resumoBase.disponivel, base.disponivel),
+        contarPorSituacao(content, 'DISPONIVEL'),
+      ),
+      reservado: normalizarNumero(
+        primeiroValor(resumoBase.reservado, base.reservado),
+        contarPorSituacao(content, 'RESERVADO'),
+      ),
+      utilizado: normalizarNumero(
+        primeiroValor(resumoBase.utilizado, base.utilizado),
+        contarPorSituacao(content, 'UTILIZADO'),
+      ),
+      expirado: normalizarNumero(
+        primeiroValor(resumoBase.expirado, base.expirado),
+        contarPorSituacao(content, 'EXPIRADO'),
+      ),
+      cancelado: normalizarNumero(
+        primeiroValor(resumoBase.cancelado, base.cancelado),
+        contarPorSituacao(content, 'CANCELADO'),
+      ),
       usouResumoBackend: Object.keys(resumoBase).length > 0,
     },
   }
@@ -647,16 +775,31 @@ function normalizarRespostaPaginaAulas(resposta, sizePadrao = 8) {
 
       return {
         ...aula,
-        vagasDisponiveis: normalizarNumero(primeiroValor(item.vagasDisponiveis, item.vagasLivres, item.vagas), 0),
-        ocupacaoAtual: normalizarNumero(primeiroValor(item.ocupacaoAtual, item.ocupacao, item.quantidadeAtual), 0),
-        limite: normalizarNumero(primeiroValor(item.limite, item.capacidade, item.quantidadeLimite), 0),
+        vagasDisponiveis: normalizarNumero(
+          primeiroValor(item.vagasDisponiveis, item.vagasLivres, item.vagas),
+          0,
+        ),
+        ocupacaoAtual: normalizarNumero(
+          primeiroValor(item.ocupacaoAtual, item.ocupacao, item.quantidadeAtual),
+          0,
+        ),
+        limite: normalizarNumero(
+          primeiroValor(item.limite, item.capacidade, item.quantidadeLimite),
+          0,
+        ),
       }
     })
     .filter(Boolean)
   const page = normalizarNumero(base.page ?? base.number ?? 0, 0)
   const size = normalizarNumero(base.size ?? sizePadrao, sizePadrao)
-  const totalElements = normalizarNumero(base.totalElements ?? base.total ?? content.length, content.length)
-  const totalPages = normalizarNumero(base.totalPages, totalElements > 0 ? Math.ceil(totalElements / Math.max(size, 1)) : 1)
+  const totalElements = normalizarNumero(
+    base.totalElements ?? base.total ?? content.length,
+    content.length,
+  )
+  const totalPages = normalizarNumero(
+    base.totalPages,
+    totalElements > 0 ? Math.ceil(totalElements / Math.max(size, 1)) : 1,
+  )
 
   return {
     content,
@@ -676,7 +819,9 @@ function queryComoObjeto() {
     alunoBusca: String(route.query.alunoBusca || '').trim(),
     situacao: String(route.query.situacao || '').trim(),
     motivoOrigem: String(route.query.motivo || route.query.motivoOrigem || '').trim(),
-    validadeInicial: String(route.query.dataValidadeInicial || route.query.validadeInicial || '').trim(),
+    validadeInicial: String(
+      route.query.dataValidadeInicial || route.query.validadeInicial || '',
+    ).trim(),
     validadeFinal: String(route.query.dataValidadeFinal || route.query.validadeFinal || '').trim(),
     texto: String(route.query.texto || '').trim(),
     page: Math.max(Number.parseInt(String(route.query.page || '1'), 10) || 1, 1),
@@ -706,10 +851,18 @@ function aplicarQueryNosFiltros() {
     ...query,
   }
   buscaClientesFiltro.value = query.alunoBusca
-  ajusteManual.value.alunoId = String(route.query.alunoAjusteId || ajusteManual.value.alunoId || '').trim()
-  ajusteManual.value.dataValidade = String(route.query.dataValidade || ajusteManual.value.dataValidade || '').trim()
-  ajusteManual.value.observacao = String(route.query.observacaoAjuste || ajusteManual.value.observacao || '').trim()
-  cancelamentoAgendamento.value.motivo = String(route.query.motivoCancelamento || cancelamentoAgendamento.value.motivo || '').trim()
+  ajusteManual.value.alunoId = String(
+    route.query.alunoAjusteId || ajusteManual.value.alunoId || '',
+  ).trim()
+  ajusteManual.value.dataValidade = String(
+    route.query.dataValidade || ajusteManual.value.dataValidade || '',
+  ).trim()
+  ajusteManual.value.observacao = String(
+    route.query.observacaoAjuste || ajusteManual.value.observacao || '',
+  ).trim()
+  cancelamentoAgendamento.value.motivo = String(
+    route.query.motivoCancelamento || cancelamentoAgendamento.value.motivo || '',
+  ).trim()
 
   filtrosAgendamento.value = {
     ...filtrosAgendamento.value,
@@ -721,7 +874,9 @@ function atualizarQueryRota(patch = {}, { manterAcao = true } = {}) {
   const queryAtual = { ...route.query }
   const queryBase = manterAcao
     ? queryAtual
-    : Object.fromEntries(Object.entries(queryAtual).filter(([chave]) => !['acao', 'reposicaoId'].includes(chave)))
+    : Object.fromEntries(
+        Object.entries(queryAtual).filter(([chave]) => !['acao', 'reposicaoId'].includes(chave)),
+      )
 
   const query = { ...queryBase, ...patch }
 
@@ -901,7 +1056,10 @@ async function inicializarAgendamentoReposicao() {
     return !erroAgendamento.value
   } catch (error) {
     console.error(error)
-    erroAgendamento.value = obterMensagemErro(error, 'Não foi possível abrir o agendamento da reposição.')
+    erroAgendamento.value = obterMensagemErro(
+      error,
+      'Não foi possível abrir o agendamento da reposição.',
+    )
     return false
   } finally {
     carregandoInicializacaoAgendamento.value = false
@@ -1037,7 +1195,10 @@ async function carregarDetalheReposicao(id = reposicaoSelecionadaId.value) {
       return
     }
 
-    erroDetalhe.value = obterMensagemErro(error, 'Não foi possível carregar os detalhes da reposição.')
+    erroDetalhe.value = obterMensagemErro(
+      error,
+      'Não foi possível carregar os detalhes da reposição.',
+    )
   } finally {
     if (sequenciaAtual === sequenciaDetalhe.value) {
       carregandoDetalhe.value = false
@@ -1079,12 +1240,17 @@ async function carregarBasesAgendamento() {
   carregandoBaseAulas.value = true
 
   try {
-    const [turmasResposta, professoresResposta] = await Promise.all([buscarTurmasBeachTennis(), buscarFuncionarios()])
+    const [turmasResposta, professoresResposta] = await Promise.all([
+      buscarTurmasBeachTennis(),
+      buscarFuncionarios(),
+    ])
 
     turmaOptions.value = (Array.isArray(turmasResposta) ? turmasResposta : [])
       .map((item) => ({
         id: normalizarIdPositivo(item.id ?? item.turmaId),
-        nome: normalizarTexto(item.nome || item.turmaNome || item.descricao || `Turma ${item.id || ''}`),
+        nome: normalizarTexto(
+          item.nome || item.turmaNome || item.descricao || `Turma ${item.id || ''}`,
+        ),
         nivel: normalizarTexto(item.nivel || item.nivelBeachTennis),
         competicao: item.competicao === true || item.participaCompeticaoBeachTennis === true,
       }))
@@ -1110,8 +1276,14 @@ function normalizarAulaAgendamento(item = {}) {
 
   return {
     ...aula,
-    vagasDisponiveis: normalizarNumero(primeiroValor(item.vagasDisponiveis, item.vagasLivres, item.vagas), 0),
-    ocupacaoAtual: normalizarNumero(primeiroValor(item.ocupacaoAtual, item.ocupacao, item.quantidadeAtual), 0),
+    vagasDisponiveis: normalizarNumero(
+      primeiroValor(item.vagasDisponiveis, item.vagasLivres, item.vagas),
+      0,
+    ),
+    ocupacaoAtual: normalizarNumero(
+      primeiroValor(item.ocupacaoAtual, item.ocupacao, item.quantidadeAtual),
+      0,
+    ),
     limite: normalizarNumero(primeiroValor(item.limite, item.capacidade, item.quantidadeLimite), 0),
     descricao: rotuloAulaResumo({
       dataAula: aula.dataAula,
@@ -1140,10 +1312,12 @@ async function carregarAulasAgendamento() {
     situacao: 'AGENDADA',
   }
 
-  if (filtrosAgendamento.value.dataInicial) consulta.dataInicial = filtrosAgendamento.value.dataInicial
+  if (filtrosAgendamento.value.dataInicial)
+    consulta.dataInicial = filtrosAgendamento.value.dataInicial
   if (filtrosAgendamento.value.dataFinal) consulta.dataFinal = filtrosAgendamento.value.dataFinal
   if (filtrosAgendamento.value.turmaId) consulta.turmaId = filtrosAgendamento.value.turmaId
-  if (filtrosAgendamento.value.professorId) consulta.professorId = filtrosAgendamento.value.professorId
+  if (filtrosAgendamento.value.professorId)
+    consulta.professorId = filtrosAgendamento.value.professorId
   if (filtrosAgendamento.value.texto) consulta.texto = filtrosAgendamento.value.texto
 
   try {
@@ -1153,7 +1327,9 @@ async function carregarAulasAgendamento() {
     }
 
     const normalizada = normalizarRespostaPaginaAulas(resposta, consulta.size)
-    const aulasNormalizadas = normalizada.content.map((item) => normalizarAulaAgendamento(item)).filter(Boolean)
+    const aulasNormalizadas = normalizada.content
+      .map((item) => normalizarAulaAgendamento(item))
+      .filter(Boolean)
 
     if (Array.isArray(resposta)) {
       const totalElements = aulasNormalizadas.length
@@ -1191,7 +1367,10 @@ async function carregarAulasAgendamento() {
     }
 
     aulasAgendamento.value = []
-    erroAgendamento.value = obterMensagemErro(error, 'Não foi possível carregar as aulas para reposição.')
+    erroAgendamento.value = obterMensagemErro(
+      error,
+      'Não foi possível carregar as aulas para reposição.',
+    )
   } finally {
     if (sequenciaAtual === sequenciaAulasAgendamento.value) {
       carregandoAulasAgendamento.value = false
@@ -1321,9 +1500,12 @@ async function selecionarAulaDestino(aula) {
   carregandoPrevia.value = true
 
   try {
-    const resposta = await gerarPreviaAgendamentoReposicaoGestaoEsportiva(agendamentoAtual.value.direitoId, {
-      aulaDestinoId: String(aula.id),
-    })
+    const resposta = await gerarPreviaAgendamentoReposicaoGestaoEsportiva(
+      agendamentoAtual.value.direitoId,
+      {
+        aulaDestinoId: String(aula.id),
+      },
+    )
 
     if (sequenciaAtual !== sequenciaPrevia.value) {
       return
@@ -1337,7 +1519,10 @@ async function selecionarAulaDestino(aula) {
     }
 
     previaAgendamento.value = null
-    erroAgendamento.value = obterMensagemErro(error, 'Não foi possível gerar a prévia do agendamento.')
+    erroAgendamento.value = obterMensagemErro(
+      error,
+      'Não foi possível gerar a prévia do agendamento.',
+    )
   } finally {
     if (sequenciaAtual === sequenciaPrevia.value) {
       carregandoPrevia.value = false
@@ -1425,7 +1610,10 @@ async function confirmarCancelamentoAgendamento() {
       await carregarDetalheReposicao()
     }
   } catch (error) {
-    erroCancelamento.value = obterMensagemErro(error, 'Não foi possível cancelar o agendamento da reposição.')
+    erroCancelamento.value = obterMensagemErro(
+      error,
+      'Não foi possível cancelar o agendamento da reposição.',
+    )
   } finally {
     carregandoCancelamento.value = false
   }
@@ -1442,7 +1630,10 @@ async function confirmarAgendamento() {
     return
   }
 
-  if ((previaExigeConfirmacao.value || turmaLotadaExigeConfirmacao.value) && !filtrosAgendamento.value.confirmarTurmaLotada) {
+  if (
+    (previaExigeConfirmacao.value || turmaLotadaExigeConfirmacao.value) &&
+    !filtrosAgendamento.value.confirmarTurmaLotada
+  ) {
     erroAgendamento.value = 'Confirme explicitamente que deseja seguir com o agendamento.'
     return
   }
@@ -1469,7 +1660,10 @@ async function confirmarAgendamento() {
       await carregarDetalheReposicao()
     }
   } catch (error) {
-    erroAgendamento.value = obterMensagemErro(error, 'Não foi possível concluir o agendamento da reposição.')
+    erroAgendamento.value = obterMensagemErro(
+      error,
+      'Não foi possível concluir o agendamento da reposição.',
+    )
   } finally {
     carregandoAgendamento.value = false
   }
@@ -1497,7 +1691,10 @@ async function carregarTudo() {
     aplicarQueryNosFiltros()
 
     const acaoContextualAberta =
-      painelDetalheAberto.value || painelAgendamentoAberto.value || modalCancelamentoAberto.value || modalAjusteAberto.value
+      painelDetalheAberto.value ||
+      painelAgendamentoAberto.value ||
+      modalCancelamentoAberto.value ||
+      modalAjusteAberto.value
 
     if (!acaoContextualAberta) {
       await carregarListaReposicoes()
@@ -1551,7 +1748,10 @@ watch(
       }
 
       const acaoContextualAberta =
-        painelDetalheAberto.value || painelAgendamentoAberto.value || modalCancelamentoAberto.value || modalAjusteAberto.value
+        painelDetalheAberto.value ||
+        painelAgendamentoAberto.value ||
+        modalCancelamentoAberto.value ||
+        modalAjusteAberto.value
 
       if (!acaoContextualAberta) {
         await carregarListaReposicoes()
@@ -1636,10 +1836,17 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="acoes-cabecalho">
-        <button class="botao secundario" type="button" :disabled="carregandoLista" @click="carregarListaReposicoes">
+        <button
+          class="botao secundario"
+          type="button"
+          :disabled="carregandoLista"
+          @click="carregarListaReposicoes"
+        >
           {{ carregandoLista ? 'Atualizando...' : 'Atualizar' }}
         </button>
-        <button class="botao principal" type="button" @click="abrirAjusteManual">Conceder reposição</button>
+        <button class="botao principal" type="button" @click="abrirAjusteManual">
+          Conceder reposição
+        </button>
       </div>
     </header>
 
@@ -1743,7 +1950,11 @@ onBeforeUnmount(() => {
 
             <label class="campo-grande">
               Texto
-              <input v-model="filtros.texto" type="search" placeholder="Buscar por aluno, turma ou observação" />
+              <input
+                v-model="filtros.texto"
+                type="search"
+                placeholder="Buscar por aluno, turma ou observação"
+              />
             </label>
 
             <label>
@@ -1758,14 +1969,20 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="acoes-filtros">
-            <button class="botao secundario" type="button" @click="limparFiltros">Limpar filtros</button>
-            <button class="botao principal" type="button" @click="aplicarFiltros">Aplicar filtros</button>
+            <button class="botao secundario" type="button" @click="limparFiltros">
+              Limpar filtros
+            </button>
+            <button class="botao principal" type="button" @click="aplicarFiltros">
+              Aplicar filtros
+            </button>
           </div>
         </details>
 
         <section v-if="erroLista" class="estado-erro">
           <p>{{ erroLista }}</p>
-          <button class="botao principal" type="button" @click="carregarListaReposicoes">Tentar novamente</button>
+          <button class="botao principal" type="button" @click="carregarListaReposicoes">
+            Tentar novamente
+          </button>
         </section>
 
         <section v-else-if="carregandoLista" class="estado-vazio">
@@ -1777,7 +1994,8 @@ onBeforeUnmount(() => {
         </section>
 
         <template v-else>
-          <div class="tabela-container">
+          <!-- Desktop: tabela tradicional. -->
+          <div class="tabela-container tabela-desktop">
             <table>
               <thead>
                 <tr>
@@ -1793,58 +2011,170 @@ onBeforeUnmount(() => {
               </thead>
               <tbody>
                 <tr v-for="item in reposicoes" :key="item.id">
-                  <td data-label="Aluno">
+                  <td>
                     <strong>{{ item.alunoNome }}</strong>
                     <div class="linha-secundaria">
-                      <span v-if="item.alunoId" class="chip-chip sutileza">Aluno {{ item.alunoId }}</span>
+                      <span v-if="item.alunoId" class="chip-chip sutileza"
+                        >Aluno {{ item.alunoId }}</span
+                      >
                     </div>
                   </td>
-                  <td data-label="Situação">
+                  <td>
                     <span class="chip-chip" :class="classeSituacaoReposicao(item.situacao)">
                       {{ rotuloSituacaoReposicao(item.situacao) }}
                     </span>
                   </td>
-                  <td data-label="Motivo">{{ rotuloMotivoReposicao(item.motivoOrigem) }}</td>
-                  <td data-label="Aula/turma de origem">
-                    <strong>{{ item.aulaOrigem.turmaNome || item.turmaOrigem || 'Não informado' }}</strong>
+                  <td>{{ rotuloMotivoReposicao(item.motivoOrigem) }}</td>
+                  <td>
+                    <strong>{{
+                      item.aulaOrigem.turmaNome || item.turmaOrigem || 'Não informado'
+                    }}</strong>
                     <p class="linha-secundaria">{{ rotuloAulaResumo(item.aulaOrigem) }}</p>
-                    <p v-if="item.frequenciaOrigem" class="linha-secundaria">Frequência: {{ item.frequenciaOrigem }}</p>
+                    <p v-if="item.frequenciaOrigem" class="linha-secundaria">
+                      Frequência: {{ item.frequenciaOrigem }}
+                    </p>
                   </td>
-                  <td data-label="Gerado em">{{ formatarDataHora(item.dataGeracao) }}</td>
-                  <td data-label="Validade">{{ formatarDataPtBrSemFuso(item.validade) || '-' }}</td>
-                  <td data-label="Aula/turma de reposição">
-                    <strong>{{ item.aulaReposicao.turmaNome || item.turmaReposicao || 'Sem agendamento' }}</strong>
+                  <td>{{ formatarDataHora(item.dataGeracao) }}</td>
+                  <td>{{ formatarDataPtBrSemFuso(item.validade) || '-' }}</td>
+                  <td>
+                    <strong>{{
+                      item.aulaReposicao.turmaNome || item.turmaReposicao || 'Sem agendamento'
+                    }}</strong>
                     <p class="linha-secundaria">{{ rotuloAulaResumo(item.aulaReposicao) }}</p>
-                    <p v-if="item.reservadoEm" class="linha-secundaria">Reservado em: {{ formatarDataHora(item.reservadoEm) }}</p>
-                    <p v-else-if="item.utilizadoEm" class="linha-secundaria">Utilizado em: {{ formatarDataHora(item.utilizadoEm) }}</p>
-                    <p v-else-if="item.canceladoEm" class="linha-secundaria">Cancelado em: {{ formatarDataHora(item.canceladoEm) }}</p>
+                    <p v-if="item.reservadoEm" class="linha-secundaria">
+                      Reservado em: {{ formatarDataHora(item.reservadoEm) }}
+                    </p>
+                    <p v-else-if="item.utilizadoEm" class="linha-secundaria">
+                      Utilizado em: {{ formatarDataHora(item.utilizadoEm) }}
+                    </p>
+                    <p v-else-if="item.canceladoEm" class="linha-secundaria">
+                      Cancelado em: {{ formatarDataHora(item.canceladoEm) }}
+                    </p>
                   </td>
-                  <td data-label="Ações">
+                  <td>
                     <div class="acoes-tabela">
-                    <button class="botao secundario compacto" type="button" @click="abrirDetalheReposicao(item)">
-                      Detalhes
-                    </button>
-                    <button
-                      v-if="item.situacao === 'DISPONIVEL'"
-                      class="botao principal compacto"
-                      type="button"
-                      @click="abrirAgendamentoReposicao(item)"
-                    >
-                      Agendar reposição
-                    </button>
-                    <button
-                      v-else-if="item.situacao === 'RESERVADO'"
-                      class="botao secundario compacto"
-                      type="button"
-                      @click="abrirCancelamentoAgendamento(item)"
-                    >
-                      Cancelar agendamento
-                    </button>
+                      <button
+                        class="botao secundario compacto"
+                        type="button"
+                        @click="abrirDetalheReposicao(item)"
+                      >
+                        Detalhes
+                      </button>
+                      <button
+                        v-if="item.situacao === 'DISPONIVEL'"
+                        class="botao principal compacto"
+                        type="button"
+                        @click="abrirAgendamentoReposicao(item)"
+                      >
+                        Agendar reposição
+                      </button>
+                      <button
+                        v-else-if="item.situacao === 'RESERVADO'"
+                        class="botao secundario compacto"
+                        type="button"
+                        @click="abrirCancelamentoAgendamento(item)"
+                      >
+                        Cancelar agendamento
+                      </button>
                     </div>
                   </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Mobile: cards nativos, sem herdar o algoritmo de layout de tabelas. -->
+          <div class="lista-mobile" aria-label="Lista de reposições">
+            <article
+              v-for="item in reposicoes"
+              :key="`mobile-${item.id}`"
+              class="reposicao-card-mobile"
+            >
+              <div class="campo-mobile">
+                <span class="rotulo-mobile">Aluno</span>
+                <strong>{{ item.alunoNome }}</strong>
+                <span v-if="item.alunoId" class="chip-chip sutileza">Aluno {{ item.alunoId }}</span>
+              </div>
+
+              <div class="campo-mobile">
+                <span class="rotulo-mobile">Situação</span>
+                <span class="chip-chip" :class="classeSituacaoReposicao(item.situacao)">
+                  {{ rotuloSituacaoReposicao(item.situacao) }}
+                </span>
+              </div>
+
+              <div class="campo-mobile">
+                <span class="rotulo-mobile">Motivo</span>
+                <span>{{ rotuloMotivoReposicao(item.motivoOrigem) }}</span>
+              </div>
+
+              <div class="campo-mobile">
+                <span class="rotulo-mobile">Aula/turma de origem</span>
+                <strong>{{
+                  item.aulaOrigem.turmaNome || item.turmaOrigem || 'Não informado'
+                }}</strong>
+                <span class="linha-secundaria">{{ rotuloAulaResumo(item.aulaOrigem) }}</span>
+                <span v-if="item.frequenciaOrigem" class="linha-secundaria">
+                  Frequência: {{ item.frequenciaOrigem }}
+                </span>
+              </div>
+
+              <div class="campo-mobile">
+                <span class="rotulo-mobile">Gerado em</span>
+                <span>{{ formatarDataHora(item.dataGeracao) }}</span>
+              </div>
+
+              <div class="campo-mobile">
+                <span class="rotulo-mobile">Validade</span>
+                <span>{{ formatarDataPtBrSemFuso(item.validade) || '-' }}</span>
+              </div>
+
+              <div class="campo-mobile">
+                <span class="rotulo-mobile">Aula/turma de reposição</span>
+                <strong>{{
+                  item.aulaReposicao.turmaNome || item.turmaReposicao || 'Sem agendamento'
+                }}</strong>
+                <span class="linha-secundaria">{{ rotuloAulaResumo(item.aulaReposicao) }}</span>
+                <span v-if="item.reservadoEm" class="linha-secundaria">
+                  Reservado em: {{ formatarDataHora(item.reservadoEm) }}
+                </span>
+                <span v-else-if="item.utilizadoEm" class="linha-secundaria">
+                  Utilizado em: {{ formatarDataHora(item.utilizadoEm) }}
+                </span>
+                <span v-else-if="item.canceladoEm" class="linha-secundaria">
+                  Cancelado em: {{ formatarDataHora(item.canceladoEm) }}
+                </span>
+              </div>
+
+              <div class="campo-mobile campo-acoes-mobile">
+                <span class="rotulo-mobile">Ações</span>
+                <div class="acoes-mobile-lista">
+                  <button
+                    class="botao secundario"
+                    type="button"
+                    @click="abrirDetalheReposicao(item)"
+                  >
+                    Detalhes
+                  </button>
+                  <button
+                    v-if="item.situacao === 'DISPONIVEL'"
+                    class="botao principal"
+                    type="button"
+                    @click="abrirAgendamentoReposicao(item)"
+                  >
+                    Agendar reposição
+                  </button>
+                  <button
+                    v-else-if="item.situacao === 'RESERVADO'"
+                    class="botao secundario"
+                    type="button"
+                    @click="abrirCancelamentoAgendamento(item)"
+                  >
+                    Cancelar agendamento
+                  </button>
+                </div>
+              </div>
+            </article>
           </div>
 
           <PaginacaoCompacta
@@ -1884,13 +2214,17 @@ onBeforeUnmount(() => {
             >
               Cancelar agendamento
             </button>
-            <button class="botao principal" type="button" @click="abrirAjusteManual">Conceder reposição</button>
+            <button class="botao principal" type="button" @click="abrirAjusteManual">
+              Conceder reposição
+            </button>
           </div>
         </div>
 
         <section v-if="erroDetalhe" class="estado-erro">
           <p>{{ erroDetalhe }}</p>
-          <button class="botao principal" type="button" @click="carregarDetalheReposicao">Tentar novamente</button>
+          <button class="botao principal" type="button" @click="carregarDetalheReposicao">
+            Tentar novamente
+          </button>
         </section>
 
         <section v-else-if="carregandoDetalhe && !detalhe" class="estado-vazio">
@@ -1938,14 +2272,20 @@ onBeforeUnmount(() => {
               <h3>Aula de origem</h3>
               <p>{{ rotuloAulaResumo(detalhe.aulaOrigem) }}</p>
               <p v-if="detalhe.turmaOrigem"><strong>Turma:</strong> {{ detalhe.turmaOrigem }}</p>
-              <p v-if="detalhe.frequenciaOrigem"><strong>Frequência:</strong> {{ detalhe.frequenciaOrigem }}</p>
+              <p v-if="detalhe.frequenciaOrigem">
+                <strong>Frequência:</strong> {{ detalhe.frequenciaOrigem }}
+              </p>
             </article>
 
             <article class="bloco-info">
               <h3>Aula de reposição</h3>
-              <p v-if="detalhe.aulaReposicao.id || detalhe.aulaReposicao.turmaNome">{{ rotuloAulaResumo(detalhe.aulaReposicao) }}</p>
+              <p v-if="detalhe.aulaReposicao.id || detalhe.aulaReposicao.turmaNome">
+                {{ rotuloAulaResumo(detalhe.aulaReposicao) }}
+              </p>
               <p v-else>Sem reposição agendada.</p>
-              <p v-if="detalhe.turmaReposicao"><strong>Turma:</strong> {{ detalhe.turmaReposicao }}</p>
+              <p v-if="detalhe.turmaReposicao">
+                <strong>Turma:</strong> {{ detalhe.turmaReposicao }}
+              </p>
             </article>
           </div>
 
@@ -1957,7 +2297,11 @@ onBeforeUnmount(() => {
           <section class="bloco-info">
             <h3>Histórico essencial</h3>
             <div v-if="detalhe.historico.length" class="lista-historico">
-              <article v-for="(item, indice) in detalhe.historico" :key="`${indice}-${item.texto}`" class="item-historico">
+              <article
+                v-for="(item, indice) in detalhe.historico"
+                :key="`${indice}-${item.texto}`"
+                class="item-historico"
+              >
                 <strong>{{ formatarTextoHistorico(item.texto) }}</strong>
                 <small>{{ formatarDataHora(item.data) }}</small>
               </article>
@@ -1967,14 +2311,32 @@ onBeforeUnmount(() => {
 
           <section class="bloco-info">
             <h3>Direitos disponíveis para o aluno</h3>
-            <section v-if="!direitosDisponiveisAluno.length" class="estado-vazio estado-vazio-compacto">
+            <section
+              v-if="!direitosDisponiveisAluno.length"
+              class="estado-vazio estado-vazio-compacto"
+            >
               <p>Nenhum direito disponível para o aluno.</p>
             </section>
             <div v-else class="lista-historico">
-              <article v-for="item in direitosDisponiveisAluno" :key="item.id" class="item-historico">
-                <strong>{{ rotuloSituacaoReposicao(item.situacao) }} · {{ item.validade ? formatarDataPtBrSemFuso(item.validade) : 'Sem validade' }}</strong>
-                <small>{{ item.aulaOrigem.turmaNome || item.turmaOrigem || 'Origem não informada' }}</small>
-                <button class="botao secundario compacto" type="button" @click="abrirAgendamentoReposicao(item)">
+              <article
+                v-for="item in direitosDisponiveisAluno"
+                :key="item.id"
+                class="item-historico"
+              >
+                <strong
+                  >{{ rotuloSituacaoReposicao(item.situacao) }} ·
+                  {{
+                    item.validade ? formatarDataPtBrSemFuso(item.validade) : 'Sem validade'
+                  }}</strong
+                >
+                <small>{{
+                  item.aulaOrigem.turmaNome || item.turmaOrigem || 'Origem não informada'
+                }}</small>
+                <button
+                  class="botao secundario compacto"
+                  type="button"
+                  @click="abrirAgendamentoReposicao(item)"
+                >
                   Agendar reposição
                 </button>
               </article>
@@ -1983,12 +2345,18 @@ onBeforeUnmount(() => {
         </template>
       </section>
 
-      <section v-if="painelAgendamentoAberto" ref="panelAgendamentoRef" class="card painel-agendamento">
+      <section
+        v-if="painelAgendamentoAberto"
+        ref="panelAgendamentoRef"
+        class="card painel-agendamento"
+      >
         <div class="cabecalho-painel">
           <div>
             <p class="subtitulo">Agendamento</p>
             <h2>Agendar reposição</h2>
-            <p class="descricao">Escolha a aula, confira a prévia e confirme apenas quando tudo estiver correto.</p>
+            <p class="descricao">
+              Escolha a aula, confira a prévia e confirme apenas quando tudo estiver correto.
+            </p>
           </div>
 
           <button class="botao secundario" type="button" @click="fecharAcaoAtual">Fechar</button>
@@ -2020,14 +2388,22 @@ onBeforeUnmount(() => {
                   Professor
                   <select v-model="filtrosAgendamento.professorId">
                     <option value="">Todos</option>
-                    <option v-for="professor in professorOptions" :key="professor.id" :value="String(professor.id)">
+                    <option
+                      v-for="professor in professorOptions"
+                      :key="professor.id"
+                      :value="String(professor.id)"
+                    >
                       {{ professor.nome }}
                     </option>
                   </select>
                 </label>
                 <label class="campo-grande">
                   Texto
-                  <input v-model="filtrosAgendamento.texto" type="search" placeholder="Buscar por turma, professor ou horário" />
+                  <input
+                    v-model="filtrosAgendamento.texto"
+                    type="search"
+                    placeholder="Buscar por turma, professor ou horário"
+                  />
                 </label>
               </div>
 
@@ -2035,14 +2411,18 @@ onBeforeUnmount(() => {
                 <button class="botao secundario" type="button" @click="limparFiltrosAgendamento">
                   Limpar
                 </button>
-                <button class="botao principal" type="button" @click="recarregarAulasAgendamento">Carregar aulas</button>
+                <button class="botao principal" type="button" @click="recarregarAulasAgendamento">
+                  Carregar aulas
+                </button>
               </div>
             </details>
 
             <section v-if="erroAgendamento && !previaAgendamento" class="estado-erro">
               <p>{{ erroAgendamento }}</p>
               <div class="acoes-erro">
-                <button class="botao secundario" type="button" @click="fecharAcaoAtual">Voltar para reposições</button>
+                <button class="botao secundario" type="button" @click="fecharAcaoAtual">
+                  Voltar para reposições
+                </button>
                 <button
                   class="botao principal"
                   type="button"
@@ -2054,7 +2434,10 @@ onBeforeUnmount(() => {
               </div>
             </section>
 
-            <section v-else-if="carregandoInicializacaoAgendamento || carregandoAulasAgendamento" class="estado-vazio">
+            <section
+              v-else-if="carregandoInicializacaoAgendamento || carregandoAulasAgendamento"
+              class="estado-vazio"
+            >
               <p>Carregando agendamento...</p>
             </section>
 
@@ -2068,18 +2451,24 @@ onBeforeUnmount(() => {
                 :key="aula.id"
                 type="button"
                 class="card-aula"
-                :class="{ selecionada: String(filtrosAgendamento.aulaDestinoId) === String(aula.id) }"
+                :class="{
+                  selecionada: String(filtrosAgendamento.aulaDestinoId) === String(aula.id),
+                }"
                 @click="selecionarAulaDestino(aula)"
               >
                 <strong>{{ aula.descricao }}</strong>
                 <span class="chip-chip sutileza">Aula {{ aula.id }}</span>
-                <small v-if="aula.nivel">{{ rotuloNivelBeachTennis(aula.nivel) || aula.nivel }}</small>
+                <small v-if="aula.nivel">{{
+                  rotuloNivelBeachTennis(aula.nivel) || aula.nivel
+                }}</small>
                 <small v-if="aula.competicao">{{ rotuloCompeticaoBeachTennis(true) }}</small>
-                <small v-if="aula.vagasDisponiveis || aula.limite">Vagas: {{ aula.vagasDisponiveis || 0 }} / {{ aula.limite || '—' }}</small>
+                <small v-if="aula.vagasDisponiveis || aula.limite"
+                  >Vagas: {{ aula.vagasDisponiveis || 0 }} / {{ aula.limite || '—' }}</small
+                >
               </button>
             </div>
 
-              <PaginacaoCompacta
+            <PaginacaoCompacta
               :pagina="paginacaoAulasAgendamento.page"
               :total-pages="paginacaoAulasAgendamento.totalPages"
               :total-elements="paginacaoAulasAgendamento.totalElements"
@@ -2093,7 +2482,9 @@ onBeforeUnmount(() => {
             <section v-if="erroAgendamento && previaAgendamento" class="estado-erro">
               <p>{{ erroAgendamento }}</p>
               <div class="acoes-erro">
-                <button class="botao secundario" type="button" @click="fecharAcaoAtual">Voltar para reposições</button>
+                <button class="botao secundario" type="button" @click="fecharAcaoAtual">
+                  Voltar para reposições
+                </button>
                 <button
                   class="botao principal"
                   type="button"
@@ -2117,7 +2508,13 @@ onBeforeUnmount(() => {
                   <p class="linha-secundaria">
                     <strong>Permitido:</strong> {{ previaAgendamento.permitido ? 'Sim' : 'Não' }}
                   </p>
-                  <p v-if="Array.isArray(previaAgendamento.bloqueios) && previaAgendamento.bloqueios.length" class="linha-secundaria">
+                  <p
+                    v-if="
+                      Array.isArray(previaAgendamento.bloqueios) &&
+                      previaAgendamento.bloqueios.length
+                    "
+                    class="linha-secundaria"
+                  >
                     <strong>Bloqueios:</strong> {{ previaAgendamento.bloqueios.join(' · ') }}
                   </p>
                   <p v-if="previaAgendamento.alertas.length" class="linha-secundaria">
@@ -2154,34 +2551,85 @@ onBeforeUnmount(() => {
               <article class="bloco-info">
                 <h3>Dados do direito</h3>
                 <p><strong>Aluno:</strong> {{ detalhe?.alunoNome || 'Não informado' }}</p>
-                <p><strong>Situação:</strong> {{ detalhe ? rotuloSituacaoReposicao(detalhe.situacao) : '-' }}</p>
-                <p><strong>Validade:</strong> {{ detalhe?.validade ? formatarDataPtBrSemFuso(detalhe.validade) : '-' }}</p>
-                <p><strong>Origem:</strong> {{ detalhe ? rotuloAulaResumo(detalhe.aulaOrigem) : '-' }}</p>
+                <p>
+                  <strong>Situação:</strong>
+                  {{ detalhe ? rotuloSituacaoReposicao(detalhe.situacao) : '-' }}
+                </p>
+                <p>
+                  <strong>Validade:</strong>
+                  {{ detalhe?.validade ? formatarDataPtBrSemFuso(detalhe.validade) : '-' }}
+                </p>
+                <p>
+                  <strong>Origem:</strong>
+                  {{ detalhe ? rotuloAulaResumo(detalhe.aulaOrigem) : '-' }}
+                </p>
                 <p><strong>Turma de origem:</strong> {{ detalhe?.turmaOrigem || '-' }}</p>
               </article>
 
               <article class="bloco-info">
                 <h3>Dados da aula destino</h3>
-                <p><strong>Aula:</strong> {{ classSelecionadaAgendamento ? rotuloAulaResumo(classSelecionadaAgendamento) : '-' }}</p>
+                <p>
+                  <strong>Aula:</strong>
+                  {{
+                    classSelecionadaAgendamento
+                      ? rotuloAulaResumo(classSelecionadaAgendamento)
+                      : '-'
+                  }}
+                </p>
                 <p><strong>Turma:</strong> {{ classSelecionadaAgendamento?.turmaNome || '-' }}</p>
-                <p><strong>Professor:</strong> {{ classSelecionadaAgendamento?.professorNome || '-' }}</p>
-                <p><strong>Nível:</strong> {{ classSelecionadaAgendamento?.nivel ? rotuloNivelBeachTennis(classSelecionadaAgendamento.nivel) || classSelecionadaAgendamento.nivel : '-' }}</p>
-                <p><strong>Competição:</strong> {{ classSelecionadaAgendamento?.competicao ? rotuloCompeticaoBeachTennis(true) : 'Não' }}</p>
+                <p>
+                  <strong>Professor:</strong>
+                  {{ classSelecionadaAgendamento?.professorNome || '-' }}
+                </p>
+                <p>
+                  <strong>Nível:</strong>
+                  {{
+                    classSelecionadaAgendamento?.nivel
+                      ? rotuloNivelBeachTennis(classSelecionadaAgendamento.nivel) ||
+                        classSelecionadaAgendamento.nivel
+                      : '-'
+                  }}
+                </p>
+                <p>
+                  <strong>Competição:</strong>
+                  {{
+                    classSelecionadaAgendamento?.competicao
+                      ? rotuloCompeticaoBeachTennis(true)
+                      : 'Não'
+                  }}
+                </p>
               </article>
 
               <label class="campo-grande">
                 Observação
-                <textarea v-model="filtrosAgendamento.observacao" rows="3" placeholder="Observação opcional, quando suportada pelo backend"></textarea>
+                <textarea
+                  v-model="filtrosAgendamento.observacao"
+                  rows="3"
+                  placeholder="Observação opcional, quando suportada pelo backend"
+                ></textarea>
               </label>
 
-              <label class="checkbox-confirmacao" v-if="previaAgendamento && (previaAgendamento.exigeConfirmacao || previaAgendamento.turmaLotada)">
+              <label
+                class="checkbox-confirmacao"
+                v-if="
+                  previaAgendamento &&
+                  (previaAgendamento.exigeConfirmacao || previaAgendamento.turmaLotada)
+                "
+              >
                 <input v-model="filtrosAgendamento.confirmarTurmaLotada" type="checkbox" />
                 <span>Confirmo o agendamento mesmo com os alertas de lotação.</span>
               </label>
 
               <div class="acoes-painel acoes-agendamento">
-                <button class="botao secundario" type="button" @click="fecharAcaoAtual">Voltar</button>
-                <button class="botao principal" type="button" :disabled="bloquearConfirmacaoAgendamento" @click="confirmarAgendamento">
+                <button class="botao secundario" type="button" @click="fecharAcaoAtual">
+                  Voltar
+                </button>
+                <button
+                  class="botao principal"
+                  type="button"
+                  :disabled="bloquearConfirmacaoAgendamento"
+                  @click="confirmarAgendamento"
+                >
                   {{ textoBotaoConfirmarAgendamento }}
                 </button>
               </div>
@@ -2197,7 +2645,9 @@ onBeforeUnmount(() => {
           <div>
             <p class="subtitulo">Ajuste manual</p>
             <h2>Conceder reposição</h2>
-            <p class="descricao">Preencha os dados abaixo para criar um novo direito de reposição.</p>
+            <p class="descricao">
+              Preencha os dados abaixo para criar um novo direito de reposição.
+            </p>
           </div>
           <button class="botao secundario" type="button" @click="fecharAcaoAtual">Fechar</button>
         </div>
@@ -2242,7 +2692,11 @@ onBeforeUnmount(() => {
 
           <label class="campo-grande">
             Observação
-            <textarea v-model="ajusteManual.observacao" rows="4" placeholder="Explique o motivo da concessão"></textarea>
+            <textarea
+              v-model="ajusteManual.observacao"
+              rows="4"
+              placeholder="Explique o motivo da concessão"
+            ></textarea>
           </label>
         </div>
 
@@ -2250,7 +2704,12 @@ onBeforeUnmount(() => {
 
         <div class="acoes-painel acoes-modal">
           <button class="botao secundario" type="button" @click="fecharAcaoAtual">Cancelar</button>
-          <button class="botao principal" type="button" :disabled="carregandoAjuste" @click="salvarAjusteManual">
+          <button
+            class="botao principal"
+            type="button"
+            :disabled="carregandoAjuste"
+            @click="salvarAjusteManual"
+          >
             {{ textoBotaoSalvarAjuste }}
           </button>
         </div>
@@ -2270,19 +2729,31 @@ onBeforeUnmount(() => {
 
         <div class="bloco-info">
           <p><strong>Aluno:</strong> {{ detalhe?.alunoNome || 'Não informado' }}</p>
-          <p><strong>Reposição:</strong> {{ detalhe ? rotuloAulaResumo(detalhe.aulaReposicao) : '-' }}</p>
+          <p>
+            <strong>Reposição:</strong>
+            {{ detalhe ? rotuloAulaResumo(detalhe.aulaReposicao) : '-' }}
+          </p>
         </div>
 
         <label class="campo-grande">
           Motivo do cancelamento
-          <textarea v-model="cancelamentoAgendamento.motivo" rows="4" placeholder="Informe o motivo do cancelamento"></textarea>
+          <textarea
+            v-model="cancelamentoAgendamento.motivo"
+            rows="4"
+            placeholder="Informe o motivo do cancelamento"
+          ></textarea>
         </label>
 
         <p v-if="erroCancelamento" class="estado-erro">{{ erroCancelamento }}</p>
 
         <div class="acoes-painel acoes-modal">
           <button class="botao secundario" type="button" @click="fecharAcaoAtual">Cancelar</button>
-          <button class="botao principal" type="button" :disabled="carregandoCancelamento" @click="confirmarCancelamentoAgendamento">
+          <button
+            class="botao principal"
+            type="button"
+            :disabled="carregandoCancelamento"
+            @click="confirmarCancelamentoAgendamento"
+          >
             {{ carregandoCancelamento ? 'Cancelando...' : 'Confirmar cancelamento' }}
           </button>
         </div>
@@ -2319,7 +2790,11 @@ onBeforeUnmount(() => {
   gap: 20px;
   padding: 24px;
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--app-primary) 14%, transparent), transparent 32%),
+    radial-gradient(
+      circle at top right,
+      color-mix(in srgb, var(--app-primary) 14%, transparent),
+      transparent 32%
+    ),
     linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 96%, white), var(--app-surface));
 }
 
@@ -2365,7 +2840,10 @@ onBeforeUnmount(() => {
   padding: 11px 16px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    background 0.2s ease;
 }
 
 .botao:hover:not(:disabled) {
@@ -2562,6 +3040,10 @@ textarea:focus {
 
 .tabela-container {
   overflow-x: auto;
+}
+
+.lista-mobile {
+  display: none;
 }
 
 table {
@@ -2837,120 +3319,81 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .tabela-container {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    overflow-x: hidden;
-    overflow-y: visible;
+  .tabela-desktop {
+    display: none;
   }
 
-  table,
-  thead,
-  tbody,
-  tr,
-  th,
-  td {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-
-  table {
-    display: block;
-    border-collapse: separate;
-    border-spacing: 0 12px;
-  }
-
-  tbody {
+  .lista-mobile {
     display: grid;
-    gap: 12px;
+    gap: 14px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
-  thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
+  .reposicao-card-mobile {
+    display: grid;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow: hidden;
-    clip: rect(0 0 0 0);
-    border: 0;
-  }
-
-  tr {
-    display: grid;
-    gap: 0;
-    margin: 0;
     border: 1px solid var(--app-border);
     border-radius: 16px;
-    overflow: hidden;
     background: var(--app-surface);
     box-shadow: var(--app-shadow);
   }
 
-  td {
+  .campo-mobile {
     display: grid;
-    gap: 6px;
-    padding: 12px 14px;
-    border-bottom: none;
+    gap: 7px;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
+    padding: 13px 14px;
     overflow-wrap: anywhere;
   }
 
-  td::before {
-    content: attr(data-label);
-    color: var(--app-text-muted);
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  td + td {
+  .campo-mobile + .campo-mobile {
     border-top: 1px solid var(--app-border);
   }
 
-  tbody tr > td:last-child {
-    display: block;
+  .rotulo-mobile {
+    color: var(--app-text-muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
-  tbody tr > td:last-child::before {
-    display: block;
-    margin-bottom: 8px;
+  .campo-acoes-mobile {
+    padding-bottom: 14px;
   }
 
-  .acoes-tabela {
+  .acoes-mobile-lista {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
-    margin: 8px 0 0;
-    padding: 0;
-    justify-content: stretch;
-    align-items: stretch;
-    min-width: 0;
     width: 100%;
     max-width: 100%;
-    box-sizing: border-box;
+    min-width: 0;
   }
 
-  .acoes-tabela .botao {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    min-height: 44px;
-    height: 44px;
-    padding: 8px 12px;
+  .acoes-mobile-lista .botao {
+    position: static;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    position: static;
-    transform: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: 42px;
+    min-height: 42px;
     margin: 0;
-    text-align: center;
+    padding: 8px 12px;
+    overflow: visible;
+    transform: none;
     white-space: normal;
-    overflow-wrap: anywhere;
+    text-align: center;
     line-height: 1.2;
     box-sizing: border-box;
   }
@@ -3006,5 +3449,4 @@ th {
     padding: 18px;
   }
 }
-
 </style>
