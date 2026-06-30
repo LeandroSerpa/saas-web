@@ -46,6 +46,7 @@ const carregandoAjuste = ref(false)
 const carregandoCancelamento = ref(false)
 const carregandoAgendamento = ref(false)
 const carregandoPrevia = ref(false)
+const carregandoInicializacaoAgendamento = ref(false)
 const carregandoClientesFiltro = ref(false)
 const carregandoClientesAjuste = ref(false)
 const erroLista = ref('')
@@ -141,7 +142,9 @@ const descricaoPagina = computed(
     'Consulte direitos de reposição, acompanhe agendamentos, revise o histórico essencial e conceda novas reposições quando necessário.',
 )
 const classSelecionadaAgendamento = computed(() =>
-  aulasAgendamento.value.find((item) => String(item.id) === String(agendamentoAtual.value.aulaDestinoId)) || null,
+  (Array.isArray(aulasAgendamento.value)
+    ? aulasAgendamento.value.find((item) => String(item.id) === String(agendamentoAtual.value.aulaDestinoId))
+    : null) || null,
 )
 const agendamentoAtual = computed(() => ({
   direitoId: String(reposicaoSelecionadaId.value || '').trim(),
@@ -567,6 +570,7 @@ function normalizarPreviaAgendamento(item = {}, aulaSelecionada = null, direito 
   return {
     permitido: base.permitido !== false,
     exigeConfirmacao: normalizarBooleano(base.exigeConfirmacao),
+    bloqueios: obterListaTextos(base.bloqueios || base.bloqueio),
     alertas: obterListaTextos(base.alertas),
     motivoBloqueio: normalizarTexto(base.motivoBloqueio),
     direito: dadosDireito,
@@ -842,6 +846,66 @@ function abrirAjusteManual() {
 
 function fecharAcaoAtual() {
   atualizarQueryRota({}, { manterAcao: false })
+}
+
+function limparEstadoAgendamento() {
+  previaAgendamento.value = null
+  aulasAgendamento.value = []
+  resumoAulasAgendamento.value = criarResumoPadrao()
+  paginacaoAulasAgendamento.value = criarPaginacaoPadrao(filtrosAgendamento.value.size)
+  erroAgendamento.value = ''
+  erroDetalhe.value = ''
+}
+
+async function inicializarAgendamentoReposicao() {
+  const reposicaoId = reposicaoSelecionadaId.value
+  limparEstadoAgendamento()
+
+  if (!reposicaoId) {
+    erroAgendamento.value = 'Não foi possível identificar a reposição selecionada.'
+    return false
+  }
+
+  carregandoInicializacaoAgendamento.value = true
+
+  try {
+    await carregarDetalheReposicao(reposicaoId)
+
+    if (erroDetalhe.value) {
+      erroAgendamento.value = erroDetalhe.value
+      erroDetalhe.value = ''
+      return false
+    }
+
+    if (!detalhe.value) {
+      erroAgendamento.value = 'Não foi possível localizar a reposição selecionada.'
+      return false
+    }
+
+    if (normalizarTextoOpcional(detalhe.value.situacao).trim().toUpperCase() !== 'DISPONIVEL') {
+      erroAgendamento.value = 'Esta reposição não está disponível para agendamento.'
+      return false
+    }
+
+    if (!detalhe.value.alunoId) {
+      erroAgendamento.value = 'Não foi possível identificar o aluno desta reposição.'
+      return false
+    }
+
+    await carregarBasesAgendamento()
+    if (erroAgendamento.value) {
+      return false
+    }
+
+    await carregarAulasAgendamento()
+    return !erroAgendamento.value
+  } catch (error) {
+    console.error(error)
+    erroAgendamento.value = obterMensagemErro(error, 'Não foi possível abrir o agendamento da reposição.')
+    return false
+  } finally {
+    carregandoInicializacaoAgendamento.value = false
+  }
 }
 
 function definirFeedback(mensagem, tipo = 'info') {
@@ -1423,39 +1487,23 @@ function atualizarModoVisualizacao() {
 }
 
 async function carregarTudo() {
-  await carregarContexto()
-  if (modoVisualizacaoEmpresa.value || !moduloAtivo.value) {
-    carregandoLista.value = false
-    return
-  }
-
-  aplicarQueryNosFiltros()
-  await Promise.all([
-    carregarListaReposicoes(),
-    painelAgendamentoAberto.value ? carregarBasesAgendamento() : Promise.resolve(),
-    painelAgendamentoAberto.value ? carregarAulasAgendamento() : Promise.resolve(),
-    painelDetalheAberto.value || painelAgendamentoAberto.value || modalCancelamentoAberto.value
-      ? carregarDetalheReposicao()
-      : Promise.resolve(),
-  ])
-}
-
-async function atualizarContextoEmpresa() {
-  await recarregarContextoGestaoEsportiva()
-  atualizarModoVisualizacao()
-}
-
-watch(
-  () => route.fullPath,
-  async () => {
-    aplicarQueryNosFiltros()
-    if (!moduloAtivo.value) {
+  try {
+    await carregarContexto()
+    if (modoVisualizacaoEmpresa.value || !moduloAtivo.value) {
+      carregandoLista.value = false
       return
     }
 
-    await carregarListaReposicoes()
+    aplicarQueryNosFiltros()
 
-    if (painelDetalheAberto.value || painelAgendamentoAberto.value || modalCancelamentoAberto.value) {
+    const acaoContextualAberta =
+      painelDetalheAberto.value || painelAgendamentoAberto.value || modalCancelamentoAberto.value || modalAjusteAberto.value
+
+    if (!acaoContextualAberta) {
+      await carregarListaReposicoes()
+    }
+
+    if (painelDetalheAberto.value || modalCancelamentoAberto.value) {
       await carregarDetalheReposicao()
       await nextTick()
       panelDetalheRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
@@ -1465,13 +1513,11 @@ watch(
     }
 
     if (painelAgendamentoAberto.value) {
-      await carregarBasesAgendamento()
-      await carregarAulasAgendamento()
+      await inicializarAgendamentoReposicao()
       await nextTick()
       panelAgendamentoRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
     } else {
-      aulasAgendamento.value = []
-      previaAgendamento.value = null
+      limparEstadoAgendamento()
     }
 
     if (modalAjusteAberto.value) {
@@ -1482,6 +1528,64 @@ watch(
     if (modalCancelamentoAberto.value) {
       await nextTick()
       modalCancelamentoRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+    }
+  } catch (error) {
+    console.error(error)
+    erroLista.value = obterMensagemErro(error, 'Não foi possível carregar a tela de reposições.')
+  }
+}
+
+async function atualizarContextoEmpresa() {
+  await recarregarContextoGestaoEsportiva()
+  atualizarModoVisualizacao()
+}
+
+watch(
+  () => route.fullPath,
+  async () => {
+    try {
+      await carregarContexto()
+      aplicarQueryNosFiltros()
+      if (!moduloAtivo.value) {
+        return
+      }
+
+      const acaoContextualAberta =
+        painelDetalheAberto.value || painelAgendamentoAberto.value || modalCancelamentoAberto.value || modalAjusteAberto.value
+
+      if (!acaoContextualAberta) {
+        await carregarListaReposicoes()
+      }
+
+      if (painelDetalheAberto.value || modalCancelamentoAberto.value) {
+        await carregarDetalheReposicao()
+        await nextTick()
+        panelDetalheRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+      } else {
+        detalhe.value = null
+        direitosDisponiveisAluno.value = []
+      }
+
+      if (painelAgendamentoAberto.value) {
+        await inicializarAgendamentoReposicao()
+        await nextTick()
+        panelAgendamentoRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+      } else {
+        limparEstadoAgendamento()
+      }
+
+      if (modalAjusteAberto.value) {
+        await nextTick()
+        modalAjusteRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+      }
+
+      if (modalCancelamentoAberto.value) {
+        await nextTick()
+        modalCancelamentoRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+      }
+    } catch (error) {
+      console.error(error)
+      erroLista.value = obterMensagemErro(error, 'Não foi possível carregar a tela de reposições.')
     }
   },
   { immediate: true },
@@ -1512,10 +1616,6 @@ watch(
 )
 
 onMounted(() => {
-  carregarTudo().catch((error) => {
-    console.error(error)
-    erroLista.value = obterMensagemErro(error, 'Não foi possível carregar a tela de reposições.')
-  })
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
 })
 
@@ -1939,11 +2039,21 @@ onBeforeUnmount(() => {
 
             <section v-if="erroAgendamento && !previaAgendamento" class="estado-erro">
               <p>{{ erroAgendamento }}</p>
-              <button class="botao principal" type="button" @click="carregarAulasAgendamento">Tentar novamente</button>
+              <div class="acoes-erro">
+                <button class="botao secundario" type="button" @click="fecharAcaoAtual">Voltar para reposições</button>
+                <button
+                  class="botao principal"
+                  type="button"
+                  :disabled="carregandoInicializacaoAgendamento"
+                  @click="inicializarAgendamentoReposicao"
+                >
+                  Tentar novamente
+                </button>
+              </div>
             </section>
 
-            <section v-else-if="carregandoAulasAgendamento" class="estado-vazio">
-              <p>Carregando aulas futuras e agendadas...</p>
+            <section v-else-if="carregandoInicializacaoAgendamento || carregandoAulasAgendamento" class="estado-vazio">
+              <p>Carregando agendamento...</p>
             </section>
 
             <section v-else-if="!aulasAgendamento.length" class="estado-vazio">
@@ -1980,6 +2090,17 @@ onBeforeUnmount(() => {
           <div class="bloco-agendamento">
             <section v-if="erroAgendamento && previaAgendamento" class="estado-erro">
               <p>{{ erroAgendamento }}</p>
+              <div class="acoes-erro">
+                <button class="botao secundario" type="button" @click="fecharAcaoAtual">Voltar para reposições</button>
+                <button
+                  class="botao principal"
+                  type="button"
+                  :disabled="carregandoInicializacaoAgendamento"
+                  @click="inicializarAgendamentoReposicao"
+                >
+                  Tentar novamente
+                </button>
+              </div>
             </section>
 
             <section v-if="!filtrosAgendamento.aulaDestinoId" class="estado-vazio">
@@ -1994,7 +2115,7 @@ onBeforeUnmount(() => {
                   <p class="linha-secundaria">
                     <strong>Permitido:</strong> {{ previaAgendamento.permitido ? 'Sim' : 'Não' }}
                   </p>
-                  <p v-if="previaAgendamento.bloqueios.length" class="linha-secundaria">
+                  <p v-if="Array.isArray(previaAgendamento.bloqueios) && previaAgendamento.bloqueios.length" class="linha-secundaria">
                     <strong>Bloqueios:</strong> {{ previaAgendamento.bloqueios.join(' · ') }}
                   </p>
                   <p v-if="previaAgendamento.alertas.length" class="linha-secundaria">
@@ -2469,7 +2590,15 @@ th {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
   min-width: 150px;
+}
+
+.acoes-erro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
 }
 
 .chip-chip {
@@ -2698,7 +2827,7 @@ th {
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .grade-resumo,
   .grade-detalhes,
   .grade-origem-destino,
@@ -2776,18 +2905,22 @@ th {
 
   .acoes-tabela {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 8px;
     min-width: 0;
   }
 
   .acoes-tabela .botao {
     width: 100%;
+    max-width: 100%;
     min-height: 44px;
     padding: 10px 12px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
     text-align: center;
     white-space: normal;
+    line-height: 1.2;
   }
 
   .acoes-painel,
@@ -2801,11 +2934,21 @@ th {
   .acoes-painel .botao,
   .acoes-filtros .botao {
     width: 100%;
+    max-width: 100%;
     min-height: 44px;
     padding: 10px 12px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
     text-align: center;
     white-space: normal;
+    line-height: 1.2;
+  }
+
+  .acoes-erro .botao {
+    width: auto;
+    min-height: 44px;
+    padding: 10px 12px;
   }
 
   .modal-fundo {
@@ -2832,9 +2975,4 @@ th {
   }
 }
 
-@media (min-width: 480px) and (max-width: 760px) {
-  .acoes-tabela {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 </style>
