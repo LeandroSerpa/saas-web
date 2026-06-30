@@ -1819,7 +1819,8 @@ onBeforeUnmount(() => {
                     <p v-else-if="item.utilizadoEm" class="linha-secundaria">Utilizado em: {{ formatarDataHora(item.utilizadoEm) }}</p>
                     <p v-else-if="item.canceladoEm" class="linha-secundaria">Cancelado em: {{ formatarDataHora(item.canceladoEm) }}</p>
                   </td>
-                  <td data-label="Ações" class="acoes-tabela">
+                  <td data-label="Ações">
+                    <div class="acoes-tabela">
                     <button class="botao secundario compacto" type="button" @click="abrirDetalheReposicao(item)">
                       Detalhes
                     </button>
@@ -1839,6 +1840,7 @@ onBeforeUnmount(() => {
                     >
                       Cancelar agendamento
                     </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -2836,7 +2838,11 @@ th {
   }
 
   .tabela-container {
-    overflow: visible;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: visible;
   }
 
   table,
@@ -2846,6 +2852,9 @@ th {
   th,
   td {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   table {
@@ -2903,24 +2912,47 @@ th {
     border-top: 1px solid var(--app-border);
   }
 
+  tbody tr > td:last-child {
+    display: block;
+  }
+
+  tbody tr > td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
   .acoes-tabela {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
+    margin: 8px 0 0;
+    padding: 0;
+    justify-content: stretch;
+    align-items: stretch;
     min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .acoes-tabela .botao {
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     min-height: 44px;
-    padding: 10px 12px;
+    height: 44px;
+    padding: 8px 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    position: static;
+    transform: none;
+    margin: 0;
     text-align: center;
     white-space: normal;
+    overflow-wrap: anywhere;
     line-height: 1.2;
+    box-sizing: border-box;
   }
 
   .acoes-painel,
