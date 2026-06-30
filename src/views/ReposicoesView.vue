@@ -332,9 +332,59 @@ function obterListaTextos(valor) {
   return texto ? [texto] : []
 }
 
+function normalizarDataHoraParaExibicao(valor) {
+  const texto = normalizarTexto(valor)
+  if (!texto) {
+    return ''
+  }
+
+  const correspondencia = texto.match(
+    /^(\d{4}-\d{2}-\d{2}(?:[Tt ]\d{2}:\d{2}(?::\d{2})?)?)(?:[.,](\d+))?(Z|[+-]\d{2}:\d{2})?$/,
+  )
+
+  if (!correspondencia) {
+    return texto
+  }
+
+  const [, base, fracao, fuso = ''] = correspondencia
+
+  if (!fracao) {
+    return texto
+  }
+
+  return `${base}.${fracao.slice(0, 3)}${fuso}`
+}
+
 function formatarDataHora(valor) {
-  const texto = formatarDataHoraSemConversaoFuso(valor)
-  return texto === '-' ? normalizarTexto(valor, '-') : texto
+  const texto = normalizarTexto(valor)
+  if (!texto) {
+    return '-'
+  }
+
+  const formatado = formatarDataHoraSemConversaoFuso(normalizarDataHoraParaExibicao(texto))
+  if (formatado !== '-') {
+    return formatado
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    return formatarDataPtBrSemFuso(texto) || '-'
+  }
+
+  return '-'
+}
+
+function formatarTextoHistorico(valor) {
+  const texto = normalizarTexto(valor)
+  if (!texto) {
+    return '-'
+  }
+
+  const formatado = formatarDataHora(texto)
+  if (formatado !== '-') {
+    return formatado
+  }
+
+  return texto
 }
 
 function rotuloSituacaoReposicao(valor) {
@@ -701,11 +751,16 @@ function aplicarFiltros() {
   })
 }
 
-function limparFiltros() {
+async function limparFiltros() {
   filtros.value = criarFiltrosPadrao()
   buscaClientesFiltro.value = ''
   resultadosClientesFiltro.value = []
-  atualizarQueryRota({ page: 1, size: filtros.value.size }, { manterAcao: false })
+
+  if (route.path === '/reposicoes' && Object.keys(route.query || {}).length === 0) {
+    return
+  }
+
+  await router.replace({ path: '/reposicoes' })
 }
 
 function alterarTamanhoPaginaLista(valor) {
@@ -1630,7 +1685,7 @@ onBeforeUnmount(() => {
                   <th>Situação</th>
                   <th>Motivo</th>
                   <th>Aula/turma de origem</th>
-                  <th>Data de geração</th>
+                  <th>Gerado em</th>
                   <th>Validade</th>
                   <th>Aula/turma de reposição</th>
                   <th>Ações</th>
@@ -1655,7 +1710,7 @@ onBeforeUnmount(() => {
                     <p class="linha-secundaria">{{ rotuloAulaResumo(item.aulaOrigem) }}</p>
                     <p v-if="item.frequenciaOrigem" class="linha-secundaria">Frequência: {{ item.frequenciaOrigem }}</p>
                   </td>
-                  <td data-label="Data de geração">{{ formatarDataHora(item.dataGeracao) }}</td>
+                  <td data-label="Gerado em">{{ formatarDataHora(item.dataGeracao) }}</td>
                   <td data-label="Validade">{{ formatarDataPtBrSemFuso(item.validade) || '-' }}</td>
                   <td data-label="Aula/turma de reposição">
                     <strong>{{ item.aulaReposicao.turmaNome || item.turmaReposicao || 'Sem agendamento' }}</strong>
@@ -1759,7 +1814,7 @@ onBeforeUnmount(() => {
               <strong>{{ formatarDataPtBrSemFuso(detalhe.validade) || '-' }}</strong>
             </article>
             <article class="mini-card">
-              <span>Gerada em</span>
+              <span>Gerado em</span>
               <strong>{{ formatarDataHora(detalhe.dataGeracao) }}</strong>
             </article>
             <article class="mini-card">
@@ -1801,7 +1856,7 @@ onBeforeUnmount(() => {
             <h3>Histórico essencial</h3>
             <div v-if="detalhe.historico.length" class="lista-historico">
               <article v-for="(item, indice) in detalhe.historico" :key="`${indice}-${item.texto}`" class="item-historico">
-                <strong>{{ item.texto }}</strong>
+                <strong>{{ formatarTextoHistorico(item.texto) }}</strong>
                 <small>{{ formatarDataHora(item.data) }}</small>
               </article>
             </div>
@@ -2271,6 +2326,7 @@ onBeforeUnmount(() => {
 .mini-card strong {
   font-size: 24px;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .card-lista,
@@ -2502,6 +2558,10 @@ th {
   margin: 0;
 }
 
+.bloco-info p {
+  overflow-wrap: anywhere;
+}
+
 .lista-historico {
   display: grid;
   gap: 10px;
@@ -2518,10 +2578,12 @@ th {
 
 .item-historico strong {
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .linha-secundaria {
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .aviso-linha {
@@ -2654,8 +2716,18 @@ th {
   tr,
   th,
   td {
-    display: block;
     width: 100%;
+  }
+
+  table {
+    display: block;
+    border-collapse: separate;
+    border-spacing: 0 12px;
+  }
+
+  tbody {
+    display: grid;
+    gap: 12px;
   }
 
   thead {
@@ -2670,40 +2742,70 @@ th {
   }
 
   tr {
-    margin-bottom: 12px;
+    display: grid;
+    gap: 0;
+    margin: 0;
     border: 1px solid var(--app-border);
-    border-radius: 14px;
+    border-radius: 16px;
     overflow: hidden;
     background: var(--app-surface);
+    box-shadow: var(--app-shadow);
   }
 
   td {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--app-border);
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px;
+    border-bottom: none;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   td::before {
     content: attr(data-label);
-    flex: 0 0 36%;
     color: var(--app-text-muted);
     font-size: 12px;
     font-weight: 800;
     text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
-  td:last-child {
-    border-bottom: none;
+  td + td {
+    border-top: 1px solid var(--app-border);
   }
 
   .acoes-tabela {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
     min-width: 0;
   }
 
   .acoes-tabela .botao {
     width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+  }
+
+  .acoes-painel,
+  .acoes-filtros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .acoes-painel .botao,
+  .acoes-filtros .botao {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
   }
 
   .modal-fundo {
@@ -2728,11 +2830,11 @@ th {
   .modal-card {
     padding: 18px;
   }
+}
 
-  .botao,
-  .acoes-painel .botao,
-  .acoes-filtros .botao {
-    width: 100%;
+@media (min-width: 480px) and (max-width: 760px) {
+  .acoes-tabela {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
