@@ -189,15 +189,14 @@ const mensagemCapacidadePrevia = computed(() => {
     return null
   }
 
-  const controleAtivo =
-    capacidade.controleCapacidadeAtivo === true || capacidade.capacidadeRegular !== null
-
-  if (!controleAtivo) {
+  if (capacidade.controleCapacidadeAtivo === false) {
     return {
       tipo: 'info',
       texto: 'Esta turma não possui limite de participantes configurado.',
     }
   }
+
+
 
   if (capacidade.capacidadeTotalAtingida === true) {
     return {
@@ -214,6 +213,23 @@ const mensagemCapacidadePrevia = computed(() => {
           ? `A capacidade regular da turma está preenchida. Esta reposição utilizará uma vaga extra. Restam ${capacidade.vagasExtrasRestantes} vagas extras.`
           : 'A capacidade regular da turma está preenchida. Esta reposição utilizará uma vaga extra.',
     }
+  }
+
+  const temDadosNumericosCapacidade = [
+    'capacidadeRegular',
+    'limiteParticipantesExtras',
+    'capacidadeTotal',
+    'alunosRegularesEsperados',
+    'reposicoesReservadas',
+    'participantesExperimentais',
+    'participantesExtrasAtuais',
+    'ocupacaoTotal',
+    'vagasRegularesRestantes',
+    'vagasExtrasRestantes',
+  ].some((chave) => valorInformado(capacidade[chave]))
+
+  if (!temDadosNumericosCapacidade) {
+    return null
   }
 
   return {
@@ -240,70 +256,87 @@ const deveExibirMensagemCapacidadePrevia = computed(() => {
 })
 const resumoCapacidadePrevia = computed(() => {
   const capacidade = previaAgendamento.value?.capacidade
-  if (!capacidade || capacidade.capacidadeRegular === null) {
+  if (!capacidade) {
     return []
   }
 
-  return [
-    { chave: 'capacidadeRegular', rotulo: 'Capacidade regular', valor: capacidade.capacidadeRegular },
-    {
-      chave: 'limiteParticipantesExtras',
-      rotulo: 'Vagas extras',
-      valor: capacidade.limiteParticipantesExtras ?? 0,
-    },
-    { chave: 'capacidadeTotal', rotulo: 'Capacidade total', valor: capacidade.capacidadeTotal ?? capacidade.capacidadeRegular },
-    {
-      chave: 'alunosRegularesEsperados',
-      rotulo: 'Alunos regulares',
-      valor: capacidade.alunosRegularesEsperados ?? 0,
-    },
-    {
-      chave: 'reposicoesReservadas',
-      rotulo: 'Reposições reservadas',
-      valor: capacidade.reposicoesReservadas ?? 0,
-    },
-    {
-      chave: 'participantesExperimentais',
-      rotulo: 'Participantes experimentais',
-      valor: capacidade.participantesExperimentais ?? 0,
-    },
-    {
-      chave: 'participantesExtrasAtuais',
-      rotulo: 'Participantes extras atuais',
-      valor: capacidade.participantesExtrasAtuais ?? 0,
-    },
-    { chave: 'ocupacaoTotal', rotulo: 'Ocupação total', valor: capacidade.ocupacaoTotal ?? 0 },
-    {
-      chave: 'vagasRegularesRestantes',
-      rotulo: 'Vagas regulares restantes',
-      valor: capacidade.vagasRegularesRestantes ?? 0,
-    },
-    {
-      chave: 'vagasExtrasRestantes',
-      rotulo: 'Vagas extras restantes',
-      valor: capacidade.vagasExtrasRestantes ?? 0,
-    },
-    {
-      chave: 'controleCapacidadeAtivo',
-      rotulo: 'Controle ativo',
-      valor: capacidade.controleCapacidadeAtivo === true ? 'Sim' : 'Não',
-    },
-    {
-      chave: 'capacidadeRegularAtingida',
-      rotulo: 'Capacidade regular atingida',
-      valor: capacidade.capacidadeRegularAtingida === true ? 'Sim' : 'Não',
-    },
-    {
-      chave: 'capacidadeTotalAtingida',
-      rotulo: 'Capacidade total atingida',
-      valor: capacidade.capacidadeTotalAtingida === true ? 'Sim' : 'Não',
-    },
-    {
-      chave: 'utilizaVagaExtra',
-      rotulo: 'Utiliza vaga extra',
-      valor: capacidade.utilizaVagaExtra === true ? 'Sim' : 'Não',
-    },
-  ]
+  const itens = []
+
+  adicionarItemResumoCapacidade(itens, 'capacidadeRegular', 'Capacidade regular', capacidade.capacidadeRegular)
+  adicionarItemResumoCapacidade(
+    itens,
+    'limiteParticipantesExtras',
+    'Vagas extras',
+    capacidade.limiteParticipantesExtras,
+  )
+  adicionarItemResumoCapacidade(itens, 'capacidadeTotal', 'Capacidade total', capacidade.capacidadeTotal)
+  adicionarItemResumoCapacidade(
+    itens,
+    'alunosRegularesEsperados',
+    'Alunos regulares',
+    capacidade.alunosRegularesEsperados,
+  )
+  adicionarItemResumoCapacidade(
+    itens,
+    'reposicoesReservadas',
+    'Reposições reservadas',
+    capacidade.reposicoesReservadas,
+  )
+  adicionarItemResumoCapacidade(
+    itens,
+    'participantesExperimentais',
+    'Participantes experimentais',
+    capacidade.participantesExperimentais,
+  )
+  adicionarItemResumoCapacidade(
+    itens,
+    'participantesExtrasAtuais',
+    'Participantes extras atuais',
+    capacidade.participantesExtrasAtuais,
+  )
+  adicionarItemResumoCapacidade(itens, 'ocupacaoTotal', 'Ocupação total', capacidade.ocupacaoTotal)
+  adicionarItemResumoCapacidade(
+    itens,
+    'vagasRegularesRestantes',
+    'Vagas regulares restantes',
+    capacidade.vagasRegularesRestantes,
+  )
+  adicionarItemResumoCapacidade(
+    itens,
+    'vagasExtrasRestantes',
+    'Vagas extras restantes',
+    capacidade.vagasExtrasRestantes,
+  )
+  adicionarItemResumoCapacidade(
+    itens,
+    'controleCapacidadeAtivo',
+    'Controle ativo',
+    capacidade.controleCapacidadeAtivo,
+    (valor) => (valor === true ? 'Sim' : 'Não'),
+  )
+  adicionarItemResumoCapacidade(
+    itens,
+    'capacidadeRegularAtingida',
+    'Capacidade regular atingida',
+    capacidade.capacidadeRegularAtingida,
+    (valor) => (valor === true ? 'Sim' : 'Não'),
+  )
+  adicionarItemResumoCapacidade(
+    itens,
+    'capacidadeTotalAtingida',
+    'Capacidade total atingida',
+    capacidade.capacidadeTotalAtingida,
+    (valor) => (valor === true ? 'Sim' : 'Não'),
+  )
+  adicionarItemResumoCapacidade(
+    itens,
+    'utilizaVagaExtra',
+    'Utiliza vaga extra',
+    capacidade.utilizaVagaExtra,
+    (valor) => (valor === true ? 'Sim' : 'Não'),
+  )
+
+  return itens
 })
 const bloquearConfirmacaoAgendamento = computed(() => {
   if (!painelAgendamentoAberto.value) {
@@ -449,6 +482,22 @@ function normalizarBooleano(valor) {
   return valor === true || valor === 'true' || valor === 1 || valor === '1'
 }
 
+function normalizarBooleanoOpcional(valor) {
+  if (valor === undefined || valor === null) {
+    return null
+  }
+
+  if (valor === true || valor === 'true' || valor === 1 || valor === '1') {
+    return true
+  }
+
+  if (valor === false || valor === 'false' || valor === 0 || valor === '0') {
+    return false
+  }
+
+  return null
+}
+
 function normalizarNumeroOpcional(valor, permitirZero = true) {
   const numero = Number(valor)
   if (!Number.isFinite(numero)) {
@@ -490,6 +539,22 @@ function primeiroValor(...valores) {
   }
 
   return ''
+}
+
+function valorInformado(valor) {
+  return !(valor === undefined || valor === null || (typeof valor === 'string' && !valor.trim()))
+}
+
+function adicionarItemResumoCapacidade(lista, chave, rotulo, valor, formatter = (item) => item) {
+  if (!valorInformado(valor)) {
+    return
+  }
+
+  lista.push({
+    chave,
+    rotulo,
+    valor: formatter(valor),
+  })
 }
 
 function obterListaTextos(valor) {
@@ -811,14 +876,12 @@ function normalizarPreviaAgendamento(item = {}, aulaSelecionada = null, direito 
     capacidade: {
       capacidadeRegular: normalizarNumeroOpcional(
         primeiroValor(capacidadeBase.capacidadeRegular, base.capacidadeRegular),
-        false,
       ),
       limiteParticipantesExtras: normalizarNumeroOpcional(
         primeiroValor(capacidadeBase.limiteParticipantesExtras, base.limiteParticipantesExtras),
       ),
       capacidadeTotal: normalizarNumeroOpcional(
         primeiroValor(capacidadeBase.capacidadeTotal, base.capacidadeTotal, base.limite),
-        false,
       ),
       alunosRegularesEsperados: normalizarNumeroOpcional(
         primeiroValor(capacidadeBase.alunosRegularesEsperados, base.alunosRegularesEsperados),
@@ -841,16 +904,16 @@ function normalizarPreviaAgendamento(item = {}, aulaSelecionada = null, direito 
       vagasExtrasRestantes: normalizarNumeroOpcional(
         primeiroValor(capacidadeBase.vagasExtrasRestantes, base.vagasExtrasRestantes),
       ),
-      controleCapacidadeAtivo: normalizarBooleano(
+      controleCapacidadeAtivo: normalizarBooleanoOpcional(
         primeiroValor(capacidadeBase.controleCapacidadeAtivo, base.controleCapacidadeAtivo),
       ),
-      capacidadeRegularAtingida: normalizarBooleano(
+      capacidadeRegularAtingida: normalizarBooleanoOpcional(
         primeiroValor(capacidadeBase.capacidadeRegularAtingida, base.capacidadeRegularAtingida),
       ),
-      capacidadeTotalAtingida: normalizarBooleano(
+      capacidadeTotalAtingida: normalizarBooleanoOpcional(
         primeiroValor(capacidadeBase.capacidadeTotalAtingida, base.capacidadeTotalAtingida, base.lotada),
       ),
-      utilizaVagaExtra: normalizarBooleano(
+      utilizaVagaExtra: normalizarBooleanoOpcional(
         primeiroValor(capacidadeBase.utilizaVagaExtra, base.utilizaVagaExtra),
       ),
       limite: normalizarNumero(primeiroValor(capacidadeBase.limite, base.limite), 0),
@@ -858,7 +921,7 @@ function normalizarPreviaAgendamento(item = {}, aulaSelecionada = null, direito 
         primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual, base.ocupacaoTotal),
         0,
       ),
-      lotada: normalizarBooleano(primeiroValor(capacidadeBase.lotada, base.turmaLotada)),
+      lotada: normalizarBooleanoOpcional(primeiroValor(capacidadeBase.lotada, base.turmaLotada)),
     },
     turmaLotada: normalizarBooleano(
       primeiroValor(capacidadeBase.lotada, base.turmaLotada, capacidadeBase.capacidadeTotalAtingida),

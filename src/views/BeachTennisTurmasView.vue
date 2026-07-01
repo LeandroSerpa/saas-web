@@ -106,7 +106,7 @@ function normalizarTurmaFormulario(item = {}) {
     nivelBeachTennis: item.nivelBeachTennis || item.nivel || '',
     competicao: item.competicao === true,
     diasSemana: normalizarArrayBeachTennis(item.diasSemana || item.dias || item.diasAtendimento),
-    horarioInicio: item.horarioInicio || item.horaInicio || '',
+    horarioInicio: normalizarHorarioCampo(item.horarioInicio || item.horaInicio || ''),
     duracaoMinutos: Number(item.duracaoMinutos || item.duracao || 60) || 60,
     capacidadeRegular,
     limiteParticipantesExtras,
@@ -125,11 +125,15 @@ function montarPayloadTurma(base = turma.value, overrides = {}) {
     ...overrides,
   }
 
-  const capacidadeRegularInformada = normalizarInteiroOpcionalPositivo(dados.capacidadeRegular)
-  const vagasLegado = normalizarInteiroOpcionalPositivo(dados.vagas)
-  const capacidadeRegular = capacidadeRegularInformada
-  const vagas = capacidadeRegularInformada ?? (dados.usaVagasLegado === true ? vagasLegado : null)
-  const limiteParticipantesExtras = normalizarInteiroOpcionalZeroOuMais(dados.limiteParticipantesExtras)
+  const capacidadeRegularInformada = normalizarInteiroOpcionalClaro(dados.capacidadeRegular, { minimo: 1 })
+  const vagasLegado = normalizarInteiroOpcionalClaro(dados.vagas, { minimo: 1 })
+  const limiteParticipantesExtrasInformado = normalizarInteiroOpcionalClaro(dados.limiteParticipantesExtras, {
+    minimo: 0,
+  })
+  const capacidadeRegular = capacidadeRegularInformada.valor
+  const vagas = capacidadeRegularInformada.valor ?? (dados.usaVagasLegado === true ? vagasLegado.valor : null)
+  const limiteParticipantesExtras =
+    capacidadeRegular === null ? null : limiteParticipantesExtrasInformado.valor
 
   return {
     nome: String(dados.nome || '').trim(),
@@ -139,7 +143,7 @@ function montarPayloadTurma(base = turma.value, overrides = {}) {
     horarioInicio: normalizarHorarioPayload(dados.horarioInicio),
     duracaoMinutos: normalizarInteiroPositivo(dados.duracaoMinutos, 60),
     capacidadeRegular,
-    limiteParticipantesExtras: capacidadeRegular === null ? null : limiteParticipantesExtras,
+    limiteParticipantesExtras,
     vagas,
     funcionarioId: normalizarIdOpcional(dados.professorResponsavelId || dados.funcionarioId),
     ativo: dados.ativo !== false,
@@ -182,6 +186,11 @@ function capacidadeExibidaTurma(item = {}) {
   return capacidade.capacidadeTotalExibicao ?? capacidade.capacidadeRegularExibicao
 }
 
+function capacidadeRegularExibidaTurma(item = {}) {
+  const capacidade = interpretarCapacidadeTurma(item)
+  return capacidade.capacidadeRegularExibicao
+}
+
 function turmaCheiaParaCard(item = {}) {
   const capacidadeTotal = capacidadeExibidaTurma(item)
   return Boolean(capacidadeTotal > 0 && obterQuantidadeAlunos(item) >= capacidadeTotal)
@@ -201,7 +210,7 @@ function rotuloDias(item = {}) {
 }
 
 function formatarHorario(valor) {
-  return String(valor || '').trim() || '-'
+  return normalizarHorarioCampo(valor) || '-'
 }
 
 function obterNomeResponsavel(item = {}) {
@@ -246,24 +255,36 @@ function normalizarInteiroPositivo(valor, fallback = null) {
   return Number.isInteger(numero) && numero > 0 ? numero : fallback
 }
 
-function normalizarInteiroOpcionalPositivo(valor) {
+function normalizarInteiroOpcionalClaro(valor, { minimo = null } = {}) {
   const texto = String(valor ?? '').trim()
+
   if (!texto) {
-    return null
+    return {
+      valor: null,
+      valido: true,
+    }
+  }
+
+  if (!/^-?\d+$/.test(texto)) {
+    return {
+      valor: null,
+      valido: false,
+    }
   }
 
   const numero = Number(texto)
-  return Number.isInteger(numero) && numero > 0 ? numero : null
-}
 
-function normalizarInteiroOpcionalZeroOuMais(valor) {
-  const texto = String(valor ?? '').trim()
-  if (!texto) {
-    return null
+  if (!Number.isInteger(numero) || (minimo !== null && numero < minimo)) {
+    return {
+      valor: null,
+      valido: false,
+    }
   }
 
-  const numero = Number(texto)
-  return Number.isInteger(numero) && numero >= 0 ? numero : null
+  return {
+    valor: numero,
+    valido: true,
+  }
 }
 
 function normalizarIdOpcional(valor) {
@@ -281,8 +302,24 @@ function normalizarTextoOpcional(valor) {
   return texto || null
 }
 
-function normalizarHorarioPayload(valor) {
+function normalizarHorarioCampo(valor) {
   const texto = String(valor ?? '').trim()
+
+  if (!texto) {
+    return ''
+  }
+
+  const coincidencia = texto.match(/(\d{2}):(\d{2})(?::\d{2})?/)
+
+  if (coincidencia) {
+    return `${coincidencia[1]}:${coincidencia[2]}`
+  }
+
+  return texto
+}
+
+function normalizarHorarioPayload(valor) {
+  const texto = normalizarHorarioCampo(valor)
   return horarioValido(texto) ? texto : null
 }
 
@@ -307,7 +344,7 @@ function validarTurmaFormulario() {
     }
   }
 
-  const horario = String(turma.value.horarioInicio || '').trim()
+  const horario = normalizarHorarioCampo(turma.value.horarioInicio)
   if (!horario) {
     return {
       campo: 'horario',
@@ -332,31 +369,27 @@ function validarTurmaFormulario() {
 
   const capacidadeRegularTexto = String(turma.value.capacidadeRegular ?? '').trim()
   const limiteExtrasTexto = String(turma.value.limiteParticipantesExtras ?? '').trim()
+  const capacidadeRegular = normalizarInteiroOpcionalClaro(turma.value.capacidadeRegular, { minimo: 1 })
+  const limiteExtras = normalizarInteiroOpcionalClaro(turma.value.limiteParticipantesExtras, { minimo: 0 })
 
   if (!capacidadeRegularTexto && limiteExtrasTexto) {
     return {
       campo: 'capacidadeRegular',
-      mensagem: 'Informe a capacidade regular para permitir vagas extras.',
+      mensagem: 'Informe a capacidade regular para utilizar vagas extras.',
     }
   }
 
-  if (capacidadeRegularTexto) {
-    const capacidadeRegular = Number(capacidadeRegularTexto)
-    if (!Number.isInteger(capacidadeRegular) || capacidadeRegular <= 0) {
-      return {
-        campo: 'capacidadeRegular',
-        mensagem: 'A capacidade regular deve ser um número inteiro maior que zero.',
-      }
+  if (capacidadeRegularTexto && !capacidadeRegular.valido) {
+    return {
+      campo: 'capacidadeRegular',
+      mensagem: 'A capacidade regular deve ser um número inteiro maior que zero.',
     }
   }
 
-  if (limiteExtrasTexto) {
-    const limiteExtras = Number(limiteExtrasTexto)
-    if (!Number.isInteger(limiteExtras) || limiteExtras < 0) {
-      return {
-        campo: 'limiteExtras',
-        mensagem: 'As vagas extras devem ser um número inteiro maior ou igual a zero.',
-      }
+  if (capacidadeRegularTexto && limiteExtrasTexto && !limiteExtras.valido) {
+    return {
+      campo: 'limiteExtras',
+      mensagem: 'As vagas extras devem ser um número inteiro maior ou igual a zero.',
     }
   }
 
@@ -788,7 +821,10 @@ onBeforeUnmount(() => {
               </div>
               <div class="badge-vagas">
                 <strong>{{ obterQuantidadeAlunos(item) }}</strong>
-                <span>/ {{ capacidadeExibidaTurma(item) || '∞' }} {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }}</span>
+                <span v-if="capacidadeRegularExibidaTurma(item) !== null">
+                  / {{ capacidadeRegularExibidaTurma(item) }} {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }} fixos
+                </span>
+                <span v-else>{{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }} vinculados</span>
               </div>
             </div>
 
@@ -797,7 +833,7 @@ onBeforeUnmount(() => {
               <p><strong>Horário:</strong> {{ formatarHorario(item.horarioInicio) }}</p>
               <p><strong>Duração:</strong> {{ item.duracaoMinutos || 60 }} min</p>
               <p><strong>{{ termoResponsavelSingular }}:</strong> {{ item.professorResponsavelNome || obterNomeResponsavel(item.professorResponsavel || {}) || '-' }}</p>
-              <p><strong>Capacidade:</strong> {{ textoCapacidadeTurma(item) }}</p>
+              <p>{{ textoCapacidadeTurma(item) }}</p>
             </div>
 
             <p v-if="item.observacoes" class="observacoes">{{ item.observacoes }}</p>

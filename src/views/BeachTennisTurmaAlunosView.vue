@@ -1080,7 +1080,7 @@ onBeforeUnmount(() => {
               <p><strong>Horário:</strong> {{ formatarHorario(item.horarioInicio) }}</p>
               <p><strong>{{ termoResponsavelSingular }}:</strong> {{ item.professorResponsavelNome || '-' }}</p>
               <p><strong>{{ termoParticipantePlural }}:</strong> {{ normalizarQuantidadeAlunos(item) }}</p>
-              <p><strong>Capacidade:</strong> {{ formatarCapacidadeTurma(item) }}</p>
+              <p>{{ formatarCapacidadeTurma(item) }}</p>
             </div>
             <div class="chips-participante">
               <span v-if="rotuloNivelBeachTennis(item.nivelBeachTennis)" class="chip">

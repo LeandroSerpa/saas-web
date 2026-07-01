@@ -1,15 +1,29 @@
 function normalizarInteiroOpcional(valor, { permitirZero = false } = {}) {
-  const numero = Number(valor)
+  const texto = String(valor ?? '').trim()
 
-  if (!Number.isFinite(numero)) {
+  if (!texto) {
+    return null
+  }
+
+  if (!/^-?\d+$/.test(texto)) {
+    return null
+  }
+
+  const numero = Number(texto)
+
+  if (!Number.isInteger(numero)) {
     return null
   }
 
   if (permitirZero) {
-    return numero >= 0 && Number.isInteger(numero) ? numero : null
+    return numero >= 0 ? numero : null
   }
 
-  return numero > 0 && Number.isInteger(numero) ? numero : null
+  return numero > 0 ? numero : null
+}
+
+function formatarQuantidade(valor, singular, plural) {
+  return `${valor} ${valor === 1 ? singular : plural}`
 }
 
 export function interpretarCapacidadeTurma(fonte = {}) {
@@ -46,7 +60,7 @@ export function formatarResumoCapacidadeTurma(fonte = {}, modo = 'lista') {
   const capacidade = interpretarCapacidadeTurma(fonte)
 
   if (capacidade.capacidadeRegularExibicao === null) {
-    return 'Capacidade não controlada.'
+    return 'Capacidade não controlada'
   }
 
   const regular = capacidade.capacidadeRegularExibicao
@@ -55,15 +69,15 @@ export function formatarResumoCapacidadeTurma(fonte = {}, modo = 'lista') {
 
   if (extras > 0) {
     if (modo === 'formulario') {
-      return `${regular} regulares + ${extras} extras = ${total} participantes por aula.`
+      return `${formatarQuantidade(regular, 'regular', 'regulares')} + ${formatarQuantidade(extras, 'extra', 'extras')} = ${formatarQuantidade(total, 'participante', 'participantes')} por aula.`
     }
 
-    return `Capacidade: ${regular} regulares + ${extras} extras`
+    return `Capacidade: ${formatarQuantidade(regular, 'regular', 'regulares')} + ${formatarQuantidade(extras, 'extra', 'extras')} — limite total de ${formatarQuantidade(total, 'participante', 'participantes')}`
   }
 
   if (modo === 'formulario') {
-    return `Capacidade total por aula: ${total} participantes.`
+    return `Capacidade total por aula: ${formatarQuantidade(total, 'participante', 'participantes')}.`
   }
 
-  return `Capacidade: ${total} participantes`
+  return `Capacidade: ${formatarQuantidade(total, 'participante', 'participantes')}`
 }
