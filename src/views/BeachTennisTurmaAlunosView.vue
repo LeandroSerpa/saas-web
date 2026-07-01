@@ -29,6 +29,7 @@ import {
   normalizarTextoPesquisaTurma,
   ordenarAlunosNaTurma,
 } from '@/utils/beachTennisTurmaAlunos'
+import { formatarResumoCapacidadeTurma, interpretarCapacidadeTurma } from '@/utils/capacidadeTurma'
 
 const route = useRoute()
 const router = useRouter()
@@ -101,7 +102,9 @@ const quantidadeAlterada = computed(() => {
   const diferenca = diferencaIds(idsIniciais.value, idsAtuais.value)
   return diferenca.adicionados.length + diferenca.removidos.length
 })
-const estadoCapacidade = computed(() => criarEstadoCapacidadeTurma(turma.value?.vagas, quantidadeFinal.value))
+const estadoCapacidade = computed(() =>
+  criarEstadoCapacidadeTurma(turma.value?.capacidadeRegular ?? turma.value?.vagas, quantidadeFinal.value),
+)
 const capacidade = computed(() => estadoCapacidade.value.capacidade)
 const capacidadeIlimitada = computed(() => estadoCapacidade.value.capacidadeIlimitada)
 const vagasDisponiveis = computed(() => estadoCapacidade.value.vagasDisponiveis)
@@ -303,6 +306,12 @@ function normalizarTurmaResumo(item = {}) {
     return null
   }
 
+  const capacidadeRegular = Number.isFinite(Number(item.capacidadeRegular))
+    ? Number(item.capacidadeRegular)
+    : Number.isFinite(Number(item.vagas))
+      ? Number(item.vagas)
+      : null
+
   return {
     ...item,
     id,
@@ -312,7 +321,16 @@ function normalizarTurmaResumo(item = {}) {
     horarioInicio: String(item.horarioInicio || item.horaInicio || '').trim(),
     professorResponsavelNome: String(item.professorResponsavelNome || item.nomeProfessor || item.funcionarioNome || '').trim(),
     quantidadeAlunos: normalizarQuantidadeAlunos(item),
-    vagas: Number.isFinite(Number(item.vagas)) ? Number(item.vagas) : 0,
+    capacidadeRegular,
+    limiteParticipantesExtras: Number.isFinite(Number(item.limiteParticipantesExtras))
+      ? Number(item.limiteParticipantesExtras)
+      : null,
+    capacidadeTotal: Number.isFinite(Number(item.capacidadeTotal))
+      ? Number(item.capacidadeTotal)
+      : capacidadeRegular,
+    controleCapacidadeAtivo:
+      item.controleCapacidadeAtivo === true || capacidadeRegular !== null || item.limiteParticipantesExtras != null,
+    vagas: capacidadeRegular ?? 0,
   }
 }
 
@@ -445,9 +463,13 @@ function formatarHorario(valor) {
   return String(valor || '').trim() || '-'
 }
 
-function formatarCapacidadeTurma(valor) {
-  const capacidadeTurma = normalizarCapacidade(valor)
-  return capacidadeTurma === null ? 'Ilimitada' : `${capacidadeTurma} vagas`
+function capacidadeExibidaTurma(item = {}) {
+  const capacidade = interpretarCapacidadeTurma(item)
+  return capacidade.capacidadeTotalExibicao ?? capacidade.capacidadeRegularExibicao
+}
+
+function formatarCapacidadeTurma(item = {}) {
+  return formatarResumoCapacidadeTurma(item, 'lista')
 }
 
 function limparMensagens() {
@@ -1058,7 +1080,7 @@ onBeforeUnmount(() => {
               <p><strong>Horário:</strong> {{ formatarHorario(item.horarioInicio) }}</p>
               <p><strong>{{ termoResponsavelSingular }}:</strong> {{ item.professorResponsavelNome || '-' }}</p>
               <p><strong>{{ termoParticipantePlural }}:</strong> {{ normalizarQuantidadeAlunos(item) }}</p>
-              <p><strong>Capacidade:</strong> {{ formatarCapacidadeTurma(item.vagas) }}</p>
+              <p><strong>Capacidade:</strong> {{ formatarCapacidadeTurma(item) }}</p>
             </div>
             <div class="chips-participante">
               <span v-if="rotuloNivelBeachTennis(item.nivelBeachTennis)" class="chip">

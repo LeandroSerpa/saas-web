@@ -183,6 +183,128 @@ const previaExigeConfirmacao = computed(() =>
 const turmaLotadaExigeConfirmacao = computed(() =>
   Boolean(previaAgendamento.value?.turmaLotada === true),
 )
+const mensagemCapacidadePrevia = computed(() => {
+  const capacidade = previaAgendamento.value?.capacidade
+  if (!capacidade) {
+    return null
+  }
+
+  const controleAtivo =
+    capacidade.controleCapacidadeAtivo === true || capacidade.capacidadeRegular !== null
+
+  if (!controleAtivo) {
+    return {
+      tipo: 'info',
+      texto: 'Esta turma não possui limite de participantes configurado.',
+    }
+  }
+
+  if (capacidade.capacidadeTotalAtingida === true) {
+    return {
+      tipo: 'erro',
+      texto: 'A turma atingiu a capacidade total de participantes.',
+    }
+  }
+
+  if (capacidade.capacidadeRegularAtingida === true && capacidade.utilizaVagaExtra === true) {
+    return {
+      tipo: 'aviso',
+      texto:
+        capacidade.vagasExtrasRestantes !== null
+          ? `A capacidade regular da turma está preenchida. Esta reposição utilizará uma vaga extra. Restam ${capacidade.vagasExtrasRestantes} vagas extras.`
+          : 'A capacidade regular da turma está preenchida. Esta reposição utilizará uma vaga extra.',
+    }
+  }
+
+  return {
+    tipo: 'sucesso',
+    texto: 'Existe vaga regular disponível para esta reposição.',
+  }
+})
+const deveExibirMensagemCapacidadePrevia = computed(() => {
+  const mensagem = mensagemCapacidadePrevia.value?.texto
+  if (!mensagem) {
+    return false
+  }
+
+  const textosBackend = [
+    ...(previaAgendamento.value?.bloqueios || []),
+    ...(previaAgendamento.value?.alertas || []),
+    previaAgendamento.value?.motivoBloqueio || '',
+  ]
+    .map((texto) => normalizarTexto(texto).toLowerCase())
+    .filter(Boolean)
+
+  const textoMensagem = normalizarTexto(mensagem).toLowerCase()
+  return !textosBackend.some((texto) => texto.includes(textoMensagem) || textoMensagem.includes(texto))
+})
+const resumoCapacidadePrevia = computed(() => {
+  const capacidade = previaAgendamento.value?.capacidade
+  if (!capacidade || capacidade.capacidadeRegular === null) {
+    return []
+  }
+
+  return [
+    { chave: 'capacidadeRegular', rotulo: 'Capacidade regular', valor: capacidade.capacidadeRegular },
+    {
+      chave: 'limiteParticipantesExtras',
+      rotulo: 'Vagas extras',
+      valor: capacidade.limiteParticipantesExtras ?? 0,
+    },
+    { chave: 'capacidadeTotal', rotulo: 'Capacidade total', valor: capacidade.capacidadeTotal ?? capacidade.capacidadeRegular },
+    {
+      chave: 'alunosRegularesEsperados',
+      rotulo: 'Alunos regulares',
+      valor: capacidade.alunosRegularesEsperados ?? 0,
+    },
+    {
+      chave: 'reposicoesReservadas',
+      rotulo: 'Reposições reservadas',
+      valor: capacidade.reposicoesReservadas ?? 0,
+    },
+    {
+      chave: 'participantesExperimentais',
+      rotulo: 'Participantes experimentais',
+      valor: capacidade.participantesExperimentais ?? 0,
+    },
+    {
+      chave: 'participantesExtrasAtuais',
+      rotulo: 'Participantes extras atuais',
+      valor: capacidade.participantesExtrasAtuais ?? 0,
+    },
+    { chave: 'ocupacaoTotal', rotulo: 'Ocupação total', valor: capacidade.ocupacaoTotal ?? 0 },
+    {
+      chave: 'vagasRegularesRestantes',
+      rotulo: 'Vagas regulares restantes',
+      valor: capacidade.vagasRegularesRestantes ?? 0,
+    },
+    {
+      chave: 'vagasExtrasRestantes',
+      rotulo: 'Vagas extras restantes',
+      valor: capacidade.vagasExtrasRestantes ?? 0,
+    },
+    {
+      chave: 'controleCapacidadeAtivo',
+      rotulo: 'Controle ativo',
+      valor: capacidade.controleCapacidadeAtivo === true ? 'Sim' : 'Não',
+    },
+    {
+      chave: 'capacidadeRegularAtingida',
+      rotulo: 'Capacidade regular atingida',
+      valor: capacidade.capacidadeRegularAtingida === true ? 'Sim' : 'Não',
+    },
+    {
+      chave: 'capacidadeTotalAtingida',
+      rotulo: 'Capacidade total atingida',
+      valor: capacidade.capacidadeTotalAtingida === true ? 'Sim' : 'Não',
+    },
+    {
+      chave: 'utilizaVagaExtra',
+      rotulo: 'Utiliza vaga extra',
+      valor: capacidade.utilizaVagaExtra === true ? 'Sim' : 'Não',
+    },
+  ]
+})
 const bloquearConfirmacaoAgendamento = computed(() => {
   if (!painelAgendamentoAberto.value) {
     return true
@@ -325,6 +447,19 @@ function normalizarTexto(valor, fallback = '') {
 
 function normalizarBooleano(valor) {
   return valor === true || valor === 'true' || valor === 1 || valor === '1'
+}
+
+function normalizarNumeroOpcional(valor, permitirZero = true) {
+  const numero = Number(valor)
+  if (!Number.isFinite(numero)) {
+    return null
+  }
+
+  if (permitirZero) {
+    return numero >= 0 ? numero : null
+  }
+
+  return numero > 0 ? numero : null
 }
 
 function primeiroValor(...valores) {
@@ -674,17 +809,63 @@ function normalizarPreviaAgendamento(item = {}, aulaSelecionada = null, direito 
     direito: dadosDireito,
     aulaDestino,
     capacidade: {
+      capacidadeRegular: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.capacidadeRegular, base.capacidadeRegular),
+        false,
+      ),
+      limiteParticipantesExtras: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.limiteParticipantesExtras, base.limiteParticipantesExtras),
+      ),
+      capacidadeTotal: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.capacidadeTotal, base.capacidadeTotal, base.limite),
+        false,
+      ),
+      alunosRegularesEsperados: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.alunosRegularesEsperados, base.alunosRegularesEsperados),
+      ),
+      reposicoesReservadas: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.reposicoesReservadas, base.reposicoesReservadas),
+      ),
+      participantesExperimentais: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.participantesExperimentais, base.participantesExperimentais),
+      ),
+      participantesExtrasAtuais: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.participantesExtrasAtuais, base.participantesExtrasAtuais),
+      ),
+      ocupacaoTotal: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.ocupacaoTotal, base.ocupacaoTotal, base.ocupacaoAtual),
+      ),
+      vagasRegularesRestantes: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.vagasRegularesRestantes, base.vagasRegularesRestantes),
+      ),
+      vagasExtrasRestantes: normalizarNumeroOpcional(
+        primeiroValor(capacidadeBase.vagasExtrasRestantes, base.vagasExtrasRestantes),
+      ),
+      controleCapacidadeAtivo: normalizarBooleano(
+        primeiroValor(capacidadeBase.controleCapacidadeAtivo, base.controleCapacidadeAtivo),
+      ),
+      capacidadeRegularAtingida: normalizarBooleano(
+        primeiroValor(capacidadeBase.capacidadeRegularAtingida, base.capacidadeRegularAtingida),
+      ),
+      capacidadeTotalAtingida: normalizarBooleano(
+        primeiroValor(capacidadeBase.capacidadeTotalAtingida, base.capacidadeTotalAtingida, base.lotada),
+      ),
+      utilizaVagaExtra: normalizarBooleano(
+        primeiroValor(capacidadeBase.utilizaVagaExtra, base.utilizaVagaExtra),
+      ),
       limite: normalizarNumero(primeiroValor(capacidadeBase.limite, base.limite), 0),
       ocupacaoAtual: normalizarNumero(
-        primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual),
+        primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual, base.ocupacaoTotal),
         0,
       ),
       lotada: normalizarBooleano(primeiroValor(capacidadeBase.lotada, base.turmaLotada)),
     },
-    turmaLotada: normalizarBooleano(primeiroValor(capacidadeBase.lotada, base.turmaLotada)),
+    turmaLotada: normalizarBooleano(
+      primeiroValor(capacidadeBase.lotada, base.turmaLotada, capacidadeBase.capacidadeTotalAtingida),
+    ),
     limite: normalizarNumero(primeiroValor(capacidadeBase.limite, base.limite), 0),
     ocupacaoAtual: normalizarNumero(
-      primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual),
+      primeiroValor(capacidadeBase.ocupacaoAtual, base.ocupacaoAtual, base.ocupacaoTotal),
       0,
     ),
     raw: base,
@@ -2523,24 +2704,19 @@ onBeforeUnmount(() => {
                   <p v-if="previaAgendamento.motivoBloqueio" class="linha-secundaria aviso-linha">
                     {{ previaAgendamento.motivoBloqueio }}
                   </p>
-                  <p class="linha-secundaria">
-                    <strong>Capacidade:</strong>
-                    {{
-                      previaAgendamento.capacidade
-                        ? `${previaAgendamento.capacidade.ocupacaoAtual}/${previaAgendamento.capacidade.limite}`
-                        : '-'
-                    }}
+                  <p
+                    v-if="deveExibirMensagemCapacidadePrevia"
+                    class="linha-secundaria"
+                    :class="`capacidade-${mensagemCapacidadePrevia?.tipo || 'info'}`"
+                  >
+                    {{ mensagemCapacidadePrevia?.texto }}
                   </p>
-                  <p class="linha-secundaria">
-                    <strong>Lotada:</strong>
-                    {{
-                      previaAgendamento.capacidade
-                        ? previaAgendamento.capacidade.lotada
-                          ? 'Sim'
-                          : 'Não'
-                        : '-'
-                    }}
-                  </p>
+                  <div v-if="resumoCapacidadePrevia.length" class="grade-capacidade-previa">
+                    <div v-for="item in resumoCapacidadePrevia" :key="item.chave" class="mini-capacidade">
+                      <span>{{ item.rotulo }}</span>
+                      <strong>{{ item.valor }}</strong>
+                    </div>
+                  </div>
                   <p v-if="previaAgendamento.turmaLotada" class="linha-secundaria aviso-linha">
                     A turma está lotada e exige confirmação explícita.
                   </p>
@@ -3199,6 +3375,52 @@ th {
   overflow-wrap: anywhere;
 }
 
+.capacidade-info {
+  color: var(--app-text-muted);
+}
+
+.capacidade-sucesso {
+  color: var(--app-success);
+}
+
+.capacidade-aviso {
+  color: var(--app-warning);
+  font-weight: 700;
+}
+
+.capacidade-erro {
+  color: var(--app-danger);
+  font-weight: 700;
+}
+
+.grade-capacidade-previa {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mini-capacidade {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+
+.mini-capacidade span {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mini-capacidade strong {
+  font-size: 18px;
+  font-weight: 900;
+}
+
 .aviso-linha {
   color: var(--app-warning);
   font-weight: 700;
@@ -3301,7 +3523,8 @@ th {
   .campos-filtros,
   .grade-resumo,
   .grade-detalhes,
-  .grade-origem-destino {
+  .grade-origem-destino,
+  .grade-capacidade-previa {
     grid-template-columns: 1fr;
   }
 

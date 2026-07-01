@@ -24,6 +24,7 @@ import {
   contextoGestaoEsportiva,
   recarregarContextoGestaoEsportiva,
 } from '@/utils/gestaoEsportiva'
+import { formatarResumoCapacidadeTurma, interpretarCapacidadeTurma } from '@/utils/capacidadeTurma'
 
 const router = useRouter()
 const EVENTO_TURMAS_BEACH_TENNIS_ATUALIZADAS = 'beach-tennis-turmas-atualizadas'
@@ -41,7 +42,8 @@ const nomeCampoRef = ref(null)
 const nivelCampoRef = ref(null)
 const horarioCampoRef = ref(null)
 const duracaoCampoRef = ref(null)
-const vagasCampoRef = ref(null)
+const capacidadeRegularCampoRef = ref(null)
+const limiteExtrasCampoRef = ref(null)
 const diasCampoRef = ref(null)
 const professorCampoRef = ref(null)
 const ativoCampoRef = ref(null)
@@ -68,6 +70,8 @@ const descricaoFormulario = computed(() =>
 const descricaoLista = computed(() =>
   `Cards enxutos com quantidade de ${termoParticipantePlural.value.toLocaleLowerCase('pt-BR')} e responsável informado pela API.`,
 )
+const resumoCapacidadeFormulario = computed(() => formatarResumoCapacidadeTurma(turma.value, 'formulario'))
+const capacidadeTurmaFormulario = computed(() => interpretarCapacidadeTurma(turma.value))
 const professoresDisponiveis = computed(() =>
   [...funcionarios.value]
     .filter((item) => item && item.ativo !== false)
@@ -83,6 +87,8 @@ function criarTurmaInicial() {
     diasSemana: [],
     horarioInicio: '',
     duracaoMinutos: 60,
+    capacidadeRegular: '',
+    limiteParticipantesExtras: '',
     vagas: '',
     professorResponsavelId: '',
     observacoes: '',
@@ -91,6 +97,10 @@ function criarTurmaInicial() {
 }
 
 function normalizarTurmaFormulario(item = {}) {
+  const capacidadeRegular = item.capacidadeRegular ?? ''
+  const usaVagasLegado = item.capacidadeRegular == null && item.vagas != null
+  const limiteParticipantesExtras = item.limiteParticipantesExtras ?? ''
+
   return {
     nome: item.nome || '',
     nivelBeachTennis: item.nivelBeachTennis || item.nivel || '',
@@ -98,7 +108,10 @@ function normalizarTurmaFormulario(item = {}) {
     diasSemana: normalizarArrayBeachTennis(item.diasSemana || item.dias || item.diasAtendimento),
     horarioInicio: item.horarioInicio || item.horaInicio || '',
     duracaoMinutos: Number(item.duracaoMinutos || item.duracao || 60) || 60,
-    vagas: item.vagas ?? '',
+    capacidadeRegular,
+    limiteParticipantesExtras,
+    vagas: item.vagas ?? item.capacidadeRegular ?? '',
+    usaVagasLegado,
     professorResponsavelId:
       item.professorResponsavelId || item.professorId || item.funcionarioId || item.responsavelId || '',
     observacoes: item.observacoes || item.observacao || '',
@@ -112,6 +125,12 @@ function montarPayloadTurma(base = turma.value, overrides = {}) {
     ...overrides,
   }
 
+  const capacidadeRegularInformada = normalizarInteiroOpcionalPositivo(dados.capacidadeRegular)
+  const vagasLegado = normalizarInteiroOpcionalPositivo(dados.vagas)
+  const capacidadeRegular = capacidadeRegularInformada
+  const vagas = capacidadeRegularInformada ?? (dados.usaVagasLegado === true ? vagasLegado : null)
+  const limiteParticipantesExtras = normalizarInteiroOpcionalZeroOuMais(dados.limiteParticipantesExtras)
+
   return {
     nome: String(dados.nome || '').trim(),
     nivel: String(dados.nivelBeachTennis || dados.nivel || '').trim().toUpperCase() || null,
@@ -119,7 +138,9 @@ function montarPayloadTurma(base = turma.value, overrides = {}) {
     diasSemana: normalizarDiasSemanaPayload(dados.diasSemana),
     horarioInicio: normalizarHorarioPayload(dados.horarioInicio),
     duracaoMinutos: normalizarInteiroPositivo(dados.duracaoMinutos, 60),
-    vagas: normalizarInteiroPositivo(dados.vagas, null),
+    capacidadeRegular,
+    limiteParticipantesExtras: capacidadeRegular === null ? null : limiteParticipantesExtras,
+    vagas,
     funcionarioId: normalizarIdOpcional(dados.professorResponsavelId || dados.funcionarioId),
     ativo: dados.ativo !== false,
     observacoes: normalizarTextoOpcional(dados.observacoes),
@@ -156,9 +177,18 @@ function obterQuantidadeAlunos(item = {}) {
   return Number.isFinite(Number(numero)) ? Number(numero) : 0
 }
 
+function capacidadeExibidaTurma(item = {}) {
+  const capacidade = interpretarCapacidadeTurma(item)
+  return capacidade.capacidadeTotalExibicao ?? capacidade.capacidadeRegularExibicao
+}
+
 function turmaCheiaParaCard(item = {}) {
-  const vagas = Number(item.vagas || 0)
-  return Boolean(vagas > 0 && obterQuantidadeAlunos(item) >= vagas)
+  const capacidadeTotal = capacidadeExibidaTurma(item)
+  return Boolean(capacidadeTotal > 0 && obterQuantidadeAlunos(item) >= capacidadeTotal)
+}
+
+function textoCapacidadeTurma(item = {}) {
+  return formatarResumoCapacidadeTurma(item, 'lista')
 }
 
 function rotuloNivel(item = {}) {
@@ -214,6 +244,26 @@ function normalizarInteiroPositivo(valor, fallback = null) {
 
   const numero = Number(texto)
   return Number.isInteger(numero) && numero > 0 ? numero : fallback
+}
+
+function normalizarInteiroOpcionalPositivo(valor) {
+  const texto = String(valor ?? '').trim()
+  if (!texto) {
+    return null
+  }
+
+  const numero = Number(texto)
+  return Number.isInteger(numero) && numero > 0 ? numero : null
+}
+
+function normalizarInteiroOpcionalZeroOuMais(valor) {
+  const texto = String(valor ?? '').trim()
+  if (!texto) {
+    return null
+  }
+
+  const numero = Number(texto)
+  return Number.isInteger(numero) && numero >= 0 ? numero : null
 }
 
 function normalizarIdOpcional(valor) {
@@ -280,6 +330,36 @@ function validarTurmaFormulario() {
     }
   }
 
+  const capacidadeRegularTexto = String(turma.value.capacidadeRegular ?? '').trim()
+  const limiteExtrasTexto = String(turma.value.limiteParticipantesExtras ?? '').trim()
+
+  if (!capacidadeRegularTexto && limiteExtrasTexto) {
+    return {
+      campo: 'capacidadeRegular',
+      mensagem: 'Informe a capacidade regular para permitir vagas extras.',
+    }
+  }
+
+  if (capacidadeRegularTexto) {
+    const capacidadeRegular = Number(capacidadeRegularTexto)
+    if (!Number.isInteger(capacidadeRegular) || capacidadeRegular <= 0) {
+      return {
+        campo: 'capacidadeRegular',
+        mensagem: 'A capacidade regular deve ser um número inteiro maior que zero.',
+      }
+    }
+  }
+
+  if (limiteExtrasTexto) {
+    const limiteExtras = Number(limiteExtrasTexto)
+    if (!Number.isInteger(limiteExtras) || limiteExtras < 0) {
+      return {
+        campo: 'limiteExtras',
+        mensagem: 'As vagas extras devem ser um número inteiro maior ou igual a zero.',
+      }
+    }
+  }
+
   return null
 }
 
@@ -293,7 +373,8 @@ function focarCampoFormulario(campo) {
     nivel: nivelCampoRef,
     horario: horarioCampoRef,
     duracao: duracaoCampoRef,
-    vagas: vagasCampoRef,
+    capacidadeRegular: capacidadeRegularCampoRef,
+    limiteExtras: limiteExtrasCampoRef,
     dias: diasCampoRef,
     professor: professorCampoRef,
     ativo: ativoCampoRef,
@@ -311,8 +392,26 @@ function focarCampoFormulario(campo) {
 }
 
 function obterMensagemErro(error, fallback) {
-  const mensagem = typeof error?.message === 'string' ? error.message.trim() : ''
-  return mensagem || fallback
+  const candidatos = [
+    error?.response?.data?.message,
+    error?.response?.data?.mensagem,
+    error?.response?.data?.detail,
+    error?.response?.data?.error,
+    error?.data?.message,
+    error?.data?.mensagem,
+    error?.data?.detail,
+    error?.data?.error,
+    error?.message,
+  ]
+
+  for (const candidato of candidatos) {
+    const mensagem = String(candidato || '').trim()
+    if (mensagem) {
+      return mensagem
+    }
+  }
+
+  return fallback
 }
 
 async function carregarTurmas() {
@@ -567,8 +666,29 @@ onBeforeUnmount(() => {
           </label>
 
           <label>
-            Vagas
-            <input ref="vagasCampoRef" v-model="turma.vagas" type="number" min="1" step="1" />
+            Capacidade regular
+            <input
+              ref="capacidadeRegularCampoRef"
+              v-model="turma.capacidadeRegular"
+              type="number"
+              min="1"
+              step="1"
+            />
+            <small class="ajuda-campo">Quantidade-base de alunos fixos que participam da turma.</small>
+          </label>
+
+          <label>
+            Vagas extras
+            <input
+              ref="limiteExtrasCampoRef"
+              v-model="turma.limiteParticipantesExtras"
+              type="number"
+              min="0"
+              step="1"
+            />
+            <small class="ajuda-campo">
+              Quantidade adicional permitida para reposições e outros participantes eventuais.
+            </small>
           </label>
 
           <label v-if="temProfessoresDisponiveis">
@@ -620,6 +740,8 @@ onBeforeUnmount(() => {
           </label>
         </div>
 
+        <p class="resumo-capacidade-formulario">{{ resumoCapacidadeFormulario }}</p>
+
         <div class="rodape-formulario">
           <button class="botao principal" type="button" :disabled="salvandoTurma" @click="salvarTurma">
             {{ salvandoTurma ? 'Salvando...' : `Salvar ${termoGrupoSingular.toLocaleLowerCase('pt-BR')}` }}
@@ -666,7 +788,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="badge-vagas">
                 <strong>{{ obterQuantidadeAlunos(item) }}</strong>
-                <span>/ {{ item.vagas || '∞' }} {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }}</span>
+                <span>/ {{ capacidadeExibidaTurma(item) || '∞' }} {{ termoParticipantePlural.toLocaleLowerCase('pt-BR') }}</span>
               </div>
             </div>
 
@@ -675,6 +797,7 @@ onBeforeUnmount(() => {
               <p><strong>Horário:</strong> {{ formatarHorario(item.horarioInicio) }}</p>
               <p><strong>Duração:</strong> {{ item.duracaoMinutos || 60 }} min</p>
               <p><strong>{{ termoResponsavelSingular }}:</strong> {{ item.professorResponsavelNome || obterNomeResponsavel(item.professorResponsavel || {}) || '-' }}</p>
+              <p><strong>Capacidade:</strong> {{ textoCapacidadeTurma(item) }}</p>
             </div>
 
             <p v-if="item.observacoes" class="observacoes">{{ item.observacoes }}</p>
@@ -907,6 +1030,24 @@ textarea:focus {
 
 .estado-professor-vazio p {
   margin: 0;
+}
+
+.ajuda-campo {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.resumo-capacidade-formulario {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .rodape-formulario,

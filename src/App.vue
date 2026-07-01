@@ -500,6 +500,14 @@ function obterCabecalhoPadrao(nomeRota) {
       }
     }
 
+    if (nomeRota === 'relatorios-frequencia-esportiva') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: 'Relatório de frequência',
+        descricao: 'Consulte o histórico esportivo de frequência com filtros e paginação.',
+      }
+    }
+
     if (nomeRota === 'professores') {
       return {
         subtitulo: contextoEsportivo.value.nomeModalidade,
@@ -1234,6 +1242,9 @@ onBeforeUnmount(() => {
             <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">{{ rotuloGrupoEsportivoPlural }}</RouterLink>
             <RouterLink to="/aulas-frequencia" @click="fecharMenuMobile">Aulas e frequência</RouterLink>
             <RouterLink to="/reposicoes" @click="fecharMenuMobile">Reposições</RouterLink>
+            <RouterLink to="/relatorios/frequencia-esportiva" @click="fecharMenuMobile">
+              Relatório de frequência
+            </RouterLink>
             <RouterLink to="/professores" @click="fecharMenuMobile">Professores</RouterLink>
             <RouterLink to="/clientes" @click="fecharMenuMobile">{{ rotuloCadastroParticipanteMenu }}</RouterLink>
             <RouterLink to="/beach-tennis/alunos" @click="fecharMenuMobile">{{ rotuloParticipantePorGrupoMenu }}</RouterLink>

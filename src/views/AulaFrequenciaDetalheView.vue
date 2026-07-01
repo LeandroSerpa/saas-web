@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   EVENTO_EMPRESA_VISUALIZACAO,
   buscarAulaGestaoEsportiva,
+  buscarTurmaBeachTennis,
   cancelarAulaGestaoEsportiva,
   modoVisualizacaoEmpresaAtivo,
   reverterCancelamentoAulaGestaoEsportiva,
@@ -11,6 +12,7 @@ import {
 } from '@/services/api'
 import { rotuloCompeticaoBeachTennis, rotuloNivelBeachTennis } from '@/utils/beachTennis'
 import { formatarDataPtBrSemFuso } from '@/utils/datas'
+import { formatarResumoCapacidadeTurma, interpretarCapacidadeTurma } from '@/utils/capacidadeTurma'
 import {
   calcularResumoFrequencias,
   criarSnapshotParticipantes,
@@ -53,6 +55,7 @@ const erroDetalhe = ref('')
 const feedback = ref('')
 const tipoFeedback = ref('info')
 const aulaDetalhe = ref(null)
+const turmaDetalhe = ref(null)
 const participantesEdicao = ref([])
 const snapshotParticipantes = ref(new Map())
 const sequenciaDetalhe = ref(0)
@@ -117,6 +120,41 @@ const queryRetorno = computed(() => {
   const query = { ...route.query }
   delete query.aulaId
   return query
+})
+const capacidadeTurma = computed(() => interpretarCapacidadeTurma(turmaDetalhe.value || aulaDetalhe.value || {}))
+const resumoCapacidadeAula = computed(() => {
+  const capacidade = capacidadeTurma.value
+  const capacidadeRegular = capacidade.capacidadeRegularExibicao
+
+  if (capacidadeRegular === null) {
+    return null
+  }
+
+  const participantes = Array.isArray(aulaDetalhe.value?.participantes) ? aulaDetalhe.value.participantes : []
+  const ocupacaoTotal = Number(
+    aulaDetalhe.value?.quantidadeParticipantes ?? participantes.length,
+  )
+  const ocupacaoValida = Number.isFinite(ocupacaoTotal) ? ocupacaoTotal : null
+
+  if (ocupacaoValida === null) {
+    return null
+  }
+
+  const alunosRegulares = participantes.filter(
+    (participante) => String(participante?.tipoParticipacao || '').trim().toUpperCase() === 'REGULAR',
+  ).length
+  const reposicoes = participantes.filter(
+    (participante) => String(participante?.tipoParticipacao || '').trim().toUpperCase() === 'REPOSICAO',
+  ).length
+  const capacidadeTotal = capacidade.capacidadeTotalExibicao ?? capacidadeRegular
+
+  return {
+    alunosRegulares,
+    reposicoes,
+    participantesExtras: Math.max(ocupacaoValida - capacidadeRegular, 0),
+    ocupacaoTotal: ocupacaoValida,
+    capacidadeTotal,
+  }
 })
 
 function definirFeedback(mensagem, tipo = 'info') {
@@ -269,6 +307,10 @@ function aplicarSituacaoParticipante(participante) {
   if (situacao !== 'FALTA_JUSTIFICADA') {
     participante.justificativa = ''
   }
+
+  if (situacao === 'REPOSICAO_REALIZADA') {
+    definirFeedback('Este lançamento consumirá o direito de reposição vinculado ao aluno.', 'aviso')
+  }
 }
 
 function validarLancamentosPendentes() {
@@ -293,6 +335,7 @@ function prepararPayloadFrequencias() {
 async function carregarDetalheAula(aulaIdAtual = aulaId.value) {
   if (modoVisualizacaoEmpresa.value || !moduloAtivo.value) {
     aulaDetalhe.value = null
+    turmaDetalhe.value = null
     participantesEdicao.value = []
     snapshotParticipantes.value = new Map()
     carregandoDetalhe.value = false
@@ -311,6 +354,7 @@ async function carregarDetalheAula(aulaIdAtual = aulaId.value) {
   carregandoDetalhe.value = true
   erroDetalhe.value = ''
   aulaDetalhe.value = null
+  turmaDetalhe.value = null
   participantesEdicao.value = []
   snapshotParticipantes.value = new Map()
 
@@ -324,12 +368,22 @@ async function carregarDetalheAula(aulaIdAtual = aulaId.value) {
     aulaDetalhe.value = detalheNormalizado
     participantesEdicao.value = detalheNormalizado.participantes.map((participante) => ({ ...participante }))
     snapshotParticipantes.value = criarSnapshotParticipantes(detalheNormalizado.participantes)
+
+    if (detalheNormalizado.turmaId) {
+      try {
+        turmaDetalhe.value = await buscarTurmaBeachTennis(detalheNormalizado.turmaId)
+      } catch (error) {
+        turmaDetalhe.value = null
+        console.error(error)
+      }
+    }
   } catch (error) {
     if (sequenciaAtual !== sequenciaDetalhe.value) {
       return
     }
 
     aulaDetalhe.value = null
+    turmaDetalhe.value = null
     participantesEdicao.value = []
     snapshotParticipantes.value = new Map()
     erroDetalhe.value = obterMensagemErro(error, 'Não foi possível carregar os detalhes da aula.')
@@ -551,6 +605,18 @@ onBeforeUnmount(() => {
               <div><span>Faltas sem justificativa</span><strong>{{ resumoFrequencias.faltasSemJustificativa }}</strong></div>
               <div><span>Não lançados</span><strong>{{ resumoFrequencias.naoLancados }}</strong></div>
             </div>
+
+            <section v-if="resumoCapacidadeAula" class="resumo-capacidade-aula">
+              <p class="linha-capacidade">{{ formatarResumoCapacidadeTurma(turmaDetalhe || aulaDetalhe, 'formulario') }}</p>
+              <div class="grade-capacidade-aula">
+                <div><span>Alunos regulares</span><strong>{{ resumoCapacidadeAula.alunosRegulares }}</strong></div>
+                <div><span>Reposições</span><strong>{{ resumoCapacidadeAula.reposicoes }}</strong></div>
+                <div><span>Participantes extras</span><strong>{{ resumoCapacidadeAula.participantesExtras }}</strong></div>
+                <div><span>Ocupação total</span><strong>{{ resumoCapacidadeAula.ocupacaoTotal }}</strong></div>
+                <div><span>Capacidade total</span><strong>{{ resumoCapacidadeAula.capacidadeTotal }}</strong></div>
+              </div>
+              <p class="linha-capacidade">Ocupação: {{ resumoCapacidadeAula.ocupacaoTotal }} de {{ resumoCapacidadeAula.capacidadeTotal }} participantes</p>
+            </section>
 
             <section v-if="aulaCancelada" class="aviso-bloqueio aula-cancelada">
               <p><strong>Esta aula está cancelada.</strong> A frequência pode ser consultada, mas não pode ser alterada.</p>
@@ -1102,6 +1168,49 @@ onBeforeUnmount(() => {
   color: var(--app-danger);
 }
 
+.resumo-capacidade-aula {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--app-border);
+  background: var(--app-primary-soft);
+}
+
+.grade-capacidade-aula {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.grade-capacidade-aula > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+}
+
+.grade-capacidade-aula span {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.grade-capacidade-aula strong {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.linha-capacidade {
+  margin: 0;
+  color: var(--app-primary);
+  font-weight: 700;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -1190,7 +1299,8 @@ textarea:focus {
 
   .meta-aula,
   .resumo-frequencia,
-  .campos-participante {
+  .campos-participante,
+  .grade-capacidade-aula {
     grid-template-columns: 1fr;
   }
 }

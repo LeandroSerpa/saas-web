@@ -2510,6 +2510,10 @@ export async function buscarRelatorioStatus(filtros = {}) {
   return buscarRelatorio('/relatorios/status', filtros)
 }
 
+export async function buscarRelatorioFrequenciaGestaoEsportiva(filtros = {}) {
+  return buscarRelatorio('/relatorios/frequencia', filtros)
+}
+
 export async function buscarRelatorioAgendamentos(filtros = {}) {
   return buscarRelatorio('/relatorios/agendamentos', filtros)
 }

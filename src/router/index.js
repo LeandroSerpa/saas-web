@@ -21,6 +21,7 @@ const EmpresasView = () => import('../views/EmpresasView.vue')
 const EmpresaOnboardingAdminView = () => import('../views/EmpresaOnboardingAdminView.vue')
 const MinhaEmpresaView = () => import('../views/MinhaEmpresaView.vue')
 const RelatoriosView = () => import('../views/RelatoriosView.vue')
+const RelatorioFrequenciaEsportivaView = () => import('../views/RelatorioFrequenciaEsportivaView.vue')
 const PersonalizacaoPublicaView = () => import('../views/PersonalizacaoPublicaView.vue')
 const AgendamentoPublicoView = () => import('../views/AgendamentoPublicoView.vue')
 const CatalogoPublicoView = () => import('../views/CatalogoPublicoView.vue')
@@ -212,6 +213,12 @@ const router = createRouter({
       name: 'relatorios',
       component: RelatoriosView,
       meta: rotasAdmin,
+    },
+    {
+      path: '/relatorios/frequencia-esportiva',
+      name: 'relatorios-frequencia-esportiva',
+      component: RelatorioFrequenciaEsportivaView,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {
       path: '/alterar-senha',
