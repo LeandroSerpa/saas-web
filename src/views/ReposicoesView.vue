@@ -72,6 +72,7 @@ const buscaClientesFiltro = ref('')
 const buscaClientesAjuste = ref('')
 const resultadosClientesFiltro = ref([])
 const resultadosClientesAjuste = ref([])
+const nomeClienteSelecionadoAjuste = ref('')
 const turmaOptions = ref([])
 const professorOptions = ref([])
 const aulasAgendamento = ref([])
@@ -462,6 +463,7 @@ function criarFiltrosAgendamentoPadrao() {
 function criarAjusteManualPadrao() {
   return {
     alunoId: '',
+    alunoNome: '',
     dataValidade: '',
     observacao: '',
   }
@@ -1240,10 +1242,17 @@ function abrirAjusteManual() {
   ajusteManual.value = criarAjusteManualPadrao()
   buscaClientesAjuste.value = ''
   resultadosClientesAjuste.value = []
+  nomeClienteSelecionadoAjuste.value = ''
+  sequenciaClientesAjuste.value += 1
+  carregandoClientesAjuste.value = false
+  erroClientesAjuste.value = ''
   atualizarQueryRota({ acao: 'ajuste' }, { manterAcao: false })
 }
 
 function fecharAcaoAtual() {
+  nomeClienteSelecionadoAjuste.value = ''
+  sequenciaClientesAjuste.value += 1
+  carregandoClientesAjuste.value = false
   atualizarQueryRota({}, { manterAcao: false })
 }
 
@@ -1673,6 +1682,27 @@ async function atualizarClientesAjuste() {
     clearTimeout(debounceClientesAjuste)
   }
 
+  if (!normalizarTexto(buscaClientesAjuste.value)) {
+    sequenciaClientesAjuste.value += 1
+    carregandoClientesAjuste.value = false
+    resultadosClientesAjuste.value = []
+    erroClientesAjuste.value = ''
+    return
+  }
+
+  if (
+    ajusteManual.value.alunoId &&
+    nomeClienteSelecionadoAjuste.value &&
+    normalizarTexto(buscaClientesAjuste.value).toLowerCase() ===
+      normalizarTexto(nomeClienteSelecionadoAjuste.value).toLowerCase()
+  ) {
+    sequenciaClientesAjuste.value += 1
+    carregandoClientesAjuste.value = false
+    resultadosClientesAjuste.value = []
+    erroClientesAjuste.value = ''
+    return
+  }
+
   debounceClientesAjuste = setTimeout(async () => {
     erroClientesAjuste.value = ''
     resultadosClientesAjuste.value = await consultarClientesSugeridos(
@@ -1700,15 +1730,25 @@ function limparAlunoFiltro() {
 
 function selecionarClienteAjuste(cliente) {
   if (!cliente?.id) return
+  sequenciaClientesAjuste.value += 1
   ajusteManual.value.alunoId = String(cliente.id)
+  ajusteManual.value.alunoNome = String(cliente.nome || '').trim()
+  nomeClienteSelecionadoAjuste.value = ajusteManual.value.alunoNome
   buscaClientesAjuste.value = cliente.nome
   resultadosClientesAjuste.value = []
+  carregandoClientesAjuste.value = false
+  erroClientesAjuste.value = ''
 }
 
 function limparAlunoAjuste() {
+  sequenciaClientesAjuste.value += 1
   ajusteManual.value.alunoId = ''
+  ajusteManual.value.alunoNome = ''
   buscaClientesAjuste.value = ''
   resultadosClientesAjuste.value = []
+  nomeClienteSelecionadoAjuste.value = ''
+  carregandoClientesAjuste.value = false
+  erroClientesAjuste.value = ''
 }
 
 function abrirPainelDaLista(item, acao) {
@@ -2891,55 +2931,57 @@ onBeforeUnmount(() => {
           <button class="botao secundario" type="button" @click="fecharAcaoAtual">Fechar</button>
         </div>
 
-        <div class="campos-filtros">
-          <label class="campo-grande">
-            Aluno
-            <input
-              v-model="buscaClientesAjuste"
-              type="search"
-              placeholder="Busque o cliente por nome, telefone ou e-mail"
-            />
-            <small v-if="ajusteManual.alunoId" class="ajuda-campo">
-              Selecionado: {{ buscaClientesAjuste || 'Aluno escolhido' }}
-              <button class="link-texto" type="button" @click="limparAlunoAjuste">Limpar</button>
-            </small>
-          </label>
-
-          <div v-if="carregandoClientesAjuste" class="lista-sugestoes campo-grande">
-            <span class="mensagem-suave">Carregando clientes...</span>
-          </div>
-
-          <div v-else-if="resultadosClientesAjuste.length" class="lista-sugestoes campo-grande">
-            <button
-              v-for="cliente in resultadosClientesAjuste"
-              :key="cliente.id"
-              class="chip-sugestao"
-              type="button"
-              @click="selecionarClienteAjuste(cliente)"
-            >
-              <strong>{{ cliente.nome }}</strong>
-              <small v-if="cliente.telefone || cliente.email">
-                {{ [cliente.telefone, cliente.email].filter(Boolean).join(' · ') }}
+        <div class="modal-corpo">
+          <div class="campos-filtros">
+            <label class="campo-grande">
+              Aluno
+              <input
+                v-model="buscaClientesAjuste"
+                type="search"
+                placeholder="Busque o cliente por nome, telefone ou e-mail"
+              />
+              <small v-if="ajusteManual.alunoId" class="ajuda-campo">
+                Selecionado: {{ ajusteManual.alunoNome || buscaClientesAjuste || 'Aluno escolhido' }}
+                <button class="link-texto" type="button" @click="limparAlunoAjuste">Limpar</button>
               </small>
-            </button>
+            </label>
+
+            <div v-if="carregandoClientesAjuste" class="lista-sugestoes campo-grande">
+              <span class="mensagem-suave">Carregando clientes...</span>
+            </div>
+
+            <div v-else-if="resultadosClientesAjuste.length" class="lista-sugestoes campo-grande">
+              <button
+                v-for="cliente in resultadosClientesAjuste"
+                :key="cliente.id"
+                class="chip-sugestao"
+                type="button"
+                @click="selecionarClienteAjuste(cliente)"
+              >
+                <strong>{{ cliente.nome }}</strong>
+                <small v-if="cliente.telefone || cliente.email">
+                  {{ [cliente.telefone, cliente.email].filter(Boolean).join(' · ') }}
+                </small>
+              </button>
+            </div>
+
+            <label>
+              Data de validade
+              <input v-model="ajusteManual.dataValidade" type="date" />
+            </label>
+
+            <label class="campo-grande">
+              Observação
+              <textarea
+                v-model="ajusteManual.observacao"
+                rows="4"
+                placeholder="Explique o motivo da concessão"
+              ></textarea>
+            </label>
           </div>
 
-          <label>
-            Data de validade
-            <input v-model="ajusteManual.dataValidade" type="date" />
-          </label>
-
-          <label class="campo-grande">
-            Observação
-            <textarea
-              v-model="ajusteManual.observacao"
-              rows="4"
-              placeholder="Explique o motivo da concessão"
-            ></textarea>
-          </label>
+          <p v-if="erroAjuste" class="estado-erro">{{ erroAjuste }}</p>
         </div>
-
-        <p v-if="erroAjuste" class="estado-erro">{{ erroAjuste }}</p>
 
         <div class="acoes-painel acoes-modal">
           <button class="botao secundario" type="button" @click="fecharAcaoAtual">Cancelar</button>
@@ -2966,24 +3008,26 @@ onBeforeUnmount(() => {
           <button class="botao secundario" type="button" @click="fecharAcaoAtual">Fechar</button>
         </div>
 
-        <div class="bloco-info">
-          <p><strong>Aluno:</strong> {{ detalhe?.alunoNome || 'Não informado' }}</p>
-          <p>
-            <strong>Reposição:</strong>
-            {{ detalhe ? rotuloAulaResumo(detalhe.aulaReposicao) : '-' }}
-          </p>
+        <div class="modal-corpo">
+          <div class="bloco-info">
+            <p><strong>Aluno:</strong> {{ detalhe?.alunoNome || 'Não informado' }}</p>
+            <p>
+              <strong>Reposição:</strong>
+              {{ detalhe ? rotuloAulaResumo(detalhe.aulaReposicao) : '-' }}
+            </p>
+          </div>
+
+          <label class="campo-grande">
+            Motivo do cancelamento
+            <textarea
+              v-model="cancelamentoAgendamento.motivo"
+              rows="4"
+              placeholder="Informe o motivo do cancelamento"
+            ></textarea>
+          </label>
+
+          <p v-if="erroCancelamento" class="estado-erro">{{ erroCancelamento }}</p>
         </div>
-
-        <label class="campo-grande">
-          Motivo do cancelamento
-          <textarea
-            v-model="cancelamentoAgendamento.motivo"
-            rows="4"
-            placeholder="Informe o motivo do cancelamento"
-          ></textarea>
-        </label>
-
-        <p v-if="erroCancelamento" class="estado-erro">{{ erroCancelamento }}</p>
 
         <div class="acoes-painel acoes-modal">
           <button class="botao secundario" type="button" @click="fecharAcaoAtual">Cancelar</button>
@@ -3255,12 +3299,19 @@ textarea:focus {
 .lista-sugestoes {
   display: grid;
   gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  min-width: 0;
 }
 
 .chip-sugestao {
   display: grid;
   gap: 4px;
   text-align: left;
+  width: 100%;
+  min-width: 0;
   border: 1px solid var(--app-border);
   border-radius: 12px;
   padding: 10px 12px;
@@ -3562,6 +3613,23 @@ th {
   background: var(--app-overlay);
 }
 
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, calc(100vw - 24px));
+  max-height: min(90dvh, calc(100dvh - 24px));
+  overflow: hidden;
+}
+
+.modal-corpo {
+  display: grid;
+  gap: 18px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-gutter: stable;
+}
+
 @media (max-width: 1180px) {
   .grade-resumo,
   .grade-detalhes,
@@ -3713,16 +3781,14 @@ th {
   }
 
   .modal-fundo {
-    padding: 0;
-    place-items: stretch;
+    padding: 8px;
+    place-items: center;
   }
 
   .modal-card {
-    width: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
-    border-radius: 0;
-    overflow: auto;
+    width: min(100%, calc(100vw - 16px));
+    max-height: calc(100dvh - 16px);
+    border-radius: 20px;
   }
 }
 
@@ -3733,6 +3799,10 @@ th {
   .painel-agendamento,
   .modal-card {
     padding: 18px;
+  }
+
+  .lista-sugestoes {
+    max-height: 240px;
   }
 }
 </style>

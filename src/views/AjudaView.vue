@@ -350,6 +350,62 @@ const topicos = [
     rota: '/relatorios',
   },
   {
+    id: 'gestao-esportiva',
+    titulo: 'Gestão Esportiva',
+    resumo: 'Turmas, reposições, frequência e relatórios esportivos.',
+    palavrasChave: [
+      'turmas',
+      'capacidade',
+      'reposições',
+      'frequência',
+      'relatório esportivo',
+      'alunos',
+    ],
+    introducao:
+      'Esta seção reúne as orientações principais da Gestão Esportiva. Aqui você entende a capacidade das turmas, o fluxo das reposições e o uso do relatório de frequência sem misturar os conceitos.',
+    pontos: [
+      'Turmas usam capacidade regular e, quando necessário, vagas extras para participantes eventuais.',
+      'Reposições passam por direito disponível, reserva, utilização, expiração e cancelamento.',
+      'A concessão manual serve para correções administrativas ou situações autorizadas.',
+      'O relatório esportivo reúne filtros, indicadores e cards no celular.',
+    ],
+    destaque:
+      'A capacidade total da aula é a soma da capacidade regular com as vagas extras disponíveis.',
+    blocos: [
+      {
+        tipo: 'info',
+        titulo: 'Turmas e capacidade',
+        texto:
+          'A capacidade regular é a base da turma. As vagas extras somam participantes eventuais, como reposições e aulas avulsas. Quando os dois campos ficam vazios, a capacidade não é controlada.',
+      },
+      {
+        tipo: 'exemplo',
+        titulo: 'Exemplo prático',
+        texto:
+          'Se a turma tem 4 alunos regulares e 2 vagas extras, o limite total da aula passa a ser 6 participantes.',
+      },
+      {
+        tipo: 'atencao',
+        titulo: 'Vagas extras',
+        texto:
+          'As vagas extras dependem de uma capacidade regular informada. O badge de alunos continua mostrando os vinculados contra a capacidade regular.',
+      },
+      {
+        tipo: 'alerta',
+        titulo: 'Concessão manual',
+        texto:
+          'A concessão manual deve ser usada apenas para correções administrativas ou situações autorizadas.',
+      },
+      {
+        tipo: 'dica',
+        titulo: 'Ajuda contextual',
+        texto:
+          'Nas telas de turmas, reposições e frequência, o botão Ajuda desta tela leva até esta mesma seção.',
+      },
+    ],
+    rota: '/beach-tennis/turmas',
+  },
+  {
     id: 'minha-empresa',
     titulo: 'Minha empresa',
     resumo: 'Configuração dos dados principais da empresa.',
@@ -582,6 +638,17 @@ const conteudoDetalhadoPorTopico = {
     '4. Use os gráficos e as listas para entender melhor o movimento.',
     '5. Baixe ou copie os dados quando precisar mostrar para outra pessoa.',
   ],
+  'gestao-esportiva': [
+    '1. Entenda a diferença entre capacidade regular e vagas extras antes de cadastrar a turma.',
+    '2. Exemplo: com 4 alunos regulares e 2 vagas extras, a aula pode receber até 6 participantes.',
+    '3. Use vagas extras para reposições, aulas experimentais ou participantes eventuais, sem criar seis alunos fixos.',
+    '4. Ao conceder uma reposição manual, selecione o aluno, informe a validade e descreva o motivo autorizado.',
+    '5. No agendamento da reposição, escolha a aula de destino, confira a prévia e confirme apenas quando tudo estiver correto.',
+    '6. Ao cancelar a reserva, o participante sai da aula de destino e a turma principal do aluno continua a mesma.',
+    '7. Na frequência, registre Presente, Falta justificada, Falta sem justificativa, Reposição realizada ou Não lançado quando aplicável.',
+    '8. No relatório esportivo, filtre por período, turma, professor, aluno, situação e quantidade por página; os filtros ficam refletidos na URL e os cards aparecem no celular.',
+    '9. Use a ajuda contextual nas telas de turmas, reposições e frequência para abrir esta mesma seção rapidamente.',
+  ],
   'minha-empresa': [
     '1. Entre em Minha empresa para rever os dados principais do negócio.',
     '2. Confira nome, contato, endereço e horário de funcionamento.',
@@ -642,15 +709,16 @@ const conteudoDetalhadoPorTopico = {
 
 const historicoAtualizacoes = [
   {
-    versao: '1.3.0',
-    dataPublicacao: '2026-06-14',
+    versao: '1.4.0',
+    dataPublicacao: '2026-06-30',
     itens: [
-      'Gestão Esportiva para diferentes modalidades.',
-      'Turmas, profissionais, participantes e mensalidades.',
-      'Planos apresentados de forma mais clara.',
-      'Melhorias no modo operacional do SUPER_ADMIN.',
-      'Correções no uso do plano por empresa.',
-      'Melhorias visuais e mensagens de validação.',
+      'Capacidade regular e vagas extras nas turmas.',
+      'Gestão completa de direitos de reposição.',
+      'Agendamento e cancelamento de reposições.',
+      'Identificação de participantes de reposição.',
+      'Relatório esportivo de frequência.',
+      'Melhorias responsivas em turmas, reposições e relatórios.',
+      'Ajustes de validação e experiência no mobile.',
     ],
   },
   {
@@ -749,6 +817,18 @@ function rolarParaTopicoAtivo() {
 
 function removerNumeracaoInicial(valor) {
   return String(valor || '').replace(/^\s*\d+[\.\)]\s+/, '')
+}
+
+function rotuloTipoBlocoAjuda(tipo) {
+  const rotulos = {
+    info: 'Informação',
+    atencao: 'Atenção',
+    alerta: 'Ação irreversível',
+    dica: 'Dica',
+    exemplo: 'Exemplo',
+  }
+
+  return rotulos[String(tipo || '').trim().toLowerCase()] || 'Observação'
 }
 
 function atualizarEstadoViewport(evento) {
@@ -1065,6 +1145,19 @@ onBeforeUnmount(() => {
 
             <p class="texto-principal">{{ topicoAtivo.introducao }}</p>
             <p class="texto-destaque">{{ topicoAtivo.destaque }}</p>
+
+            <section v-if="topicoAtivo.blocos?.length" class="blocos-ajuda" aria-label="Pontos em destaque">
+              <article
+                v-for="bloco in topicoAtivo.blocos"
+                :key="`${topicoAtivo.id}-${bloco.titulo}`"
+                class="bloco-ajuda"
+                :class="`tipo-${bloco.tipo || 'info'}`"
+              >
+                <span class="bloco-etiqueta">{{ rotuloTipoBlocoAjuda(bloco.tipo) }}</span>
+                <strong>{{ bloco.titulo }}</strong>
+                <p>{{ bloco.texto }}</p>
+              </article>
+            </section>
 
             <section class="modo-detalhe">
               <span>Modo de ajuda</span>
@@ -1590,6 +1683,98 @@ onBeforeUnmount(() => {
 .texto-destaque {
   color: var(--app-text);
   font-weight: 700;
+}
+
+.blocos-ajuda {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.bloco-ajuda {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: var(--app-surface-soft);
+}
+
+.bloco-ajuda strong {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.bloco-ajuda p {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.bloco-etiqueta {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bloco-ajuda.tipo-info {
+  border-color: color-mix(in srgb, var(--app-primary) 22%, var(--app-border));
+  background: color-mix(in srgb, var(--app-primary-soft) 28%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-info .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-primary) 12%, var(--app-surface));
+  color: var(--app-primary);
+}
+
+.bloco-ajuda.tipo-atencao {
+  border-color: color-mix(in srgb, var(--app-warning) 26%, var(--app-border));
+  background: color-mix(in srgb, var(--app-warning-soft) 40%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-atencao .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-warning) 16%, var(--app-surface));
+  color: color-mix(in srgb, var(--app-warning) 76%, black);
+}
+
+.bloco-ajuda.tipo-alerta {
+  border-color: color-mix(in srgb, var(--app-danger) 24%, var(--app-border));
+  background: color-mix(in srgb, var(--app-danger-soft) 34%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-alerta .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-danger) 14%, var(--app-surface));
+  color: var(--app-danger);
+}
+
+.bloco-ajuda.tipo-dica {
+  border-color: color-mix(in srgb, var(--app-success) 22%, var(--app-border));
+  background: color-mix(in srgb, var(--app-success-soft) 36%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-dica .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-success) 14%, var(--app-surface));
+  color: var(--app-success);
+}
+
+.bloco-ajuda.tipo-exemplo {
+  border-color: color-mix(in srgb, var(--app-text) 16%, var(--app-border));
+  background: color-mix(in srgb, var(--app-surface-soft) 76%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-exemplo .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-text) 8%, var(--app-surface));
+  color: var(--app-text);
 }
 
 .modo-detalhe {

@@ -1008,13 +1008,26 @@ textarea:focus {
 
 .campo-checkbox {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-weight: 700;
 }
 
 .campo-checkbox input {
   width: auto;
+  margin-top: 2px;
+}
+
+.campo-checkbox span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.campo-checkbox strong,
+.campo-checkbox small {
+  display: block;
+  line-height: 1.35;
 }
 
 .dias-campo .dias-grade {

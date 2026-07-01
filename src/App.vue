@@ -272,12 +272,13 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   dashboard: 'dashboard',
   agenda: 'agenda',
   clientes: 'clientes',
-  'beach-tennis-turmas': 'clientes',
+  'beach-tennis-turmas': 'gestao-esportiva',
   'beach-tennis-turma-alunos': 'clientes',
   'beach-tennis-alunos': 'clientes',
   'beach-tennis-financeiro': 'faturas-meu-plano',
-  'aulas-frequencia-detalhe': 'aulas-frequencia',
-  reposicoes: 'aulas-frequencia',
+  'aulas-frequencia-detalhe': 'gestao-esportiva',
+  reposicoes: 'gestao-esportiva',
+  'relatorios-frequencia-esportiva': 'gestao-esportiva',
   professores: 'funcionarios',
   servicos: 'servicos',
   funcionarios: 'funcionarios',
@@ -443,7 +444,7 @@ const descricaoSeloAmbienteTopo = computed(() =>
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.3.0'
+  const versaoBase = String(obterInfoVersaoSistemaPadrao().versao || '').trim() || '1.4.0'
   return `v${versaoBase}`
 })
 

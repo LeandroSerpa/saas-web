@@ -57,17 +57,14 @@ const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PU
 export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
-const VERSAO_PRODUCAO_PADRAO = '1.3.0'
-const VERSAO_HML_MINIMA = '1.3.0-hml'
+const VERSAO_PRODUCAO_PADRAO = APP_VERSION || '1.4.0'
+const VERSAO_HML_MINIMA = `${VERSAO_PRODUCAO_PADRAO}-hml`
 const DATA_PUBLICACAO_VERSAO_PADRAO =
-  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-14').trim() || '2026-06-14'
+  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-30').trim() || '2026-06-30'
 const NOVIDADES_VERSAO_PADRAO = Object.freeze([
-  'Gestão Esportiva para diferentes modalidades.',
-  'Turmas, profissionais, participantes e mensalidades.',
-  'Planos apresentados de forma mais clara.',
-  'Melhorias no modo operacional do SUPER_ADMIN.',
-  'Correções no uso do plano por empresa.',
-  'Melhorias visuais e mensagens de validação.',
+  'Direitos e agendamento de reposições.',
+  'Capacidade regular e vagas extras nas turmas.',
+  'Relatório de frequência esportiva.',
 ])
 
 
@@ -1821,13 +1818,7 @@ function mesclarInfoVersaoSistema(respostaApi) {
   )
   let versaoFinal = versaoApi || padrao.versao
 
-  if (ambienteApi === 'homologacao') {
-    const versaoMinimaHomologacao = resolverVersaoSeguraPorHostname(hostname) || VERSAO_HML_MINIMA
-    if (versaoEhMenorQue(versaoFinal, versaoMinimaHomologacao)) {
-      versaoFinal = versaoMinimaHomologacao
-    }
-    versaoFinal = garantirSufixoVersaoHomologacao(versaoFinal, versaoMinimaHomologacao)
-  } else if (ambienteApi === 'production') {
+  if (ambienteApi === 'production') {
     versaoFinal = versaoFinal || resolverVersaoSeguraPorHostname(hostname) || VERSAO_PRODUCAO_PADRAO
   }
 
