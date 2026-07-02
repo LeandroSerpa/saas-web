@@ -60,7 +60,7 @@ export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
 const VERSAO_PRODUCAO_PADRAO = APP_VERSION || '1.4.0'
 const VERSAO_HML_MINIMA = `${VERSAO_PRODUCAO_PADRAO}-hml`
 const DATA_PUBLICACAO_VERSAO_PADRAO =
-  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-30').trim() || '2026-06-30'
+  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-07-01').trim() || '2026-07-01'
 const NOVIDADES_VERSAO_PADRAO = Object.freeze([
   'Direitos e agendamento de reposições.',
   'Capacidade regular e vagas extras nas turmas.',

@@ -1,7 +1,7 @@
 ﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
+import { buscarVersaoSistema, formatarRotuloAmbiente, obterInfoVersaoSistemaPadrao } from '@/services/api'
 import { formatarDataPtBrSemFuso } from '@/utils/datas'
 
 const route = useRoute()
@@ -14,6 +14,8 @@ const modoDetalhe = ref('resumo')
 const secaoNovidadesRef = ref(null)
 const mostrarListaTopicos = ref(true)
 const isViewportMobile = ref(false)
+const versaoPublica = ref(obterInfoVersaoSistemaPadrao())
+const carregandoVersaoPublica = ref(false)
 let mediaQueryTopicos = null
 
 const ABA_TUTORIAIS = 'tutoriais'
@@ -710,7 +712,7 @@ const conteudoDetalhadoPorTopico = {
 const historicoAtualizacoes = [
   {
     versao: '1.4.0',
-    dataPublicacao: '2026-06-30',
+    dataPublicacao: '2026-07-01',
     itens: [
       'Capacidade regular e vagas extras nas turmas.',
       'Gestão completa de direitos de reposição.',
@@ -900,7 +902,7 @@ async function selecionarAba(aba) {
   const hashAtual = route.hash || ''
 
   if (hashAtual !== hashDesejado) {
-    await router.replace({
+    await router.push({
       path: route.path,
       query: route.query,
       hash: hashDesejado,
@@ -993,6 +995,42 @@ function formatarDataAtualizacao(valor) {
   return formatarDataPtBrSemFuso(valor)
 }
 
+function formatarVersaoPublica(valor) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) {
+    return obterInfoVersaoSistemaPadrao().versao
+  }
+
+  return texto.replace(/^v/i, '')
+}
+
+function normalizarVersaoPublica(resposta) {
+  const padrao = obterInfoVersaoSistemaPadrao()
+  const origem = resposta && typeof resposta === 'object' ? resposta : {}
+
+  return {
+    nome: padrao.nome,
+    versao: formatarVersaoPublica(origem.versao || origem.version || origem.appVersion || padrao.versao),
+    ambiente: origem.ambiente || origem.environment || origem.perfil || origem.stage || padrao.ambiente,
+    dataPublicacao: origem.dataPublicacao || origem.publicadoEm || origem.releaseDate || origem.publishedAt || padrao.dataPublicacao,
+    novidades: Array.isArray(origem.novidades) && origem.novidades.length ? origem.novidades : padrao.novidades,
+  }
+}
+
+async function carregarVersaoPublica() {
+  carregandoVersaoPublica.value = true
+
+  try {
+    versaoPublica.value = normalizarVersaoPublica(await buscarVersaoSistema())
+  } catch (error) {
+    versaoPublica.value = normalizarVersaoPublica(obterInfoVersaoSistemaPadrao())
+    console.error(error)
+  } finally {
+    carregandoVersaoPublica.value = false
+  }
+}
+
 watch(
   () => route.hash,
   (hash) => {
@@ -1013,6 +1051,7 @@ onMounted(() => {
     }
   }
 
+  void carregarVersaoPublica()
   void sincronizarAbaPelaHash(route.hash, false)
 })
 
@@ -1258,17 +1297,38 @@ onBeforeUnmount(() => {
             Aqui ficam a versão atual, o histórico de atualizações e os principais lançamentos da plataforma.
           </p>
           <p class="descricao-secao observacao-versoes">
-            As versões do frontend e da API podem ser consultadas clicando na versão exibida no rodapé.
+            Consulte nesta seção a versão atual e o histórico de atualizações.
           </p>
         </div>
       </section>
 
-      <SystemVersionPanel
-        titulo="Versão do sistema"
-        discreto
-        :novidades-padrao="[]"
-        :mostrar-novidades="false"
-      />
+      <section class="versao-publica" aria-label="Versão atual do sistema">
+        <header class="versao-publica-cabecalho">
+          <div>
+            <p class="subtitulo">Versão do sistema</p>
+            <h3>Atualização publicada</h3>
+          </div>
+
+          <span class="selo-versao-publica">Versão {{ versaoPublica.versao || 'indisponível' }}</span>
+        </header>
+
+        <p v-if="carregandoVersaoPublica" class="texto-versao-publica">Carregando versão atual...</p>
+
+        <dl v-else class="versao-publica-dados">
+          <div>
+            <dt>Versão do sistema</dt>
+            <dd>{{ versaoPublica.versao }}</dd>
+          </div>
+          <div>
+            <dt>Ambiente</dt>
+            <dd>{{ formatarRotuloAmbiente(versaoPublica.ambiente) }}</dd>
+          </div>
+          <div>
+            <dt>Publicação</dt>
+            <dd>{{ formatarDataAtualizacao(versaoPublica.dataPublicacao) }}</dd>
+          </div>
+        </dl>
+      </section>
 
       <section class="historico-atualizacoes" aria-label="Histórico de atualizações">
         <header class="historico-cabecalho">
@@ -1459,6 +1519,81 @@ onBeforeUnmount(() => {
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.versao-publica {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+.versao-publica-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.versao-publica-cabecalho h3 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.selo-versao-publica {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-primary-soft) 42%, var(--app-surface));
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.texto-versao-publica {
+  margin: 0;
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
+.versao-publica-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.versao-publica-dados div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface-soft);
+}
+
+.versao-publica-dados dt {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.versao-publica-dados dd {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 15px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .historico-atualizacoes,
@@ -2045,9 +2180,18 @@ onBeforeUnmount(() => {
 
   .ferramentas-ajuda,
   .historico-atualizacoes,
+  .versao-publica,
   .topico-detalhe,
   .novidades-cabecalho {
     padding: 14px;
+  }
+
+  .versao-publica-cabecalho {
+    flex-direction: column;
+  }
+
+  .selo-versao-publica {
+    width: fit-content;
   }
 
   .resumo-item {

@@ -1,11 +1,11 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
-import { buscarConteudoInstitucionalPublico } from '@/services/api'
+import { buscarConteudoInstitucionalPublico, obterInfoVersaoSistemaPadrao } from '@/services/api'
 
 const conteudo = ref(criarFallback())
 const carregando = ref(true)
+const versaoPublica = obterInfoVersaoSistemaPadrao()
 
 function criarFallback() {
   return {
@@ -87,7 +87,13 @@ onMounted(carregarConteudo)
           <p>{{ secao.texto }}</p>
         </section>
 
-        <SystemVersionPanel titulo="Versão e novidades" discreto />
+        <section class="versao-publica" aria-label="Versão atual do sistema">
+          <p class="versao-etiqueta">Versão atual</p>
+          <strong>Versão {{ versaoPublica.versao }}</strong>
+          <RouterLink class="link-versao-ajuda" to="/ajuda#versao-novidades">
+            Ver novidades e histórico
+          </RouterLink>
+        </section>
 
         <p class="nota">Este texto é uma versão inicial e poderá ser atualizado.</p>
       </article>
@@ -96,5 +102,5 @@ onMounted(carregarConteudo)
 </template>
 
 <style scoped>
-.pagina-institucional{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:860px;margin:0 auto;display:grid;gap:18px}.nav-publica{display:flex;justify-content:flex-end;gap:14px;flex-wrap:wrap}.nav-publica a{color:#2563eb;font-weight:800;text-decoration:none}.nav-publica a:hover{text-decoration:underline}.card{display:grid;gap:18px;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:28px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.marca{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:36px;font-weight:800}h2{font-size:20px;font-weight:800}.subtitulo,.secao p{color:#475569;font-size:16px;line-height:1.65}.secao{display:grid;gap:8px}.nota,.aviso{border-top:1px solid #e5e7eb;padding-top:16px;color:#64748b;font-size:14px;font-weight:700}@media(max-width:700px){h1{font-size:30px}.card{padding:22px}.nav-publica{justify-content:flex-start}}
+.pagina-institucional{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:860px;margin:0 auto;display:grid;gap:18px}.nav-publica{display:flex;justify-content:flex-end;gap:14px;flex-wrap:wrap}.nav-publica a{color:#2563eb;font-weight:800;text-decoration:none}.nav-publica a:hover{text-decoration:underline}.card{display:grid;gap:18px;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:28px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.marca{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}h1,h2,p{margin:0}h1{font-size:36px;font-weight:800}h2{font-size:20px;font-weight:800}.subtitulo,.secao p{color:#475569;font-size:16px;line-height:1.65}.secao{display:grid;gap:8px}.nota,.aviso{border-top:1px solid #e5e7eb;padding-top:16px;color:#64748b;font-size:14px;font-weight:700}.versao-publica{display:grid;gap:10px;padding:18px;border:1px solid #dbeafe;border-radius:12px;background:#eff6ff}.versao-etiqueta{color:#1d4ed8;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.versao-publica strong{font-size:18px;font-weight:800}.link-versao-ajuda{width:fit-content;color:#2563eb;font-weight:800;text-decoration:none}.link-versao-ajuda:hover{text-decoration:underline}@media(max-width:700px){h1{font-size:30px}.card{padding:22px}.nav-publica{justify-content:flex-start}.versao-publica{padding:16px}}
 </style>
