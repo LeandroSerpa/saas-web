@@ -5,6 +5,7 @@ import {
   ambienteExibeSelo,
   buscarVersaoSistema,
   formatarRotuloAmbiente,
+  formatarVersaoFrontend,
   obterInfoVersaoSistemaPadrao,
 } from '@/services/api'
 import { formatarDataPtBrSemFuso } from '@/utils/datas'
@@ -26,16 +27,39 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  usarInformacoesExternas: {
+    type: Boolean,
+    default: false,
+  },
+  informacoesBackend: {
+    type: Object,
+    default: null,
+  },
+  carregandoBackend: {
+    type: Boolean,
+    default: false,
+  },
+  erroBackend: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const carregando = ref(true)
-const versaoApi = ref(null)
+const carregandoLocal = ref(true)
+const erroLocal = ref(false)
+const versaoBackendLocal = ref(null)
+
+const usaInformacoesExternas = computed(() => props.usarInformacoesExternas === true)
+const carregandoConsulta = computed(() => (usaInformacoesExternas.value ? props.carregandoBackend : carregandoLocal.value))
+const erroConsulta = computed(() => (usaInformacoesExternas.value ? props.erroBackend : erroLocal.value))
+const origemBackend = computed(() => normalizarObjeto(usaInformacoesExternas.value ? props.informacoesBackend : versaoBackendLocal.value))
 
 const dadosVersao = computed(() => {
   const fallback = obterInfoVersaoSistemaPadrao()
-  const origem = normalizarObjeto(versaoApi.value)
+  const origem = origemBackend.value
   const ambienteResposta = obterCampo(origem, 'ambiente', 'environment', 'perfil', 'stage')
-  const ambiente = ambienteResposta || fallback.ambiente
+  const versaoBackend = obterCampo(origem, 'versao', 'version', 'appVersion')
+  const dataPublicacaoBackend = obterCampo(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt')
   const novidadesApi = normalizarNovidades(
     origem.novidades ??
       origem.changelog ??
@@ -44,27 +68,60 @@ const dadosVersao = computed(() => {
       origem.alteracoes ??
       origem.changes,
   )
-  const novidades = novidadesApi.length ? novidadesApi : props.novidadesPadrao.length ? props.novidadesPadrao : fallback.novidades
+  const novidades = novidadesApi.length
+    ? novidadesApi
+    : props.novidadesPadrao.length
+      ? props.novidadesPadrao
+      : fallback.novidades
+  const frontendVersao = formatarRotuloVersao(formatarVersaoFrontend(fallback.versao, fallback.ambiente))
+  const backendVersao = erroConsulta.value
+    ? 'Não foi possível consultar'
+    : carregandoConsulta.value
+      ? 'Consultando informações da API...'
+      : formatarRotuloVersao(versaoBackend)
+  const ambiente = erroConsulta.value
+    ? 'Não foi possível consultar'
+    : carregandoConsulta.value
+      ? 'Consultando informações da API...'
+      : formatarRotuloAmbiente(ambienteResposta) || 'Não foi possível consultar'
+  const dataPublicacao = erroConsulta.value
+    ? 'Não foi possível consultar'
+    : carregandoConsulta.value
+      ? 'Consultando informações da API...'
+      : formatarData(dataPublicacaoBackend) || 'Não foi possível consultar'
+  const api = erroConsulta.value
+    ? 'Não foi possível consultar'
+    : carregandoConsulta.value
+      ? 'Consultando informações da API...'
+      : 'Online'
 
   return {
     nome: APP_NAME,
-    versao: obterCampo(origem, 'versao', 'version', 'appVersion') || fallback.versao || '-',
+    frontend: frontendVersao,
+    backend: backendVersao,
     ambiente,
-    exibirAmbiente: ambienteExibeSelo(ambiente),
-    dataPublicacao:
-      obterCampo(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt') || fallback.dataPublicacao,
+    exibirAmbiente: !erroConsulta.value && !carregandoConsulta.value && ambienteExibeSelo(ambienteResposta),
+    dataPublicacao,
+    api,
     novidades,
   }
 })
 
 async function carregarVersao() {
+  if (usaInformacoesExternas.value) {
+    carregandoLocal.value = false
+    return
+  }
+
   try {
-    versaoApi.value = await buscarVersaoSistema()
+    versaoBackendLocal.value = await buscarVersaoSistema()
+    erroLocal.value = false
   } catch (error) {
-    versaoApi.value = obterInfoVersaoSistemaPadrao()
+    versaoBackendLocal.value = null
+    erroLocal.value = true
     console.error(error)
   } finally {
-    carregando.value = false
+    carregandoLocal.value = false
   }
 }
 
@@ -126,6 +183,16 @@ function normalizarNovidades(valor) {
   return []
 }
 
+function formatarRotuloVersao(valor) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) {
+    return 'Não foi possível consultar'
+  }
+
+  return /^v/i.test(texto) ? texto : `v${texto}`
+}
+
 function formatarData(valor) {
   return formatarDataPtBrSemFuso(valor)
 }
@@ -147,22 +214,33 @@ onMounted(carregarVersao)
 
     <dl class="metadados">
       <div>
-        <dt>Versão</dt>
-        <dd>{{ dadosVersao.versao }}</dd>
+        <dt>Frontend</dt>
+        <dd>{{ dadosVersao.frontend }}</dd>
+      </div>
+      <div>
+        <dt>Backend</dt>
+        <dd>{{ dadosVersao.backend }}</dd>
       </div>
       <div>
         <dt>Ambiente</dt>
-        <dd>{{ formatarRotuloAmbiente(dadosVersao.ambiente) }}</dd>
+        <dd>{{ dadosVersao.ambiente }}</dd>
       </div>
-      <div v-if="dadosVersao.dataPublicacao">
+      <div>
         <dt>Publicação</dt>
-        <dd>{{ formatarData(dadosVersao.dataPublicacao) }}</dd>
+        <dd>{{ dadosVersao.dataPublicacao }}</dd>
+      </div>
+      <div>
+        <dt>API</dt>
+        <dd>{{ dadosVersao.api }}</dd>
       </div>
     </dl>
 
+    <p v-if="carregandoConsulta" class="estado estado-consulta">Consultando informações da API...</p>
+    <p v-else-if="erroConsulta" class="estado estado-consulta erro">Não foi possível consultar a versão do backend.</p>
+
     <div v-if="mostrarNovidades" class="novidades">
       <strong>Novidades</strong>
-      <p v-if="carregando" class="estado">Carregando informações da versão...</p>
+      <p v-if="carregandoConsulta && !erroConsulta" class="estado">Carregando informações da versão...</p>
       <ul v-else-if="dadosVersao.novidades.length">
         <li v-for="item in dadosVersao.novidades" :key="item">{{ item }}</li>
       </ul>
@@ -248,6 +326,7 @@ onMounted(carregarVersao)
   color: var(--app-text);
   font-size: 15px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .novidades {
@@ -270,6 +349,14 @@ onMounted(carregarVersao)
 .estado {
   color: var(--app-text-muted);
   line-height: 1.5;
+}
+
+.estado-consulta {
+  margin: 0;
+}
+
+.estado-consulta.erro {
+  color: var(--app-danger);
 }
 
 @media (max-width: 640px) {

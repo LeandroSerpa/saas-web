@@ -16,7 +16,7 @@ export const TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO = 'Pedir pelo WhatsApp'
 const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
 const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : PUBLIC_APP_URL_PRODUCAO
 export const APP_NAME = String(import.meta.env.VITE_APP_NAME || 'NuvemMais Gestão').trim() || 'NuvemMais Gestão'
-export const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || '').trim()
+export const APP_VERSION = String(__APP_VERSION__ || '').trim()
 const MENSAGENS_PADRAO = {
   sessaoExpirada: 'Sessão expirada. Faça login novamente.',
   acessoNegado: 'Acesso negado. Você não tem permissão para acessar esta área.',
@@ -66,6 +66,20 @@ const NOVIDADES_VERSAO_PADRAO = Object.freeze([
   'Capacidade regular e vagas extras nas turmas.',
   'Relatório de frequência esportiva.',
 ])
+
+export function formatarVersaoFrontend(versao = APP_VERSION, ambiente = APP_ENVIRONMENT) {
+  const versaoBase = String(versao || '').trim()
+
+  if (!versaoBase) {
+    return ''
+  }
+
+  if (normalizarAmbienteAplicacao(ambiente) === 'homologacao') {
+    return garantirSufixoVersaoHomologacao(versaoBase, `${versaoBase}-hml`)
+  }
+
+  return versaoBase
+}
 
 
 export function obterUrlPublicaFrontend() {
@@ -326,34 +340,18 @@ export function formatarRotuloAmbiente(valor) {
 
 export function obterInfoVersaoSistemaPadrao() {
   const hostname = obterHostnameAtual()
-  const versaoSeguraPorHostname = resolverVersaoSeguraPorHostname(hostname)
   const ambienteSegurancaHost = resolverAmbienteSeguroPorHostname(hostname)
-  const versaoBase = String(APP_VERSION || '').trim()
-  const ambientePorVersao = /-hml$/i.test(versaoBase) ? 'homologacao' : APP_ENVIRONMENT
+  const versaoBase = APP_VERSION
+  const ambientePorVersao = APP_ENVIRONMENT
   let ambiente = normalizarAmbienteAplicacao(ambienteSegurancaHost || ambientePorVersao || 'production')
 
   if (!hostnameEhLocal(hostname) && ['dev', 'local'].includes(ambiente)) {
     ambiente = hostnameIndicaHomologacao(hostname) ? 'homologacao' : 'production'
   }
 
-  let versao = versaoBase
-
-  if (ambiente === 'homologacao') {
-    const versaoMinimaHomologacao = versaoSeguraPorHostname || VERSAO_HML_MINIMA
-    const versaoHomologacaoBase =
-      !versaoBase || versaoEhMenorQue(versaoBase, versaoMinimaHomologacao) ? versaoMinimaHomologacao : versaoBase
-    versao = garantirSufixoVersaoHomologacao(versaoHomologacaoBase, versaoMinimaHomologacao)
-  } else if (ambiente === 'production') {
-    versao = versaoSeguraPorHostname || versaoBase || VERSAO_PRODUCAO_PADRAO
-  } else if (['local', 'dev'].includes(ambiente)) {
-    versao = versaoBase || 'dev'
-  } else {
-    versao = versaoBase || versaoSeguraPorHostname || VERSAO_PRODUCAO_PADRAO
-  }
-
   return {
     nome: APP_NAME,
-    versao,
+    versao: formatarVersaoFrontend(versaoBase, ambiente),
     ambiente,
     dataPublicacao: DATA_PUBLICACAO_VERSAO_PADRAO,
     novidades: [...NOVIDADES_VERSAO_PADRAO],
@@ -1797,17 +1795,11 @@ function versaoEhMenorQue(versaoA, versaoB) {
 }
 
 function mesclarInfoVersaoSistema(respostaApi) {
-  const padrao = obterInfoVersaoSistemaPadrao()
   const origem = normalizarObjetoVersaoSistema(respostaApi)
-  const hostname = obterHostnameAtual()
-  const ambienteResposta = normalizarAmbienteAplicacao(
-    obterCampoVersaoSistema(origem, 'ambiente', 'environment', 'perfil', 'stage') || padrao.ambiente,
-  )
-  const ambienteApi =
-    !hostnameEhLocal(hostname) && ['dev', 'local'].includes(ambienteResposta)
-      ? resolverAmbienteSeguroPorHostname(hostname) || padrao.ambiente
-      : ambienteResposta
   const versaoApi = String(obterCampoVersaoSistema(origem, 'versao', 'version', 'appVersion') || '').trim()
+  const ambienteApi = normalizarAmbienteAplicacao(
+    obterCampoVersaoSistema(origem, 'ambiente', 'environment', 'perfil', 'stage') || '',
+  )
   const novidadesApi = normalizarNovidadesVersaoSistema(
     origem.novidades ??
       origem.changelog ??
@@ -1816,55 +1808,46 @@ function mesclarInfoVersaoSistema(respostaApi) {
       origem.alteracoes ??
       origem.changes,
   )
-  let versaoFinal = versaoApi || padrao.versao
-
-  if (ambienteApi === 'production') {
-    versaoFinal = versaoFinal || resolverVersaoSeguraPorHostname(hostname) || VERSAO_PRODUCAO_PADRAO
-  }
 
   return {
-    nome: padrao.nome,
-    versao: versaoFinal,
+    nome: APP_NAME,
+    versao: versaoApi,
     ambiente: ambienteApi,
-    dataPublicacao:
-      obterCampoVersaoSistema(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt') ||
-      padrao.dataPublicacao,
-    novidades: novidadesApi.length ? novidadesApi : padrao.novidades,
+    dataPublicacao: String(
+      obterCampoVersaoSistema(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt') || '',
+    ).trim(),
+    novidades: novidadesApi,
   }
 }
 
 export async function buscarVersaoSistema() {
-  try {
-    const respostaApi = await tentarRotas(
-      [
-        {
-          url: `${API_URL}/publico/versao`,
-          init: {
-            headers: montarHeadersPublicos(),
-          },
-        },
-        {
-          url: `${API_URL}/versao`,
-          init: {
-            headers: montarHeaders(),
-          },
-        },
-      ],
+  const respostaApi = await tentarRotas(
+    [
       {
-        headers: montarHeadersPublicos(),
+        url: `${API_URL}/publico/versao`,
+        init: {
+          headers: montarHeadersPublicos(),
+        },
       },
       {
-        encerrarSessao401: false,
-        emitir403: false,
-        mensagem401: MENSAGENS_PADRAO.erroCarregarDados,
-        mensagem403: MENSAGENS_PADRAO.erroCarregarDados,
+        url: `${API_URL}/versao`,
+        init: {
+          headers: montarHeaders(),
+        },
       },
-    )
+    ],
+    {
+      headers: montarHeadersPublicos(),
+    },
+    {
+      encerrarSessao401: false,
+      emitir403: false,
+      mensagem401: MENSAGENS_PADRAO.erroCarregarDados,
+      mensagem403: MENSAGENS_PADRAO.erroCarregarDados,
+    },
+  )
 
-    return mesclarInfoVersaoSistema(respostaApi)
-  } catch (error) {
-    return obterInfoVersaoSistemaPadrao()
-  }
+  return mesclarInfoVersaoSistema(respostaApi)
 }
 
 export function mensagemIndicaBloqueioPlanoEstoque(mensagem) {

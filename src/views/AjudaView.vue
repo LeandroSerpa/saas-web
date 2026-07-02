@@ -1257,6 +1257,9 @@ onBeforeUnmount(() => {
           <p class="descricao-secao">
             Aqui ficam a versão atual, o histórico de atualizações e os principais lançamentos da plataforma.
           </p>
+          <p class="descricao-secao observacao-versoes">
+            As versões do frontend e da API podem ser consultadas clicando na versão exibida no rodapé.
+          </p>
         </div>
       </section>
 
@@ -1342,6 +1345,10 @@ onBeforeUnmount(() => {
 .descricao-secao {
   margin: 6px 0 0;
   color: var(--app-text-muted);
+}
+
+.observacao-versoes {
+  margin-top: 10px;
 }
 
 .cabecalho-pagina {

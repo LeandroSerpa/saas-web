@@ -5,6 +5,7 @@ import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
 import AjudaContextualLink from '@/components/AjudaContextualLink.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import ModoNavegacaoSelector from '@/components/ModoNavegacaoSelector.vue'
+import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
 import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
@@ -16,6 +17,7 @@ import {
   carregarUsuarioSessao,
   EVENTO_EMPRESA_VISUALIZACAO,
   limparSessaoAutenticacao,
+  formatarVersaoFrontend,
   obterInfoVersaoSistemaPadrao,
   obterEmpresaIdOperacao,
   obterTipoSeloAmbiente,
@@ -418,6 +420,10 @@ const mensagemGlobal = ref('')
 const tipoMensagemGlobal = ref('erro')
 const erroInesperado = ref(false)
 const infoVersaoSistema = ref(obterInfoVersaoSistemaPadrao())
+const carregandoVersaoSistema = ref(true)
+const erroConsultaVersaoSistema = ref(false)
+const painelInformacoesSistemaAberto = ref(false)
+const botaoFecharInformacoesSistema = ref(null)
 const conteudoRotaRef = ref(null)
 const cabecalhoPagina = ref(criarCabecalhoPagina())
 const recarregamentoVisualizacaoEmpresa = ref(0)
@@ -444,8 +450,9 @@ const descricaoSeloAmbienteTopo = computed(() =>
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => {
-  const versaoBase = String(obterInfoVersaoSistemaPadrao().versao || '').trim() || '1.4.0'
-  return `v${versaoBase}`
+  const ambientePadrao = obterInfoVersaoSistemaPadrao().ambiente
+  const versaoBase = formatarVersaoFrontend(undefined, ambientePadrao)
+  return versaoBase ? `v${versaoBase}` : ''
 })
 
 function criarCabecalhoPagina() {
@@ -953,11 +960,17 @@ function atualizarStatusFinanceiroGlobal() {
 }
 
 async function carregarAmbienteAplicacao() {
+  carregandoVersaoSistema.value = true
+
   try {
     infoVersaoSistema.value = await buscarVersaoSistema()
+    erroConsultaVersaoSistema.value = false
   } catch (error) {
     infoVersaoSistema.value = obterInfoVersaoSistemaPadrao()
+    erroConsultaVersaoSistema.value = true
     console.error(error)
+  } finally {
+    carregandoVersaoSistema.value = false
   }
 }
 
@@ -1013,9 +1026,22 @@ function sincronizarGruposMenu() {
   }
 }
 
-function irParaAjudaVersao() {
+function abrirPainelInformacoesSistema() {
   fecharMenuMobile()
-  router.push({ path: '/ajuda', hash: '#versao-novidades' })
+  painelInformacoesSistemaAberto.value = true
+  nextTick(() => {
+    botaoFecharInformacoesSistema.value?.focus?.()
+  })
+}
+
+function fecharPainelInformacoesSistema() {
+  painelInformacoesSistemaAberto.value = false
+}
+
+function aoTecladoPainelInformacoesSistema(event) {
+  if (event.key === 'Escape' && painelInformacoesSistemaAberto.value) {
+    fecharPainelInformacoesSistema()
+  }
 }
 
 function sincronizarCabecalhoPagina() {
@@ -1130,6 +1156,20 @@ watch(menuMobileAberto, (aberto) => {
   }
 })
 
+watch(painelInformacoesSistemaAberto, (aberto) => {
+  if (typeof document !== 'undefined') {
+    document.body.classList.toggle('info-sistema-aberto', aberto)
+  }
+
+  if (typeof window !== 'undefined') {
+    if (aberto) {
+      window.addEventListener('keydown', aoTecladoPainelInformacoesSistema)
+    } else {
+      window.removeEventListener('keydown', aoTecladoPainelInformacoesSistema)
+    }
+  }
+})
+
 onErrorCaptured((error) => {
   registrarErroGlobal(error)
   return false
@@ -1166,6 +1206,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('mensagem-global', exibirMensagemGlobal)
   window.removeEventListener('error', aoReceberErroJanela)
   window.removeEventListener('unhandledrejection', aoReceberRejeicaoNaoTratada)
+  window.removeEventListener('keydown', aoTecladoPainelInformacoesSistema)
 
   if (timeoutMensagemGlobal) {
     clearTimeout(timeoutMensagemGlobal)
@@ -1177,6 +1218,7 @@ onBeforeUnmount(() => {
 
   if (typeof document !== 'undefined') {
     document.body.classList.remove('menu-mobile-aberto')
+    document.body.classList.remove('info-sistema-aberto')
   }
 })
 </script>
@@ -1334,7 +1376,15 @@ onBeforeUnmount(() => {
       </nav>
 
       <footer class="rodape-versao-menu" aria-label="Versão do sistema">
-        <button type="button" class="link-versao-menu" @click="irParaAjudaVersao">
+        <button
+          type="button"
+          class="link-versao-menu"
+          aria-haspopup="dialog"
+          :aria-expanded="painelInformacoesSistemaAberto"
+          aria-controls="painel-informacoes-sistema"
+          aria-label="Abrir informações do sistema"
+          @click="abrirPainelInformacoesSistema"
+        >
           {{ versaoMenuLateral }}
         </button>
       </footer>
@@ -1382,6 +1432,42 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="painelInformacoesSistemaAberto"
+      class="modal-info-sistema-fundo"
+      @click.self="fecharPainelInformacoesSistema"
+    >
+      <section
+        id="painel-informacoes-sistema"
+        class="modal-info-sistema"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Informações do sistema"
+      >
+        <button
+          ref="botaoFecharInformacoesSistema"
+          type="button"
+          class="botao-fechar-informacoes-sistema"
+          aria-label="Fechar informações do sistema"
+          @click="fecharPainelInformacoesSistema"
+        >
+          ×
+        </button>
+
+        <SystemVersionPanel
+          titulo="Informações do sistema"
+          discreto
+          :mostrar-novidades="false"
+          :usar-informacoes-externas="true"
+          :informacoes-backend="infoVersaoSistema"
+          :carregando-backend="carregandoVersaoSistema"
+          :erro-backend="erroConsultaVersaoSistema"
+        />
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -1592,6 +1678,55 @@ onBeforeUnmount(() => {
   color: var(--app-sidebar-link-active);
 }
 
+.link-versao-menu:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.modal-info-sistema-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--app-overlay);
+}
+
+.modal-info-sistema {
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(90vh, 90dvh);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+
+.botao-fechar-informacoes-sistema {
+  justify-self: end;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--app-shadow);
+}
+
+.botao-fechar-informacoes-sistema:hover {
+  border-color: var(--app-primary);
+  color: var(--app-primary);
+}
+
+.botao-fechar-informacoes-sistema:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
 .app-main {
   min-width: 0;
   max-width: none;
@@ -1724,5 +1859,18 @@ onBeforeUnmount(() => {
   .app-main {
     padding: 12px;
   }
+
+  .modal-info-sistema-fundo {
+    padding: 8px;
+  }
+
+  .modal-info-sistema {
+    width: min(100vw - 16px, 520px);
+    max-height: calc(100dvh - 16px);
+  }
+}
+
+:global(body.info-sistema-aberto) {
+  overflow: hidden;
 }
 </style>
