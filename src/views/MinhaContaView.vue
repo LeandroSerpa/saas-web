@@ -7,9 +7,9 @@ import {
   buscarMinhaConta,
   carregarUsuarioSessao,
   obterMensagemAmigavelErro,
-  obterInfoVersaoSistemaPadrao,
   salvarSessaoAutenticacao,
 } from '@/services/api'
+import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 import { emailBasicoValido, validarLoginCurto } from '@/utils/validacoes'
 
 const carregando = ref(true)
@@ -19,7 +19,7 @@ const erroDados = ref('')
 const erroSenha = ref('')
 const sucessoDados = ref('')
 const sucessoSenha = ref('')
-const versaoPublica = obterInfoVersaoSistemaPadrao()
+const versaoPublica = obterVersaoFrontendComPrefixo()
 const dadosConta = ref({
   nome: '',
   email: '',
@@ -349,7 +349,7 @@ function normalizarMensagem(valor) {
           <p>Consulte a versão atual e o histórico de atualizações na Ajuda.</p>
         </div>
 
-        <p class="versao-destaque">Versão {{ versaoPublica.versao }}</p>
+        <p class="versao-destaque">Versão {{ versaoPublica }}</p>
 
         <RouterLink class="link-versao-ajuda" to="/ajuda#versao-novidades">
           Ver novidades e histórico

@@ -17,7 +17,6 @@ import {
   carregarUsuarioSessao,
   EVENTO_EMPRESA_VISUALIZACAO,
   limparSessaoAutenticacao,
-  formatarVersaoFrontend,
   obterInfoVersaoSistemaPadrao,
   obterEmpresaIdOperacao,
   obterTipoSeloAmbiente,
@@ -41,6 +40,7 @@ import {
   salvarModoNavegacao,
   sincronizarModoNavegacao,
 } from '@/utils/modoNavegacao'
+import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const route = useRoute()
@@ -424,16 +424,12 @@ const carregandoVersaoSistema = ref(false)
 const erroConsultaVersaoSistema = ref(false)
 const painelInformacoesSistemaAberto = ref(false)
 const botaoFecharInformacoesSistema = ref(null)
-const versaoRodapeRef = ref(null)
 const conteudoRotaRef = ref(null)
 const cabecalhoPagina = ref(criarCabecalhoPagina())
 const recarregamentoVisualizacaoEmpresa = ref(0)
 let timeoutMensagemGlobal = null
 let observadorCabecalhoPagina = null
 let elementoAcaoCabecalhoPagina = null
-let temporizadorCliquesVersao = null
-let inicioSequenciaCliquesVersao = 0
-let cliquesSequenciaVersao = 0
 let elementoFocoAnteriorInformacoesSistema = null
 const MENSAGEM_ERRO_GLOBAL_PADRAO = 'Ocorreu um erro inesperado. Recarregue a página para continuar.'
 
@@ -454,11 +450,7 @@ const descricaoSeloAmbienteTopo = computed(() =>
   tipoSeloAmbienteTopo.value === 'homologacao' ? 'Ambiente de homologação' : 'Ambiente local',
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
-const versaoMenuLateral = computed(() => {
-  const ambientePadrao = obterInfoVersaoSistemaPadrao().ambiente
-  const versaoBase = formatarVersaoFrontend(undefined, ambientePadrao)
-  return versaoBase ? `v${versaoBase}` : ''
-})
+const versaoMenuLateral = computed(() => obterVersaoFrontendComPrefixo())
 
 function criarCabecalhoPagina() {
   return {
@@ -983,64 +975,6 @@ async function carregarInformacoesSistema() {
   }
 }
 
-function limparSequenciaCliquesVersao() {
-  cliquesSequenciaVersao = 0
-  inicioSequenciaCliquesVersao = 0
-
-  if (temporizadorCliquesVersao) {
-    clearTimeout(temporizadorCliquesVersao)
-    temporizadorCliquesVersao = null
-  }
-}
-
-function elementoEhEditavel(elemento) {
-  if (!elemento || !(elemento instanceof Element)) {
-    return false
-  }
-
-  return Boolean(
-    elemento.closest(
-      'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]',
-    ),
-  )
-}
-
-function registrarAtalhosInformacoesSistema(ativo) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.removeEventListener('keydown', aoTecladoPainelInformacoesSistema)
-
-  if (ativo) {
-    window.addEventListener('keydown', aoTecladoPainelInformacoesSistema)
-  }
-}
-
-function registrarCliqueVersaoRodape() {
-  if (!superAdmin.value || painelInformacoesSistemaAberto.value) {
-    return
-  }
-
-  const agora = Date.now()
-
-  if (!cliquesSequenciaVersao || !inicioSequenciaCliquesVersao || agora - inicioSequenciaCliquesVersao > 4000) {
-    limparSequenciaCliquesVersao()
-    cliquesSequenciaVersao = 1
-    inicioSequenciaCliquesVersao = agora
-    temporizadorCliquesVersao = setTimeout(() => {
-      limparSequenciaCliquesVersao()
-    }, 4000)
-    return
-  }
-
-  cliquesSequenciaVersao += 1
-
-  if (cliquesSequenciaVersao >= 5) {
-    void abrirPainelInformacoesSistema()
-  }
-}
-
 function exibirMensagemGlobal(event) {
   const detail = event?.detail || {}
   mensagemGlobal.value = detail.mensagem || 'Não foi possível carregar os dados. Tente novamente.'
@@ -1099,7 +1033,6 @@ async function abrirPainelInformacoesSistema() {
   }
 
   fecharMenuMobile()
-  limparSequenciaCliquesVersao()
   elementoFocoAnteriorInformacoesSistema =
     typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
       ? document.activeElement
@@ -1113,53 +1046,20 @@ async function abrirPainelInformacoesSistema() {
 
 async function fecharPainelInformacoesSistema() {
   painelInformacoesSistemaAberto.value = false
-  limparSequenciaCliquesVersao()
 
   await nextTick()
 
-  if (conteudoRotaRef.value instanceof HTMLElement) {
-    conteudoRotaRef.value.focus({ preventScroll: true })
-    return
-  }
-
-  if (versaoRodapeRef.value instanceof HTMLElement) {
-    versaoRodapeRef.value.focus({ preventScroll: true })
-    return
-  }
-
   if (elementoFocoAnteriorInformacoesSistema instanceof HTMLElement) {
     elementoFocoAnteriorInformacoesSistema.focus({ preventScroll: true })
-  }
-}
-
-function aoTecladoPainelInformacoesSistema(event) {
-  if (!superAdmin.value) {
+    elementoFocoAnteriorInformacoesSistema = null
     return
   }
 
-  if (
-    event.altKey &&
-    event.shiftKey &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    String(event.key || '').toLowerCase() === 'v'
-  ) {
-    if (elementoEhEditavel(event.target)) {
-      return
-    }
-
-    event.preventDefault()
-
-    if (!painelInformacoesSistemaAberto.value) {
-      void abrirPainelInformacoesSistema()
-    }
-    return
+  if (conteudoRotaRef.value instanceof HTMLElement) {
+    conteudoRotaRef.value.focus({ preventScroll: true })
   }
 
-  if (event.key === 'Escape' && painelInformacoesSistemaAberto.value) {
-    event.preventDefault()
-    void fecharPainelInformacoesSistema()
-  }
+  elementoFocoAnteriorInformacoesSistema = null
 }
 
 function sincronizarCabecalhoPagina() {
@@ -1277,8 +1177,6 @@ watch(menuMobileAberto, (aberto) => {
 watch(
   superAdmin,
   (valor, valorAnterior) => {
-    registrarAtalhosInformacoesSistema(valor)
-
     if (!valor && valorAnterior) {
       void fecharPainelInformacoesSistema()
     }
@@ -1327,8 +1225,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('mensagem-global', exibirMensagemGlobal)
   window.removeEventListener('error', aoReceberErroJanela)
   window.removeEventListener('unhandledrejection', aoReceberRejeicaoNaoTratada)
-  window.removeEventListener('keydown', aoTecladoPainelInformacoesSistema)
-  limparSequenciaCliquesVersao()
 
   if (timeoutMensagemGlobal) {
     clearTimeout(timeoutMensagemGlobal)
@@ -1493,19 +1389,21 @@ onBeforeUnmount(() => {
             <RouterLink to="/configuracoes-pagamento" @click="fecharMenuMobile">Configuração de pagamento</RouterLink>
             <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/Módulos</RouterLink>
             <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
+            <button type="button" class="submenu-acao submenu-acao-destaque" @click="abrirPainelInformacoesSistema">
+              Informações do sistema
+            </button>
           </div>
         </section>
       </nav>
 
       <footer class="rodape-versao-menu" aria-label="Versão do sistema">
-        <span
-          ref="versaoRodapeRef"
+        <RouterLink
+          to="/ajuda#versao-novidades"
           class="link-versao-menu"
-          tabindex="-1"
-          @click="registrarCliqueVersaoRodape"
+          aria-label="Consultar versão e novidades do sistema"
         >
           {{ versaoMenuLateral }}
-        </span>
+        </RouterLink>
       </footer>
     </aside>
 
@@ -1767,9 +1665,35 @@ onBeforeUnmount(() => {
   border-left: 2px solid var(--app-primary);
 }
 
-.submenu a {
+.submenu a,
+.submenu-acao {
+  display: block;
+  width: 100%;
   padding: 9px 10px;
   font-size: 14px;
+  color: var(--app-sidebar-link);
+  text-decoration: none;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.submenu a.router-link-active {
+  background: var(--app-sidebar-item-active);
+  color: var(--app-sidebar-link-active);
+}
+
+.submenu-acao:hover,
+.submenu-acao:focus-visible {
+  background: var(--app-sidebar-chip);
+  color: var(--app-sidebar-link-active);
+}
+
+.submenu-acao-destaque {
+  font-weight: 800;
 }
 
 .rodape-versao-menu {
@@ -1780,21 +1704,25 @@ onBeforeUnmount(() => {
 }
 
 .link-versao-menu {
-  border: 0;
-  background: transparent;
-  color: inherit;
   display: inline-flex;
   font-size: 11px;
   letter-spacing: 0.04em;
   font-weight: 700;
-  cursor: default;
+  cursor: pointer;
   padding: 0;
   text-decoration: none;
   user-select: none;
+  color: inherit;
 }
 
-.link-versao-menu:focus {
-  outline: none;
+.link-versao-menu:hover {
+  text-decoration: underline;
+}
+
+.link-versao-menu:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .modal-info-sistema-fundo {

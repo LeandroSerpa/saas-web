@@ -1,11 +1,12 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { buscarConteudoInstitucionalPublico, obterInfoVersaoSistemaPadrao } from '@/services/api'
+import { buscarConteudoInstitucionalPublico } from '@/services/api'
+import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 
 const conteudo = ref(criarFallback())
 const carregando = ref(true)
-const versaoPublica = obterInfoVersaoSistemaPadrao()
+const versaoPublica = obterVersaoFrontendComPrefixo()
 
 function criarFallback() {
   return {
@@ -89,7 +90,7 @@ onMounted(carregarConteudo)
 
         <section class="versao-publica" aria-label="Versão atual do sistema">
           <p class="versao-etiqueta">Versão atual</p>
-          <strong>Versão {{ versaoPublica.versao }}</strong>
+          <strong>Versão {{ versaoPublica }}</strong>
           <RouterLink class="link-versao-ajuda" to="/ajuda#versao-novidades">
             Ver novidades e histórico
           </RouterLink>

@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { buscarVersaoSistema, formatarRotuloAmbiente, obterInfoVersaoSistemaPadrao } from '@/services/api'
 import { formatarDataPtBrSemFuso } from '@/utils/datas'
+import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,7 +15,7 @@ const modoDetalhe = ref('resumo')
 const secaoNovidadesRef = ref(null)
 const mostrarListaTopicos = ref(true)
 const isViewportMobile = ref(false)
-const versaoPublica = ref(obterInfoVersaoSistemaPadrao())
+const versaoPublica = ref(normalizarVersaoPublica())
 const carregandoVersaoPublica = ref(false)
 let mediaQueryTopicos = null
 
@@ -711,6 +712,16 @@ const conteudoDetalhadoPorTopico = {
 
 const historicoAtualizacoes = [
   {
+    versao: '1.4.1',
+    dataPublicacao: '2026-07-01',
+    itens: [
+      'Versão pública centralizada e automática.',
+      'Acesso à versão pelo rodapé.',
+      'Painel de informações restrito ao SUPER_ADMIN.',
+      'Melhorias na navegação da Ajuda.',
+    ],
+  },
+  {
     versao: '1.4.0',
     dataPublicacao: '2026-07-01',
     itens: [
@@ -995,25 +1006,16 @@ function formatarDataAtualizacao(valor) {
   return formatarDataPtBrSemFuso(valor)
 }
 
-function formatarVersaoPublica(valor) {
-  const texto = String(valor || '').trim()
-
-  if (!texto) {
-    return obterInfoVersaoSistemaPadrao().versao
-  }
-
-  return texto.replace(/^v/i, '')
-}
-
 function normalizarVersaoPublica(resposta) {
   const padrao = obterInfoVersaoSistemaPadrao()
   const origem = resposta && typeof resposta === 'object' ? resposta : {}
 
   return {
     nome: padrao.nome,
-    versao: formatarVersaoPublica(origem.versao || origem.version || origem.appVersion || padrao.versao),
+    versao: obterVersaoFrontendComPrefixo(),
     ambiente: origem.ambiente || origem.environment || origem.perfil || origem.stage || padrao.ambiente,
-    dataPublicacao: origem.dataPublicacao || origem.publicadoEm || origem.releaseDate || origem.publishedAt || padrao.dataPublicacao,
+    dataPublicacao:
+      origem.dataPublicacao || origem.publicadoEm || origem.releaseDate || origem.publishedAt || padrao.dataPublicacao,
     novidades: Array.isArray(origem.novidades) && origem.novidades.length ? origem.novidades : padrao.novidades,
   }
 }
@@ -1024,7 +1026,7 @@ async function carregarVersaoPublica() {
   try {
     versaoPublica.value = normalizarVersaoPublica(await buscarVersaoSistema())
   } catch (error) {
-    versaoPublica.value = normalizarVersaoPublica(obterInfoVersaoSistemaPadrao())
+    versaoPublica.value = normalizarVersaoPublica()
     console.error(error)
   } finally {
     carregandoVersaoPublica.value = false
@@ -1312,9 +1314,9 @@ onBeforeUnmount(() => {
           <span class="selo-versao-publica">Versão {{ versaoPublica.versao || 'indisponível' }}</span>
         </header>
 
-        <p v-if="carregandoVersaoPublica" class="texto-versao-publica">Carregando versão atual...</p>
+        <p v-if="carregandoVersaoPublica" class="texto-versao-publica">Consultando informações da API...</p>
 
-        <dl v-else class="versao-publica-dados">
+        <dl class="versao-publica-dados">
           <div>
             <dt>Versão do sistema</dt>
             <dd>{{ versaoPublica.versao }}</dd>

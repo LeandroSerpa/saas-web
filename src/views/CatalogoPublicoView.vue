@@ -31,6 +31,7 @@ const personalizacao = ref(criarPersonalizacaoPadrao())
 const produtos = ref([])
 const categoriasResposta = ref([])
 const categoriaAtiva = ref('')
+const termoBuscaCatalogo = ref('')
 const categoriasRef = ref(null)
 const produtoSelecionado = ref(null)
 const imagensComErro = ref({})
@@ -57,7 +58,7 @@ const categorias = computed(() => {
     const contagemPorCategoria = new Map()
 
     for (const produto of produtosPublicados.value) {
-      const categoria = String(produto.categoriaPublica || '').trim()
+      const categoria = normalizarChaveCategoriaCatalogo(produto.categoriaPublica)
 
       if (!categoria) {
         continue
@@ -66,35 +67,57 @@ const categorias = computed(() => {
       contagemPorCategoria.set(categoria, (contagemPorCategoria.get(categoria) || 0) + 1)
     }
 
-    return categoriasApi.map((nome) => ({
-      nome,
-      quantidade: contagemPorCategoria.get(nome) || 0,
+    return categoriasApi.map((categoria) => ({
+      ...categoria,
+      quantidade: contagemPorCategoria.get(categoria.chave) || 0,
     }))
   }
 
   const mapa = new Map()
 
   for (const produto of produtosPublicados.value) {
-    const categoria = String(produto.categoriaPublica || '').trim()
+    const categoria = normalizarChaveCategoriaCatalogo(produto.categoriaPublica)
 
     if (!categoria) {
       continue
     }
 
-    mapa.set(categoria, (mapa.get(categoria) || 0) + 1)
+    if (!mapa.has(categoria)) {
+      mapa.set(categoria, {
+        nome: String(produto.categoriaPublica || '').trim(),
+        quantidade: 0,
+      })
+    }
+
+    mapa.get(categoria).quantidade += 1
   }
 
   return [...mapa.entries()]
-    .map(([nome, quantidade]) => ({ nome, quantidade }))
+    .map(([chave, categoria]) => ({ chave, ...categoria }))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 })
 
 const produtosFiltrados = computed(() => {
-  if (!categoriaAtiva.value) {
-    return produtosPublicados.value
-  }
+  const termoBusca = termoBuscaNormalizado.value
+  const chaveCategoriaAtiva = categoriaAtivaChave.value
 
-  return produtosPublicados.value.filter((item) => item.categoriaPublica === categoriaAtiva.value)
+  return produtosPublicados.value.filter((item) => {
+    const chaveCategoriaProduto = normalizarChaveCategoriaCatalogo(item.categoriaPublica)
+
+    if (chaveCategoriaAtiva && chaveCategoriaProduto !== chaveCategoriaAtiva) {
+      return false
+    }
+
+    if (!termoBusca) {
+      return true
+    }
+
+    const textoBusca = normalizarTextoComparacao(
+      [item.nome, item.descricaoPublica, item.categoriaPublica].filter(Boolean).join(' '),
+    )
+
+    return textoBusca.includes(termoBusca)
+  })
 })
 
 const tituloPagina = computed(() =>
@@ -179,9 +202,63 @@ const temWhatsapp = computed(() => Boolean(whatsappNumero.value))
 const totalDisponiveis = computed(() => produtosPublicados.value.filter((item) => item.disponivel === true).length)
 const totalDestaques = computed(() => produtosPublicados.value.filter((item) => item.destaque === true).length)
 const quantidadeCategorias = computed(() => categorias.value.length)
-const categoriaAtivaSelecionada = computed(() => categorias.value.find((item) => item.nome === categoriaAtiva.value) || null)
+const categoriaAtivaChave = computed(() => normalizarChaveCategoriaCatalogo(categoriaAtiva.value))
+const categoriaAtivaSelecionada = computed(() => categorias.value.find((item) => item.chave === categoriaAtivaChave.value) || null)
 const totalVisiveis = computed(() => produtosFiltrados.value.length)
 const totalProdutosPublicados = computed(() => produtosPublicados.value.length)
+const termoBuscaNormalizado = computed(() => normalizarTextoComparacao(termoBuscaCatalogo.value))
+const temBuscaAtiva = computed(() => Boolean(termoBuscaNormalizado.value))
+const temFiltroAtivo = computed(() => Boolean(categoriaAtiva.value || temBuscaAtiva.value))
+const exibirFiltrosCatalogo = computed(() => Boolean(produtosPublicados.value.length || categorias.value.length))
+const textoLimparFiltrosCatalogo = computed(() => {
+  if (categoriaAtiva.value && temBuscaAtiva.value) {
+    return 'Limpar busca e filtros'
+  }
+
+  if (categoriaAtiva.value) {
+    return 'Limpar categoria'
+  }
+
+  if (temBuscaAtiva.value) {
+    return 'Limpar busca'
+  }
+
+  return 'Limpar filtros'
+})
+const tituloSemResultadosCatalogo = computed(() => {
+  if (categoriaAtiva.value && temBuscaAtiva.value) {
+    return 'Nenhum produto corresponde aos filtros aplicados.'
+  }
+
+  if (categoriaAtiva.value) {
+    return 'Nenhum produto encontrado para esta categoria.'
+  }
+
+  if (temBuscaAtiva.value) {
+    return 'Nenhum produto encontrado para esta busca.'
+  }
+
+  return 'Nenhum produto publicado no catálogo no momento.'
+})
+const descricaoSemResultadosCatalogo = computed(() => {
+  const busca = String(termoBuscaCatalogo.value || '').trim()
+
+  if (categoriaAtiva.value && temBuscaAtiva.value) {
+    const categoria = categoriaAtivaSelecionada.value?.nome || categoriaAtiva.value
+    return `A categoria ${categoria} não trouxe itens para o termo ${busca}.`
+  }
+
+  if (categoriaAtiva.value) {
+    const categoria = categoriaAtivaSelecionada.value?.nome || categoriaAtiva.value
+    return `A categoria ${categoria} não possui itens publicados agora.`
+  }
+
+  if (temBuscaAtiva.value) {
+    return 'Tente outro termo ou limpe a busca para voltar a ver toda a vitrine.'
+  }
+
+  return 'A empresa ainda pode estar preparando os itens do dia.'
+})
 const listaProdutosCatalogoView = computed(() =>
   produtosFiltrados.value.map((produto, indice) => criarProdutoCatalogoView(produto, indice)),
 )
@@ -322,16 +399,43 @@ function normalizarLista(valor) {
 
 function normalizarCategoriaCatalogo(valor) {
   if (valor && typeof valor === 'object' && !Array.isArray(valor)) {
-    return String(valor.nome || valor.nomeCategoria || valor.categoriaPublica || valor.categoria || valor.titulo || '').trim()
+    return {
+      chave: normalizarChaveCategoriaCatalogo(
+        valor.nome || valor.nomeCategoria || valor.categoriaPublica || valor.categoria || valor.titulo || '',
+      ),
+      nome: String(valor.nome || valor.nomeCategoria || valor.categoriaPublica || valor.categoria || valor.titulo || '').trim(),
+    }
   }
 
-  return String(valor || '').trim()
+  const nome = String(valor || '').trim()
+  return {
+    chave: normalizarChaveCategoriaCatalogo(nome),
+    nome,
+  }
 }
 
 function normalizarCategoriasCatalogo(valor) {
-  return [...new Set(normalizarLista(valor).map(normalizarCategoriaCatalogo).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b, 'pt-BR'),
-  )
+  const mapa = new Map()
+
+  for (const item of normalizarLista(valor)) {
+    const categoria = normalizarCategoriaCatalogo(item)
+
+    if (!categoria.chave || !categoria.nome) {
+      continue
+    }
+
+    if (!mapa.has(categoria.chave)) {
+      mapa.set(categoria.chave, categoria.nome)
+    }
+  }
+
+  return [...mapa.entries()]
+    .map(([chave, nome]) => ({ chave, nome }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+function normalizarChaveCategoriaCatalogo(valor) {
+  return normalizarTextoComparacao(valor).replace(/\s+/g, ' ').trim()
 }
 
 function normalizarProdutoCatalogo(produto) {
@@ -648,15 +752,20 @@ function criarMapaVisualCatalogo(corPrincipal, corSecundaria, tema) {
   return base
 }
 
+function converterNumeroSeguro(valor, fallback = 0) {
+  const numero = Number(valor)
+  return Number.isFinite(numero) ? numero : fallback
+}
+
 function formatarMoeda(valor) {
-  return Number(valor || 0).toLocaleString('pt-BR', {
+  return converterNumeroSeguro(valor).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   })
 }
 
 function formatarQuantidade(valor) {
-  return Number(valor || 0).toLocaleString('pt-BR', {
+  return converterNumeroSeguro(valor).toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })
@@ -834,6 +943,11 @@ function selecionarCategoria(categoria) {
 
 function limparFiltroCategoria() {
   categoriaAtiva.value = ''
+}
+
+function limparFiltrosCatalogo() {
+  categoriaAtiva.value = ''
+  termoBuscaCatalogo.value = ''
 }
 
 function irParaCategorias() {
@@ -1039,6 +1153,7 @@ async function carregarCatalogo() {
     indisponivel.value = false
     erro.value = ''
     categoriaAtiva.value = ''
+    termoBuscaCatalogo.value = ''
     categoriasResposta.value = []
     produtoSelecionado.value = null
     imagensComErro.value = {}
@@ -1142,20 +1257,21 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="catalogo-publico" :class="classeTemaCatalogo" :style="estilosCatalogo">
-    <section v-if="carregando" class="card estado-shell">
-      <span class="estado-selo">Carregando</span>
-      <h1>Preparando a vitrine publica</h1>
-      <p>Buscando os produtos publicados para este catálogo.</p>
-    </section>
+    <div class="catalogo-publico-conteudo">
+      <section v-if="carregando" class="card estado-shell">
+        <span class="estado-selo">Carregando</span>
+        <h1>Preparando a vitrine pública</h1>
+        <p>Buscando os produtos publicados para este catálogo.</p>
+      </section>
 
-    <section v-else-if="indisponivel" class="card estado-shell">
-      <span class="estado-selo erro">Indisponível</span>
-      <h1>Catálogo indisponível no momento</h1>
-      <p>{{ erro || 'Esta vitrine pública não está disponível agora. Tente novamente mais tarde.' }}</p>
-    </section>
+      <section v-else-if="indisponivel" class="card estado-shell">
+        <span class="estado-selo erro">Indisponível</span>
+        <h1>Catálogo indisponível no momento</h1>
+        <p>{{ erro || 'Esta vitrine pública não está disponível agora. Tente novamente mais tarde.' }}</p>
+      </section>
 
-    <template v-else>
-      <header class="hero card">
+      <template v-else>
+        <header class="hero card">
         <div class="hero-banner-shell banner-publico">
           <div class="banner-publico-moldura">
             <img
@@ -1173,269 +1289,277 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
+          <div class="hero-conteudo">
+            <div class="hero-principal">
+              <div class="hero-identidade">
+                <div class="logo-shell">
+                  <img
+                    v-if="logoEmpresa && !logoEmpresaComErro"
+                    :src="logoEmpresa"
+                    alt="Logo da empresa"
+                    class="logo-empresa"
+                    @error="aoFalharLogoEmpresa"
+                  />
+                  <span v-else>{{ extrairIniciais(empresa.nome || tituloPagina) }}</span>
+                </div>
 
-        <div class="hero-conteudo">
-          <div class="hero-principal">
-            <div class="hero-identidade">
-              <div class="logo-shell">
-                <img
-                  v-if="logoEmpresa && !logoEmpresaComErro"
-                  :src="logoEmpresa"
-                  alt="Logo da empresa"
-                  class="logo-empresa"
-                  @error="aoFalharLogoEmpresa"
-                />
-                <span v-else>{{ extrairIniciais(empresa.nome || tituloPagina) }}</span>
-              </div>
-
-              <div class="hero-textos">
-                <p class="selo">{{ acessandoViaCardapio ? 'Cardápio' : 'Catálogo' }}</p>
-                <h1>{{ tituloPrincipalCatalogo }}</h1>
-                <p v-if="exibirNomeEmpresaNoHero" class="titulo">{{ empresa.nome }}</p>
-                <p class="subtitulo">{{ descricaoCatalogo }}</p>
-                <p v-if="resumoContatoCatalogo" class="hero-contato">{{ resumoContatoCatalogo }}</p>
-              </div>
-            </div>
-
-            <div class="hero-cta">
-              <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
-                Pedir pelo WhatsApp
-              </a>
-              <button v-if="categorias.length" type="button" class="botao-secundario" @click="irParaCategorias">
-                Ver categorias
-              </button>
-            </div>
-          </div>
-
-          <div class="hero-resumo">
-            <article class="resumo-pill">
-              <span>Disponiveis</span>
-              <strong>{{ totalDisponiveis }}</strong>
-              <small>Itens prontos para venda</small>
-            </article>
-            <article class="resumo-pill">
-              <span>Destaques</span>
-              <strong>{{ totalDestaques }}</strong>
-              <small>Produtos em evidência</small>
-            </article>
-            <article class="resumo-pill">
-              <span>Categorias</span>
-              <strong>{{ quantidadeCategorias }}</strong>
-              <small>Organização da vitrine</small>
-            </article>
-          </div>
-        </div>
-      </header>
-
-      <section class="painel-superior">
-        <article class="card painel-intro">
-          <div class="painel-intro-topo">
-            <div>
-              <p class="painel-selo">Como comprar</p>
-              <h2>Escolha um produto e finalize o pedido no WhatsApp</h2>
-               <p>{{ textoInstrucoesCatalogo || 'Esta vitrine não possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.' }}</p>
-            </div>
-
-            <a v-if="temWhatsapp" class="botao-primario botao-bloco" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
-              Abrir WhatsApp
-            </a>
-          </div>
-
-          <div class="passos-compra">
-            <article class="passo-compra">
-              <span>1</span>
-              <strong>Escolha</strong>
-              <p>Veja os produtos, preços e disponibilidade do dia.</p>
-            </article>
-            <article class="passo-compra">
-              <span>2</span>
-              <strong>Chame</strong>
-              <p>Toque no botão do WhatsApp para abrir a conversa pronta.</p>
-            </article>
-            <article class="passo-compra">
-              <span>3</span>
-              <strong>Confirme</strong>
-              <p>Combine retirada, entrega e detalhes com a empresa.</p>
-            </article>
-          </div>
-        </article>
-
-        <article v-if="textoSobreCatalogo || temWhatsapp" class="card painel-aviso painel-contexto">
-          <div v-if="textoSobreCatalogo" class="painel-contexto-bloco">
-            <p class="painel-selo">Sobre a empresa</p>
-            <p>{{ textoSobreCatalogo }}</p>
-          </div>
-
-          <div v-if="temWhatsapp" class="painel-contexto-bloco">
-            <p class="painel-selo">Atendimento</p>
-            <p>{{ resumoContatoCatalogo }}</p>
-            <a class="link-contato" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">Falar agora no WhatsApp</a>
-          </div>
-        </article>
-
-        <article v-if="!temWhatsapp" class="card painel-aviso">
-          <p class="painel-selo">Aviso</p>
-          <h2>WhatsApp ainda não configurado</h2>
-          <p>Os produtos continuam visíveis, mas o botão de contato fica oculto até a empresa informar um número válido.</p>
-        </article>
-      </section>
-
-      <section v-if="categorias.length" ref="categoriasRef" class="card filtros-categorias">
-        <div class="filtros-topo">
-          <div>
-            <p class="painel-selo">Categorias</p>
-            <h2>Filtre a vitrine</h2>
-            <p class="filtros-subtitulo">A navegação fica mais rápida quando o cliente toca na categoria desejada.</p>
-          </div>
-          <div class="filtros-acoes">
-            <span class="contador-filtros">{{ totalProdutosPublicados }} item(ns)</span>
-            <button v-if="categoriaAtiva" type="button" class="link-limpar" @click="limparFiltroCategoria">Limpar filtro</button>
-          </div>
-        </div>
-
-        <div class="chips">
-          <button
-            type="button"
-            class="chip"
-            :class="{ ativo: !categoriaAtiva }"
-            @click="selecionarCategoria('')"
-          >
-            Todas
-            <span>{{ totalProdutosPublicados }}</span>
-          </button>
-          <button
-            v-for="categoria in categorias"
-            :key="categoria.nome"
-            type="button"
-            class="chip"
-            :class="{ ativo: categoriaAtiva === categoria.nome }"
-            @click="selecionarCategoria(categoria.nome)"
-          >
-            {{ categoria.nome }}
-            <span>{{ categoria.quantidade }}</span>
-          </button>
-        </div>
-      </section>
-
-      <section v-if="!produtosPublicados.length" class="card estado-shell">
-        <span class="estado-selo">Vitrine vazia</span>
-        <h2>Nenhum produto publicado no catálogo no momento.</h2>
-        <p>A empresa ainda pode estar preparando o estoque do dia. Volte mais tarde ou chame no WhatsApp para consultar disponibilidade.</p>
-        <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
-          Perguntar no WhatsApp
-        </a>
-      </section>
-
-      <section v-else-if="!produtosFiltrados.length" class="card estado-shell">
-        <span class="estado-selo">Sem resultados</span>
-        <h2>Nenhum produto encontrado para esta categoria.</h2>
-        <p>
-          {{
-            categoriaAtivaSelecionada
-              ? `A categoria ${categoriaAtivaSelecionada.nome} não possui itens publicados agora.`
-              : 'Escolha outra categoria para visualizar os demais itens da vitrine.'
-          }}
-        </p>
-        <div class="estado-acoes">
-          <button type="button" class="botao-secundario" @click="limparFiltroCategoria">Ver todas as categorias</button>
-          <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
-            Falar no WhatsApp
-          </a>
-        </div>
-      </section>
-
-      <section v-else class="secao-produtos">
-        <div class="secao-produtos-topo">
-          <div>
-            <p class="painel-selo">Produtos</p>
-            <h2>{{ categoriaAtivaSelecionada ? categoriaAtivaSelecionada.nome : 'Vitrine completa' }}</h2>
-            <p>
-              {{
-                categoriaAtivaSelecionada
-                  ? `${totalVisiveis} produto(s) nesta categoria.`
-                  : `${totalVisiveis} produto(s) para explorar nesta vitrine.`
-              }}
-            </p>
-          </div>
-
-            <span class="contador-filtros">{{ totalVisiveis }} visíveis</span>
-        </div>
-
-        <div class="grid-produtos">
-          <article
-            v-for="produto in listaProdutosCatalogoView"
-            :key="produto.chaveImagem"
-            class="card produto-card"
-          >
-            <button
-              type="button"
-              class="produto-midia"
-                :aria-label="`Abrir prévia de ${produto.nome}`"
-              @click="abrirPreviaProduto(produto)"
-            >
-              <img
-                v-if="produto.possuiImagem"
-                :src="produto.imagemNormalizada"
-                :alt="`Imagem de ${produto.nome}`"
-                class="produto-imagem"
-                @error="aoFalharImagemProduto(produto)"
-              />
-              <div v-else class="produto-placeholder">
-                <span class="produto-placeholder-iniciais">{{ extrairIniciais(produto.nome) }}</span>
-                <strong>{{ produto.categoriaPublica || 'Produto especial' }}</strong>
-                <small>Toque para ampliar</small>
-              </div>
-
-              <div class="badges">
-                <span class="badge" :class="produto.disponivel ? 'disponivel' : 'esgotado'">
-                  {{ produto.disponivel ? 'Disponível' : 'Esgotado' }}
-                </span>
-                <span v-if="produto.destaque" class="badge destaque">Destaque</span>
-                <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
-              </div>
-              <span class="produto-midia-acoes">Toque para ampliar</span>
-            </button>
-
-            <div class="produto-corpo">
-              <div class="produto-cabecalho">
-                <div>
-                  <h2>{{ produto.nome }}</h2>
-                  <p v-if="produto.categoriaPublica" class="categoria">{{ produto.categoriaPublica }}</p>
+                <div class="hero-textos">
+                  <p class="selo">{{ acessandoViaCardapio ? 'Cardápio' : 'Catálogo' }}</p>
+                  <h1>{{ tituloPrincipalCatalogo }}</h1>
+                  <p v-if="exibirNomeEmpresaNoHero" class="titulo">{{ empresa.nome }}</p>
+                  <p class="subtitulo">{{ descricaoCatalogo }}</p>
+                  <p v-if="resumoContatoCatalogo" class="hero-contato">{{ resumoContatoCatalogo }}</p>
                 </div>
               </div>
 
-              <p v-if="produto.descricaoPublica" class="descricao">{{ produto.descricaoPublica }}</p>
-
-              <div class="produto-infos">
-                <p v-if="produto.mostrarPrecoPublico" class="preco">{{ formatarMoeda(produto.precoVenda) }}</p>
-                <p v-if="produto.mostrarQuantidadePublica" class="quantidade">
-                  Disponível hoje: {{ formatarQuantidadePublica(produto) }}
-                </p>
-                <p v-if="!produto.disponivel" class="quantidade esgotado-texto">Estoque do dia encerrado no momento.</p>
-              </div>
-
-              <div class="produto-rodape">
-                <a
-                  v-if="temWhatsapp"
-                  class="botao-whatsapp"
-                  :class="{ secundario: !produto.disponivel }"
-                  :href="linkWhatsappProduto(produto)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {{ produto.disponivel ? obterRotuloBotaoWhatsApp(produto) : 'Perguntar no WhatsApp' }}
+              <div class="hero-cta">
+                <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
+                  Pedir pelo WhatsApp
                 </a>
-
-                <p v-else class="aviso-card">WhatsApp da empresa não informado.</p>
+                <button v-if="categorias.length" type="button" class="botao-secundario" @click="irParaCategorias">
+                  Ver categorias
+                </button>
               </div>
             </div>
+
+            <div class="hero-resumo">
+              <article class="resumo-pill">
+                <span>Disponiveis</span>
+                <strong>{{ totalDisponiveis }}</strong>
+                <small>Itens prontos para venda</small>
+              </article>
+              <article class="resumo-pill">
+                <span>Destaques</span>
+                <strong>{{ totalDestaques }}</strong>
+                <small>Produtos em evidência</small>
+              </article>
+              <article class="resumo-pill">
+                <span>Categorias</span>
+                <strong>{{ quantidadeCategorias }}</strong>
+                <small>Organização da vitrine</small>
+              </article>
+            </div>
+          </div>
+        </header>
+
+        <section class="painel-superior">
+          <article class="card painel-intro">
+            <div class="painel-intro-topo">
+              <div>
+                <p class="painel-selo">Como comprar</p>
+                <h2>Escolha um produto e finalize o pedido no WhatsApp</h2>
+                <p>{{ textoInstrucoesCatalogo || 'Esta vitrine não possui carrinho, checkout ou pagamento online. O cliente escolhe o produto e fala direto com a empresa.' }}</p>
+              </div>
+
+              <a v-if="temWhatsapp" class="botao-primario botao-bloco" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
+                Abrir WhatsApp
+              </a>
+            </div>
+
+            <div class="passos-compra">
+              <article class="passo-compra">
+                <span>1</span>
+                <strong>Escolha</strong>
+                <p>Veja os produtos, preços e disponibilidade do dia.</p>
+              </article>
+              <article class="passo-compra">
+                <span>2</span>
+                <strong>Chame</strong>
+                <p>Toque no botão do WhatsApp para abrir a conversa pronta.</p>
+              </article>
+              <article class="passo-compra">
+                <span>3</span>
+                <strong>Confirme</strong>
+                <p>Combine retirada, entrega e detalhes com a empresa.</p>
+              </article>
+            </div>
           </article>
-        </div>
-      </section>
 
-      <PublicidadeNuvemMais />
+          <article v-if="textoSobreCatalogo || temWhatsapp" class="card painel-aviso painel-contexto">
+            <div v-if="textoSobreCatalogo" class="painel-contexto-bloco">
+              <p class="painel-selo">Sobre a empresa</p>
+              <p>{{ textoSobreCatalogo }}</p>
+            </div>
 
-      <teleport to="body">
+            <div v-if="temWhatsapp" class="painel-contexto-bloco">
+              <p class="painel-selo">Atendimento</p>
+              <p>{{ resumoContatoCatalogo }}</p>
+              <a class="link-contato" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">Falar agora no WhatsApp</a>
+            </div>
+          </article>
+
+          <article v-if="!temWhatsapp" class="card painel-aviso">
+            <p class="painel-selo">Aviso</p>
+            <h2>WhatsApp ainda não configurado</h2>
+            <p>Os produtos continuam visíveis, mas o botão de contato fica oculto até a empresa informar um número válido.</p>
+          </article>
+        </section>
+
+        <section v-if="exibirFiltrosCatalogo" ref="categoriasRef" class="card filtros-categorias">
+          <div class="filtros-topo">
+            <div>
+              <p class="painel-selo">Categorias</p>
+              <h2>Filtre a vitrine</h2>
+              <p class="filtros-subtitulo">A navegação fica mais rápida quando o cliente toca na categoria desejada ou pesquisa pelo nome do produto.</p>
+            </div>
+            <div class="filtros-acoes">
+              <span class="contador-filtros">{{ totalProdutosPublicados }} item(ns)</span>
+              <button v-if="temFiltroAtivo" type="button" class="link-limpar" @click="limparFiltrosCatalogo">{{ textoLimparFiltrosCatalogo }}</button>
+            </div>
+          </div>
+
+          <div class="filtros-busca">
+            <label class="campo-busca">
+              <span>Buscar produtos</span>
+              <input
+                v-model.trim="termoBuscaCatalogo"
+                type="search"
+                inputmode="search"
+                autocomplete="off"
+                placeholder="Nome, descrição ou categoria"
+              />
+            </label>
+          </div>
+
+          <div v-if="categorias.length" class="chips">
+            <button
+              type="button"
+              class="chip"
+              :class="{ ativo: !categoriaAtiva }"
+              @click="selecionarCategoria('')"
+            >
+              Todas
+              <span>{{ totalProdutosPublicados }}</span>
+            </button>
+            <button
+              v-for="categoria in categorias"
+              :key="categoria.chave"
+              type="button"
+              class="chip"
+              :class="{ ativo: categoriaAtivaChave === categoria.chave }"
+              @click="selecionarCategoria(categoria.chave)"
+            >
+              {{ categoria.nome }}
+              <span>{{ categoria.quantidade }}</span>
+            </button>
+          </div>
+        </section>
+
+        <section v-if="!produtosPublicados.length" class="card estado-shell">
+          <span class="estado-selo">Vitrine vazia</span>
+          <h2>Nenhum produto publicado no catálogo no momento.</h2>
+          <p>A empresa ainda pode estar preparando o estoque do dia. Volte mais tarde ou chame no WhatsApp para consultar disponibilidade.</p>
+          <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
+            Perguntar no WhatsApp
+          </a>
+        </section>
+
+        <section v-else-if="!produtosFiltrados.length" class="card estado-shell">
+          <span class="estado-selo">Sem resultados</span>
+          <h2>{{ tituloSemResultadosCatalogo }}</h2>
+          <p>{{ descricaoSemResultadosCatalogo }}</p>
+          <div class="estado-acoes">
+            <button type="button" class="botao-secundario" @click="limparFiltrosCatalogo">{{ textoLimparFiltrosCatalogo }}</button>
+            <a v-if="temWhatsapp" class="botao-primario" :href="linkWhatsappContato" target="_blank" rel="noopener noreferrer">
+              Falar no WhatsApp
+            </a>
+          </div>
+        </section>
+
+        <section v-else class="secao-produtos">
+          <div class="secao-produtos-topo">
+            <div>
+              <p class="painel-selo">Produtos</p>
+              <h2>{{ categoriaAtivaSelecionada ? categoriaAtivaSelecionada.nome : 'Vitrine completa' }}</h2>
+              <p>
+                {{
+                  categoriaAtivaSelecionada
+                    ? `${totalVisiveis} produto(s) nesta categoria.`
+                    : `${totalVisiveis} produto(s) para explorar nesta vitrine.`
+                }}
+              </p>
+            </div>
+
+            <span class="contador-filtros">{{ totalVisiveis }} visíveis</span>
+          </div>
+
+          <div class="grid-produtos">
+            <article
+              v-for="produto in listaProdutosCatalogoView"
+              :key="produto.chaveImagem"
+              class="card produto-card"
+            >
+              <button
+                type="button"
+                class="produto-midia"
+                :aria-label="`Abrir prévia de ${produto.nome}`"
+                @click="abrirPreviaProduto(produto)"
+              >
+                <img
+                  v-if="produto.possuiImagem"
+                  :src="produto.imagemNormalizada"
+                  :alt="`Imagem de ${produto.nome}`"
+                  class="produto-imagem"
+                  loading="lazy"
+                  decoding="async"
+                  @error="aoFalharImagemProduto(produto)"
+                />
+                <div v-else class="produto-placeholder">
+                  <span class="produto-placeholder-iniciais">{{ extrairIniciais(produto.nome) }}</span>
+                  <strong>{{ produto.categoriaPublica || 'Produto especial' }}</strong>
+                  <small>Toque para ampliar</small>
+                </div>
+
+                <div class="badges">
+                  <span class="badge" :class="produto.disponivel ? 'disponivel' : 'esgotado'">
+                    {{ produto.disponivel ? 'Disponível' : 'Esgotado' }}
+                  </span>
+                  <span v-if="produto.destaque" class="badge destaque">Destaque</span>
+                  <span v-if="formatarAtualizacaoProduto(produto)" class="badge atualizacao">{{ formatarAtualizacaoProduto(produto) }}</span>
+                </div>
+                <span class="produto-midia-acoes">Toque para ampliar</span>
+              </button>
+
+              <div class="produto-corpo">
+                <div class="produto-cabecalho">
+                  <div>
+                    <h2>{{ produto.nome }}</h2>
+                    <p v-if="produto.categoriaPublica" class="categoria">{{ produto.categoriaPublica }}</p>
+                  </div>
+                </div>
+
+                <p v-if="produto.descricaoPublica" class="descricao">{{ produto.descricaoPublica }}</p>
+
+                <div class="produto-infos">
+                  <p v-if="produto.mostrarPrecoPublico" class="preco">{{ formatarMoeda(produto.precoVenda) }}</p>
+                  <p v-if="produto.mostrarQuantidadePublica" class="quantidade">
+                    Disponível hoje: {{ formatarQuantidadePublica(produto) }}
+                  </p>
+                  <p v-if="!produto.disponivel" class="quantidade esgotado-texto">Estoque do dia encerrado no momento.</p>
+                </div>
+
+                <div class="produto-rodape">
+                  <a
+                    v-if="temWhatsapp"
+                    class="botao-whatsapp"
+                    :class="{ secundario: !produto.disponivel }"
+                    :href="linkWhatsappProduto(produto)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {{ produto.disponivel ? obterRotuloBotaoWhatsApp(produto) : 'Perguntar no WhatsApp' }}
+                  </a>
+
+                  <p v-else class="aviso-card">WhatsApp da empresa não informado.</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <PublicidadeNuvemMais />
+
+        <teleport to="body">
         <transition name="modal-previa">
           <div v-if="produtoSelecionadoView" class="produto-modal" role="dialog" aria-modal="true" :aria-label="`Prévia de ${produtoSelecionadoView.nome}`" @click.self="fecharPreviaProduto">
             <div class="produto-modal-conteudo">
@@ -1449,6 +1573,7 @@ onBeforeUnmount(() => {
                   :src="produtoSelecionadoView.imagemNormalizada"
                   :alt="`Imagem ampliada de ${produtoSelecionadoView.nome}`"
                   class="produto-modal-imagem"
+                  decoding="async"
                   @error="aoFalharImagemProduto(produtoSelecionadoView)"
                 />
                 <div v-else class="produto-modal-placeholder">
@@ -1500,7 +1625,8 @@ onBeforeUnmount(() => {
           </div>
         </transition>
       </teleport>
-    </template>
+      </template>
+    </div>
   </main>
 </template>
 
@@ -1520,14 +1646,21 @@ onBeforeUnmount(() => {
   --catalogo-azul: var(--catalogo-cor-secundaria);
   --catalogo-azul-suave: var(--catalogo-cor-chip);
   min-height: 100vh;
-  padding: 14px;
-  display: grid;
-  gap: 14px;
+  padding: 12px;
+  display: block;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), transparent 82%), transparent 28%),
     radial-gradient(circle at top right, color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 84%), transparent 24%),
     linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-hero), white 28%) 0%, var(--catalogo-bg) 55%, color-mix(in srgb, var(--catalogo-bg), #e2e8f0 22%) 100%);
   color: var(--catalogo-texto);
+}
+
+.catalogo-publico-conteudo {
+  width: min(100%, 1280px);
+  margin-inline: auto;
+  display: grid;
+  gap: 14px;
 }
 
 .card {
@@ -1544,10 +1677,10 @@ onBeforeUnmount(() => {
 
 .hero-banner-shell {
   position: relative;
-  min-height: 138px;
-  height: clamp(138px, 18vw, 224px);
-  max-height: 224px;
-  padding: 10px;
+  min-height: 116px;
+  height: clamp(116px, 14vw, 188px);
+  max-height: 188px;
+  padding: 8px;
   background:
     radial-gradient(circle at 14% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 82%), transparent 34%),
     radial-gradient(circle at 86% 84%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%), transparent 32%),
@@ -1556,11 +1689,11 @@ onBeforeUnmount(() => {
 }
 
 .banner-publico-moldura {
-  width: min(100%, 1060px);
+  width: 100%;
   height: 100%;
   margin: 0 auto;
-  padding: 4px;
-  border-radius: 22px;
+  padding: 3px;
+  border-radius: 20px;
   overflow: hidden;
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 86%), transparent 42%),
@@ -1582,7 +1715,7 @@ onBeforeUnmount(() => {
     radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--catalogo-cor-principal), white 90%), transparent 28%),
     radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--catalogo-cor-secundaria), white 92%), transparent 28%),
     linear-gradient(135deg, color-mix(in srgb, var(--catalogo-cor-principal), white 95%), color-mix(in srgb, var(--catalogo-cor-secundaria), white 97%));
-  border-radius: 18px;
+  border-radius: 16px;
 }
 
 .banner-publico-placeholder {
@@ -1896,6 +2029,10 @@ onBeforeUnmount(() => {
   margin-bottom: 14px;
 }
 
+.filtros-topo > div:first-child {
+  min-width: 0;
+}
+
 .filtros-subtitulo {
   margin-top: 6px;
   color: var(--catalogo-texto-suave);
@@ -1908,6 +2045,48 @@ onBeforeUnmount(() => {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.filtros-busca {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  max-width: 560px;
+}
+
+.campo-busca {
+  display: grid;
+  gap: 6px;
+}
+
+.campo-busca span {
+  color: var(--catalogo-texto-suave);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.campo-busca input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 76%);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--catalogo-cor-card), white 16%);
+  color: var(--catalogo-texto);
+  font: inherit;
+  font-weight: 600;
+  box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.04);
+}
+
+.campo-busca input::placeholder {
+  color: color-mix(in srgb, var(--catalogo-texto-suave), #94a3b8 20%);
+}
+
+.campo-busca input:focus {
+  outline: 2px solid color-mix(in srgb, var(--catalogo-cor-principal), white 32%);
+  outline-offset: 2px;
 }
 
 .contador-filtros {
@@ -1966,6 +2145,18 @@ onBeforeUnmount(() => {
   box-shadow: 0 12px 22px color-mix(in srgb, var(--catalogo-cor-principal), transparent 86%);
 }
 
+.secao-produtos-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.secao-produtos-topo > div:first-child {
+  min-width: 0;
+}
+
 .estado-shell {
   display: grid;
   gap: 12px;
@@ -1986,7 +2177,9 @@ onBeforeUnmount(() => {
 
 .grid-produtos {
   display: grid;
-  gap: 14px;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 320px));
+  justify-content: center;
 }
 
 .produto-card {
@@ -1995,14 +2188,26 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  width: 100%;
+  justify-self: center;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .produto-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 42px rgba(15, 23, 42, 0.11);
+  }
 }
 
 .produto-midia {
   appearance: none;
   border: 0;
-  padding: 0;
-  background: transparent;
+  padding: 10px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), white 92%), transparent 34%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--catalogo-cor-secundaria), white 94%), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-card), white 18%), color-mix(in srgb, var(--catalogo-cor-fundo-secundario), white 22%));
   display: block;
   position: relative;
   width: 100%;
@@ -2011,19 +2216,21 @@ onBeforeUnmount(() => {
   cursor: pointer;
   text-align: inherit;
   outline: none;
+  box-sizing: border-box;
 }
 
 .produto-imagem,
 .produto-placeholder {
   width: 100%;
   height: 100%;
+  border-radius: 16px;
 }
 
 .produto-imagem {
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   display: block;
-  transform: scale(1);
-  transition: transform 0.28s ease, filter 0.28s ease;
+  transition: filter 0.28s ease;
 }
 
 .produto-placeholder {
@@ -2038,13 +2245,12 @@ onBeforeUnmount(() => {
   text-align: center;
   position: relative;
   overflow: hidden;
-  padding: 18px;
+  padding: 14px;
 }
 
 .produto-midia:hover .produto-imagem,
 .produto-midia:focus-visible .produto-imagem {
-  transform: scale(1.05);
-  filter: saturate(1.04) contrast(1.02);
+  filter: saturate(1.03) contrast(1.02);
 }
 
 .produto-midia:focus-visible {
@@ -2170,7 +2376,7 @@ onBeforeUnmount(() => {
 .produto-corpo {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 18px 18px 16px;
   flex: 1;
 }
 
@@ -2181,9 +2387,14 @@ onBeforeUnmount(() => {
 }
 
 .produto-cabecalho h2 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 900;
   line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: break-word;
 }
 
 .categoria {
@@ -2197,12 +2408,17 @@ onBeforeUnmount(() => {
   color: var(--catalogo-texto-suave);
   line-height: 1.55;
   font-size: 14px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: break-word;
 }
 
 .produto-infos {
   display: grid;
   gap: 6px;
-  padding: 12px;
+  padding: 10px 12px;
   border-radius: 16px;
   background: color-mix(in srgb, var(--catalogo-cor-fundo-secundario), white 20%);
   border: 1px solid color-mix(in srgb, var(--catalogo-cor-secundaria), white 84%);
@@ -2210,7 +2426,7 @@ onBeforeUnmount(() => {
 
 .preco {
   color: var(--catalogo-cor-principal);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
 }
 
@@ -2235,9 +2451,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   align-items: center;
   width: 100%;
-  min-height: 44px;
+  min-height: 42px;
   border-radius: 14px;
-  padding: 12px 16px;
+  padding: 11px 14px;
   background: linear-gradient(135deg, var(--catalogo-cor-botao), color-mix(in srgb, var(--catalogo-cor-botao), #000000 18%));
   color: var(--catalogo-cor-botao-texto);
   text-decoration: none;
@@ -2288,8 +2504,8 @@ onBeforeUnmount(() => {
 
 .produto-modal-conteudo {
   position: relative;
-  width: min(100%, 1080px);
-  max-height: min(calc(100dvh - 24px), 880px);
+  width: min(100%, 1040px);
+  max-height: 90dvh;
   overflow: hidden;
   background: #ffffff;
   color: var(--catalogo-cor-modal-texto);
@@ -2327,7 +2543,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  padding: 16px;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.88), transparent 34%),
     var(--catalogo-cor-modal-midia);
@@ -2336,9 +2552,9 @@ onBeforeUnmount(() => {
 .produto-modal-imagem,
 .produto-modal-placeholder {
   width: 100%;
-  height: min(62vh, 680px);
-  min-height: 320px;
-  max-height: min(62vh, 680px);
+  height: min(60dvh, 620px);
+  min-height: 280px;
+  max-height: min(60dvh, 620px);
   display: block;
   border-radius: 22px;
 }
@@ -2370,9 +2586,9 @@ onBeforeUnmount(() => {
 .produto-modal-corpo {
   display: grid;
   gap: 18px;
-  padding: 28px;
+  padding: 24px;
   min-height: 0;
-  max-height: min(calc(100dvh - 24px), 880px);
+  max-height: 90dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: #ffffff;
@@ -2386,7 +2602,7 @@ onBeforeUnmount(() => {
 }
 
 .produto-modal-cabecalho h2 {
-  font-size: clamp(24px, 4vw, 34px);
+  font-size: clamp(22px, 3.2vw, 32px);
   font-weight: 900;
   line-height: 1.08;
   margin: 0;
@@ -2407,7 +2623,7 @@ onBeforeUnmount(() => {
 
 .produto-modal-preco {
   color: var(--catalogo-cor-principal);
-  font-size: clamp(24px, 5vw, 34px);
+  font-size: clamp(22px, 3.8vw, 32px);
   font-weight: 900;
   margin: 0;
 }
@@ -2523,7 +2739,7 @@ onBeforeUnmount(() => {
 
 @media (min-width: 720px) {
   .catalogo-publico {
-    padding: 22px;
+    padding: 20px;
     gap: 18px;
   }
 
@@ -2544,10 +2760,6 @@ onBeforeUnmount(() => {
 
   .passos-compra {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .grid-produtos {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .produto-modal-conteudo {
@@ -2571,22 +2783,12 @@ onBeforeUnmount(() => {
 
 @media (min-width: 1080px) {
   .catalogo-publico {
-    padding: 28px;
+    padding: 24px;
   }
 
   .hero-conteudo {
     grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
     align-items: end;
-  }
-
-  .grid-produtos {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1320px) {
-  .grid-produtos {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -2627,8 +2829,12 @@ onBeforeUnmount(() => {
     flex-direction: column;
   }
 
+  .filtros-busca {
+    max-width: none;
+  }
+
   .chip {
-    width: 100%;
+    width: max-content;
     justify-content: space-between;
   }
 
@@ -2653,7 +2859,7 @@ onBeforeUnmount(() => {
     width: min(100%, calc(100vw - 20px));
     max-height: calc(100dvh - 20px);
     border-radius: 22px;
-    grid-template-rows: minmax(260px, 46dvh) minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 42dvh) minmax(0, 1fr);
   }
 
   .produto-modal-midia {
@@ -2664,8 +2870,8 @@ onBeforeUnmount(() => {
   .produto-modal-imagem,
   .produto-modal-placeholder {
     height: 100%;
-    min-height: 240px;
-    max-height: 46dvh;
+    min-height: 220px;
+    max-height: 42dvh;
     border-radius: 18px;
   }
 
@@ -2705,6 +2911,24 @@ onBeforeUnmount(() => {
     right: 10px;
     bottom: 10px;
     font-size: 10px;
+  }
+
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 }
 

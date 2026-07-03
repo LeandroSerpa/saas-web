@@ -272,7 +272,7 @@ const router = createRouter({
       path: '/ajuda',
       name: 'ajuda',
       component: AjudaView,
-      meta: rotasAdmin,
+      meta: rotasProtegidas,
     },
     {
       path: '/onboarding',

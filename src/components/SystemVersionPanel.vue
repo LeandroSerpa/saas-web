@@ -5,10 +5,10 @@ import {
   ambienteExibeSelo,
   buscarVersaoSistema,
   formatarRotuloAmbiente,
-  formatarVersaoFrontend,
   obterInfoVersaoSistemaPadrao,
 } from '@/services/api'
 import { formatarDataPtBrSemFuso } from '@/utils/datas'
+import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 
 const props = defineProps({
   titulo: {
@@ -73,12 +73,12 @@ const dadosVersao = computed(() => {
     : props.novidadesPadrao.length
       ? props.novidadesPadrao
       : fallback.novidades
-  const frontendVersao = formatarRotuloVersao(formatarVersaoFrontend(fallback.versao, fallback.ambiente))
+  const frontendVersao = obterVersaoFrontendComPrefixo()
   const backendVersao = erroConsulta.value
     ? 'Não foi possível consultar'
     : carregandoConsulta.value
       ? 'Consultando informações da API...'
-      : formatarRotuloVersao(versaoBackend)
+      : String(versaoBackend || '').trim() || 'Não foi possível consultar'
   const ambiente = erroConsulta.value
     ? 'Não foi possível consultar'
     : carregandoConsulta.value
@@ -181,16 +181,6 @@ function normalizarNovidades(valor) {
   }
 
   return []
-}
-
-function formatarRotuloVersao(valor) {
-  const texto = String(valor || '').trim()
-
-  if (!texto) {
-    return 'Não foi possível consultar'
-  }
-
-  return /^v/i.test(texto) ? texto : `v${texto}`
 }
 
 function formatarData(valor) {

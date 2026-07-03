@@ -1,5 +1,6 @@
 import { debugLog } from '@/utils/devDebug'
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
+import { obterVersaoFrontend } from '@/utils/versaoAplicacao'
 import {
   HEADER_EMPRESA_OPERACIONAL,
   resolverEmpresaIdEfetiva,
@@ -57,8 +58,6 @@ const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PU
 export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
-const VERSAO_PRODUCAO_PADRAO = APP_VERSION || '1.4.0'
-const VERSAO_HML_MINIMA = `${VERSAO_PRODUCAO_PADRAO}-hml`
 const DATA_PUBLICACAO_VERSAO_PADRAO =
   String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-07-01').trim() || '2026-07-01'
 const NOVIDADES_VERSAO_PADRAO = Object.freeze([
@@ -68,17 +67,15 @@ const NOVIDADES_VERSAO_PADRAO = Object.freeze([
 ])
 
 export function formatarVersaoFrontend(versao = APP_VERSION, ambiente = APP_ENVIRONMENT) {
-  const versaoBase = String(versao || '').trim()
+  const versaoNormalizada = String(versao || '').trim()
 
-  if (!versaoBase) {
-    return ''
+  if (versaoNormalizada && versaoNormalizada !== APP_VERSION) {
+    return normalizarAmbienteAplicacao(ambiente) === 'homologacao'
+      ? garantirSufixoVersaoHomologacao(versaoNormalizada, `${removerSufixoVersaoHomologacao(versaoNormalizada)}-hml`)
+      : removerSufixoVersaoHomologacao(versaoNormalizada)
   }
 
-  if (normalizarAmbienteAplicacao(ambiente) === 'homologacao') {
-    return garantirSufixoVersaoHomologacao(versaoBase, `${versaoBase}-hml`)
-  }
-
-  return versaoBase
+  return obterVersaoFrontend()
 }
 
 
@@ -273,17 +270,17 @@ function resolverAmbienteSeguroPorHostname(hostname = obterHostnameAtual()) {
 
 function resolverVersaoSeguraPorHostname(hostname = obterHostnameAtual()) {
   if (hostnameIndicaHomologacao(hostname)) {
-    return VERSAO_HML_MINIMA
+    return garantirSufixoVersaoHomologacao(APP_VERSION)
   }
 
   if (hostnameEhProducaoOficial(hostname)) {
-    return VERSAO_PRODUCAO_PADRAO
+    return removerSufixoVersaoHomologacao(APP_VERSION)
   }
 
   return ''
 }
 
-function garantirSufixoVersaoHomologacao(versao, fallback = VERSAO_HML_MINIMA) {
+function garantirSufixoVersaoHomologacao(versao, fallback = `${removerSufixoVersaoHomologacao(APP_VERSION)}-hml`) {
   const valor = String(versao || '').trim()
 
   if (!valor) {
@@ -295,6 +292,12 @@ function garantirSufixoVersaoHomologacao(versao, fallback = VERSAO_HML_MINIMA) {
   }
 
   return `${valor}-hml`
+}
+
+function removerSufixoVersaoHomologacao(versao) {
+  return String(versao || '')
+    .trim()
+    .replace(/-hml$/i, '')
 }
 
 export function obterTipoSeloAmbiente(valor) {
@@ -341,7 +344,6 @@ export function formatarRotuloAmbiente(valor) {
 export function obterInfoVersaoSistemaPadrao() {
   const hostname = obterHostnameAtual()
   const ambienteSegurancaHost = resolverAmbienteSeguroPorHostname(hostname)
-  const versaoBase = APP_VERSION
   const ambientePorVersao = APP_ENVIRONMENT
   let ambiente = normalizarAmbienteAplicacao(ambienteSegurancaHost || ambientePorVersao || 'production')
 
@@ -351,7 +353,7 @@ export function obterInfoVersaoSistemaPadrao() {
 
   return {
     nome: APP_NAME,
-    versao: formatarVersaoFrontend(versaoBase, ambiente),
+    versao: obterVersaoFrontend(),
     ambiente,
     dataPublicacao: DATA_PUBLICACAO_VERSAO_PADRAO,
     novidades: [...NOVIDADES_VERSAO_PADRAO],
