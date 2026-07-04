@@ -372,7 +372,7 @@ const moduloAgendamentoAtivo = computed(() =>
 const moduloEstoqueAtivo = computed(() =>
   avaliarVisibilidadeOperacao(['ESTOQ'], () => podeGerenciarUsuarios.value, avaliarCapacidadeEstoqueOperacional),
 )
-const mostrarServicosOperacao = computed(() => moduloAgendamentoAtivo.value)
+const mostrarServicosOperacao = computed(() => podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value)
 const mostrarFuncionariosOperacao = computed(() => podeGerenciarUsuarios.value)
 const mostrarEstoqueOperacao = computed(() => moduloEstoqueAtivo.value)
 const mostrarCatalogoPublicoOperacao = computed(() => moduloEstoqueAtivo.value)
@@ -811,10 +811,6 @@ function avaliarVisibilidadeOperacao(candidatos, fallback, avaliarCapacidade) {
     if (visibilidadeCapacidade !== null) {
       return visibilidadeCapacidade
     }
-  }
-
-  if (moduloGestaoEsportivaVisivel.value) {
-    return false
   }
 
   return typeof fallback === 'function' ? fallback() : Boolean(fallback)
