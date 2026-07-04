@@ -24,7 +24,6 @@ import {
 import {
   carregarContextoGestaoEsportiva,
   contextoGestaoEsportiva,
-  formatarNomeModalidadeEmCaixaAlta,
   limparContextoGestaoEsportiva,
   recarregarContextoGestaoEsportiva,
 } from '@/utils/gestaoEsportiva'
@@ -383,24 +382,39 @@ const contextoEmpresaOperacionalAtivo = computed(() => {
 
   return true
 })
+const deveExibirGestaoEsportiva = computed(() => moduloGestaoEsportivaVisivel.value)
+const deveExibirOperacaoComumJuntoComEsportivo = computed(
+  () => deveExibirGestaoEsportiva.value && moduloAgendamentoAtivo.value,
+)
+const deveExibirOperacaoComum = computed(
+  () => !deveExibirGestaoEsportiva.value || deveExibirOperacaoComumJuntoComEsportivo.value,
+)
 const podeVerMenuOperacional = computed(
   () => podeGerenciarUsuarios.value && contextoEmpresaOperacionalAtivo.value,
 )
-const mostrarClientesOperacao = computed(() => podeVerMenuOperacional.value)
-const mostrarServicosOperacao = computed(() => podeVerMenuOperacional.value)
-const mostrarFuncionariosOperacao = computed(() => podeVerMenuOperacional.value)
+const mostrarClientesOperacao = computed(
+  () => podeVerMenuOperacional.value && !deveExibirGestaoEsportiva.value,
+)
+const mostrarServicosOperacao = computed(
+  () => podeVerMenuOperacional.value && deveExibirOperacaoComum.value,
+)
+const mostrarFuncionariosOperacao = computed(
+  () => podeVerMenuOperacional.value && !deveExibirGestaoEsportiva.value,
+)
 const mostrarEstoqueOperacao = computed(() => moduloEstoqueAtivo.value)
 const mostrarCatalogoPublicoOperacao = computed(() => moduloEstoqueAtivo.value)
 const mostrarDisponibilidadeOperacao = computed(
   () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && podeGerenciarUsuarios.value,
 )
-const mostrarRelatoriosOperacao = computed(() => podeVerMenuOperacional.value)
+const mostrarRelatoriosOperacao = computed(
+  () => podeVerMenuOperacional.value && deveExibirOperacaoComum.value,
+)
 const mostrarPrimeirosPassosOperacao = computed(
   () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && adminEmpresa.value,
 )
 const mostrarGrupoOperacao = computed(
   () =>
-    podeVerMenuOperacional.value ||
+    (podeVerMenuOperacional.value && deveExibirOperacaoComum.value) ||
     mostrarClientesOperacao.value ||
     mostrarServicosOperacao.value ||
     mostrarFuncionariosOperacao.value ||
@@ -410,12 +424,12 @@ const mostrarGrupoOperacao = computed(
     mostrarRelatoriosOperacao.value ||
     mostrarPrimeirosPassosOperacao.value,
 )
-const tituloMenuGestaoEsportiva = computed(() => formatarNomeModalidadeEmCaixaAlta(contextoEsportivo.value?.nomeModalidade))
+const tituloMenuGestaoEsportiva = computed(() => 'GESTÃO ESPORTIVA')
 const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const rotuloCadastroParticipanteMenu = computed(
   () => {
     if (moduloGestaoEsportivaVisivel.value && moduloAgendamentoAtivo.value) {
-      return 'Clientes e alunos'
+      return 'Alunos / Clientes'
     }
 
     return contextoEsportivo.value?.termoParticipantePlural || 'Alunos'
