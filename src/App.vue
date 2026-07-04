@@ -372,24 +372,35 @@ const moduloAgendamentoAtivo = computed(() =>
 const moduloEstoqueAtivo = computed(() =>
   avaliarVisibilidadeOperacao(['ESTOQ'], () => podeGerenciarUsuarios.value, avaliarCapacidadeEstoqueOperacional),
 )
-const mostrarClientesOperacao = computed(
-  () => podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value && !moduloGestaoEsportivaVisivel.value,
+const contextoEmpresaOperacionalAtivo = computed(() => {
+  if (empresaOperacionalCarregando.value) {
+    return false
+  }
+
+  if (superAdmin.value) {
+    return Boolean(empresaOperacional.value)
+  }
+
+  return true
+})
+const podeVerMenuOperacional = computed(
+  () => podeGerenciarUsuarios.value && contextoEmpresaOperacionalAtivo.value,
 )
-const mostrarServicosOperacao = computed(() => podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value)
-const mostrarFuncionariosOperacao = computed(() => podeGerenciarUsuarios.value)
+const mostrarClientesOperacao = computed(() => podeVerMenuOperacional.value)
+const mostrarServicosOperacao = computed(() => podeVerMenuOperacional.value)
+const mostrarFuncionariosOperacao = computed(() => podeVerMenuOperacional.value)
 const mostrarEstoqueOperacao = computed(() => moduloEstoqueAtivo.value)
 const mostrarCatalogoPublicoOperacao = computed(() => moduloEstoqueAtivo.value)
 const mostrarDisponibilidadeOperacao = computed(
   () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && podeGerenciarUsuarios.value,
 )
-const mostrarRelatoriosOperacao = computed(
-  () => moduloAgendamentoAtivo.value && podeGerenciarUsuarios.value,
-)
+const mostrarRelatoriosOperacao = computed(() => podeVerMenuOperacional.value)
 const mostrarPrimeirosPassosOperacao = computed(
   () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && adminEmpresa.value,
 )
 const mostrarGrupoOperacao = computed(
   () =>
+    podeVerMenuOperacional.value ||
     mostrarClientesOperacao.value ||
     mostrarServicosOperacao.value ||
     mostrarFuncionariosOperacao.value ||
@@ -474,9 +485,9 @@ function rotaAtualPertenceAoGrupoMenu(chave) {
 
   if (chave === 'beachTennis') {
     return (
-      (moduloGestaoEsportivaVisivel.value && nomeRota === 'clientes') ||
       String(nomeRota || '').startsWith('beach-tennis') ||
       String(nomeRota || '').startsWith('aulas-frequencia') ||
+      nomeRota === 'relatorios-frequencia-esportiva' ||
       nomeRota === 'reposicoes' ||
       nomeRota === 'professores'
     )
@@ -484,7 +495,7 @@ function rotaAtualPertenceAoGrupoMenu(chave) {
 
   if (chave === 'operacao') {
     return (
-      (nomeRota === 'clientes' && !moduloGestaoEsportivaVisivel.value) ||
+      nomeRota === 'clientes' ||
       nomeRota === 'servicos' ||
       nomeRota === 'funcionarios' ||
       nomeRota === 'estoque' ||
@@ -1392,7 +1403,6 @@ onBeforeUnmount(() => {
               Relatório de frequência
             </RouterLink>
             <RouterLink to="/professores" @click="fecharMenuMobile">Professores</RouterLink>
-            <RouterLink to="/clientes" @click="fecharMenuMobile">{{ rotuloCadastroParticipanteMenu }}</RouterLink>
             <RouterLink to="/beach-tennis/alunos" @click="fecharMenuMobile">{{ rotuloParticipantePorGrupoMenu }}</RouterLink>
             <RouterLink to="/beach-tennis/financeiro" @click="fecharMenuMobile">Financeiro</RouterLink>
           </div>
