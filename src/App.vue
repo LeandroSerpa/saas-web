@@ -372,6 +372,9 @@ const moduloAgendamentoAtivo = computed(() =>
 const moduloEstoqueAtivo = computed(() =>
   avaliarVisibilidadeOperacao(['ESTOQ'], () => podeGerenciarUsuarios.value, avaliarCapacidadeEstoqueOperacional),
 )
+const mostrarClientesOperacao = computed(
+  () => podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value && !moduloGestaoEsportivaVisivel.value,
+)
 const mostrarServicosOperacao = computed(() => podeGerenciarUsuarios.value && moduloAgendamentoAtivo.value)
 const mostrarFuncionariosOperacao = computed(() => podeGerenciarUsuarios.value)
 const mostrarEstoqueOperacao = computed(() => moduloEstoqueAtivo.value)
@@ -380,13 +383,14 @@ const mostrarDisponibilidadeOperacao = computed(
   () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && podeGerenciarUsuarios.value,
 )
 const mostrarRelatoriosOperacao = computed(
-  () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && podeGerenciarUsuarios.value,
+  () => moduloAgendamentoAtivo.value && podeGerenciarUsuarios.value,
 )
 const mostrarPrimeirosPassosOperacao = computed(
   () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && adminEmpresa.value,
 )
 const mostrarGrupoOperacao = computed(
   () =>
+    mostrarClientesOperacao.value ||
     mostrarServicosOperacao.value ||
     mostrarFuncionariosOperacao.value ||
     mostrarEstoqueOperacao.value ||
@@ -398,7 +402,13 @@ const mostrarGrupoOperacao = computed(
 const tituloMenuGestaoEsportiva = computed(() => formatarNomeModalidadeEmCaixaAlta(contextoEsportivo.value?.nomeModalidade))
 const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const rotuloCadastroParticipanteMenu = computed(
-  () => `Cadastro de ${normalizarTextoCabecalho(contextoEsportivo.value?.termoParticipantePlural || 'Alunos')}`,
+  () => {
+    if (moduloGestaoEsportivaVisivel.value && moduloAgendamentoAtivo.value) {
+      return 'Clientes e alunos'
+    }
+
+    return contextoEsportivo.value?.termoParticipantePlural || 'Alunos'
+  },
 )
 const rotuloParticipantePorGrupoMenu = computed(
   () =>
@@ -458,8 +468,7 @@ function rotaAtualPertenceAoGrupoMenu(chave) {
   if (chave === 'principal') {
     return (
       nomeRota === 'dashboard' ||
-      nomeRota === 'agenda' ||
-      (nomeRota === 'clientes' && !moduloGestaoEsportivaVisivel.value)
+      nomeRota === 'agenda'
     )
   }
 
@@ -475,6 +484,7 @@ function rotaAtualPertenceAoGrupoMenu(chave) {
 
   if (chave === 'operacao') {
     return (
+      (nomeRota === 'clientes' && !moduloGestaoEsportivaVisivel.value) ||
       nomeRota === 'servicos' ||
       nomeRota === 'funcionarios' ||
       nomeRota === 'estoque' ||
@@ -1361,7 +1371,6 @@ onBeforeUnmount(() => {
           <div v-if="grupoMenuAberto('principal')" class="submenu">
             <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
             <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
-            <RouterLink v-if="!moduloGestaoEsportivaVisivel" to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
           </div>
         </section>
 
@@ -1400,6 +1409,7 @@ onBeforeUnmount(() => {
             <span>{{ grupoMenuAberto('operacao') ? '−' : '+' }}</span>
           </button>
           <div v-if="grupoMenuAberto('operacao')" class="submenu">
+            <RouterLink v-if="mostrarClientesOperacao" to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
             <RouterLink v-if="mostrarServicosOperacao" to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
             <RouterLink v-if="mostrarFuncionariosOperacao" to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
             <RouterLink v-if="mostrarEstoqueOperacao" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
