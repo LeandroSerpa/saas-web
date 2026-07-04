@@ -46,6 +46,19 @@ const podeIrParaAnterior = computed(() => !paginacaoAgendamentos.value.first && 
 const podeIrParaProxima = computed(
   () => !paginacaoAgendamentos.value.last && paginaAtualHumana.value < paginacaoAgendamentos.value.totalPages,
 )
+const tamanhoPaginaGrafico = 10
+const paginacaoAgendamentosDia = ref({ page: 0, size: tamanhoPaginaGrafico })
+const paginacaoReceitaDia = ref({ page: 0, size: tamanhoPaginaGrafico })
+const paginaAgendamentosDia = computed(() => paginarListaLocal(agendamentosPorDia.value, paginacaoAgendamentosDia.value))
+const paginaReceitaDia = computed(() => paginarListaLocal(receitaPorDia.value, paginacaoReceitaDia.value))
+const paginaAgendamentosDiaHumana = computed(() => paginaAgendamentosDia.value.page + 1)
+const paginaReceitaDiaHumana = computed(() => paginaReceitaDia.value.page + 1)
+const podeIrParaAnteriorAgendamentosDia = computed(() => paginaAgendamentosDia.value.page > 0)
+const podeIrParaProximaAgendamentosDia = computed(
+  () => paginaAgendamentosDia.value.page < paginaAgendamentosDia.value.totalPages - 1,
+)
+const podeIrParaAnteriorReceitaDia = computed(() => paginaReceitaDia.value.page > 0)
+const podeIrParaProximaReceitaDia = computed(() => paginaReceitaDia.value.page < paginaReceitaDia.value.totalPages - 1)
 
 const filtrosApi = computed(() => limparFiltrosVazios(filtros.value))
 
@@ -154,6 +167,25 @@ const maiorReceitaDia = computed(() =>
   ),
 )
 
+function paginarListaLocal(lista, paginacao) {
+  const totalElements = lista.length
+  const totalPages = Math.max(Math.ceil(totalElements / paginacao.size), 1)
+  const page = Math.min(Math.max(paginacao.page, 0), totalPages - 1)
+  const inicio = page * paginacao.size
+
+  return {
+    items: lista.slice(inicio, inicio + paginacao.size),
+    page,
+    totalElements,
+    totalPages,
+  }
+}
+
+function normalizarPaginacaoLocal(paginacao, lista) {
+  const totalPages = Math.max(Math.ceil(lista.length / paginacao.size), 1)
+  paginacao.page = Math.min(Math.max(paginacao.page, 0), totalPages - 1)
+}
+
 const mostrarColunaEmpresa = computed(() => superAdmin.value && !filtros.value.empresaId)
 
 async function carregarRelatorios() {
@@ -193,6 +225,8 @@ async function carregarRelatorios() {
     rankingFuncionarios.value = normalizarLista(funcionariosApi)
     clientesRecorrentes.value = normalizarLista(clientesApi)
     distribuicaoStatus.value = normalizarLista(statusApi)
+    normalizarPaginacaoLocal(paginacaoAgendamentosDia.value, agendamentosPorDia.value)
+    normalizarPaginacaoLocal(paginacaoReceitaDia.value, receitaPorDia.value)
     const dadosPaginadosAgendamentos = normalizarRespostaPaginada(agendamentosApi, paginacaoAgendamentos.value)
     agendamentos.value = dadosPaginadosAgendamentos.content
     paginacaoAgendamentos.value = {
@@ -241,6 +275,8 @@ async function carregarEmpresasSeNecessario() {
 
 function aplicarFiltros() {
   paginacaoAgendamentos.value.page = 0
+  paginacaoAgendamentosDia.value.page = 0
+  paginacaoReceitaDia.value.page = 0
   carregarRelatorios()
 }
 
@@ -248,6 +284,8 @@ function limparFiltros() {
   filtros.value = criarFiltrosMesAtual()
   paginacaoAgendamentos.value.page = 0
   paginacaoAgendamentos.value.size = 10
+  paginacaoAgendamentosDia.value.page = 0
+  paginacaoReceitaDia.value.page = 0
   carregarRelatorios()
 }
 
@@ -272,6 +310,38 @@ async function irParaProximaPagina() {
 async function alterarTamanhoPagina() {
   paginacaoAgendamentos.value.page = 0
   await carregarRelatorios()
+}
+
+function irParaPaginaAnteriorAgendamentosDia() {
+  if (!podeIrParaAnteriorAgendamentosDia.value) {
+    return
+  }
+
+  paginacaoAgendamentosDia.value.page -= 1
+}
+
+function irParaProximaPaginaAgendamentosDia() {
+  if (!podeIrParaProximaAgendamentosDia.value) {
+    return
+  }
+
+  paginacaoAgendamentosDia.value.page += 1
+}
+
+function irParaPaginaAnteriorReceitaDia() {
+  if (!podeIrParaAnteriorReceitaDia.value) {
+    return
+  }
+
+  paginacaoReceitaDia.value.page -= 1
+}
+
+function irParaProximaPaginaReceitaDia() {
+  if (!podeIrParaProximaReceitaDia.value) {
+    return
+  }
+
+  paginacaoReceitaDia.value.page += 1
 }
 
 async function exportarCsv() {
@@ -645,18 +715,47 @@ onMounted(async () => {
             Nenhum agendamento encontrado no período.
           </section>
 
-          <div v-else class="grafico-barras">
-            <div v-for="item in agendamentosPorDia" :key="valorDataItem(item)" class="barra-dia">
-              <div class="coluna" :style="{ height: `${alturaBarra(numeroItem(item, 'total', 'quantidade'), maiorAgendamentosDia)}%` }"></div>
-              <span>{{ formatarData(valorDataItem(item)).slice(0, 5) }}</span>
-              <small>
-                {{ numeroItem(item, 'total', 'quantidade') }} total |
-                {{ numeroItem(item, 'concluidos', 'concluido') }} concl. |
-                {{ numeroItem(item, 'cancelados', 'cancelado') }} canc. |
-                {{ numeroItem(item, 'faltas', 'faltou') }} faltas
-              </small>
+          <template v-else>
+            <div class="grafico-barras">
+              <div v-for="item in paginaAgendamentosDia.items" :key="valorDataItem(item)" class="barra-dia">
+                <div
+                  class="coluna"
+                  :style="{ height: `${alturaBarra(numeroItem(item, 'total', 'quantidade'), maiorAgendamentosDia)}%` }"
+                ></div>
+                <span>{{ formatarData(valorDataItem(item)).slice(0, 5) }}</span>
+                <small>
+                  {{ numeroItem(item, 'total', 'quantidade') }} total |
+                  {{ numeroItem(item, 'concluidos', 'concluido') }} concl. |
+                  {{ numeroItem(item, 'cancelados', 'cancelado') }} canc. |
+                  {{ numeroItem(item, 'faltas', 'faltou') }} faltas
+                </small>
+              </div>
             </div>
-          </div>
+
+            <div v-if="paginaAgendamentosDia.totalPages > 1" class="paginacao-grafico">
+              <p class="resumo-paginacao">
+                {{ paginaAgendamentosDia.totalElements }} registro(s) - Página {{ paginaAgendamentosDiaHumana }} de
+                {{ paginaAgendamentosDia.totalPages }}
+              </p>
+
+              <div class="botoes-paginacao">
+                <button
+                  class="botao secundario"
+                  :disabled="!podeIrParaAnteriorAgendamentosDia"
+                  @click="irParaPaginaAnteriorAgendamentosDia"
+                >
+                  Anterior
+                </button>
+                <button
+                  class="botao secundario"
+                  :disabled="!podeIrParaProximaAgendamentosDia"
+                  @click="irParaProximaPaginaAgendamentosDia"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          </template>
         </article>
 
         <article class="card grafico-card">
@@ -669,19 +768,54 @@ onMounted(async () => {
             Nenhuma receita encontrada no período.
           </section>
 
-          <div v-else class="lista-receita">
-            <div v-for="item in receitaPorDia" :key="valorDataItem(item)" class="linha-receita">
-              <div class="linha-topo">
-                <strong>{{ formatarData(valorDataItem(item)) }}</strong>
-                <span>{{ formatarMoeda(numeroItem(item, 'receitaConcluida', 'concluida')) }}</span>
-              </div>
-              <div class="trilhas">
-                <span class="prevista" :style="{ width: `${alturaBarra(numeroItem(item, 'receitaPrevista', 'prevista'), maiorReceitaDia)}%` }"></span>
-                <span class="concluida" :style="{ width: `${alturaBarra(numeroItem(item, 'receitaConcluida', 'concluida'), maiorReceitaDia)}%` }"></span>
-                <span class="perdas" :style="{ width: `${alturaBarra(numeroItem(item, 'perdas', 'valorPerdido'), maiorReceitaDia)}%` }"></span>
+          <template v-else>
+            <div class="lista-receita">
+              <div v-for="item in paginaReceitaDia.items" :key="valorDataItem(item)" class="linha-receita">
+                <div class="linha-topo">
+                  <strong>{{ formatarData(valorDataItem(item)) }}</strong>
+                  <span>{{ formatarMoeda(numeroItem(item, 'receitaConcluida', 'concluida')) }}</span>
+                </div>
+                <div class="trilhas">
+                  <span
+                    class="prevista"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'receitaPrevista', 'prevista'), maiorReceitaDia)}%` }"
+                  ></span>
+                  <span
+                    class="concluida"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'receitaConcluida', 'concluida'), maiorReceitaDia)}%` }"
+                  ></span>
+                  <span
+                    class="perdas"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'perdas', 'valorPerdido'), maiorReceitaDia)}%` }"
+                  ></span>
+                </div>
               </div>
             </div>
-          </div>
+
+            <div v-if="paginaReceitaDia.totalPages > 1" class="paginacao-grafico">
+              <p class="resumo-paginacao">
+                {{ paginaReceitaDia.totalElements }} registro(s) - Página {{ paginaReceitaDiaHumana }} de
+                {{ paginaReceitaDia.totalPages }}
+              </p>
+
+              <div class="botoes-paginacao">
+                <button
+                  class="botao secundario"
+                  :disabled="!podeIrParaAnteriorReceitaDia"
+                  @click="irParaPaginaAnteriorReceitaDia"
+                >
+                  Anterior
+                </button>
+                <button
+                  class="botao secundario"
+                  :disabled="!podeIrParaProximaReceitaDia"
+                  @click="irParaProximaPaginaReceitaDia"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          </template>
         </article>
       </section>
 
@@ -1024,6 +1158,10 @@ onMounted(async () => {
   font-size: 22px;
 }
 
+.grafico-card {
+  min-width: 0;
+}
+
 .grafico-barras {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
@@ -1057,6 +1195,7 @@ onMounted(async () => {
 
 .barra-dia small {
   font-weight: 700;
+  line-height: 1.35;
 }
 
 .lista-receita {
@@ -1118,6 +1257,14 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.paginacao-grafico {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -1330,6 +1477,11 @@ th {
   .grade-tabelas,
   .status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .paginacao-grafico {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

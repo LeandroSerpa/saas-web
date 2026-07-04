@@ -1483,9 +1483,10 @@ onBeforeUnmount(() => {
             <RouterLink
               v-if="modoNavegacaoCompleto && podeGerenciarUsuarios"
               to="/minha-empresa/notificacoes"
+              class="submenu-acao-notificacoes"
               @click="fecharMenuMobile"
             >
-              Notificações da empresa
+              Notificações
             </RouterLink>
             <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
             <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
@@ -1837,6 +1838,12 @@ onBeforeUnmount(() => {
     color 0.16s ease,
     box-shadow 0.16s ease,
     border-color 0.16s ease;
+}
+
+.submenu a.submenu-acao-notificacoes {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .submenu a.router-link-active,
