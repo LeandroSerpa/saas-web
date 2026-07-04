@@ -373,7 +373,7 @@ const moduloEstoqueAtivo = computed(() =>
   avaliarVisibilidadeOperacao(['ESTOQ'], () => podeGerenciarUsuarios.value, avaliarCapacidadeEstoqueOperacional),
 )
 const mostrarServicosOperacao = computed(() => moduloAgendamentoAtivo.value)
-const mostrarFuncionariosOperacao = computed(() => moduloAgendamentoAtivo.value)
+const mostrarFuncionariosOperacao = computed(() => podeGerenciarUsuarios.value)
 const mostrarEstoqueOperacao = computed(() => moduloEstoqueAtivo.value)
 const mostrarCatalogoPublicoOperacao = computed(() => moduloEstoqueAtivo.value)
 const mostrarDisponibilidadeOperacao = computed(
@@ -451,6 +451,81 @@ const descricaoSeloAmbienteTopo = computed(() =>
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
 const versaoMenuLateral = computed(() => obterVersaoFrontendComPrefixo())
+
+function rotaAtualPertenceAoGrupoMenu(chave) {
+  const nomeRota = routeName.value
+
+  if (chave === 'principal') {
+    return (
+      nomeRota === 'dashboard' ||
+      nomeRota === 'agenda' ||
+      (nomeRota === 'clientes' && !moduloGestaoEsportivaVisivel.value)
+    )
+  }
+
+  if (chave === 'beachTennis') {
+    return (
+      (moduloGestaoEsportivaVisivel.value && nomeRota === 'clientes') ||
+      String(nomeRota || '').startsWith('beach-tennis') ||
+      String(nomeRota || '').startsWith('aulas-frequencia') ||
+      nomeRota === 'reposicoes' ||
+      nomeRota === 'professores'
+    )
+  }
+
+  if (chave === 'operacao') {
+    return (
+      nomeRota === 'servicos' ||
+      nomeRota === 'funcionarios' ||
+      nomeRota === 'estoque' ||
+      nomeRota === 'catalogo-publico-interno' ||
+      nomeRota === 'disponibilidade' ||
+      nomeRota === 'relatorios' ||
+      nomeRota === 'onboarding'
+    )
+  }
+
+  if (chave === 'financeiro') {
+    return nomeRota === 'faturas' || nomeRota === 'meu-plano'
+  }
+
+  if (chave === 'configuracoes') {
+    return (
+      nomeRota === 'minha-empresa' ||
+      nomeRota === 'personalizacao' ||
+      nomeRota === 'usuarios' ||
+      nomeRota === 'configuracoes-notificacoes' ||
+      nomeRota === 'minha-conta' ||
+      nomeRota === 'alterar-senha' ||
+      nomeRota === 'ajuda'
+    )
+  }
+
+  if (chave === 'administracaoSaas') {
+    return (
+      nomeRota === 'admin-dashboard' ||
+      nomeRota === 'empresas' ||
+      nomeRota === 'planos' ||
+      nomeRota === 'assinaturas' ||
+      nomeRota === 'solicitacoes' ||
+      nomeRota === 'solicitacoes-cadastro' ||
+      nomeRota === 'auditoria' ||
+      nomeRota === 'lixeira' ||
+      nomeRota === 'admin-lixeira' ||
+      nomeRota === 'admin-estoque' ||
+      nomeRota === 'admin-notificacoes' ||
+      nomeRota === 'admin-automacoes' ||
+      nomeRota === 'admin-financeiro' ||
+      nomeRota === 'inadimplencia' ||
+      nomeRota === 'faturas-recorrentes' ||
+      nomeRota === 'configuracoes-pagamento' ||
+      nomeRota === 'segmentos' ||
+      nomeRota === 'admin-empresas-onboarding'
+    )
+  }
+
+  return false
+}
 
 function criarCabecalhoPagina() {
   return {
@@ -1011,20 +1086,15 @@ function alternarGrupoMenu(chave) {
 }
 
 function sincronizarGruposMenu() {
-  const rotaEsportiva =
-    String(routeName.value || '').startsWith('beach-tennis') ||
-    routeName.value === 'professores' ||
-    routeName.value === 'aulas-frequencia-detalhe' ||
-    routeName.value === 'reposicoes'
-  const rotaCadastroParticipantes = moduloGestaoEsportivaVisivel.value && routeName.value === 'clientes'
+  ;['principal', 'beachTennis', 'operacao', 'financeiro', 'configuracoes', 'administracaoSaas'].forEach((chave) => {
+    if (rotaAtualPertenceAoGrupoMenu(chave)) {
+      gruposMenuAbertos.value[chave] = true
+    }
+  })
+}
 
-  if (rotaEsportiva || rotaCadastroParticipantes) {
-    gruposMenuAbertos.value.beachTennis = true
-  }
-
-  if (!moduloGestaoEsportivaVisivel.value && routeName.value === 'clientes') {
-    gruposMenuAbertos.value.principal = true
-  }
+function grupoMenuDestaque(chave) {
+  return rotaAtualPertenceAoGrupoMenu(chave)
 }
 
 async function abrirPainelInformacoesSistema() {
@@ -1283,7 +1353,12 @@ onBeforeUnmount(() => {
 
       <nav class="menu-principal" aria-label="Navegação principal">
         <section class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('principal')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('principal') }"
+            type="button"
+            @click="alternarGrupoMenu('principal')"
+          >
             <span>Principal</span>
             <span>{{ grupoMenuAberto('principal') ? '−' : '+' }}</span>
           </button>
@@ -1295,7 +1370,12 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-if="moduloGestaoEsportivaVisivel" class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('beachTennis')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('beachTennis') }"
+            type="button"
+            @click="alternarGrupoMenu('beachTennis')"
+          >
             <span>{{ tituloMenuGestaoEsportiva }}</span>
             <span>{{ grupoMenuAberto('beachTennis') ? '−' : '+' }}</span>
           </button>
@@ -1314,7 +1394,12 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-if="mostrarGrupoOperacao" class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('operacao')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('operacao') }"
+            type="button"
+            @click="alternarGrupoMenu('operacao')"
+          >
             <span>Operação</span>
             <span>{{ grupoMenuAberto('operacao') ? '−' : '+' }}</span>
           </button>
@@ -1336,7 +1421,12 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-if="podeGerenciarUsuarios" class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('financeiro')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('financeiro') }"
+            type="button"
+            @click="alternarGrupoMenu('financeiro')"
+          >
             <span>Financeiro</span>
             <span>{{ grupoMenuAberto('financeiro') ? '−' : '+' }}</span>
           </button>
@@ -1347,7 +1437,12 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('configuracoes')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('configuracoes') }"
+            type="button"
+            @click="alternarGrupoMenu('configuracoes')"
+          >
             <span>Configurações</span>
             <span>{{ grupoMenuAberto('configuracoes') ? '−' : '+' }}</span>
           </button>
@@ -1369,7 +1464,12 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-if="superAdmin && modoNavegacaoCompleto" class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('administracaoSaas')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('administracaoSaas') }"
+            type="button"
+            @click="alternarGrupoMenu('administracaoSaas')"
+          >
             <span>Administração SaaS</span>
             <span>{{ grupoMenuAberto('administracaoSaas') ? '−' : '+' }}</span>
           </button>
@@ -1620,16 +1720,24 @@ onBeforeUnmount(() => {
   text-decoration: none;
   border-radius: 12px;
   padding: 11px 12px;
+  border: 1px solid transparent;
   font-weight: 700;
+  line-height: 1.35;
   transition:
     background 0.16s ease,
     color 0.16s ease,
-    transform 0.16s ease;
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
 }
 
-.menu-principal a.router-link-active {
-  background: var(--app-sidebar-item-active);
+.menu-principal a.router-link-active,
+.menu-principal a.router-link-exact-active {
+  background: color-mix(in srgb, var(--app-primary) 22%, var(--app-sidebar-chip));
   color: var(--app-sidebar-link-active);
+  font-weight: 800;
+  border-color: color-mix(in srgb, var(--app-primary) 28%, transparent);
+  box-shadow: inset 4px 0 0 var(--app-primary);
 }
 
 .grupo-menu {
@@ -1650,12 +1758,26 @@ onBeforeUnmount(() => {
   color: var(--app-sidebar-muted);
   padding: 10px 12px;
   border-radius: 12px;
+  border: 1px solid transparent;
   cursor: pointer;
   font: inherit;
   font-size: 13px;
   font-weight: 800;
   text-align: left;
   text-transform: uppercase;
+  line-height: 1.2;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.grupo-menu-botao--ativo {
+  background: color-mix(in srgb, var(--app-primary) 18%, var(--app-sidebar-chip));
+  color: var(--app-sidebar-link-active);
+  border-color: color-mix(in srgb, var(--app-primary) 32%, transparent);
+  box-shadow: inset 4px 0 0 var(--app-primary);
 }
 
 .submenu {
@@ -1673,23 +1795,41 @@ onBeforeUnmount(() => {
   font-size: 14px;
   color: var(--app-sidebar-link);
   text-decoration: none;
-  border: 0;
+  border: 1px solid transparent;
   background: transparent;
   text-align: left;
   font: inherit;
   cursor: pointer;
   border-radius: 10px;
+  line-height: 1.35;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
 }
 
-.submenu a.router-link-active {
-  background: var(--app-sidebar-item-active);
+.submenu a.router-link-active,
+.submenu a.router-link-exact-active {
+  background: color-mix(in srgb, var(--app-primary) 18%, var(--app-sidebar-chip));
   color: var(--app-sidebar-link-active);
+  font-weight: 800;
+  border-color: color-mix(in srgb, var(--app-primary) 28%, transparent);
+  box-shadow: inset 4px 0 0 var(--app-primary);
 }
 
 .submenu-acao:hover,
 .submenu-acao:focus-visible {
   background: var(--app-sidebar-chip);
   color: var(--app-sidebar-link-active);
+}
+
+.menu-principal a:focus-visible,
+.submenu a:focus-visible,
+.submenu-acao:focus-visible,
+.grupo-menu-botao:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
 }
 
 .submenu-acao-destaque {
