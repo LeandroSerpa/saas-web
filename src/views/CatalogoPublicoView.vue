@@ -169,11 +169,29 @@ const corPrincipalCatalogo = computed(() => normalizarCorHexPublica(personalizac
 const corSecundariaCatalogo = computed(() => normalizarCorHexPublica(personalizacao.value.corSecundaria, '#0f172a'))
 const temaCatalogo = computed(() => normalizarTemaPublicoCompartilhado(personalizacao.value.tema))
 const classeTemaCatalogo = computed(() => `tema-${temaCatalogo.value.toLowerCase()}`)
+const temCoresPersonalizadasCatalogo = computed(() =>
+  Boolean(String(personalizacao.value.corPrincipal || '').trim() || String(personalizacao.value.corSecundaria || '').trim()),
+)
+const fundoCatalogoExterno = computed(() => {
+  const intensidadePrincipal = temaCatalogo.value === 'ESCURO' ? 0.2 : temCoresPersonalizadasCatalogo.value ? 0.14 : 0.08
+  const intensidadeSecundaria = temaCatalogo.value === 'ESCURO' ? 0.16 : temCoresPersonalizadasCatalogo.value ? 0.12 : 0.06
+  const intensidadeBase = temaCatalogo.value === 'ESCURO' ? 0.12 : temCoresPersonalizadasCatalogo.value ? 0.1 : 0.05
+  const misturaPrincipal = temaCatalogo.value === 'ESCURO' ? 12 : temCoresPersonalizadasCatalogo.value ? 14 : 8
+  const misturaSecundaria = temaCatalogo.value === 'ESCURO' ? 14 : temCoresPersonalizadasCatalogo.value ? 16 : 10
+
+  return [
+    `radial-gradient(circle at top left, ${corComAlpha(corPrincipalCatalogo.value, intensidadePrincipal)}, transparent 34%)`,
+    `radial-gradient(circle at top right, ${corComAlpha(corSecundariaCatalogo.value, intensidadeSecundaria)}, transparent 30%)`,
+    `radial-gradient(circle at 50% 112%, ${corComAlpha(corPrincipalCatalogo.value, intensidadeBase)}, transparent 42%)`,
+    `linear-gradient(180deg, color-mix(in srgb, var(--catalogo-bg) ${100 - misturaPrincipal}%, var(--catalogo-cor-principal) ${misturaPrincipal}%) 0%, color-mix(in srgb, var(--catalogo-bg) ${100 - misturaSecundaria}%, var(--catalogo-cor-secundaria) ${misturaSecundaria}%) 100%)`,
+  ].join(', ')
+})
 const estilosCatalogo = computed(() => {
   const mapa = criarMapaVisualPublico(corPrincipalCatalogo.value, corSecundariaCatalogo.value, temaCatalogo.value)
 
   return {
     ...criarVariaveisCssPublicas(mapa, '--catalogo-cor'),
+    '--catalogo-fundo-externo': fundoCatalogoExterno.value,
   }
 })
 
@@ -1649,10 +1667,11 @@ onBeforeUnmount(() => {
   padding: 12px;
   display: block;
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--catalogo-cor-principal), transparent 82%), transparent 28%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--catalogo-cor-secundaria), transparent 84%), transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, var(--catalogo-cor-hero), white 28%) 0%, var(--catalogo-bg) 55%, color-mix(in srgb, var(--catalogo-bg), #e2e8f0 22%) 100%);
+  background-color: var(--catalogo-bg);
+  background-image: var(--catalogo-fundo-externo);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center top;
   color: var(--catalogo-texto);
 }
 
@@ -1664,7 +1683,7 @@ onBeforeUnmount(() => {
 }
 
 .card {
-  background: var(--catalogo-card);
+  background: color-mix(in srgb, var(--catalogo-card) 96%, var(--catalogo-bg) 4%);
   border: 1px solid var(--catalogo-borda);
   border-radius: 24px;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
@@ -1672,7 +1691,7 @@ onBeforeUnmount(() => {
 
 .hero {
   overflow: hidden;
-  background: var(--catalogo-card);
+  background: color-mix(in srgb, var(--catalogo-card) 96%, var(--catalogo-bg) 4%);
 }
 
 .hero-banner-shell {
