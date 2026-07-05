@@ -166,7 +166,7 @@ function atualizar(campo, valor) {
 
 .grade-configuracoes {
   display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px;
 }
 
@@ -206,11 +206,18 @@ h2 {
 }
 
 .toggle {
-  display: flex;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  min-height: 56px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
   color: #334155;
   font-weight: 800;
+  line-height: 1.35;
 }
 
 .toggle input {
@@ -222,9 +229,8 @@ h2 {
 .subopcoes {
   display: grid;
   gap: 10px;
-  padding: 14px;
   border-radius: 8px;
-  background: #f8fafc;
+  background: transparent;
 }
 
 .subopcoes.desabilitada {
@@ -233,6 +239,7 @@ h2 {
 
 .canais-futuros {
   border-style: dashed;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .futuro small {
@@ -245,6 +252,7 @@ h2 {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .botao {
@@ -254,6 +262,14 @@ h2 {
   color: white;
   cursor: pointer;
   font-weight: 800;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.botao:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .botao:disabled {
@@ -272,6 +288,15 @@ h2 {
 @media (max-width: 900px) {
   .grade-configuracoes {
     grid-template-columns: 1fr;
+  }
+
+  .toggle {
+    align-items: flex-start;
+  }
+
+  .acoes,
+  .botao {
+    width: 100%;
   }
 }
 </style>

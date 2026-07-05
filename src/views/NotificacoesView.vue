@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -394,22 +394,35 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="card filtros">
+      <div class="titulo-card">
+        <h2>Filtros de notificações</h2>
+        <p>Refine a lista por status, tipo e período sem perder a leitura dos avisos.</p>
+      </div>
+
       <div class="campos">
-        <label>Status
+        <label>
+          Status
           <select v-model="filtros.status">
             <option v-for="status in STATUS" :key="status.valor" :value="status.valor">{{ status.rotulo }}</option>
           </select>
         </label>
-        <label>Tipo
+
+        <label>
+          Tipo
           <input v-model="filtros.tipo" type="text" placeholder="FINANCEIRO, SISTEMA..." />
         </label>
-        <label>Data inicial
+
+        <label>
+          Data inicial
           <input v-model="filtros.dataInicial" type="date" />
         </label>
-        <label>Data final
+
+        <label>
+          Data final
           <input v-model="filtros.dataFinal" type="date" />
         </label>
       </div>
+
       <div class="acoes">
         <button class="botao principal" @click="carregarDados">Aplicar filtros</button>
         <button class="botao secundario" @click="limparFiltros">Limpar filtros</button>
@@ -417,87 +430,86 @@ onBeforeUnmount(() => {
     </section>
 
     <section v-if="carregando" class="card">Carregando notificações...</section>
-    <section v-else-if="!notificacoes.length" class="card">Nenhuma notificação no momento.</section>
-    <section v-else class="card tabela-card">
-      <div class="tabela-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Prioridade</th>
-              <th>Tipo</th>
-              <th>Título</th>
-              <th>Mensagem</th>
-              <th>Data</th>
-              <th>Status</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in notificacoes" :key="item.id" :class="{ 'linha-nao-lida': statusNaoLida(item) }">
-              <td>
-                <span :class="['prioridade', prioridadeClasse(obterCampo(item, 'prioridade'))]">
-                  {{ prioridadeTexto(obterCampo(item, 'prioridade')) }}
-                </span>
-              </td>
-              <td>{{ obterCampo(item, 'tipo') || '-' }}</td>
-              <td><strong>{{ obterCampo(item, 'titulo', 'title') || 'Notificação' }}</strong></td>
-              <td>{{ obterCampo(item, 'mensagem', 'mensagemCurta', 'descricao') || '-' }}</td>
-              <td>{{ formatarData(obterCampo(item, 'criadoEm', 'dataCriacao', 'data', 'createdAt')) }}</td>
-              <td><span :class="['status', statusClasse(item)]">{{ statusTexto(item) }}</span></td>
-              <td>
-                <div class="acoes-tabela">
-                  <button
-                    v-if="obterCampo(item, 'linkAcao', 'link', 'url', 'rota', 'path', 'acaoLink')"
-                    class="botao compacto secundario"
-                    @click="abrir(item)"
-                  >
-                    Abrir
-                  </button>
-                  <button
-                    v-if="podeMarcarComoLida(item)"
-                    class="botao compacto principal"
-                    :disabled="processandoId === item.id"
-                    @click="marcarComoLida(item)"
-                  >
-                    Marcar como lida
-                  </button>
-                  <button
-                    v-if="podeArquivar(item)"
-                    class="botao compacto perigo"
-                    :disabled="processandoId === item.id"
-                    @click="arquivar(item)"
-                  >
-                    Arquivar
-                  </button>
-                  <button
-                    v-if="podeDesarquivar(item)"
-                    class="botao compacto sucesso-botao"
-                    :disabled="processandoId === item.id"
-                    @click="desarquivar(item)"
-                  >
-                    Desarquivar
-                  </button>
-                  <button
-                    v-if="podeExcluir(item)"
-                    class="botao compacto perigo"
-                    :disabled="processandoId === item.id"
-                    @click="excluir(item)"
-                  >
-                    Lixeira
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <section v-else-if="!notificacoes.length" class="card estado-vazio">
+      <strong>Nenhuma notificação no momento.</strong>
+      <p>Quando novos avisos chegarem, eles aparecerão aqui em cards mais fáceis de ler.</p>
+    </section>
+    <section v-else class="grade-notificacoes">
+      <article
+        v-for="item in notificacoes"
+        :key="item.id"
+        :class="['card notificacao-card', { 'nao-lida': statusNaoLida(item) }]"
+      >
+        <div class="notificacao-topo">
+          <div class="notificacao-titulos">
+            <div class="badges">
+              <span :class="['prioridade', prioridadeClasse(obterCampo(item, 'prioridade'))]">
+                {{ prioridadeTexto(obterCampo(item, 'prioridade')) }}
+              </span>
+              <span :class="['status', statusClasse(item)]">{{ statusTexto(item) }}</span>
+            </div>
+            <h2>{{ obterCampo(item, 'titulo', 'title') || 'Notificação' }}</h2>
+            <p class="tipo-notificacao">{{ obterCampo(item, 'tipo') || 'Tipo não informado' }}</p>
+          </div>
+
+          <div class="meta-notificacao">
+            <span>Data</span>
+            <strong>{{ formatarData(obterCampo(item, 'criadoEm', 'dataCriacao', 'data', 'createdAt')) }}</strong>
+          </div>
+        </div>
+
+        <p class="mensagem-notificacao">
+          {{ obterCampo(item, 'mensagem', 'mensagemCurta', 'descricao') || 'Sem descrição disponível.' }}
+        </p>
+
+        <div class="acoes-notificacao">
+          <button
+            v-if="obterCampo(item, 'linkAcao', 'link', 'url', 'rota', 'path', 'acaoLink')"
+            class="botao compacto secundario"
+            @click="abrir(item)"
+          >
+            Abrir
+          </button>
+          <button
+            v-if="podeMarcarComoLida(item)"
+            class="botao compacto principal"
+            :disabled="processandoId === item.id"
+            @click="marcarComoLida(item)"
+          >
+            Marcar como lida
+          </button>
+          <button
+            v-if="podeArquivar(item)"
+            class="botao compacto perigo"
+            :disabled="processandoId === item.id"
+            @click="arquivar(item)"
+          >
+            Arquivar
+          </button>
+          <button
+            v-if="podeDesarquivar(item)"
+            class="botao compacto sucesso-botao"
+            :disabled="processandoId === item.id"
+            @click="desarquivar(item)"
+          >
+            Desarquivar
+          </button>
+          <button
+            v-if="podeExcluir(item)"
+            class="botao compacto perigo"
+            :disabled="processandoId === item.id"
+            @click="excluir(item)"
+          >
+            Lixeira
+          </button>
+        </div>
+      </article>
     </section>
   </main>
 </template>
 
 <style scoped>
-.pagina,
-.filtros {
+.pagina {
   display: grid;
   gap: 18px;
   color: #111827;
@@ -520,6 +532,7 @@ onBeforeUnmount(() => {
 }
 
 h1,
+h2,
 p {
   margin: 0;
 }
@@ -530,6 +543,21 @@ h1 {
 }
 
 .descricao {
+  color: #64748b;
+}
+
+.titulo-card h2,
+.notificacao-titulos h2 {
+  color: #111827;
+  font-weight: 800;
+}
+
+.titulo-card h2 {
+  font-size: 22px;
+}
+
+.titulo-card p {
+  margin-top: 6px;
   color: #64748b;
 }
 
@@ -545,6 +573,12 @@ h1 {
   display: grid;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
   gap: 14px;
+}
+
+.filtros,
+.notificacao-card {
+  display: grid;
+  gap: 16px;
 }
 
 .indicador {
@@ -577,10 +611,13 @@ label {
 
 input,
 select {
+  width: 100%;
+  min-width: 0;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 10px 12px;
   font: inherit;
+  box-sizing: border-box;
 }
 
 .botao {
@@ -591,6 +628,14 @@ select {
   cursor: pointer;
   font-weight: 800;
   text-decoration: none;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.botao:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .botao:disabled {
@@ -614,11 +659,9 @@ select {
   background: #15803d;
 }
 
-.compacto {
-  width: 100%;
-  padding: 7px 8px;
-  font-size: 11px;
-  line-height: 1.2;
+.botao.compacto {
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
 .feedback.erro {
@@ -633,62 +676,52 @@ select {
   color: #166534;
 }
 
-.tabela-card {
-  padding: 0;
-  overflow: hidden;
+.aviso-visualizacao,
+.estado-vazio {
+  color: #64748b;
 }
 
-.tabela-container {
-  overflow-x: auto;
+.aviso-visualizacao p {
+  margin: 0;
 }
 
-table {
-  width: 100%;
-  min-width: 920px;
-  border-collapse: collapse;
+.grade-notificacoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
 }
 
-th,
-td {
-  padding: 12px 10px;
-  border-bottom: 1px solid #e5e7eb;
-  color: #374151;
-  text-align: left;
-  vertical-align: top;
-  font-size: 13px;
-  word-break: break-word;
+.notificacao-card {
+  align-content: start;
 }
 
-th {
-  background: #f8fafc;
-  color: #111827;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-th:last-child,
-td:last-child {
-  position: sticky;
-  right: 0;
-  z-index: 2;
-  width: 140px;
-  min-width: 140px;
-  background: white;
-  box-shadow: -8px 0 14px rgba(15, 23, 42, 0.06);
-}
-
-th:last-child {
-  z-index: 3;
-  background: #f8fafc;
-}
-
-.linha-nao-lida {
+.notificacao-card.nao-lida {
+  border-color: #bfdbfe;
   background: #f8fbff;
 }
 
-.linha-nao-lida td:last-child {
-  background: #f8fbff;
+.notificacao-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.notificacao-titulos {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.notificacao-titulos h2 {
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .prioridade,
@@ -746,15 +779,49 @@ th:last-child {
   color: #b91c1c;
 }
 
-.acoes-tabela {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.tipo-notificacao,
+.mensagem-notificacao,
+.meta-notificacao span,
+.meta-notificacao strong {
+  color: #64748b;
 }
 
-.texto-acao {
-  color: #64748b;
+.tipo-notificacao {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.meta-notificacao {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.meta-notificacao span {
+  font-size: 12px;
   font-weight: 800;
+  text-transform: uppercase;
+}
+
+.meta-notificacao strong {
+  font-size: 14px;
+}
+
+.mensagem-notificacao {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.acoes-notificacao {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.acoes-notificacao .botao.compacto {
+  width: fit-content;
 }
 
 @media (max-width: 900px) {
@@ -767,6 +834,19 @@ th:last-child {
   .grade-resumo,
   .campos {
     grid-template-columns: 1fr;
+  }
+
+  .notificacao-topo {
+    flex-direction: column;
+  }
+
+  .meta-notificacao {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .acoes-notificacao .botao.compacto {
+    width: 100%;
   }
 }
 </style>
