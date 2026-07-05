@@ -27,10 +27,12 @@ export function aplicarTemaAparenciaNoDocumento(tema) {
   const temaNormalizado = normalizarTemaAparencia(tema) || obterTemaAparenciaPadrao()
   const { documentElement, body } = document
   const variaveisCss = criarVariaveisCssTemaInterno(temaNormalizado)
+  const colorScheme = obterColorSchemeTemaInterno(temaNormalizado)
 
   if (documentElement) {
     documentElement.dataset.appTheme = temaNormalizado
-    documentElement.style.colorScheme = obterColorSchemeTemaInterno(temaNormalizado)
+    documentElement.dataset.appColorScheme = colorScheme
+    documentElement.style.colorScheme = colorScheme
 
     Object.entries(variaveisCss).forEach(([chave, valor]) => {
       documentElement.style.setProperty(chave, valor)
@@ -39,6 +41,7 @@ export function aplicarTemaAparenciaNoDocumento(tema) {
 
   if (body) {
     body.dataset.appTheme = temaNormalizado
+    body.dataset.appColorScheme = colorScheme
   }
 
   return temaNormalizado

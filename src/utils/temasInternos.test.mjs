@@ -2,18 +2,30 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  TEMA_APARENCIA_AMBAR_EXECUTIVO,
+  TEMA_APARENCIA_AURORA_CIANO,
   TEMA_APARENCIA_CLARO,
   TEMA_APARENCIA_ESCURO,
+  TEMA_APARENCIA_ESMERALDA_GESTAO,
+  TEMA_APARENCIA_GRAFITE_CORPORATIVO,
   TEMA_APARENCIA_MODERNO,
   TEMA_APARENCIA_NUVEMMAIS,
+  TEMA_APARENCIA_NUVEMMAIS_AZUL,
+  TEMA_APARENCIA_OCEANO_PROFISSIONAL,
+  TEMA_APARENCIA_ROSA_CRIATIVO,
+  TEMA_APARENCIA_RUBI_MODERNO,
+  TEMA_APARENCIA_SAFIRA_ESCURO,
   TEMA_APARENCIA_SUAVE,
+  TEMA_APARENCIA_TERRA_ELEGANTE,
+  TEMA_APARENCIA_VIOLETA_PREMIUM,
   criarVariaveisCssTemaInterno,
   normalizarTemaInterno,
+  obterColorSchemeTemaInterno,
   obterOpcoesTemasInternos,
 } from './temasInternos.js'
 
 describe('temasInternos', () => {
-  it('mantem o catalogo final de cinco temas internos', () => {
+  it('mantem o catalogo expandido de temas internos', () => {
     assert.deepEqual(
       obterOpcoesTemasInternos().map((tema) => tema.valor),
       [
@@ -22,6 +34,17 @@ describe('temasInternos', () => {
         TEMA_APARENCIA_ESCURO,
         TEMA_APARENCIA_SUAVE,
         TEMA_APARENCIA_NUVEMMAIS,
+        TEMA_APARENCIA_NUVEMMAIS_AZUL,
+        TEMA_APARENCIA_OCEANO_PROFISSIONAL,
+        TEMA_APARENCIA_SAFIRA_ESCURO,
+        TEMA_APARENCIA_ESMERALDA_GESTAO,
+        TEMA_APARENCIA_VIOLETA_PREMIUM,
+        TEMA_APARENCIA_AMBAR_EXECUTIVO,
+        TEMA_APARENCIA_RUBI_MODERNO,
+        TEMA_APARENCIA_GRAFITE_CORPORATIVO,
+        TEMA_APARENCIA_AURORA_CIANO,
+        TEMA_APARENCIA_TERRA_ELEGANTE,
+        TEMA_APARENCIA_ROSA_CRIATIVO,
       ],
     )
   })
@@ -31,16 +54,26 @@ describe('temasInternos', () => {
     assert.equal(normalizarTemaInterno('PADRAO'), TEMA_APARENCIA_CLARO)
     assert.equal(normalizarTemaInterno('Escuro'), TEMA_APARENCIA_ESCURO)
     assert.equal(normalizarTemaInterno('NuvemMais Gestão'), TEMA_APARENCIA_NUVEMMAIS)
+    assert.equal(normalizarTemaInterno('\u00C2mbar Executivo'), TEMA_APARENCIA_AMBAR_EXECUTIVO)
+    assert.equal(normalizarTemaInterno('Esmeralda Gestão'), TEMA_APARENCIA_ESMERALDA_GESTAO)
   })
 
-  it('gera tokens CSS para os cinco temas', () => {
+  it('gera tokens CSS e preview para todos os temas', () => {
     for (const tema of obterOpcoesTemasInternos()) {
       const variaveis = criarVariaveisCssTemaInterno(tema.valor)
       assert.equal(typeof variaveis['--app-bg'], 'string')
       assert.equal(typeof variaveis['--app-primary'], 'string')
       assert.equal(typeof variaveis['--app-sidebar-bg'], 'string')
       assert.equal(typeof variaveis['--app-input-disabled-bg'], 'string')
+      assert.equal(typeof tema.preview.primario, 'string')
+      assert.equal(typeof tema.preview.menu, 'string')
     }
+  })
+
+  it('identifica temas escuros pelo esquema de cor', () => {
+    assert.equal(obterColorSchemeTemaInterno(TEMA_APARENCIA_ESCURO), 'dark')
+    assert.equal(obterColorSchemeTemaInterno(TEMA_APARENCIA_SAFIRA_ESCURO), 'dark')
+    assert.equal(obterColorSchemeTemaInterno(TEMA_APARENCIA_CLARO), 'light')
   })
 
   it('mantem o tema independente do modo de navegacao salvo em paralelo', () => {
