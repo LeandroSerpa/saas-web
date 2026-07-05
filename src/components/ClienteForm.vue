@@ -1,5 +1,11 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import {
+  OPCOES_FREQUENCIA_SEMANAL_BEACH_TENNIS,
+  OPCOES_NIVEL_BEACH_TENNIS,
+  OPCOES_PERFIL_BEACH_TENNIS,
+  OPCOES_PLANO_BEACH_TENNIS,
+} from '@/utils/beachTennis'
 import {
   emailBasicoValido,
   limparEspacos,
@@ -12,7 +18,7 @@ const cliente = defineModel({
   required: true,
 })
 
-defineProps({
+const props = defineProps({
   mensagemSucesso: {
     type: String,
     default: '',
@@ -20,6 +26,10 @@ defineProps({
   modoEdicao: {
     type: Boolean,
     default: false,
+  },
+  contextoEsportivo: {
+    type: Object,
+    default: () => ({}),
   },
 })
 
@@ -29,6 +39,29 @@ const errosCampos = reactive({
   telefone: '',
   email: '',
 })
+
+const temDadosBeachTennis = computed(() =>
+  Boolean(
+    cliente.value?.dataNascimento ||
+      cliente.value?.perfilBeachTennis ||
+      cliente.value?.nivelBeachTennis ||
+      cliente.value?.participaCompeticaoBeachTennis === true ||
+      cliente.value?.frequenciaSemanalBeachTennis ||
+      cliente.value?.planoBeachTennis ||
+      cliente.value?.observacaoBeachTennis,
+  ),
+)
+const moduloEsportivoAtivo = computed(() => props.contextoEsportivo?.ativo === true)
+const nomeModalidade = computed(() => props.contextoEsportivo?.nomeModalidade || 'Esporte')
+const termoParticipanteSingular = computed(() => props.contextoEsportivo?.termoParticipanteSingular || 'Aluno')
+const tituloSecaoEsportiva = computed(() =>
+  nomeModalidade.value === 'Beach Tennis'
+    ? 'Dados de Beach Tennis'
+    : `Dados esportivos - ${nomeModalidade.value}`,
+)
+const rotuloSingular = computed(() =>
+  moduloEsportivoAtivo.value ? termoParticipanteSingular.value.toLocaleLowerCase('pt-BR') : 'cliente',
+)
 
 function limparErroCampo(campo) {
   errosCampos[campo] = ''
@@ -81,12 +114,14 @@ function solicitarSalvamento() {
 <template>
   <section class="card formulario">
     <div class="titulo-card">
-      <h2>{{ modoEdicao ? 'Editar cliente' : 'Novo cliente' }}</h2>
+      <h2>{{ modoEdicao ? `Editar ${rotuloSingular}` : `Novo ${rotuloSingular}` }}</h2>
       <p>
         {{
           modoEdicao
-            ? 'Atualize os dados do cliente selecionado.'
-            : 'Cadastre um cliente para usar nos agendamentos.'
+            ? `Atualize os dados do ${rotuloSingular} selecionado.`
+            : moduloEsportivoAtivo
+              ? `Cadastre um ${rotuloSingular} para usar na rotina da modalidade.`
+              : 'Cadastre um cliente para usar nos agendamentos.'
         }}
       </p>
     </div>
@@ -117,7 +152,7 @@ function solicitarSalvamento() {
           :value="cliente.email"
           type="text"
           inputmode="email"
-          placeholder="Ex: cliente@email.com"
+          :placeholder="`Ex: ${rotuloSingular}@email.com`"
           @input="aplicarEmail($event.target.value)"
           @blur="validarEmail"
         />
@@ -129,10 +164,82 @@ function solicitarSalvamento() {
         <input
           v-model="cliente.observacao"
           type="text"
-          placeholder="Ex: Cliente prefere atendimento pela manhã"
+          :placeholder="moduloEsportivoAtivo ? `Ex: ${termoParticipanteSingular} prefere aulas pela manhã` : 'Ex: Cliente prefere atendimento pela manhã'"
         />
       </label>
     </div>
+
+    <details v-if="moduloEsportivoAtivo" class="bloco-beach-tennis" :open="temDadosBeachTennis">
+      <summary>{{ tituloSecaoEsportiva }}</summary>
+      <p class="ajuda-bloco">
+        Use estes campos apenas quando a pessoa também participar da rotina esportiva desta modalidade.
+      </p>
+
+      <div class="campos">
+        <label>
+          Data de nascimento
+          <input v-model="cliente.dataNascimento" type="date" />
+        </label>
+
+        <label>
+          Perfil esportivo
+          <select v-model="cliente.perfilBeachTennis">
+            <option value="">Selecione</option>
+            <option v-for="opcao in OPCOES_PERFIL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Nível/Categoria
+          <select v-model="cliente.nivelBeachTennis">
+            <option value="">Selecione</option>
+            <option v-for="opcao in OPCOES_NIVEL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label class="campo-checkbox">
+          <input v-model="cliente.participaCompeticaoBeachTennis" type="checkbox" />
+          <span>Participa de competição</span>
+        </label>
+
+        <label>
+          Frequência semanal
+          <select v-model="cliente.frequenciaSemanalBeachTennis">
+            <option value="">Selecione</option>
+            <option
+              v-for="opcao in OPCOES_FREQUENCIA_SEMANAL_BEACH_TENNIS"
+              :key="opcao.valor"
+              :value="opcao.valor"
+            >
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Plano esportivo
+          <select v-model="cliente.planoBeachTennis">
+            <option value="">Selecione</option>
+            <option v-for="opcao in OPCOES_PLANO_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label class="campo-grande">
+          Observações esportivas
+          <textarea
+            v-model="cliente.observacaoBeachTennis"
+            rows="3"
+            placeholder="Ex: Prefere treinos noturnos, participa de jogos livres aos sábados..."
+          ></textarea>
+        </label>
+      </div>
+    </details>
 
     <p v-if="erroValidacao" class="erro-texto">{{ erroValidacao }}</p>
 

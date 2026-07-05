@@ -340,7 +340,7 @@ const mensagemModoEstoque = computed(() => {
     return `Modo operação: você está atuando na empresa ${empresaVisualizacao.value.nome}.`
   }
 
-  return 'Visão global: você está vendo dados consolidados da plataforma. Alterações estão bloqueadas.'
+  return 'Visão global: você está vendo dados consolidados da plataforma. Use o seletor superior para entrar em modo operação.'
 })
 
 const slugCatalogo = computed(() => String(minhaEmpresa.value?.slug || '').trim())
@@ -2503,6 +2503,7 @@ function atualizarContextoEstoque() {
   abaAtiva.value = obterAbaInicial()
   paginacaoProdutos.value.page = 1
   paginacaoMovimentacoes.value.page = 1
+  cancelarEdicaoProduto(false)
   carregarTela()
 }
 
@@ -2623,7 +2624,7 @@ onBeforeUnmount(() => {
                 <option value="">Todas</option>
                 <option v-for="empresa in empresas" :key="empresa.id" :value="String(empresa.id)">{{ empresa.nome }}</option>
               </select>
-              <small>Use o seletor de visualização no topo para trocar a empresa.</small>
+              <small>Use o seletor de operação no topo para trocar a empresa.</small>
             </label>
             <div class="filtro-checkbox-container">
               <label class="filtro-checkbox">
@@ -3348,7 +3349,7 @@ onBeforeUnmount(() => {
                 <option value="">Todas</option>
                 <option v-for="empresa in empresas" :key="empresa.id" :value="String(empresa.id)">{{ empresa.nome }}</option>
               </select>
-              <small>Use o seletor de visualização no topo para trocar a empresa.</small>
+              <small>Use o seletor de operação no topo para trocar a empresa.</small>
             </label>
             <label>
               Data inicial

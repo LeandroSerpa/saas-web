@@ -15,6 +15,7 @@ import {
   carregarUsuarioSessao,
   excluirAgendamento,
   buscarStatusFinanceiroMinhaEmpresa,
+  obterEmpresaIdOperacao,
   obterEmpresaVisualizacao,
 } from '@/services/api'
 import {
@@ -444,7 +445,7 @@ async function salvarAgendamento() {
     }
 
     const agendamento = {
-      empresaId: 1,
+      empresaId: obterEmpresaIdOperacao() ? Number(obterEmpresaIdOperacao()) : '',
       clienteId: Number(novoAgendamento.value.clienteId),
       funcionarioId: Number(novoAgendamento.value.funcionarioId),
       servicoId: Number(novoAgendamento.value.servicoId),
@@ -473,7 +474,7 @@ async function salvarAgendamento() {
 }
 
 async function carregarStatusFinanceiro() {
-  if (superAdmin.value) {
+  if (superAdminSemEmpresaSelecionada.value) {
     statusFinanceiro.value = null
     return
   }
@@ -815,7 +816,11 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
 
 function atualizarModoVisualizacao() {
   sincronizarContextoAgenda()
+  erro.value = ''
+  mensagemSucessoAgendamento.value = ''
+  statusFinanceiro.value = null
   carregarDados()
+  carregarStatusFinanceiro()
 }
 
 function sincronizarContextoAgenda() {

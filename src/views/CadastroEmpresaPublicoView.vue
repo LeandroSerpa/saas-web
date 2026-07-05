@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
@@ -37,42 +37,94 @@ const formulario = ref(criarFormularioInicial())
 const errosCampos = ref(criarErrosCamposIniciais())
 
 const segmentoSelecionado = computed(() => segmentos.value.find((segmento) => String(segmento.id) === String(formulario.value.segmentoNegocioId)) || null)
-const planoSelecionado = computed(() => planosExibidos.value.find((plano) => String(plano.id) === String(formulario.value.planoId)) || null)
+const planoSelecionado = computed(() => {
+  const id = Number(formulario.value.planoId)
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return null
+  }
+
+  return planosExibidos.value.find((plano) => Number(plano?.id) === id) || null
+})
+const segmentosExibidos = computed(() =>
+  [...segmentos.value]
+    .sort(compararSegmentosPublico)
+    .map((segmento) => ({
+      ...segmento,
+      nomeExibicao: obterNomeSegmento(segmento),
+      modalidadeEsportiva: segmentoEhEsportivo(segmento),
+    })),
+)
+const segmentosAgrupados = computed(() => {
+  const esportivos = segmentosExibidos.value.filter((segmento) => segmento.modalidadeEsportiva)
+  const outros = segmentosExibidos.value.filter((segmento) => !segmento.modalidadeEsportiva)
+
+  return [
+    { titulo: 'Modalidades esportivas', itens: esportivos },
+    { titulo: 'Outros segmentos', itens: outros },
+  ].filter((grupo) => grupo.itens.length)
+})
 const planosExibidos = computed(() =>
   [...planos.value]
+    .filter((plano) => plano && typeof plano === 'object' && !Array.isArray(plano))
+    .filter(ehPlanoExibivelNoCadastro)
     .sort(compararPlanosPublicos)
     .map((plano) => ({
       ...plano,
+      id: obterIdPlano(plano),
       destaqueComercial: obterDestaqueComercialPlano(plano),
     })),
+)
+const ajudaSegmentoEsportivo = computed(() =>
+  segmentoEhEsportivo(segmentoSelecionado.value)
+    ? 'A Gestão Esportiva será configurada de acordo com a modalidade escolhida.'
+    : '',
 )
 const destacarPlanos = computed(() => route.hash === '#planos')
 
 const destaquePlanoPadrao = {
-  selo: 'Plano real',
-  chamada: 'Uma opção clara para pequenos negócios, com nome, proposta e limites vindos da API.',
-  destaque: 'Selecione o cartão que melhor representa o momento da sua empresa.',
+  selo: '',
+  publicoAlvo: '',
+  resumoComercial: 'Uma opção clara para sua empresa crescer com o essencial certo para o momento atual.',
+  textoBotao: 'Escolher este plano',
   recursos: ['Dados reais da API', 'Seleção preservada no formulário', 'Visual responsivo para mobile'],
 }
 
 const destaquePlanosPublicos = {
   vitrine: {
-    selo: 'Vitrine',
-    chamada: 'Catálogo, cardápio e vitrine pública para divulgar produtos e receber pedidos pelo WhatsApp.',
-    destaque: 'Ideal para quem quer mostrar produtos com link público e vender com mais organização.',
-    recursos: ['Catálogo/cardápio público', 'Fotos, preços e disponibilidade', 'Link público para divulgar'],
+    selo: '',
+    publicoAlvo: 'Para divulgar produtos e receber pedidos',
+    resumoComercial: 'Crie sua vitrine, catálogo ou cardápio digital e compartilhe o link com seus clientes.',
+    textoBotao: 'Criar minha vitrine',
+    recursos: ['Catálogo público', 'Cardápio digital', 'Link para compartilhar'],
   },
   agenda: {
-    selo: 'Agenda',
-    chamada: 'Agenda online para horários, serviços, clientes e atendimento com mais controle.',
-    destaque: 'Perfeito para quem agenda horários e quer organizar a operação do dia a dia.',
-    recursos: ['Agenda online', 'Clientes, serviços e funcionários', 'Organização de horários'],
+    selo: '',
+    publicoAlvo: 'Para organizar horários e receber agendamentos',
+    resumoComercial: 'Organize clientes, serviços, profissionais e agendamentos em um único lugar.',
+    textoBotao: 'Organizar minha agenda',
+    recursos: ['Agenda online', 'Clientes e serviços', 'Profissionais e horários'],
   },
   completo: {
-    selo: 'Completo',
-    chamada: 'Catálogo/cardápio + agenda em um só plano, para vender e atender no mesmo sistema.',
-    destaque: 'Reúne vitrine e agenda para negócios que precisam dos dois fluxos juntos.',
-    recursos: ['Catálogo/cardápio + agenda', 'Estoque do dia', 'Operação completa em um só lugar'],
+    selo: 'RECOMENDADO',
+    complemento: 'Melhor custo-benefício',
+    resumoComercial: 'Centralize agenda, clientes, produtos, estoque e divulgação em uma única plataforma.',
+    textoBotao: 'Escolher o Completo',
+    recursos: ['Agenda', 'Catálogo público', 'Estoque'],
+  },
+  profissional: {
+    selo: '',
+    publicoAlvo: 'Para empresas com equipe e maior movimento',
+    resumoComercial: 'Mais capacidade para acompanhar clientes, profissionais, agendamentos e a operação diária.',
+    textoBotao: 'Escolher o Profissional',
+    recursos: ['Equipe maior', 'Operação em movimento', 'Acompanhamento diário'],
+  },
+  premium: {
+    selo: '',
+    publicoAlvo: 'Para operações que precisam de mais capacidade',
+    resumoComercial: 'Limites ampliados, mais liberdade para crescer e suporte prioritário.',
+    textoBotao: 'Escolher o Premium',
+    recursos: ['Limites ampliados', 'Mais liberdade', 'Suporte prioritário'],
   },
 }
 
@@ -91,6 +143,15 @@ watch(
     secaoPlanosRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   },
   { immediate: true },
+)
+
+watch(
+  () => planosExibidos.value.map((plano) => String(plano.id)).join('|'),
+  () => {
+    if (formulario.value.planoId && !planosExibidos.value.some((plano) => String(plano.id) === String(formulario.value.planoId))) {
+      formulario.value.planoId = ''
+    }
+  },
 )
 
 function criarFormularioInicial() {
@@ -130,6 +191,11 @@ function criarErrosCamposIniciais() {
   }
 }
 
+function obterIdPlano(plano) {
+  const id = Number(obterCampo(plano, 'id', 'planoId'))
+  return Number.isInteger(id) && id > 0 ? id : ''
+}
+
 function limparErroCampo(campo) {
   if (campo in errosCampos.value) errosCampos.value[campo] = ''
   erro.value = ''
@@ -141,8 +207,8 @@ async function carregarOpcoes() {
     erro.value = ''
     const [segmentosApi, planosApi] = await Promise.all([buscarSegmentosCadastroPublico(), buscarPlanosCadastroPublico()])
 
-    segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento.ativo !== false)
-    planos.value = extrairLista(planosApi).filter((plano) => plano?.ativo !== false)
+    segmentos.value = extrairLista(segmentosApi).filter((segmento) => segmento && typeof segmento === 'object' && !Array.isArray(segmento) && segmento.ativo !== false)
+    planos.value = extrairLista(planosApi).filter((plano) => plano && typeof plano === 'object' && !Array.isArray(plano) && plano.ativo !== false)
     debugLog('cadastro-publico-planos', 'Planos recebidos para etapa Plano', {
       quantidade: planos.value.length,
     })
@@ -249,7 +315,7 @@ function validarEtapaAtual() {
   if (etapaAtual.value === 3 && !planos.value.length) {
     return falharValidacao('No momento não há planos disponíveis para cadastro público. Entre em contato com a equipe NuvemMais para receber orientação.')
   }
-  if (etapaAtual.value === 3 && !formulario.value.planoId) return falharValidacao('Selecione o plano desejado.')
+  if (etapaAtual.value === 3 && !planoSelecionado.value) return falharValidacao('Selecione um plano para continuar.')
   if (etapaAtual.value === 4 && !formulario.value.aceiteTermos) return falharValidacao('Confirme a leitura dos Termos de Uso e da Política de Privacidade.')
   return true
 }
@@ -358,26 +424,67 @@ function obterCampo(item, ...campos) {
   return ''
 }
 
+function obterLimitePlano(plano, campo, ...aliases) {
+  if (!plano || typeof plano !== 'object') {
+    return undefined
+  }
+
+  for (const chave of [campo, ...aliases]) {
+    if (chave && Object.prototype.hasOwnProperty.call(plano, chave)) {
+      return plano[chave]
+    }
+  }
+
+  return undefined
+}
+
 function obterMensagemErro(errorAtual, fallback) {
   return String(errorAtual?.message || '').trim() || fallback
 }
 
 function selecionarPlano(plano) {
-  formulario.value.planoId = plano?.id || ''
+  const id = Number(obterCampo(plano, 'id', 'planoId'))
+
+  if (!Number.isInteger(id) || id <= 0) {
+    erro.value = 'Não foi possível selecionar este plano.'
+    return
+  }
+
+  formulario.value.planoId = id
   erro.value = ''
+}
+
+function normalizarTexto(valor) {
+  return String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
 }
 
 function obterDestaqueComercialPlano(plano) {
   const chave = identificarPlanoPublico(plano)
+  const padrao = destaquePlanosPublicos[chave] || destaquePlanoPadrao
 
-  return destaquePlanosPublicos[chave] || {
+  return {
     ...destaquePlanoPadrao,
-    recursos: plano?.nome ? [`Plano disponível na base: ${plano.nome}`] : destaquePlanoPadrao.recursos,
+    ...padrao,
+    selo: obterCampo(plano, 'selo') || padrao.selo || '',
+    publicoAlvo: obterCampo(plano, 'publicoAlvo') || padrao.publicoAlvo || '',
+    resumoComercial: obterCampo(plano, 'resumoComercial', 'resumo', 'descricao') || padrao.resumoComercial || '',
+    textoBotao: obterCampo(plano, 'textoBotao') || padrao.textoBotao || destaquePlanoPadrao.textoBotao,
+    complemento: obterCampo(plano, 'complemento') || padrao.complemento || '',
+    recursos:
+      Array.isArray(padrao.recursos) && padrao.recursos.length
+        ? padrao.recursos
+        : plano?.nome
+          ? [`Plano disponível na base: ${plano.nome}`]
+          : destaquePlanoPadrao.recursos,
   }
 }
 
 function identificarPlanoPublico(plano) {
-  const nome = gerarSlug(obterCampo(plano, 'nome', 'titulo', 'codigo', 'slug'))
+  const nome = gerarSlug(obterCampo(plano, 'codigo', 'slug', 'nome', 'titulo'))
 
   if (
     nome.includes('vitrine') ||
@@ -397,17 +504,31 @@ function identificarPlanoPublico(plano) {
     return 'completo'
   }
 
-  return ''
+  if (nome.includes('profissional')) {
+    return 'profissional'
+  }
+
+  if (nome.includes('premium')) {
+    return 'premium'
+  }
+
+  return nome.includes('basico') ? 'basico' : ''
 }
 
 function compararPlanosPublicos(planoA, planoB) {
-  const ordem = { vitrine: 0, agenda: 1, completo: 2 }
-  const chaveA = identificarPlanoPublico(planoA)
-  const chaveB = identificarPlanoPublico(planoB)
-  const pesoA = ordem[chaveA] ?? 99
-  const pesoB = ordem[chaveB] ?? 99
+  const ordemA = inteiroOuNulo(obterCampo(planoA, 'ordemExibicao', 'ordem', 'ordemVisualizacao'))
+  const ordemB = inteiroOuNulo(obterCampo(planoB, 'ordemExibicao', 'ordem', 'ordemVisualizacao'))
 
-  if (pesoA !== pesoB) return pesoA - pesoB
+  if (ordemA !== null || ordemB !== null) {
+    if (ordemA === null) return 1
+    if (ordemB === null) return -1
+    if (ordemA !== ordemB) return ordemA - ordemB
+  }
+
+  const precoA = precoPlano(planoA)
+  const precoB = precoPlano(planoB)
+
+  if (precoA !== precoB) return precoA - precoB
 
   return String(obterCampo(planoA, 'nome', 'titulo') || '').localeCompare(
     String(obterCampo(planoB, 'nome', 'titulo') || ''),
@@ -429,36 +550,102 @@ function precoPlano(plano) {
 }
 
 function descricaoPlano(plano) {
-  return plano?.descricao || plano?.resumo || plano?.destaqueComercial?.chamada || 'Uma opção para organizar sua operação com mais clareza, controle e previsibilidade.'
+  return (
+    plano?.resumoComercial ||
+    plano?.descricao ||
+    plano?.resumo ||
+    plano?.destaqueComercial?.resumoComercial ||
+    'Uma opção para organizar sua operação com mais clareza, controle e previsibilidade.'
+  )
 }
 
 function exibirLimite(valor) {
   if (valor === null || valor === undefined || valor === '') return 'Ilimitado'
   const numero = Number(valor)
-  if (!Number.isFinite(numero) || numero <= 0) return 'Ilimitado'
+  if (!Number.isFinite(numero)) return 'Ilimitado'
+  if (numero === 0 || numero < 0) return 'Não incluído'
   return new Intl.NumberFormat('pt-BR').format(numero)
 }
 
-function obterLimitePlano(plano, ...campos) {
-  for (const campo of campos) {
-    if (plano?.[campo] !== null && plano?.[campo] !== undefined && plano?.[campo] !== '') {
-      return plano[campo]
-    }
-  }
+function planoEstaSelecionado(plano) {
+  const idPlano = Number(obterCampo(plano, 'id', 'planoId'))
+  const idSelecionado = Number(formulario.value.planoId)
 
-  return null
+  return Number.isInteger(idPlano) && idPlano > 0 && Number.isInteger(idSelecionado) && idSelecionado > 0 && idPlano === idSelecionado
 }
 
-function recursoDisponivel(valor) {
-  return valor === true ? 'Sim' : 'Não'
+function inteiroOuNulo(valor) {
+  if (valor === null || valor === undefined || valor === '') return null
+
+  const numero = Number(valor)
+  return Number.isFinite(numero) ? Math.trunc(numero) : null
 }
 
-function estoqueIncluido(plano) {
-  return plano?.permiteEstoque === true
+function planoExibeCadastroPublico(plano) {
+  if (plano?.exibirCadastroPublico === false) return false
+  if (plano?.exibirCadastroPublico === true) return true
+
+  return !normalizarTexto(obterCampo(plano, 'codigo', 'slug', 'nome', 'titulo')).includes('basico')
+}
+
+function ehPlanoExibivelNoCadastro(plano) {
+  return planoExibeCadastroPublico(plano)
+}
+
+function segmentoEhEsportivo(segmento = {}) {
+  const nome = gerarSlug(obterNomeSegmento(segmento))
+
+  return [
+    'artes-marciais',
+    'basquete',
+    'beach-tennis',
+    'futebol',
+    'futsal',
+    'natacao',
+    'tenis',
+    'volei',
+  ].includes(nome)
+}
+
+function obterNomeSegmento(segmento = {}) {
+  return String(obterCampo(segmento, 'nome', 'descricao') || '').trim()
+}
+
+function compararSegmentosPublico(a, b) {
+  return obterNomeSegmento(a).localeCompare(obterNomeSegmento(b), 'pt-BR')
 }
 
 function limiteProdutosPlano(plano) {
-  return exibirLimite(obterLimitePlano(plano, 'limiteProdutos'))
+  return exibirLimite(obterLimitePlano(plano, 'limiteProdutos', 'limiteEstoque', 'limiteProdutosEstoque'))
+}
+
+function estoqueIncluido(plano) {
+  if (!plano || typeof plano !== 'object') {
+    return false
+  }
+
+  const temPermissaoEstoque = plano.permiteEstoque === true || Object.prototype.hasOwnProperty.call(plano, 'permiteEstoque')
+  const limiteProdutos = obterLimitePlano(plano, 'limiteProdutos', 'limiteEstoque', 'limiteProdutosEstoque')
+
+  if (limiteProdutos === 0 || limiteProdutos === '0') {
+    return false
+  }
+
+  if (limiteProdutos === null || limiteProdutos === undefined || limiteProdutos === '') {
+    return temPermissaoEstoque
+  }
+
+  const numero = Number(limiteProdutos)
+
+  if (!Number.isFinite(numero)) {
+    return temPermissaoEstoque
+  }
+
+  return numero > 0
+}
+
+function recursoDisponivel(valor) {
+  return valor === true || valor === 'true' || valor === 1 ? 'Sim' : 'Não'
 }
 
 function recursosPrincipaisPlano(plano, limite = 4) {
@@ -468,14 +655,27 @@ function recursosPrincipaisPlano(plano, limite = 4) {
     return plano.destaqueComercial.recursos.slice(0, limite)
   }
 
+  const tipoIdentificado = identificarPlanoPublico(plano)
+  const recursosPorTipo = {
+    vitrine: ['Vitrine / catálogo público', 'Produtos', 'Link para compartilhar'],
+    agenda: ['Agenda online', 'Clientes', 'Profissionais', 'Serviços', 'Agendamentos'],
+    completo: ['Agenda online', 'Clientes', 'Profissionais', 'Serviços', 'Agendamentos', 'Produtos / estoque'],
+    profissional: ['Clientes', 'Profissionais', 'Serviços', 'Agendamentos', 'Operação ampliada'],
+    premium: ['Recursos ampliados', 'Capacidade maior', 'Suporte prioritário'],
+  }
+
+  if (recursosPorTipo[tipoIdentificado]) {
+    return recursosPorTipo[tipoIdentificado].slice(0, limite)
+  }
+
   return [
     { ativo: plano.permitePersonalizacao, rotulo: 'Personalização' },
     { ativo: plano.permiteRelatorios, rotulo: 'Relatórios' },
     { ativo: plano.permiteAgendamentoPublico, rotulo: 'Agendamento público' },
-    { ativo: plano.permiteEstoque, rotulo: `Estoque (${limiteProdutosPlano(plano)} produtos)` },
+    { ativo: estoqueIncluido(plano), rotulo: `Estoque (${limiteProdutosPlano(plano)} produtos)` },
     { ativo: plano.permiteSuportePrioritario, rotulo: 'Suporte prioritário' },
   ]
-    .filter((recurso) => recurso.ativo === true)
+    .filter((recurso) => recurso && recurso.ativo === true)
     .slice(0, limite)
     .map((recurso) => recurso.rotulo)
 }
@@ -501,7 +701,7 @@ onMounted(carregarOpcoes)
         <div class="acoes"><RouterLink class="botao principal" to="/login">Voltar para login</RouterLink></div>
       </section>
 
-      <template v-else>
+      <div v-else>
         <section class="etapas">
           <button v-for="(etapa, indice) in etapas" :key="etapa.titulo" :class="['etapa', { ativa: etapaAtual === indice, concluida: etapaAtual > indice }]" type="button" @click="indice < etapaAtual && (etapaAtual = indice)">
             <span>{{ indice + 1 }}</span>{{ etapa.titulo }}
@@ -569,9 +769,24 @@ onMounted(carregarOpcoes)
               Segmento *
               <select v-model="formulario.segmentoNegocioId">
                 <option value="">Selecione</option>
-                <option v-for="segmento in segmentos" :key="segmento.id" :value="segmento.id">{{ segmento.nome || segmento.descricao || 'Segmento sem nome' }}</option>
+                <optgroup
+                  v-for="grupo in segmentosAgrupados"
+                  :key="grupo.titulo"
+                  :label="grupo.titulo"
+                >
+                  <option
+                    v-for="segmento in grupo.itens"
+                    :key="segmento.id"
+                    :value="segmento.id"
+                  >
+                    {{ segmento.nomeExibicao || 'Segmento sem nome' }}
+                  </option>
+                </optgroup>
               </select>
               <small v-if="!segmentos.length">Nenhum segmento disponível no momento. Nossa equipe poderá orientar você após o envio.</small>
+              <small v-if="ajudaSegmentoEsportivo" class="ajuda-segmento-esportivo">
+                {{ ajudaSegmentoEsportivo }}
+              </small>
             </label>
             <label class="campo-grande">
               Qual é o principal objetivo da sua empresa ao usar o NuvemMais Gestão? *
@@ -592,13 +807,9 @@ onMounted(carregarOpcoes)
           >
             <div class="cabecalho-planos">
               <span class="selo">Escolha seu plano</span>
-              <h2>Compare os planos reais da API</h2>
-              <p>Os cartões abaixo já trazem a proposta comercial e os dados reais do cadastro público. Basta escolher a opção que faz mais sentido para a sua empresa.</p>
+              <h2>Escolha o plano ideal para o seu negócio</h2>
+              <p>Comece com o essencial e evolua conforme sua empresa crescer. Você poderá mudar de plano quando precisar.</p>
             </div>
-
-            <p class="aviso-planos">
-              Vitrine = catálogo/cardápio/vitrine pública. Agenda = agenda online. Completo = catálogo/cardápio + agenda.
-            </p>
 
             <section v-if="!planosExibidos.length" class="sem-planos">
               <h3>Nenhum plano disponível agora</h3>
@@ -609,7 +820,7 @@ onMounted(carregarOpcoes)
               <article
                 v-for="plano in planosExibidos"
                 :key="plano.id"
-                :class="['plano-card', { selecionado: String(formulario.planoId) === String(plano.id) }]"
+                :class="['plano-card', { selecionado: planoEstaSelecionado(plano) }]"
                 role="button"
                 tabindex="0"
                 @click="selecionarPlano(plano)"
@@ -618,40 +829,56 @@ onMounted(carregarOpcoes)
               >
                 <div class="plano-topo">
                   <div class="plano-badges">
-                    <span class="selo">{{ plano.destaqueComercial.selo }}</span>
-                    <span class="plano-badge">{{ plano.destaqueComercial.destaque }}</span>
+                    <span v-if="plano.destaqueComercial.selo" class="selo">{{ plano.destaqueComercial.selo }}</span>
+                    <span v-if="plano.destaqueComercial.complemento" class="plano-badge">{{ plano.destaqueComercial.complemento }}</span>
                   </div>
                   <h3>{{ plano.nome || plano.titulo || 'Plano sem nome' }}</h3>
                   <strong>{{ formatarMoeda(precoPlano(plano)) }}<span>/mês</span></strong>
                 </div>
 
+                <p v-if="plano.destaqueComercial.publicoAlvo" class="plano-publico-alvo">
+                  {{ plano.destaqueComercial.publicoAlvo }}
+                </p>
                 <p class="plano-descricao">{{ descricaoPlano(plano) }}</p>
 
-                <ul class="plano-resumo-comercial">
-                  <li v-for="recurso in plano.destaqueComercial.recursos" :key="recurso">{{ recurso }}</li>
+                <p v-if="plano.destaqueComercial.resumoComercial" class="plano-resumo-comercial">
+                  {{ plano.destaqueComercial.resumoComercial }}
+                </p>
+
+                <ul v-if="recursosPrincipaisPlano(plano, 6).length" class="plano-resumo-comercial lista-pontos">
+                  <li v-for="recurso in recursosPrincipaisPlano(plano, 6)" :key="recurso">{{ recurso }}</li>
                 </ul>
 
-                <dl class="lista-limites">
-                  <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
-                  <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
-                  <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
-                  <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
-                  <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
-                  <div><dt>Produtos no estoque</dt><dd>{{ estoqueIncluido(plano) ? limiteProdutosPlano(plano) : 'Não incluso' }}</dd></div>
-                </dl>
+                <details class="detalhes-plano">
+                  <summary>Ver todos os recursos e limites</summary>
+                  <dl class="lista-limites">
+                    <div><dt>Usuários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteUsuarios')) }}</dd></div>
+                    <div><dt>Clientes</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteClientes')) }}</dd></div>
+                    <div><dt>Funcionários</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteFuncionarios')) }}</dd></div>
+                    <div><dt>Serviços</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteServicos')) }}</dd></div>
+                    <div><dt>Agendamentos/mês</dt><dd>{{ exibirLimite(obterLimitePlano(plano, 'limiteAgendamentosMes', 'limiteAgendamentos')) }}</dd></div>
+                    <div><dt>Produtos no estoque</dt><dd>{{ estoqueIncluido(plano) ? limiteProdutosPlano(plano) : 'Não incluso' }}</dd></div>
+                  </dl>
 
-                <ul class="recursos-plano">
-                  <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
-                  <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
-                  <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
-                  <li><span>Estoque</span><strong>{{ estoqueIncluido(plano) ? 'Sim' : 'Não' }}</strong></li>
-                  <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
-                </ul>
+                  <ul class="recursos-plano">
+                    <li><span>Personalização</span><strong>{{ recursoDisponivel(plano.permitePersonalizacao) }}</strong></li>
+                    <li><span>Relatórios</span><strong>{{ recursoDisponivel(plano.permiteRelatorios) }}</strong></li>
+                    <li><span>Agendamento público</span><strong>{{ recursoDisponivel(plano.permiteAgendamentoPublico) }}</strong></li>
+                    <li><span>Estoque</span><strong>{{ estoqueIncluido(plano) ? 'Sim' : 'Não' }}</strong></li>
+                    <li><span>Suporte prioritário</span><strong>{{ recursoDisponivel(plano.permiteSuportePrioritario) }}</strong></li>
+                  </ul>
+                </details>
 
                 <div class="plano-acao">
-                  <span :class="['botao-plano', { selecionado: String(formulario.planoId) === String(plano.id) }]">
-                    {{ String(formulario.planoId) === String(plano.id) ? 'Plano selecionado' : 'Clique para escolher' }}
-                  </span>
+                  <button
+                    type="button"
+                    class="botao-plano"
+                    :class="{ selecionado: planoEstaSelecionado(plano) }"
+                    :aria-pressed="planoEstaSelecionado(plano)"
+                    @click.stop="selecionarPlano(plano)"
+                  >
+                    {{ planoEstaSelecionado(plano) ? 'Plano selecionado' : (plano.destaqueComercial.textoBotao || 'Escolher este plano') }}
+                  </button>
                 </div>
               </article>
             </section>
@@ -664,11 +891,11 @@ onMounted(carregarOpcoes)
             <article><h2>Interesse</h2><p><strong>Segmento:</strong> {{ segmentoSelecionado?.nome || segmentoSelecionado?.descricao || '-' }}</p><p><strong>Mensagem:</strong> {{ formulario.interesse }}</p></article>
             <article>
               <h2>Plano escolhido</h2>
-              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || '-' }}</p>
-              <p><strong>Preço mensal:</strong> {{ planoSelecionado ? formatarMoeda(precoPlano(planoSelecionado)) : '-' }}</p>
-              <p><strong>Resumo:</strong> {{ planoSelecionado ? descricaoPlano(planoSelecionado) : '-' }}</p>
-              <p><strong>Estoque:</strong> {{ planoSelecionado ? (estoqueIncluido(planoSelecionado) ? 'Incluido' : 'Nao incluso') : '-' }}</p>
-              <p><strong>Produtos no estoque:</strong> {{ planoSelecionado ? (estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Nao incluso') : '-' }}</p>
+              <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || 'Plano sem nome' }}</p>
+              <p><strong>Preço mensal:</strong> {{ formatarMoeda(precoPlano(planoSelecionado)) }}</p>
+              <p><strong>Resumo:</strong> {{ descricaoPlano(planoSelecionado) }}</p>
+              <p><strong>Estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? 'Incluido' : 'Nao incluso' }}</p>
+              <p><strong>Produtos no estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Nao incluso' }}</p>
               <ul v-if="recursosPrincipaisPlano(planoSelecionado).length" class="recursos-revisao">
                 <li v-for="recurso in recursosPrincipaisPlano(planoSelecionado)" :key="recurso">{{ recurso }}</li>
               </ul>
@@ -682,14 +909,14 @@ onMounted(carregarOpcoes)
             <button v-else class="botao principal" type="submit" :disabled="enviando">{{ enviando ? 'Enviando...' : 'Enviar cadastro' }}</button>
           </div>
         </form>
-      </template>
 
       <nav class="links-institucionais" aria-label="Páginas públicas">
         <RouterLink to="/sobre">Sobre</RouterLink>
         <RouterLink to="/termos">Termos de Uso</RouterLink>
         <RouterLink to="/privacidade">Política de Privacidade</RouterLink>
       </nav>
-    </section>
+    </div>
+  </section>
   </main>
 </template>
 
@@ -836,4 +1063,3 @@ onMounted(carregarOpcoes)
   border-color: #0f172a;
 }
 </style>
-

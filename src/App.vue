@@ -5,17 +5,28 @@ import AppHeaderCompacto from '@/components/AppHeaderCompacto.vue'
 import AjudaContextualLink from '@/components/AjudaContextualLink.vue'
 import FinanceiroStatusBanner from '@/components/FinanceiroStatusBanner.vue'
 import ModoNavegacaoSelector from '@/components/ModoNavegacaoSelector.vue'
+import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
 import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
 import {
   buscarStatusFinanceiroMinhaEmpresa,
+  buscarMinhaAssinatura,
   buscarVersaoSistema,
+  buscarMinhaEmpresa,
+  buscarUsoPlano,
   carregarUsuarioSessao,
   EVENTO_EMPRESA_VISUALIZACAO,
   limparSessaoAutenticacao,
   obterInfoVersaoSistemaPadrao,
+  obterEmpresaIdOperacao,
   obterTipoSeloAmbiente,
 } from '@/services/api'
+import {
+  carregarContextoGestaoEsportiva,
+  contextoGestaoEsportiva,
+  limparContextoGestaoEsportiva,
+  recarregarContextoGestaoEsportiva,
+} from '@/utils/gestaoEsportiva'
 import {
   aplicarTemaAparenciaNoDocumento,
   salvarTemaAparencia,
@@ -28,6 +39,7 @@ import {
   salvarModoNavegacao,
   sincronizarModoNavegacao,
 } from '@/utils/modoNavegacao'
+import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const route = useRoute()
@@ -48,6 +60,46 @@ const CABECALHOS_PADRAO = {
     subtitulo: 'Relacionamento',
     titulo: 'Clientes',
     descricao: 'Gerencie os clientes cadastrados na sua operação.',
+  },
+  'beach-tennis-turmas': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Turmas',
+    descricao: 'Cadastre turmas, acompanhe níveis e acesse a gestão de participantes.',
+  },
+  'beach-tennis-turma-alunos': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Alunos por turma',
+    descricao: 'Vincule, remova e acompanhe os alunos participantes de cada turma.',
+  },
+  'beach-tennis-alunos': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Alunos por turma',
+    descricao: 'Vincule, remova e acompanhe os alunos participantes de cada turma.',
+  },
+  'beach-tennis-financeiro': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Financeiro esportivo',
+    descricao: 'Gerencie acordos, mensalidades, cobranças e a configuração do PIX.',
+  },
+  'aulas-frequencia': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Aulas e frequência',
+    descricao: 'Gere aulas e lance a frequência dos participantes da modalidade.',
+  },
+  'aulas-frequencia-detalhe': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Detalhe da frequência',
+    descricao: 'Revise a aula e ajuste os lançamentos de frequência dos participantes.',
+  },
+  reposicoes: {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Reposições',
+    descricao: 'Acompanhe direitos de reposição, agendamentos e ajustes manuais.',
+  },
+  professores: {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Professores',
+    descricao: 'Cadastre e acompanhe os professores vinculados à modalidade.',
   },
   servicos: {
     subtitulo: 'Catálogo operacional',
@@ -221,6 +273,14 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   dashboard: 'dashboard',
   agenda: 'agenda',
   clientes: 'clientes',
+  'beach-tennis-turmas': 'gestao-esportiva',
+  'beach-tennis-turma-alunos': 'clientes',
+  'beach-tennis-alunos': 'clientes',
+  'beach-tennis-financeiro': 'faturas-meu-plano',
+  'aulas-frequencia-detalhe': 'gestao-esportiva',
+  reposicoes: 'gestao-esportiva',
+  'relatorios-frequencia-esportiva': 'gestao-esportiva',
+  professores: 'funcionarios',
   servicos: 'servicos',
   funcionarios: 'funcionarios',
   disponibilidade: 'disponibilidade',
@@ -257,6 +317,7 @@ const rotaSemLayout = computed(() =>
   rotaCadastroPendente.value ||
   (route.path === '/alterar-senha' && trocaSenhaObrigatoria.value),
 )
+const mostrarNotificacoes = computed(() => Boolean(usuario.value) && !rotaSemLayout.value)
 const empresaLogada = computed(() => {
   if (usuario.value?.empresaNome) {
     return `Empresa: ${usuario.value.empresaNome}`
@@ -293,8 +354,105 @@ const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usua
 const modoNavegacaoAtual = computed(() => modoNavegacao.value)
 const temaAparenciaAtual = computed(() => temaAparencia.value)
 const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
+const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
+const moduloGestaoEsportivaVisivel = computed(() => contextoEsportivo.value?.ativo === true)
+const ROTULOS_MODULO_ESPORTIVO = Object.freeze({
+  BEACH_TENNIS: 'Beach Tennis',
+  FUTEBOL: 'Futebol',
+  FUTSAL: 'Futsal',
+  VOLEI: 'Volei',
+  TENIS: 'Tenis',
+  BASQUETE: 'Basquete',
+  NATACAO: 'Natacao',
+  ARTES_MARCIAIS: 'Artes marciais',
+  GESTAO_ESPORTIVA: 'Gestão Esportiva',
+})
+const empresaOperacional = ref(null)
+const empresaOperacionalCarregadaPara = ref('')
+const empresaOperacionalCarregando = ref(false)
+const assinaturaOperacional = ref(null)
+const usoPlanoOperacional = ref(null)
+const empresaPossuiModulosAtivosExplicitos = computed(
+  () => Object.prototype.hasOwnProperty.call(empresaOperacional.value || {}, 'modulosAtivos'),
+)
+const modulosAtivosEmpresa = computed(() => normalizarModulosAtivos(empresaOperacional.value))
+const moduloAgendamentoAtivo = computed(() =>
+  avaliarVisibilidadeOperacao(['AGEND'], () => true, avaliarCapacidadeAgendamentoOperacional),
+)
+const moduloEstoqueAtivo = computed(() =>
+  avaliarVisibilidadeOperacao(['ESTOQ'], () => podeGerenciarUsuarios.value, avaliarCapacidadeEstoqueOperacional),
+)
+const contextoEmpresaOperacionalAtivo = computed(() => {
+  if (empresaOperacionalCarregando.value) {
+    return false
+  }
+
+  if (superAdmin.value) {
+    return Boolean(empresaOperacional.value)
+  }
+
+  return true
+})
+const deveExibirGestaoEsportiva = computed(() => moduloGestaoEsportivaVisivel.value)
+const deveExibirOperacaoComumJuntoComEsportivo = computed(
+  () => deveExibirGestaoEsportiva.value && moduloAgendamentoAtivo.value,
+)
+const deveExibirOperacaoComum = computed(
+  () => !deveExibirGestaoEsportiva.value || deveExibirOperacaoComumJuntoComEsportivo.value,
+)
+const podeVerMenuOperacional = computed(
+  () => podeGerenciarUsuarios.value && contextoEmpresaOperacionalAtivo.value,
+)
+const mostrarClientesOperacao = computed(
+  () => podeVerMenuOperacional.value && !deveExibirGestaoEsportiva.value,
+)
+const mostrarServicosOperacao = computed(
+  () => podeVerMenuOperacional.value && deveExibirOperacaoComum.value,
+)
+const mostrarFuncionariosOperacao = computed(
+  () => podeVerMenuOperacional.value && !deveExibirGestaoEsportiva.value,
+)
+const mostrarEstoqueOperacao = computed(() => moduloEstoqueAtivo.value)
+const mostrarCatalogoPublicoOperacao = computed(() => moduloEstoqueAtivo.value)
+const mostrarDisponibilidadeOperacao = computed(
+  () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && podeGerenciarUsuarios.value,
+)
+const mostrarRelatoriosOperacao = computed(
+  () => podeVerMenuOperacional.value && deveExibirOperacaoComum.value,
+)
+const mostrarPrimeirosPassosOperacao = computed(
+  () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && adminEmpresa.value,
+)
+const mostrarGrupoOperacao = computed(
+  () =>
+    (podeVerMenuOperacional.value && deveExibirOperacaoComum.value) ||
+    mostrarClientesOperacao.value ||
+    mostrarServicosOperacao.value ||
+    mostrarFuncionariosOperacao.value ||
+    mostrarEstoqueOperacao.value ||
+    mostrarCatalogoPublicoOperacao.value ||
+    mostrarDisponibilidadeOperacao.value ||
+    mostrarRelatoriosOperacao.value ||
+    mostrarPrimeirosPassosOperacao.value,
+)
+const tituloMenuGestaoEsportiva = computed(() => obterTituloModuloEsportivo(contextoEsportivo.value))
+const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
+const rotuloCadastroParticipanteMenu = computed(
+  () => {
+    if (moduloGestaoEsportivaVisivel.value && moduloAgendamentoAtivo.value) {
+      return 'Alunos / Clientes'
+    }
+
+    return contextoEsportivo.value?.termoParticipantePlural || 'Alunos'
+  },
+)
+const rotuloParticipantePorGrupoMenu = computed(
+  () =>
+    `${contextoEsportivo.value?.termoParticipantePlural || 'Alunos'} por ${normalizarTextoCabecalho(contextoEsportivo.value?.termoGrupoSingular || 'Turma')}`,
+)
 const gruposMenuAbertos = ref({
   principal: true,
+  beachTennis: true,
   operacao: true,
   financeiro: true,
   configuracoes: true,
@@ -308,12 +466,18 @@ const mensagemGlobal = ref('')
 const tipoMensagemGlobal = ref('erro')
 const erroInesperado = ref(false)
 const infoVersaoSistema = ref(obterInfoVersaoSistemaPadrao())
+const carregandoVersaoSistema = ref(false)
+const erroConsultaVersaoSistema = ref(false)
+const painelInformacoesSistemaAberto = ref(false)
+const botaoFecharInformacoesSistema = ref(null)
 const conteudoRotaRef = ref(null)
 const cabecalhoPagina = ref(criarCabecalhoPagina())
 const recarregamentoVisualizacaoEmpresa = ref(0)
 let timeoutMensagemGlobal = null
 let observadorCabecalhoPagina = null
 let elementoAcaoCabecalhoPagina = null
+let elementoFocoAnteriorInformacoesSistema = null
+const MENSAGEM_ERRO_GLOBAL_PADRAO = 'Ocorreu um erro inesperado. Recarregue a página para continuar.'
 
 const cabecalhoExibido = computed(() => {
   const fallback = obterCabecalhoPadrao(routeName.value)
@@ -332,10 +496,82 @@ const descricaoSeloAmbienteTopo = computed(() =>
   tipoSeloAmbienteTopo.value === 'homologacao' ? 'Ambiente de homologação' : 'Ambiente local',
 )
 const chaveConteudoRota = computed(() => `${route.fullPath}|empresa:${recarregamentoVisualizacaoEmpresa.value}`)
-const versaoMenuLateral = computed(() => {
-  const versaoBase = String(infoVersaoSistema.value?.versao || '').trim() || '1.2.2'
-  return `v${versaoBase}`
-})
+const versaoMenuLateral = computed(() => obterVersaoFrontendComPrefixo())
+
+function rotaAtualPertenceAoGrupoMenu(chave) {
+  const nomeRota = routeName.value
+
+  if (chave === 'principal') {
+    return (
+      nomeRota === 'dashboard' ||
+      nomeRota === 'agenda'
+    )
+  }
+
+  if (chave === 'beachTennis') {
+    return (
+      String(nomeRota || '').startsWith('beach-tennis') ||
+      String(nomeRota || '').startsWith('aulas-frequencia') ||
+      nomeRota === 'relatorios-frequencia-esportiva' ||
+      nomeRota === 'reposicoes' ||
+      nomeRota === 'professores'
+    )
+  }
+
+  if (chave === 'operacao') {
+    return (
+      nomeRota === 'clientes' ||
+      nomeRota === 'servicos' ||
+      nomeRota === 'funcionarios' ||
+      nomeRota === 'estoque' ||
+      nomeRota === 'catalogo-publico-interno' ||
+      nomeRota === 'disponibilidade' ||
+      nomeRota === 'relatorios' ||
+      nomeRota === 'onboarding'
+    )
+  }
+
+  if (chave === 'financeiro') {
+    return nomeRota === 'faturas' || nomeRota === 'meu-plano'
+  }
+
+  if (chave === 'configuracoes') {
+    return (
+      nomeRota === 'minha-empresa' ||
+      nomeRota === 'personalizacao' ||
+      nomeRota === 'usuarios' ||
+      nomeRota === 'configuracoes-notificacoes' ||
+      nomeRota === 'minha-conta' ||
+      nomeRota === 'alterar-senha' ||
+      nomeRota === 'ajuda'
+    )
+  }
+
+  if (chave === 'administracaoSaas') {
+    return (
+      nomeRota === 'admin-dashboard' ||
+      nomeRota === 'empresas' ||
+      nomeRota === 'planos' ||
+      nomeRota === 'assinaturas' ||
+      nomeRota === 'solicitacoes' ||
+      nomeRota === 'solicitacoes-cadastro' ||
+      nomeRota === 'auditoria' ||
+      nomeRota === 'lixeira' ||
+      nomeRota === 'admin-lixeira' ||
+      nomeRota === 'admin-estoque' ||
+      nomeRota === 'admin-notificacoes' ||
+      nomeRota === 'admin-automacoes' ||
+      nomeRota === 'admin-financeiro' ||
+      nomeRota === 'inadimplencia' ||
+      nomeRota === 'faturas-recorrentes' ||
+      nomeRota === 'configuracoes-pagamento' ||
+      nomeRota === 'segmentos' ||
+      nomeRota === 'admin-empresas-onboarding'
+    )
+  }
+
+  return false
+}
 
 function criarCabecalhoPagina() {
   return {
@@ -349,6 +585,64 @@ function criarCabecalhoPagina() {
 }
 
 function obterCabecalhoPadrao(nomeRota) {
+  if (contextoEsportivo.value?.ativo === true) {
+    if (nomeRota === 'clientes') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: rotuloCadastroParticipanteMenu.value,
+        descricao: `Cadastre e mantenha os dados dos ${normalizarTextoCabecalho(contextoEsportivo.value.termoParticipantePlural)} da modalidade.`,
+      }
+    }
+
+    if (nomeRota === 'beach-tennis-turmas') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: `${contextoEsportivo.value.termoGrupoPlural} - ${contextoEsportivo.value.nomeModalidade}`,
+        descricao: `Gerencie ${normalizarTextoCabecalho(contextoEsportivo.value.termoGrupoPlural)} e acesse a gestão de participantes.`,
+      }
+    }
+
+    if (nomeRota === 'beach-tennis-turma-alunos' || nomeRota === 'beach-tennis-alunos') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: rotuloParticipantePorGrupoMenu.value,
+        descricao: `Vincule, remova e acompanhe ${normalizarTextoCabecalho(contextoEsportivo.value.termoParticipantePlural)} participantes de cada ${normalizarTextoCabecalho(contextoEsportivo.value.termoGrupoSingular)}.`,
+      }
+    }
+
+    if (nomeRota === 'beach-tennis-financeiro') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: `Financeiro - ${contextoEsportivo.value.nomeModalidade}`,
+        descricao: 'Acompanhe acordos, mensalidades e a configuração financeira da modalidade.',
+      }
+    }
+
+    if (nomeRota === 'reposicoes') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: 'Reposições',
+        descricao: 'Acompanhe direitos de reposição, agendamentos e ajustes manuais.',
+      }
+    }
+
+    if (nomeRota === 'relatorios-frequencia-esportiva') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: 'Relatório de frequência',
+        descricao: 'Consulte o histórico esportivo de frequência com filtros e paginação.',
+      }
+    }
+
+    if (nomeRota === 'professores') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: 'Professores',
+        descricao: 'Cadastre e acompanhe os professores vinculados à modalidade.',
+      }
+    }
+  }
+
   return (
     CABECALHOS_PADRAO[nomeRota] || {
       subtitulo: superAdmin.value ? 'Administração NuvemMais' : 'Painel interno',
@@ -356,6 +650,30 @@ function obterCabecalhoPadrao(nomeRota) {
       descricao: 'Acompanhe os dados desta área da plataforma.',
     }
   )
+}
+
+function nomeModuloEsportivoEhGenerico(valor) {
+  const texto = String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+
+  return !texto || texto === 'esporte' || texto === 'gestao esportiva' || texto === 'modulo esportivo'
+}
+
+function obterTituloModuloEsportivo(contexto = {}) {
+  const nomeModalidade = String(contexto?.nomeModalidade || '').trim()
+  if (nomeModalidade && !nomeModuloEsportivoEhGenerico(nomeModalidade)) {
+    return nomeModalidade
+  }
+
+  const modalidadeCodigo = String(contexto?.modalidadeCodigo || '').trim().toUpperCase()
+  if (modalidadeCodigo && ROTULOS_MODULO_ESPORTIVO[modalidadeCodigo]) {
+    return ROTULOS_MODULO_ESPORTIVO[modalidadeCodigo]
+  }
+
+  return ROTULOS_MODULO_ESPORTIVO.GESTAO_ESPORTIVA
 }
 
 function formatarNomeRota(nomeRota) {
@@ -370,6 +688,204 @@ function formatarNomeRota(nomeRota) {
     .join(' ')
 }
 
+function normalizarTextoCabecalho(valor) {
+  return String(valor || '')
+    .trim()
+    .toLocaleLowerCase('pt-BR')
+}
+
+function normalizarModulosAtivos(empresa = {}) {
+  if (!empresa || typeof empresa !== 'object' || !Object.prototype.hasOwnProperty.call(empresa, 'modulosAtivos')) {
+    return []
+  }
+
+  const valorModulos = empresa.modulosAtivos
+  const lista = Array.isArray(valorModulos) ? valorModulos : valorModulos ? [valorModulos] : []
+
+  return [...new Set(
+    lista
+      .map((item) => {
+        if (item && typeof item === 'object') {
+          return String(item.codigo || item.codigoModulo || item.nome || item.id || '').trim().toUpperCase()
+        }
+
+        return String(item || '').trim().toUpperCase()
+      })
+      .filter(Boolean),
+  )]
+}
+
+function moduloAtivo(modulos = [], candidatos = []) {
+  return candidatos.some((candidato) =>
+    modulos.some((modulo) => modulo === candidato || modulo.includes(candidato)),
+  )
+}
+
+function obterPlanoOperacional() {
+  return (
+    assinaturaOperacional.value?.plano ||
+    assinaturaOperacional.value ||
+    empresaOperacional.value?.plano ||
+    empresaOperacional.value?.assinatura?.plano ||
+    {}
+  )
+}
+
+function obterUsoPlanoOperacional() {
+  return usoPlanoOperacional.value || empresaOperacional.value?.usoPlano || empresaOperacional.value?.assinatura?.usoPlano || {}
+}
+
+function obterCapacidadeOperacional(fonte, campo, alternativo = '') {
+  if (!fonte || typeof fonte !== 'object') {
+    return { encontrado: false, valor: undefined }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(fonte, campo)) {
+    return { encontrado: true, valor: fonte[campo] }
+  }
+
+  if (alternativo && Object.prototype.hasOwnProperty.call(fonte, alternativo)) {
+    return { encontrado: true, valor: fonte[alternativo] }
+  }
+
+  if (fonte.limites && typeof fonte.limites === 'object') {
+    if (Object.prototype.hasOwnProperty.call(fonte.limites, campo)) {
+      return { encontrado: true, valor: fonte.limites[campo] }
+    }
+
+    if (alternativo && Object.prototype.hasOwnProperty.call(fonte.limites, alternativo)) {
+      return { encontrado: true, valor: fonte.limites[alternativo] }
+    }
+  }
+
+  return { encontrado: false, valor: undefined }
+}
+
+function obterCapacidadeOperacionalGlobal(campo, alternativo = '') {
+  const fontes = [obterUsoPlanoOperacional(), obterPlanoOperacional()]
+
+  for (const fonte of fontes) {
+    const resultado = obterCapacidadeOperacional(fonte, campo, alternativo)
+    if (resultado.encontrado) {
+      return resultado
+    }
+  }
+
+  return { encontrado: false, valor: undefined }
+}
+
+function avaliarLimiteCapacidadeOperacional(resultado) {
+  if (!resultado.encontrado) {
+    return null
+  }
+
+  if (resultado.valor === null) {
+    return true
+  }
+
+  if (resultado.valor === true) {
+    return true
+  }
+
+  if (resultado.valor === false) {
+    return false
+  }
+
+  const numero = Number(resultado.valor)
+  if (!Number.isNaN(numero)) {
+    return numero > 0
+  }
+
+  return null
+}
+
+function avaliarPermissaoCapacidadeOperacional(resultado) {
+  if (!resultado.encontrado) {
+    return null
+  }
+
+  if (resultado.valor === true || resultado.valor === 1) {
+    return true
+  }
+
+  if (resultado.valor === false || resultado.valor === 0) {
+    return false
+  }
+
+  const texto = String(resultado.valor || '').trim().toLowerCase()
+  if (['true', '1', 'sim', 's', 'ativo', 'on'].includes(texto)) {
+    return true
+  }
+
+  if (['false', '0', 'nao', 'não', 'inativo', 'off'].includes(texto)) {
+    return false
+  }
+
+  return null
+}
+
+function avaliarCapacidadeAgendamentoOperacional() {
+  const capacidades = [
+    avaliarLimiteCapacidadeOperacional(obterCapacidadeOperacionalGlobal('limiteServicos')),
+    avaliarLimiteCapacidadeOperacional(obterCapacidadeOperacionalGlobal('limiteFuncionarios')),
+    avaliarLimiteCapacidadeOperacional(obterCapacidadeOperacionalGlobal('limiteAgendamentosMes', 'limiteAgendamentos')),
+  ]
+
+  if (capacidades.some((valor) => valor === true)) {
+    return true
+  }
+
+  if (capacidades.some((valor) => valor === false)) {
+    return false
+  }
+
+  return null
+}
+
+function avaliarCapacidadeEstoqueOperacional() {
+  const capacidades = [
+    avaliarPermissaoCapacidadeOperacional(obterCapacidadeOperacionalGlobal('permiteEstoque')),
+    avaliarLimiteCapacidadeOperacional(obterCapacidadeOperacionalGlobal('limiteProdutos')),
+  ]
+
+  if (capacidades.some((valor) => valor === true)) {
+    return true
+  }
+
+  if (capacidades.some((valor) => valor === false)) {
+    return false
+  }
+
+  return null
+}
+
+function avaliarVisibilidadeOperacao(candidatos, fallback, avaliarCapacidade) {
+  if (empresaOperacionalCarregando.value) {
+    return false
+  }
+
+  if (superAdmin.value && !String(obterEmpresaIdOperacao() || '').trim()) {
+    return false
+  }
+
+  if (moduloAtivo(modulosAtivosEmpresa.value, candidatos)) {
+    return true
+  }
+
+  if (empresaPossuiModulosAtivosExplicitos.value) {
+    return false
+  }
+
+  if (typeof avaliarCapacidade === 'function') {
+    const visibilidadeCapacidade = avaliarCapacidade()
+    if (visibilidadeCapacidade !== null) {
+      return visibilidadeCapacidade
+    }
+  }
+
+  return typeof fallback === 'function' ? fallback() : Boolean(fallback)
+}
+
 function obterTextoCabecalho(elemento) {
   return String(elemento?.textContent || '')
     .replace(/\s+/g, ' ')
@@ -381,6 +897,39 @@ function sair() {
   statusFinanceiro.value = null
   menuMobileAberto.value = false
   router.push('/login')
+}
+
+function obterMensagemErroGlobal(erro) {
+  if (typeof erro === 'string') {
+    return erro
+  }
+
+  return String(erro?.message || erro?.reason?.message || erro?.reason || '').trim()
+}
+
+function erroGlobalIgnoravel(erro) {
+  const mensagem = obterMensagemErroGlobal(erro).toLowerCase()
+  const nome = String(erro?.name || erro?.reason?.name || '').trim()
+
+  return (
+    nome === 'AbortError' ||
+    mensagem.includes('abort') ||
+    mensagem.includes('cancel') ||
+    mensagem.includes('sessão expirada') ||
+    mensagem.includes('session expired') ||
+    mensagem.includes('faça login novamente')
+  )
+}
+
+function registrarErroGlobal(erro) {
+  if (erroGlobalIgnoravel(erro)) {
+    return
+  }
+
+  console.error(erro)
+  erroInesperado.value = true
+  mensagemGlobal.value = MENSAGEM_ERRO_GLOBAL_PADRAO
+  tipoMensagemGlobal.value = 'erro'
 }
 
 function alterarModoNavegacao(novoModo) {
@@ -404,10 +953,17 @@ function atualizarUsuarioLogado() {
     rotaAgendamentoPublico.value ||
     rotaCatalogoPublico.value ||
     rotaCadastroPublico.value ||
-    rotaInstitucionalPublica.value
+    rotaInstitucionalPublica.value ||
+    rotaCadastroPendente.value
   ) {
     usuario.value = null
     statusFinanceiro.value = null
+    empresaOperacional.value = null
+    empresaOperacionalCarregadaPara.value = ''
+    empresaOperacionalCarregando.value = false
+    assinaturaOperacional.value = null
+    usoPlanoOperacional.value = null
+    limparContextoGestaoEsportiva()
     return
   }
 
@@ -415,9 +971,90 @@ function atualizarUsuarioLogado() {
 
   if (usuario.value) {
     sincronizarModoNavegacao(usuario.value)
+    carregarContextoGestaoEsportiva()
+    void carregarEmpresaOperacional()
+  } else {
+    empresaOperacional.value = null
+    empresaOperacionalCarregadaPara.value = ''
+    empresaOperacionalCarregando.value = false
+    assinaturaOperacional.value = null
+    usoPlanoOperacional.value = null
+    limparContextoGestaoEsportiva()
   }
 
   carregarStatusFinanceiro()
+}
+
+async function carregarEmpresaOperacional() {
+  const empresaIdOperacao = String(obterEmpresaIdOperacao() || '').trim()
+
+  if (superAdmin.value && !empresaIdOperacao) {
+    empresaOperacional.value = null
+    empresaOperacionalCarregadaPara.value = ''
+    empresaOperacionalCarregando.value = false
+    assinaturaOperacional.value = null
+    usoPlanoOperacional.value = null
+    return
+  }
+
+  if (
+    empresaOperacionalCarregadaPara.value &&
+    empresaOperacionalCarregadaPara.value === empresaIdOperacao &&
+    empresaOperacional.value
+  ) {
+    return
+  }
+
+  empresaOperacionalCarregando.value = true
+  empresaOperacional.value = null
+  assinaturaOperacional.value = null
+  usoPlanoOperacional.value = null
+
+  try {
+    const empresa = await buscarMinhaEmpresa()
+    const empresaIdCarregada = String(empresa?.id || empresaIdOperacao || '').trim()
+
+    if (String(obterEmpresaIdOperacao() || '').trim() !== empresaIdOperacao) {
+      return
+    }
+
+    empresaOperacional.value = empresa && typeof empresa === 'object' ? empresa : null
+    empresaOperacionalCarregadaPara.value = empresaIdCarregada
+
+    const modulosOperacionaisEmpresa = normalizarModulosAtivos(empresaOperacional.value)
+    const possuiModuloAgendamento = moduloAtivo(modulosOperacionaisEmpresa, ['AGEND'])
+    const possuiModuloEstoque = moduloAtivo(modulosOperacionaisEmpresa, ['ESTOQ'])
+
+    if (!possuiModuloAgendamento || !possuiModuloEstoque) {
+      const [assinatura, usoPlano] = await Promise.all([
+        buscarMinhaAssinatura().catch((error) => {
+          console.error(error)
+          return null
+        }),
+        buscarUsoPlano().catch((error) => {
+          console.error(error)
+          return null
+        }),
+      ])
+
+      if (String(obterEmpresaIdOperacao() || '').trim() !== empresaIdOperacao) {
+        return
+      }
+
+      assinaturaOperacional.value = assinatura && typeof assinatura === 'object' ? assinatura : null
+      usoPlanoOperacional.value = usoPlano && typeof usoPlano === 'object' ? usoPlano : null
+    }
+  } catch (error) {
+    console.error(error)
+    empresaOperacional.value = null
+    empresaOperacionalCarregadaPara.value = ''
+    assinaturaOperacional.value = null
+    usoPlanoOperacional.value = null
+  } finally {
+    if (String(obterEmpresaIdOperacao() || '').trim() === empresaIdOperacao) {
+      empresaOperacionalCarregando.value = false
+    }
+  }
 }
 
 async function atualizarVisualizacaoEmpresaGlobal() {
@@ -425,6 +1062,8 @@ async function atualizarVisualizacaoEmpresaGlobal() {
     return
   }
 
+  await recarregarContextoGestaoEsportiva()
+  await carregarEmpresaOperacional()
   recarregamentoVisualizacaoEmpresa.value += 1
   await nextTick()
   observarCabecalhoPagina()
@@ -458,12 +1097,22 @@ function atualizarStatusFinanceiroGlobal() {
   carregarStatusFinanceiro({ forcar: true })
 }
 
-async function carregarAmbienteAplicacao() {
+async function carregarInformacoesSistema() {
+  if (carregandoVersaoSistema.value) {
+    return infoVersaoSistema.value
+  }
+
+  carregandoVersaoSistema.value = true
+
   try {
     infoVersaoSistema.value = await buscarVersaoSistema()
+    erroConsultaVersaoSistema.value = false
   } catch (error) {
     infoVersaoSistema.value = obterInfoVersaoSistemaPadrao()
+    erroConsultaVersaoSistema.value = true
     console.error(error)
+  } finally {
+    carregandoVersaoSistema.value = false
   }
 }
 
@@ -502,9 +1151,51 @@ function alternarGrupoMenu(chave) {
   gruposMenuAbertos.value[chave] = !grupoMenuAberto(chave)
 }
 
-function irParaAjudaVersao() {
+function sincronizarGruposMenu() {
+  ;['principal', 'beachTennis', 'operacao', 'financeiro', 'configuracoes', 'administracaoSaas'].forEach((chave) => {
+    if (rotaAtualPertenceAoGrupoMenu(chave)) {
+      gruposMenuAbertos.value[chave] = true
+    }
+  })
+}
+
+function grupoMenuDestaque(chave) {
+  return rotaAtualPertenceAoGrupoMenu(chave)
+}
+
+async function abrirPainelInformacoesSistema() {
+  if (!superAdmin.value || painelInformacoesSistemaAberto.value) {
+    return
+  }
+
   fecharMenuMobile()
-  router.push({ path: '/ajuda', hash: '#versao-novidades' })
+  elementoFocoAnteriorInformacoesSistema =
+    typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+  painelInformacoesSistemaAberto.value = true
+  void carregarInformacoesSistema()
+
+  await nextTick()
+  botaoFecharInformacoesSistema.value?.focus?.()
+}
+
+async function fecharPainelInformacoesSistema() {
+  painelInformacoesSistemaAberto.value = false
+
+  await nextTick()
+
+  if (elementoFocoAnteriorInformacoesSistema instanceof HTMLElement) {
+    elementoFocoAnteriorInformacoesSistema.focus({ preventScroll: true })
+    elementoFocoAnteriorInformacoesSistema = null
+    return
+  }
+
+  if (conteudoRotaRef.value instanceof HTMLElement) {
+    conteudoRotaRef.value.focus({ preventScroll: true })
+  }
+
+  elementoFocoAnteriorInformacoesSistema = null
 }
 
 function sincronizarCabecalhoPagina() {
@@ -577,12 +1268,32 @@ watch(
     mensagemGlobal.value = ''
     erroInesperado.value = false
     menuMobileAberto.value = false
+    sincronizarGruposMenu()
 
     await nextTick()
     observarCabecalhoPagina()
     sincronizarCabecalhoPagina()
   },
   { immediate: true },
+)
+
+watch(
+  () => [routeName.value, contextoEsportivo.value?.carregado, contextoEsportivo.value?.ativo],
+  ([nomeRota, carregado, ativo]) => {
+    if (!carregado) {
+      return
+    }
+
+    sincronizarGruposMenu()
+
+    if (
+      String(nomeRota || '').startsWith('beach-tennis') &&
+      ativo !== true &&
+      route.name !== 'acesso-negado'
+    ) {
+      router.replace({ name: 'acesso-negado', query: { motivo: 'gestao-esportiva' } })
+    }
+  },
 )
 
 watch(
@@ -599,20 +1310,45 @@ watch(menuMobileAberto, (aberto) => {
   }
 })
 
+watch(
+  superAdmin,
+  (valor, valorAnterior) => {
+    if (!valor && valorAnterior) {
+      void fecharPainelInformacoesSistema()
+    }
+  },
+  { immediate: true },
+)
+
+watch(painelInformacoesSistemaAberto, (aberto) => {
+  if (typeof document !== 'undefined') {
+    document.body.classList.toggle('info-sistema-aberto', aberto)
+  }
+})
+
 onErrorCaptured((error) => {
-  console.error(error)
-  erroInesperado.value = true
-  mensagemGlobal.value = 'Ocorreu um erro inesperado. Recarregue a página para continuar.'
-  tipoMensagemGlobal.value = 'erro'
+  registrarErroGlobal(error)
   return false
 })
+
+function aoReceberErroJanela(evento) {
+  if (evento?.error) {
+    registrarErroGlobal(evento.error)
+  }
+}
+
+function aoReceberRejeicaoNaoTratada(evento) {
+  registrarErroGlobal(evento?.reason || evento)
+}
 
 onMounted(() => {
   window.addEventListener('usuario-atualizado', atualizarUsuarioLogado)
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarVisualizacaoEmpresaGlobal)
   window.addEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.addEventListener('mensagem-global', exibirMensagemGlobal)
-  carregarAmbienteAplicacao()
+  window.addEventListener('error', aoReceberErroJanela)
+  window.addEventListener('unhandledrejection', aoReceberRejeicaoNaoTratada)
+  carregarContextoGestaoEsportiva()
   sincronizarTemaAparencia()
   observarCabecalhoPagina()
   sincronizarCabecalhoPagina()
@@ -623,6 +1359,8 @@ onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarVisualizacaoEmpresaGlobal)
   window.removeEventListener('financeiro-status-atualizado', atualizarStatusFinanceiroGlobal)
   window.removeEventListener('mensagem-global', exibirMensagemGlobal)
+  window.removeEventListener('error', aoReceberErroJanela)
+  window.removeEventListener('unhandledrejection', aoReceberRejeicaoNaoTratada)
 
   if (timeoutMensagemGlobal) {
     clearTimeout(timeoutMensagemGlobal)
@@ -634,6 +1372,7 @@ onBeforeUnmount(() => {
 
   if (typeof document !== 'undefined') {
     document.body.classList.remove('menu-mobile-aberto')
+    document.body.classList.remove('info-sistema-aberto')
   }
 })
 </script>
@@ -680,41 +1419,79 @@ onBeforeUnmount(() => {
 
       <nav class="menu-principal" aria-label="Navegação principal">
         <section class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('principal')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('principal') }"
+            type="button"
+            @click="alternarGrupoMenu('principal')"
+          >
             <span>Principal</span>
             <span>{{ grupoMenuAberto('principal') ? '−' : '+' }}</span>
           </button>
           <div v-if="grupoMenuAberto('principal')" class="submenu">
             <RouterLink to="/dashboard" @click="fecharMenuMobile">Dashboard</RouterLink>
             <RouterLink to="/agenda" @click="fecharMenuMobile">Agenda</RouterLink>
-            <RouterLink to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
           </div>
         </section>
 
-        <section class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('operacao')">
+        <section v-if="moduloGestaoEsportivaVisivel" class="grupo-menu">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('beachTennis') }"
+            type="button"
+            @click="alternarGrupoMenu('beachTennis')"
+          >
+            <span>{{ tituloMenuGestaoEsportiva }}</span>
+            <span>{{ grupoMenuAberto('beachTennis') ? '−' : '+' }}</span>
+          </button>
+          <div v-if="grupoMenuAberto('beachTennis')" class="submenu">
+            <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">{{ rotuloGrupoEsportivoPlural }}</RouterLink>
+            <RouterLink to="/aulas-frequencia" @click="fecharMenuMobile">Aulas e frequência</RouterLink>
+            <RouterLink to="/reposicoes" @click="fecharMenuMobile">Reposições</RouterLink>
+            <RouterLink to="/relatorios/frequencia-esportiva" @click="fecharMenuMobile">
+              Relatório de frequência
+            </RouterLink>
+            <RouterLink to="/professores" @click="fecharMenuMobile">Professores</RouterLink>
+            <RouterLink to="/beach-tennis/alunos" @click="fecharMenuMobile">{{ rotuloParticipantePorGrupoMenu }}</RouterLink>
+            <RouterLink to="/beach-tennis/financeiro" @click="fecharMenuMobile">Financeiro</RouterLink>
+          </div>
+        </section>
+
+        <section v-if="mostrarGrupoOperacao" class="grupo-menu">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('operacao') }"
+            type="button"
+            @click="alternarGrupoMenu('operacao')"
+          >
             <span>Operação</span>
             <span>{{ grupoMenuAberto('operacao') ? '−' : '+' }}</span>
           </button>
           <div v-if="grupoMenuAberto('operacao')" class="submenu">
-            <RouterLink to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
-            <RouterLink to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
-            <RouterLink v-if="podeGerenciarUsuarios" to="/catalogo-publico" @click="fecharMenuMobile">Catálogo público</RouterLink>
-            <RouterLink v-if="modoNavegacaoCompleto && podeGerenciarUsuarios" to="/disponibilidade" @click="fecharMenuMobile">
+            <RouterLink v-if="mostrarClientesOperacao" to="/clientes" @click="fecharMenuMobile">Clientes</RouterLink>
+            <RouterLink v-if="mostrarServicosOperacao" to="/servicos" @click="fecharMenuMobile">Serviços</RouterLink>
+            <RouterLink v-if="mostrarFuncionariosOperacao" to="/funcionarios" @click="fecharMenuMobile">Funcionários</RouterLink>
+            <RouterLink v-if="mostrarEstoqueOperacao" to="/estoque" @click="fecharMenuMobile">Estoque</RouterLink>
+            <RouterLink v-if="mostrarCatalogoPublicoOperacao" to="/catalogo-publico" @click="fecharMenuMobile">Catálogo público</RouterLink>
+            <RouterLink v-if="mostrarDisponibilidadeOperacao" to="/disponibilidade" @click="fecharMenuMobile">
               Disponibilidade
             </RouterLink>
-            <RouterLink v-if="modoNavegacaoCompleto && podeGerenciarUsuarios" to="/relatorios" @click="fecharMenuMobile">
+            <RouterLink v-if="mostrarRelatoriosOperacao" to="/relatorios" @click="fecharMenuMobile">
               Relatórios
             </RouterLink>
-            <RouterLink v-if="modoNavegacaoCompleto && adminEmpresa" to="/onboarding" @click="fecharMenuMobile">
+            <RouterLink v-if="mostrarPrimeirosPassosOperacao" to="/onboarding" @click="fecharMenuMobile">
               Primeiros passos
             </RouterLink>
           </div>
         </section>
 
         <section v-if="podeGerenciarUsuarios" class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('financeiro')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('financeiro') }"
+            type="button"
+            @click="alternarGrupoMenu('financeiro')"
+          >
             <span>Financeiro</span>
             <span>{{ grupoMenuAberto('financeiro') ? '−' : '+' }}</span>
           </button>
@@ -725,7 +1502,12 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('configuracoes')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('configuracoes') }"
+            type="button"
+            @click="alternarGrupoMenu('configuracoes')"
+          >
             <span>Configurações</span>
             <span>{{ grupoMenuAberto('configuracoes') ? '−' : '+' }}</span>
           </button>
@@ -736,9 +1518,10 @@ onBeforeUnmount(() => {
             <RouterLink
               v-if="modoNavegacaoCompleto && podeGerenciarUsuarios"
               to="/minha-empresa/notificacoes"
+              class="submenu-acao-notificacoes"
               @click="fecharMenuMobile"
             >
-              Notificações da empresa
+              Notificações
             </RouterLink>
             <RouterLink to="/minha-conta" @click="fecharMenuMobile">Minha conta</RouterLink>
             <RouterLink to="/alterar-senha" @click="fecharMenuMobile">Alterar senha</RouterLink>
@@ -747,7 +1530,12 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-if="superAdmin && modoNavegacaoCompleto" class="grupo-menu">
-          <button class="grupo-menu-botao" type="button" @click="alternarGrupoMenu('administracaoSaas')">
+          <button
+            class="grupo-menu-botao"
+            :class="{ 'grupo-menu-botao--ativo': grupoMenuDestaque('administracaoSaas') }"
+            type="button"
+            @click="alternarGrupoMenu('administracaoSaas')"
+          >
             <span>Administração SaaS</span>
             <span>{{ grupoMenuAberto('administracaoSaas') ? '−' : '+' }}</span>
           </button>
@@ -767,14 +1555,21 @@ onBeforeUnmount(() => {
             <RouterLink to="/configuracoes-pagamento" @click="fecharMenuMobile">Configuração de pagamento</RouterLink>
             <RouterLink to="/segmentos" @click="fecharMenuMobile">Segmentos/Módulos</RouterLink>
             <RouterLink to="/admin/empresas/onboarding" @click="fecharMenuMobile">Novo cadastro guiado</RouterLink>
+            <button type="button" class="submenu-acao submenu-acao-destaque" @click="abrirPainelInformacoesSistema">
+              Informações do sistema
+            </button>
           </div>
         </section>
       </nav>
 
       <footer class="rodape-versao-menu" aria-label="Versão do sistema">
-        <button type="button" class="link-versao-menu" @click="irParaAjudaVersao">
+        <RouterLink
+          to="/ajuda#versao-novidades"
+          class="link-versao-menu"
+          aria-label="Consultar versão e novidades do sistema"
+        >
           {{ versaoMenuLateral }}
-        </button>
+        </RouterLink>
       </footer>
     </aside>
 
@@ -788,6 +1583,7 @@ onBeforeUnmount(() => {
         :empresa-logada="empresaLogada"
         :nome-usuario="nomeUsuario"
         :identificacao-conta="identificacaoConta"
+        :mostrar-notificacoes="mostrarNotificacoes"
         :acao-rotulo="cabecalhoPagina.acaoRotulo"
         :acao-disponivel="cabecalhoPagina.acaoDisponivel"
         :acao-desabilitada="cabecalhoPagina.acaoDesabilitada"
@@ -814,11 +1610,47 @@ onBeforeUnmount(() => {
         <p>{{ mensagemGlobal }}</p>
       </section>
 
-      <div ref="conteudoRotaRef" class="conteudo-rota">
+      <div ref="conteudoRotaRef" class="conteudo-rota" tabindex="-1">
         <RouterView :key="chaveConteudoRota" />
       </div>
     </div>
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="superAdmin && painelInformacoesSistemaAberto"
+      class="modal-info-sistema-fundo"
+      @click.self="fecharPainelInformacoesSistema"
+    >
+      <section
+        id="painel-informacoes-sistema"
+        class="modal-info-sistema"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Informações do sistema"
+      >
+        <button
+          ref="botaoFecharInformacoesSistema"
+          type="button"
+          class="botao-fechar-informacoes-sistema"
+          aria-label="Fechar informações do sistema"
+          @click="fecharPainelInformacoesSistema"
+        >
+          ×
+        </button>
+
+        <SystemVersionPanel
+          titulo="Informações do sistema"
+          discreto
+          :mostrar-novidades="false"
+          :usar-informacoes-externas="true"
+          :informacoes-backend="infoVersaoSistema"
+          :carregando-backend="carregandoVersaoSistema"
+          :erro-backend="erroConsultaVersaoSistema"
+        />
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -954,16 +1786,24 @@ onBeforeUnmount(() => {
   text-decoration: none;
   border-radius: 12px;
   padding: 11px 12px;
+  border: 1px solid transparent;
   font-weight: 700;
+  line-height: 1.35;
   transition:
     background 0.16s ease,
     color 0.16s ease,
-    transform 0.16s ease;
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
 }
 
-.menu-principal a.router-link-active {
-  background: var(--app-sidebar-item-active);
+.menu-principal a.router-link-active,
+.menu-principal a.router-link-exact-active {
+  background: color-mix(in srgb, var(--app-primary) 22%, var(--app-sidebar-chip));
   color: var(--app-sidebar-link-active);
+  font-weight: 800;
+  border-color: color-mix(in srgb, var(--app-primary) 28%, transparent);
+  box-shadow: inset 4px 0 0 var(--app-primary);
 }
 
 .grupo-menu {
@@ -984,12 +1824,26 @@ onBeforeUnmount(() => {
   color: var(--app-sidebar-muted);
   padding: 10px 12px;
   border-radius: 12px;
+  border: 1px solid transparent;
   cursor: pointer;
   font: inherit;
   font-size: 13px;
   font-weight: 800;
   text-align: left;
   text-transform: uppercase;
+  line-height: 1.2;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.grupo-menu-botao--ativo {
+  background: color-mix(in srgb, var(--app-primary) 18%, var(--app-sidebar-chip));
+  color: var(--app-sidebar-link-active);
+  border-color: color-mix(in srgb, var(--app-primary) 32%, transparent);
+  box-shadow: inset 4px 0 0 var(--app-primary);
 }
 
 .submenu {
@@ -999,9 +1853,59 @@ onBeforeUnmount(() => {
   border-left: 2px solid var(--app-primary);
 }
 
-.submenu a {
+.submenu a,
+.submenu-acao {
+  display: block;
+  width: 100%;
   padding: 9px 10px;
   font-size: 14px;
+  color: var(--app-sidebar-link);
+  text-decoration: none;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 10px;
+  line-height: 1.35;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.submenu a.submenu-acao-notificacoes {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.submenu a.router-link-active,
+.submenu a.router-link-exact-active {
+  background: color-mix(in srgb, var(--app-primary) 18%, var(--app-sidebar-chip));
+  color: var(--app-sidebar-link-active);
+  font-weight: 800;
+  border-color: color-mix(in srgb, var(--app-primary) 28%, transparent);
+  box-shadow: inset 4px 0 0 var(--app-primary);
+}
+
+.submenu-acao:hover,
+.submenu-acao:focus-visible {
+  background: var(--app-sidebar-chip);
+  color: var(--app-sidebar-link-active);
+}
+
+.menu-principal a:focus-visible,
+.submenu a:focus-visible,
+.submenu-acao:focus-visible,
+.grupo-menu-botao:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.submenu-acao-destaque {
+  font-weight: 800;
 }
 
 .rodape-versao-menu {
@@ -1012,21 +1916,68 @@ onBeforeUnmount(() => {
 }
 
 .link-versao-menu {
-  border: none;
-  background: transparent;
-  color: inherit;
   display: inline-flex;
   font-size: 11px;
   letter-spacing: 0.04em;
   font-weight: 700;
   cursor: pointer;
   padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
+  user-select: none;
+  color: inherit;
 }
 
 .link-versao-menu:hover {
-  color: var(--app-sidebar-link-active);
+  text-decoration: underline;
+}
+
+.link-versao-menu:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.modal-info-sistema-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--app-overlay);
+}
+
+.modal-info-sistema {
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(90vh, 90dvh);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+
+.botao-fechar-informacoes-sistema {
+  justify-self: end;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--app-shadow);
+}
+
+.botao-fechar-informacoes-sistema:hover {
+  border-color: var(--app-primary);
+  color: var(--app-primary);
+}
+
+.botao-fechar-informacoes-sistema:focus-visible {
+  outline: 2px solid var(--app-focus-ring);
+  outline-offset: 2px;
 }
 
 .app-main {
@@ -1161,5 +2112,18 @@ onBeforeUnmount(() => {
   .app-main {
     padding: 12px;
   }
+
+  .modal-info-sistema-fundo {
+    padding: 8px;
+  }
+
+  .modal-info-sistema {
+    width: min(100vw - 16px, 520px);
+    max-height: calc(100dvh - 16px);
+  }
+}
+
+:global(body.info-sistema-aberto) {
+  overflow: hidden;
 }
 </style>

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import PrimeiroUsoAssistente from '@/components/PrimeiroUsoAssistente.vue'
 import {
+  EVENTO_EMPRESA_VISUALIZACAO,
   buscarAgendamentos,
   buscarClientes,
   buscarFuncionarios,
@@ -11,6 +12,8 @@ import {
   buscarStatusPrimeiroUso,
   buscarServicos,
   buscarStatusFinanceiroMinhaEmpresa,
+  modoVisualizacaoEmpresaAtivo,
+  obterEmpresaIdOperacao,
   montarLinkPublicoAgendamento,
   montarLinkPublicoCatalogo,
 } from '@/services/api'
@@ -39,6 +42,7 @@ const usuarioLogado = ref(obterUsuarioLogado())
 const carregando = ref(true)
 const carregandoPrimeiroUso = ref(true)
 const erro = ref('')
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const onboardingUsandoFallback = ref(true)
 const adminEmpresa = computed(() => ehAdmin(usuarioLogado.value) && !ehSuperAdmin(usuarioLogado.value))
 const modoEssencial = computed(() => modoNavegacao.value === MODO_NAVEGACAO_ESSENCIAL)
@@ -100,6 +104,10 @@ const acoesRapidasEssenciais = computed(() => [
   { rotulo: 'Cadastrar serviço', to: '/servicos' },
   { rotulo: 'Estoque do dia', to: '/estoque?aba=estoque-dia' },
 ])
+
+function contextoOperacionalAtual() {
+  return String(obterEmpresaIdOperacao() || 'GLOBAL')
+}
 
 const cardsResumo = computed(() => [
   {
@@ -246,9 +254,18 @@ const resumoPorFuncionario = computed(() => {
 })
 
 async function carregarDados() {
+  const contextoInicial = contextoOperacionalAtual()
+
   try {
     carregando.value = true
     erro.value = ''
+    modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+
+    if (modoVisualizacaoEmpresa.value) {
+      limparDadosOperacionaisDashboard()
+      erro.value = 'Selecione uma empresa para visualizar os dados operacionais.'
+      return
+    }
 
     debugLog('dashboard', 'Refresh do dashboard', {})
 
@@ -259,12 +276,22 @@ async function carregarDados() {
       buscarFuncionarios(),
     ])
 
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     agendamentos.value = normalizarAgendamentosDashboard(agendamentosApi)
     clientes.value = clientesApi
     servicos.value = servicosApi
     funcionarios.value = funcionariosApi
   } catch (error) {
-    erro.value = 'Não foi possível carregar os dados do dashboard.'
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
+    erro.value = typeof error?.message === 'string' && error.message.trim()
+      ? error.message.trim()
+      : 'Não foi possível carregar os dados do dashboard.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -272,6 +299,8 @@ async function carregarDados() {
 }
 
 async function carregarOnboardingDashboard() {
+  const contextoInicial = contextoOperacionalAtual()
+
   if (!deveExibirPrimeiroUso.value) {
     onboarding.value = null
     onboardingUsandoFallback.value = true
@@ -281,9 +310,19 @@ async function carregarOnboardingDashboard() {
 
   try {
     carregandoPrimeiroUso.value = true
-    onboarding.value = normalizarObjeto(await buscarStatusPrimeiroUso())
+    const onboardingApi = normalizarObjeto(await buscarStatusPrimeiroUso())
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
+    onboarding.value = onboardingApi
     onboardingUsandoFallback.value = false
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     onboarding.value = null
     onboardingUsandoFallback.value = true
     console.error(error)
@@ -295,38 +334,95 @@ async function carregarOnboardingDashboard() {
 async function carregarStatusFinanceiroDashboard() {
   if (!adminEmpresa.value) return
 
+  const contextoInicial = contextoOperacionalAtual()
+
   try {
-    statusFinanceiro.value = normalizarObjeto(await buscarStatusFinanceiroMinhaEmpresa())
+    const statusFinanceiroApi = normalizarObjeto(await buscarStatusFinanceiroMinhaEmpresa())
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
+    statusFinanceiro.value = statusFinanceiroApi
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     statusFinanceiro.value = null
     console.error(error)
   }
 }
 
 async function carregarResumoNotificacoesDashboard() {
+  const contextoInicial = contextoOperacionalAtual()
+
+  if (modoVisualizacaoEmpresaAtivo()) {
+    resumoNotificacoes.value = null
+    return
+  }
+
   try {
     debugLog('dashboard', 'Refresh do resumo de notificações', {})
-    resumoNotificacoes.value = normalizarObjeto(await buscarResumoNotificacoes())
+    const resumo = normalizarObjeto(await buscarResumoNotificacoes())
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
+    resumoNotificacoes.value = resumo
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     resumoNotificacoes.value = null
     console.error(error)
   }
 }
 
 async function carregarLinksPublicos() {
+  const contextoInicial = contextoOperacionalAtual()
+
+  if (modoVisualizacaoEmpresaAtivo()) {
+    empresaDashboard.value = null
+    linkPublicoAgendamento.value = ''
+    linkPublicoCatalogo.value = ''
+    return
+  }
+
   try {
     const empresa = await buscarMinhaEmpresa()
+
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     empresaDashboard.value = empresa
     const slug = String(empresa?.slug || '').trim()
 
     linkPublicoAgendamento.value = montarLinkPublicoAgendamento(slug)
     linkPublicoCatalogo.value = montarLinkPublicoCatalogo(slug)
   } catch (error) {
+    if (contextoOperacionalAtual() !== contextoInicial) {
+      return
+    }
+
     empresaDashboard.value = null
     linkPublicoAgendamento.value = ''
     linkPublicoCatalogo.value = ''
     console.error(error)
   }
+}
+
+function limparDadosOperacionaisDashboard() {
+  agendamentos.value = []
+  clientes.value = []
+  servicos.value = []
+  funcionarios.value = []
+  empresaDashboard.value = null
+  linkPublicoAgendamento.value = ''
+  linkPublicoCatalogo.value = ''
 }
 
 function contarPorStatus(status, lista = agendamentos.value) {
@@ -691,7 +787,9 @@ async function processarAtualizacaoCompartilhada(detalhe) {
 }
 
 function aoReceberAtualizacaoEmpresa(evento) {
-  processarAtualizacaoCompartilhada(evento?.detail)
+  void processarAtualizacaoCompartilhada(evento?.detail).catch((error) => {
+    console.error(error)
+  })
 }
 
 function aoReceberAtualizacaoEmpresaStorage(evento) {
@@ -701,7 +799,17 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
     return
   }
 
-  processarAtualizacaoCompartilhada(detalhe)
+  void processarAtualizacaoCompartilhada(detalhe).catch((error) => {
+    console.error(error)
+  })
+}
+
+function aoReceberAtualizacaoVisualizacaoEmpresa() {
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  limparDadosOperacionaisDashboard()
+  void atualizarDashboard().catch((error) => {
+    console.error(error)
+  })
 }
 
 onMounted(() => {
@@ -710,6 +818,7 @@ onMounted(() => {
   carregarResumoNotificacoesDashboard()
   carregarLinksPublicos()
   window.addEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, aoReceberAtualizacaoVisualizacaoEmpresa)
   window.addEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
 
@@ -730,6 +839,7 @@ watch(
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_ATUALIZACAO_EMPRESA, aoReceberAtualizacaoEmpresa)
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, aoReceberAtualizacaoVisualizacaoEmpresa)
   window.removeEventListener('storage', aoReceberAtualizacaoEmpresaStorage)
 })
 </script>

@@ -1,33 +1,22 @@
 import { ref } from 'vue'
-
-export const TEMA_APARENCIA_CLARO = 'claro'
-export const TEMA_APARENCIA_ESCURO = 'escuro'
-export const TEMA_APARENCIA_NUVEMMAIS = 'nuvemmais'
+import {
+  TEMA_APARENCIA_CLARO,
+  criarVariaveisCssTemaInterno,
+  normalizarTemaInterno,
+  obterColorSchemeTemaInterno,
+  obterTemaInternoPadrao,
+} from './temasInternos.js'
 
 const CHAVE_TEMA_APARENCIA = 'temaAparencia'
 
 export const temaAparencia = ref(TEMA_APARENCIA_CLARO)
 
 export function normalizarTemaAparencia(valor) {
-  const tema = String(valor || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-
-  if (tema === TEMA_APARENCIA_ESCURO) {
-    return TEMA_APARENCIA_ESCURO
-  }
-
-  if (tema === TEMA_APARENCIA_NUVEMMAIS || tema === 'nuvemmais-gestao') {
-    return TEMA_APARENCIA_NUVEMMAIS
-  }
-
-  return TEMA_APARENCIA_CLARO
+  return normalizarTemaInterno(valor)
 }
 
 export function obterTemaAparenciaPadrao() {
-  return TEMA_APARENCIA_CLARO
+  return obterTemaInternoPadrao()
 }
 
 export function aplicarTemaAparenciaNoDocumento(tema) {
@@ -37,10 +26,15 @@ export function aplicarTemaAparenciaNoDocumento(tema) {
 
   const temaNormalizado = normalizarTemaAparencia(tema) || obterTemaAparenciaPadrao()
   const { documentElement, body } = document
+  const variaveisCss = criarVariaveisCssTemaInterno(temaNormalizado)
 
   if (documentElement) {
     documentElement.dataset.appTheme = temaNormalizado
-    documentElement.style.colorScheme = temaNormalizado === TEMA_APARENCIA_ESCURO ? 'dark' : 'light'
+    documentElement.style.colorScheme = obterColorSchemeTemaInterno(temaNormalizado)
+
+    Object.entries(variaveisCss).forEach(([chave, valor]) => {
+      documentElement.style.setProperty(chave, valor)
+    })
   }
 
   if (body) {

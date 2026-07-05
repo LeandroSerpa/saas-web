@@ -2,12 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
+  EVENTO_EMPRESA_VISUALIZACAO,
   buscarMinhaPersonalizacao,
   buscarResumoUploadsEmpresa,
   buscarStatusUploadsEmpresa,
   recalcularOnboarding,
   removerBannerEmpresa,
   removerLogoEmpresa,
+  obterEmpresaIdOperacao,
   salvarMinhaPersonalizacao,
   uploadBannerEmpresa,
   uploadLogoEmpresa,
@@ -50,6 +52,7 @@ const route = useRoute()
 const router = useRouter()
 const TIPOS_IMAGEM_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024
+let sequenciaRecarregamento = 0
 
 const temaPreview = computed(() => normalizarTemaPublico(personalizacao.value.tema))
 const temaPreviewConfig = computed(() => obterTemaPublico(temaPreview.value))
@@ -91,6 +94,30 @@ const textoBotaoCatalogoPreview = computed(
   () => String(personalizacao.value.textoBotaoCatalogoPublico || '').trim() || 'Pedir pelo WhatsApp',
 )
 
+function obterEmpresaOperacaoAtual() {
+  return String(obterEmpresaIdOperacao() || '').trim()
+}
+
+function obterEmpresaResposta(resposta) {
+  return String(resposta?.empresaId || resposta?.empresa?.id || '').trim()
+}
+
+function empresaSelecionadaMudou(empresaIdEsperado) {
+  const empresaIdAtual = obterEmpresaOperacaoAtual()
+
+  return Boolean(empresaIdEsperado) && empresaIdAtual !== String(empresaIdEsperado).trim()
+}
+
+function prepararRecarregamento() {
+  sequenciaRecarregamento += 1
+  erro.value = ''
+  mensagemSucesso.value = ''
+  limparMensagensUpload()
+  logoPreviewComErro.value = false
+  bannerPreviewComErro.value = false
+  return sequenciaRecarregamento
+}
+
 watch(
   () => personalizacao.value.logoUrl,
   () => {
@@ -106,8 +133,8 @@ watch(
 )
 
 onMounted(() => {
-  carregarPersonalizacao()
-  carregarInformacoesUploadsEmpresa()
+  carregarDadosPersonalizacaoEmpresaSelecionada()
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
 })
 
 function criarPersonalizacaoInicial() {
@@ -131,6 +158,22 @@ function criarPersonalizacaoInicial() {
     mostrarFuncionario: true,
     mostrarEndereco: true,
     mostrarTelefone: true,
+  }
+}
+
+async function carregarDadosPersonalizacaoEmpresaSelecionada() {
+  const sequenciaAtual = prepararRecarregamento()
+
+  try {
+    carregando.value = true
+    await Promise.all([
+      carregarPersonalizacao(sequenciaAtual),
+      carregarInformacoesUploadsEmpresa(sequenciaAtual),
+    ])
+  } finally {
+    if (sequenciaAtual === sequenciaRecarregamento) {
+      carregando.value = false
+    }
   }
 }
 
@@ -252,24 +295,26 @@ function definirPreviewLocal(tipo, arquivo) {
   }
 }
 
-async function carregarPersonalizacao() {
+async function carregarPersonalizacao(sequenciaAtual = sequenciaRecarregamento) {
   try {
-    carregando.value = true
-    erro.value = ''
-    mensagemSucesso.value = ''
-    limparMensagensUpload()
-
     const dados = await buscarMinhaPersonalizacao()
+
+    if (sequenciaAtual !== sequenciaRecarregamento) {
+      return
+    }
+
     personalizacao.value = normalizarPersonalizacao(dados)
   } catch (error) {
+    if (sequenciaAtual !== sequenciaRecarregamento) {
+      return
+    }
+
     erro.value = 'Não foi possível carregar a personalização.'
     console.error(error)
-  } finally {
-    carregando.value = false
   }
 }
 
-async function carregarInformacoesUploadsEmpresa() {
+async function carregarInformacoesUploadsEmpresa(sequenciaAtual = sequenciaRecarregamento) {
   try {
     const [statusApi, resumoApi] = await Promise.all([
       buscarStatusUploadsEmpresa().catch((errorAtual) => {
@@ -292,6 +337,10 @@ async function carregarInformacoesUploadsEmpresa() {
     resumoUploadsEmpresa.value = resumoApi
     resumoUploadsIndisponivel.value = false
   } catch {
+    if (sequenciaAtual !== sequenciaRecarregamento) {
+      return
+    }
+
     statusUploadsEmpresa.value = null
     resumoUploadsEmpresa.value = null
     resumoUploadsIndisponivel.value = true
@@ -315,6 +364,8 @@ function montarPayloadPersonalizacao(sobrescritas = {}) {
 }
 
 async function salvarPersonalizacao() {
+  const empresaIdEsperado = obterEmpresaOperacaoAtual()
+
   try {
     erro.value = ''
     mensagemSucesso.value = ''
@@ -328,9 +379,23 @@ async function salvarPersonalizacao() {
     }
 
     salvando.value = true
-    personalizacao.value = { ...payload }
-    await salvarMinhaPersonalizacao(payload)
+
+    const resposta = await salvarMinhaPersonalizacao(payload)
+    const empresaIdResposta = obterEmpresaResposta(resposta)
+
+    if (empresaIdResposta && empresaIdEsperado && empresaIdResposta !== empresaIdEsperado) {
+      erro.value = 'A personalização retornou dados de outra empresa. Selecione a empresa correta e tente novamente.'
+      return
+    }
+
     await retornarParaOnboardingSeNecessario('PERSONALIZACAO')
+    await carregarDadosPersonalizacaoEmpresaSelecionada()
+
+    if (empresaSelecionadaMudou(empresaIdEsperado)) {
+      erro.value = 'A empresa selecionada mudou durante o salvamento. Recarregue a tela e tente novamente.'
+      return
+    }
+
     mensagemSucesso.value = 'Personalização salva com sucesso.'
   } catch (error) {
     erro.value = obterMensagemErro(error, 'Não foi possível salvar a personalização.')
@@ -403,6 +468,7 @@ function obterMensagemErroUploadImagem(error) {
 async function enviarImagemPersonalizacao(tipo, evento) {
   const arquivo = evento?.target?.files?.[0]
   const mensagemValidacao = validarArquivoImagem(arquivo)
+  const empresaIdEsperado = obterEmpresaOperacaoAtual()
 
   if (tipo === 'logo') {
     mensagemUploadLogo.value = ''
@@ -430,14 +496,30 @@ async function enviarImagemPersonalizacao(tipo, evento) {
     if (tipo === 'logo') {
       enviandoLogo.value = true
       const resposta = await uploadLogoEmpresa(arquivo)
+      if (empresaSelecionadaMudou(empresaIdEsperado)) {
+        erro.value = 'A empresa selecionada mudou durante o envio da imagem. Recarregue a tela e tente novamente.'
+        return
+      }
+
       personalizacao.value.logoUrl = normalizarUrlImagemPublica(resposta?.url)
       logoPreviewComErro.value = false
-      mensagemUploadLogo.value = 'Imagem enviada com sucesso.'
     } else {
       enviandoBanner.value = true
       const resposta = await uploadBannerEmpresa(arquivo)
+      if (empresaSelecionadaMudou(empresaIdEsperado)) {
+        erro.value = 'A empresa selecionada mudou durante o envio da imagem. Recarregue a tela e tente novamente.'
+        return
+      }
+
       personalizacao.value.bannerUrl = normalizarUrlImagemPublica(resposta?.url)
       bannerPreviewComErro.value = false
+    }
+
+    await carregarDadosPersonalizacaoEmpresaSelecionada()
+
+    if (tipo === 'logo') {
+      mensagemUploadLogo.value = 'Imagem enviada com sucesso.'
+    } else {
       mensagemUploadBanner.value = 'Imagem enviada com sucesso.'
     }
   } catch (error) {
@@ -456,6 +538,8 @@ async function enviarImagemPersonalizacao(tipo, evento) {
 }
 
 async function removerImagemPersonalizacao(tipo) {
+  const empresaIdEsperado = obterEmpresaOperacaoAtual()
+
   try {
     erro.value = ''
     mensagemSucesso.value = ''
@@ -470,17 +554,26 @@ async function removerImagemPersonalizacao(tipo) {
     const sobrescritas = tipo === 'logo' ? { logoUrl: '' } : { bannerUrl: '' }
     const payload = montarPayloadPersonalizacao(sobrescritas)
 
-    await salvarMinhaPersonalizacao(payload)
+    const resposta = await salvarMinhaPersonalizacao(payload)
+
+    if (obterEmpresaResposta(resposta) && empresaSelecionadaMudou(empresaIdEsperado)) {
+      erro.value = 'A empresa selecionada mudou durante a remoção da imagem. Recarregue a tela e tente novamente.'
+      return
+    }
 
     if (tipo === 'logo') {
-      personalizacao.value.logoUrl = ''
       logoPreviewComErro.value = false
       await removerLogoEmpresa().catch(() => null)
-      mensagemUploadLogo.value = 'Imagem removida com sucesso.'
     } else {
-      personalizacao.value.bannerUrl = ''
       bannerPreviewComErro.value = false
       await removerBannerEmpresa().catch(() => null)
+    }
+
+    await carregarDadosPersonalizacaoEmpresaSelecionada()
+
+    if (tipo === 'logo') {
+      mensagemUploadLogo.value = 'Imagem removida com sucesso.'
+    } else {
       mensagemUploadBanner.value = 'Imagem removida com sucesso.'
     }
   } catch (error) {
@@ -563,7 +656,12 @@ function obterMensagemErro(error, fallback) {
   return mensagem || fallback
 }
 
+function atualizarContextoEmpresa() {
+  carregarDadosPersonalizacaoEmpresaSelecionada()
+}
+
 onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
   limparPreviewLocal('logo')
   limparPreviewLocal('banner')
 })
@@ -581,7 +679,7 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <button class="botao secundario" @click="carregarPersonalizacao">Atualizar dados</button>
+      <button class="botao secundario" @click="carregarDadosPersonalizacaoEmpresaSelecionada">Atualizar dados</button>
     </header>
 
     <section v-if="erro" class="card erro">

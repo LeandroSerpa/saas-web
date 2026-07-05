@@ -1,13 +1,27 @@
 <script setup>
-import { RouterLink } from 'vue-router'
+import { computed } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+
+const route = useRoute()
+const motivoGestaoEsportiva = computed(() => route.query.motivo === 'gestao-esportiva')
+const titulo = computed(() =>
+  motivoGestaoEsportiva.value
+    ? 'O módulo de Gestão Esportiva não está habilitado para esta empresa.'
+    : 'Você não tem permissão para acessar esta área.',
+)
+const descricao = computed(() =>
+  motivoGestaoEsportiva.value
+    ? 'Selecione uma empresa com o módulo ativo ou volte para uma área disponível nesta operação.'
+    : 'Verifique se está usando o perfil correto ou volte para uma área disponível para sua conta.',
+)
 </script>
 
 <template>
   <main class="pagina-feedback">
     <section class="card-feedback erro">
       <span class="selo">Acesso negado</span>
-      <h1>Você não tem permissão para acessar esta área.</h1>
-      <p>Verifique se está usando o perfil correto ou volte para uma área disponível para sua conta.</p>
+      <h1>{{ titulo }}</h1>
+      <p>{{ descricao }}</p>
       <RouterLink class="botao" to="/dashboard">Ir para o dashboard</RouterLink>
     </section>
   </main>

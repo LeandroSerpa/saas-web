@@ -26,6 +26,7 @@ const STATUS = [
 const usuarioLogado = ref(obterUsuarioLogado())
 const superAdmin = computed(() => ehSuperAdmin(usuarioLogado.value))
 const filtros = ref(criarFiltrosMesAtual())
+const abaAtiva = ref('visao-geral')
 const empresas = ref([])
 const resumo = ref({})
 const agendamentosPorDia = ref([])
@@ -153,6 +154,27 @@ const maiorReceitaDia = computed(() =>
     0,
   ),
 )
+
+const abasRelatorios = computed(() => [
+  {
+    id: 'visao-geral',
+    rotulo: 'Visão geral',
+    descricao: 'Resumo completo dos indicadores.',
+    detalhe: `${cardsPrincipais.value.length + cardsSecundarios.value.length} indicadores`,
+  },
+  {
+    id: 'agendamentos',
+    rotulo: 'Agendamentos por dia',
+    descricao: 'Volume agrupado por data.',
+    detalhe: `${agendamentosPorDia.value.length} dia(s)`,
+  },
+  {
+    id: 'receita',
+    rotulo: 'Receita por dia',
+    descricao: 'Valores previstos e concluídos.',
+    detalhe: `${receitaPorDia.value.length} dia(s)`,
+  },
+])
 
 const mostrarColunaEmpresa = computed(() => superAdmin.value && !filtros.value.empresaId)
 
@@ -611,12 +633,46 @@ onMounted(async () => {
       </div>
     </section>
 
+    <section class="card relatorios-navegacao">
+      <div class="titulo-card">
+        <h2>Navegação dos relatórios</h2>
+        <p>Troque entre a visão geral, os agendamentos por dia e a receita por dia.</p>
+      </div>
+
+      <nav class="relatorios-tabs" role="tablist" aria-label="Seções de relatórios">
+        <button
+          v-for="aba in abasRelatorios"
+          :key="aba.id"
+          type="button"
+          :id="`aba-${aba.id}`"
+          :class="['relatorios-tab', { 'relatorios-tab--active': abaAtiva === aba.id }]"
+          :aria-selected="abaAtiva === aba.id"
+          :aria-controls="`painel-${aba.id}`"
+          :tabindex="abaAtiva === aba.id ? 0 : -1"
+          role="tab"
+          @click="abaAtiva = aba.id"
+        >
+          <span class="relatorios-tab__cabecalho">
+            <span class="relatorios-tab__titulo">{{ aba.rotulo }}</span>
+            <span class="relatorios-tab__detalhe">{{ aba.detalhe }}</span>
+          </span>
+          <span class="relatorios-tab__descricao">{{ aba.descricao }}</span>
+        </button>
+      </nav>
+    </section>
+
     <section v-if="carregando" class="card">
       <p>Carregando relatórios do período...</p>
     </section>
 
     <template v-else>
-      <section class="grade-indicadores principais">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="grade-indicadores principais"
+      >
         <article
           v-for="card in cardsPrincipais"
           :key="card.titulo"
@@ -627,14 +683,101 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section class="grade-indicadores secundarios">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral-secundario"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="grade-indicadores secundarios"
+      >
         <article v-for="card in cardsSecundarios" :key="card.titulo" class="card indicador secundario-card">
           <span>{{ card.titulo }}</span>
           <strong>{{ card.valor }}</strong>
         </article>
       </section>
 
-      <section class="grade-graficos">
+      <section
+        v-if="abaAtiva === 'agendamentos'"
+        id="painel-agendamentos"
+        role="tabpanel"
+        aria-labelledby="aba-agendamentos"
+        class="card grafico-card painel-relatorio"
+      >
+        <div class="titulo-card">
+          <h2>Agendamentos por dia</h2>
+          <p>Total, concluídos, cancelados e faltas no período.</p>
+        </div>
+
+        <section v-if="!agendamentosPorDia.length" class="estado-vazio">
+          Nenhum agendamento encontrado no período.
+        </section>
+
+        <template v-else>
+          <div class="grafico-scroll horizontal">
+            <div class="grafico-barras grafico-horizontal">
+              <div v-for="item in agendamentosPorDia" :key="valorDataItem(item)" class="barra-dia">
+                <div
+                  class="coluna"
+                  :style="{ height: `${alturaBarra(numeroItem(item, 'total', 'quantidade'), maiorAgendamentosDia)}%` }"
+                ></div>
+                <span>{{ formatarData(valorDataItem(item)).slice(0, 5) }}</span>
+                <small>
+                  {{ numeroItem(item, 'total', 'quantidade') }} total |
+                  {{ numeroItem(item, 'concluidos', 'concluido') }} concl. |
+                  {{ numeroItem(item, 'cancelados', 'cancelado') }} canc. |
+                  {{ numeroItem(item, 'faltas', 'faltou') }} faltas
+                </small>
+              </div>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <section
+        v-if="abaAtiva === 'receita'"
+        id="painel-receita"
+        role="tabpanel"
+        aria-labelledby="aba-receita"
+        class="card grafico-card painel-relatorio"
+      >
+        <div class="titulo-card">
+          <h2>Receita por dia</h2>
+          <p>Receita prevista, concluída e perdas.</p>
+        </div>
+
+        <section v-if="!receitaPorDia.length" class="estado-vazio">
+          Nenhuma receita encontrada no período.
+        </section>
+
+        <template v-else>
+          <div class="grafico-scroll vertical">
+            <div class="lista-receita">
+              <div v-for="item in receitaPorDia" :key="valorDataItem(item)" class="linha-receita">
+                <div class="linha-topo">
+                  <strong>{{ formatarData(valorDataItem(item)) }}</strong>
+                  <span>{{ formatarMoeda(numeroItem(item, 'receitaConcluida', 'concluida')) }}</span>
+                </div>
+                <div class="trilhas">
+                  <span
+                    class="prevista"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'receitaPrevista', 'prevista'), maiorReceitaDia)}%` }"
+                  ></span>
+                  <span
+                    class="concluida"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'receitaConcluida', 'concluida'), maiorReceitaDia)}%` }"
+                  ></span>
+                  <span
+                    class="perdas"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'perdas', 'valorPerdido'), maiorReceitaDia)}%` }"
+                  ></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <section v-if="false" class="grade-graficos">
         <article class="card grafico-card">
           <div class="titulo-card">
             <h2>Agendamentos por dia</h2>
@@ -645,18 +788,24 @@ onMounted(async () => {
             Nenhum agendamento encontrado no período.
           </section>
 
-          <div v-else class="grafico-barras">
-            <div v-for="item in agendamentosPorDia" :key="valorDataItem(item)" class="barra-dia">
-              <div class="coluna" :style="{ height: `${alturaBarra(numeroItem(item, 'total', 'quantidade'), maiorAgendamentosDia)}%` }"></div>
-              <span>{{ formatarData(valorDataItem(item)).slice(0, 5) }}</span>
-              <small>
-                {{ numeroItem(item, 'total', 'quantidade') }} total |
-                {{ numeroItem(item, 'concluidos', 'concluido') }} concl. |
-                {{ numeroItem(item, 'cancelados', 'cancelado') }} canc. |
-                {{ numeroItem(item, 'faltas', 'faltou') }} faltas
-              </small>
+          <template v-else>
+            <div class="grafico-barras">
+              <div v-for="item in agendamentosPorDia" :key="valorDataItem(item)" class="barra-dia">
+                <div
+                  class="coluna"
+                  :style="{ height: `${alturaBarra(numeroItem(item, 'total', 'quantidade'), maiorAgendamentosDia)}%` }"
+                ></div>
+                <span>{{ formatarData(valorDataItem(item)).slice(0, 5) }}</span>
+                <small>
+                  {{ numeroItem(item, 'total', 'quantidade') }} total |
+                  {{ numeroItem(item, 'concluidos', 'concluido') }} concl. |
+                  {{ numeroItem(item, 'cancelados', 'cancelado') }} canc. |
+                  {{ numeroItem(item, 'faltas', 'faltou') }} faltas
+                </small>
+              </div>
             </div>
-          </div>
+
+          </template>
         </article>
 
         <article class="card grafico-card">
@@ -669,23 +818,40 @@ onMounted(async () => {
             Nenhuma receita encontrada no período.
           </section>
 
-          <div v-else class="lista-receita">
-            <div v-for="item in receitaPorDia" :key="valorDataItem(item)" class="linha-receita">
-              <div class="linha-topo">
-                <strong>{{ formatarData(valorDataItem(item)) }}</strong>
-                <span>{{ formatarMoeda(numeroItem(item, 'receitaConcluida', 'concluida')) }}</span>
-              </div>
-              <div class="trilhas">
-                <span class="prevista" :style="{ width: `${alturaBarra(numeroItem(item, 'receitaPrevista', 'prevista'), maiorReceitaDia)}%` }"></span>
-                <span class="concluida" :style="{ width: `${alturaBarra(numeroItem(item, 'receitaConcluida', 'concluida'), maiorReceitaDia)}%` }"></span>
-                <span class="perdas" :style="{ width: `${alturaBarra(numeroItem(item, 'perdas', 'valorPerdido'), maiorReceitaDia)}%` }"></span>
+          <template v-else>
+            <div class="lista-receita">
+              <div v-for="item in receitaPorDia" :key="valorDataItem(item)" class="linha-receita">
+                <div class="linha-topo">
+                  <strong>{{ formatarData(valorDataItem(item)) }}</strong>
+                  <span>{{ formatarMoeda(numeroItem(item, 'receitaConcluida', 'concluida')) }}</span>
+                </div>
+                <div class="trilhas">
+                  <span
+                    class="prevista"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'receitaPrevista', 'prevista'), maiorReceitaDia)}%` }"
+                  ></span>
+                  <span
+                    class="concluida"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'receitaConcluida', 'concluida'), maiorReceitaDia)}%` }"
+                  ></span>
+                  <span
+                    class="perdas"
+                    :style="{ width: `${alturaBarra(numeroItem(item, 'perdas', 'valorPerdido'), maiorReceitaDia)}%` }"
+                  ></span>
+                </div>
               </div>
             </div>
-          </div>
+          </template>
         </article>
       </section>
 
-      <section class="grade-tabelas">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral-ranking"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="grade-tabelas"
+      >
         <article class="card tabela-card">
           <h2>Ranking de serviços</h2>
           <div class="tabela-container">
@@ -749,7 +915,13 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section class="grade-tabelas">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral-clientes"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="grade-tabelas"
+      >
         <article class="card tabela-card">
           <h2>Clientes recorrentes</h2>
           <div class="tabela-container">
@@ -798,7 +970,13 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section class="secao-lista">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral-detalhe"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="secao-lista"
+      >
         <div class="cabecalho-lista">
           <div>
             <h2>Tabela detalhada de agendamentos</h2>
@@ -882,6 +1060,7 @@ onMounted(async () => {
   display: grid;
   gap: 24px;
   color: #111827;
+  overflow-x: clip;
 }
 
 .cabecalho-pagina,
@@ -932,12 +1111,106 @@ onMounted(async () => {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
+.relatorios-navegacao {
+  display: grid;
+  gap: 16px;
+}
+
+.relatorios-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.relatorios-tab {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  width: 100%;
+  min-width: 0;
+  min-height: 112px;
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 16px 18px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.relatorios-tab:hover {
+  transform: translateY(-2px);
+  border-color: #7dd3fc;
+  box-shadow: 0 12px 28px rgba(14, 165, 233, 0.12);
+}
+
+.relatorios-tab:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.35);
+  outline-offset: 2px;
+}
+
+.relatorios-tab--active {
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.14);
+}
+
+.relatorios-tab__cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.relatorios-tab__titulo {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.relatorios-tab__detalhe {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.relatorios-tab__descricao {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.relatorios-tab--active .relatorios-tab__titulo {
+  color: #0369a1;
+}
+
+.relatorios-tab--active .relatorios-tab__descricao {
+  color: #1e293b;
+}
+
 .filtros-relatorios,
 .secao-lista,
 .grafico-card,
 .status-card {
   display: grid;
   gap: 16px;
+}
+
+.painel-relatorio {
+  display: grid;
+  gap: 16px;
+  align-content: start;
 }
 
 .campos-filtros {
@@ -1024,12 +1297,46 @@ onMounted(async () => {
   font-size: 22px;
 }
 
+.grafico-card {
+  min-width: 0;
+}
+
 .grafico-barras {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
   align-items: end;
   min-height: 230px;
   gap: 10px;
+}
+
+.grafico-horizontal {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 76px;
+  align-items: end;
+  min-height: 240px;
+  gap: 10px;
+}
+
+.grafico-horizontal .barra-dia {
+  min-height: 240px;
+}
+
+.grafico-scroll {
+  min-width: 0;
+}
+
+.grafico-scroll.horizontal {
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-gutter: stable;
+}
+
+.grafico-scroll.vertical {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
 .barra-dia {
@@ -1057,6 +1364,7 @@ onMounted(async () => {
 
 .barra-dia small {
   font-weight: 700;
+  line-height: 1.35;
 }
 
 .lista-receita {
@@ -1118,6 +1426,14 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.paginacao-grafico {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -1308,6 +1624,14 @@ th {
     min-width: 1050px;
   }
 
+  .relatorios-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .relatorios-tab:last-child {
+    grid-column: 1 / -1;
+  }
+
   .grade-indicadores.principais,
   .grade-indicadores.secundarios,
   .grade-graficos,
@@ -1324,12 +1648,29 @@ th {
     flex-direction: column;
   }
 
+  .relatorios-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .relatorios-tab:last-child {
+    grid-column: auto;
+  }
+
+  .relatorios-tab {
+    min-height: auto;
+  }
+
   .grade-indicadores.principais,
   .grade-indicadores.secundarios,
   .grade-graficos,
   .grade-tabelas,
   .status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .paginacao-grafico {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

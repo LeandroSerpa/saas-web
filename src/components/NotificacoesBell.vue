@@ -6,6 +6,7 @@ import {
   buscarResumoNotificacoes,
   marcarNotificacaoComoLida,
   marcarTodasNotificacoesComoLidas,
+  podeConsultarNotificacoesAutenticadas,
 } from '@/services/api'
 import {
   atualizarEscopoSolicitado,
@@ -31,7 +32,16 @@ const totalNaoLidas = computed(() =>
 
 const notificacoesRecentes = computed(() => notificacoes.value.slice(0, 5))
 
+function podeConsultarNotificacoes() {
+  return podeConsultarNotificacoesAutenticadas(route.path)
+}
+
 async function carregarResumo() {
+  if (!podeConsultarNotificacoes()) {
+    resumo.value = {}
+    return
+  }
+
   try {
     erro.value = ''
     debugLog('notificacoes', 'Refresh do resumo', { rota: route.path })
@@ -43,6 +53,11 @@ async function carregarResumo() {
 }
 
 async function carregarNotificacoes() {
+  if (!podeConsultarNotificacoes()) {
+    notificacoes.value = []
+    return
+  }
+
   try {
     carregando.value = true
     erro.value = ''
@@ -58,6 +73,10 @@ async function carregarNotificacoes() {
 }
 
 async function alternarPainel() {
+  if (!podeConsultarNotificacoes()) {
+    return
+  }
+
   aberto.value = !aberto.value
 
   if (aberto.value) {
@@ -66,6 +85,12 @@ async function alternarPainel() {
 }
 
 async function atualizarNotificacoes(origem = 'manual') {
+  if (!podeConsultarNotificacoes()) {
+    resumo.value = {}
+    notificacoes.value = []
+    return
+  }
+
   debugLog('notificacoes', 'Refresh solicitado', {
     origem,
     rota: route.path,
@@ -267,7 +292,7 @@ function aoReceberAtualizacaoEmpresaStorage(evento) {
 }
 
 function aoRetornarParaTela() {
-  if (document.visibilityState === 'hidden' || !rotaPrioritariaNotificacoes()) {
+  if (document.visibilityState === 'hidden' || !rotaPrioritariaNotificacoes() || !podeConsultarNotificacoes()) {
     return
   }
 
@@ -279,6 +304,10 @@ function aoReceberEventoLegadoNotificacoes() {
 }
 
 onMounted(() => {
+  if (!podeConsultarNotificacoes()) {
+    return
+  }
+
   atualizarNotificacoes('montagem')
   window.addEventListener('click', fecharAoClicarFora)
   window.addEventListener('notificacoes-atualizadas', aoReceberEventoLegadoNotificacoes)
@@ -300,7 +329,7 @@ onBeforeUnmount(() => {
 watch(
   () => route.fullPath,
   () => {
-    if (!rotaPrioritariaNotificacoes()) {
+    if (!rotaPrioritariaNotificacoes() || !podeConsultarNotificacoes()) {
       return
     }
 

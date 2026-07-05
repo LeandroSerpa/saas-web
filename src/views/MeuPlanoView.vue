@@ -1,14 +1,29 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { buscarMinhaAssinatura, buscarUsoPlano } from '@/services/api'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import {
+  EVENTO_EMPRESA_VISUALIZACAO,
+  buscarMinhaAssinatura,
+  buscarUsoPlano,
+  carregarUsuarioSessao,
+  obterEmpresaVisualizacao,
+} from '@/services/api'
+import { ehSuperAdmin } from '@/utils/permissoes'
 
 const assinatura = ref(null)
 const usoPlano = ref(null)
 const carregando = ref(true)
 const erro = ref('')
+const empresaSelecionada = ref(obterEmpresaVisualizacao())
+const usuario = computed(() => carregarUsuarioSessao())
 
 const plano = computed(() => assinatura.value?.plano || assinatura.value || {})
 const status = computed(() => assinatura.value?.status || '-')
+const empresaSelecionadaId = computed(() => String(empresaSelecionada.value?.id || '').trim())
+const superAdmin = computed(() => ehSuperAdmin(usuario.value))
+const aguardandoEmpresa = computed(() => superAdmin.value && !empresaSelecionadaId.value)
+const contextoEmpresa = computed(() =>
+  empresaSelecionada.value?.id ? `Você está operando na empresa ${empresaSelecionada.value.nome} como SUPER_ADMIN.` : '',
+)
 const nomePlanoAtual = computed(() => {
   if ((assinatura.value?.visivelParaEmpresa ?? plano.value?.visivelParaEmpresa) === false) {
     return 'Plano especial'
@@ -53,6 +68,7 @@ const itensUso = computed(() => [
   criarItemUso('Clientes', ['clientes', 'qtdClientes'], obterLimite('limiteClientes')),
   criarItemUso('Funcionários', ['funcionarios', 'qtdFuncionarios'], obterLimite('limiteFuncionarios')),
   criarItemUso('Serviços', ['servicos', 'qtdServicos'], obterLimite('limiteServicos')),
+  criarItemUso('Produtos no estoque', ['produtos', 'qtdProdutos', 'usoProdutos'], obterLimite('limiteProdutos')),
   criarItemUso(
     'Agendamentos no mês',
     ['agendamentosMes', 'agendamentosNoMes', 'qtdAgendamentosMes'],
@@ -64,12 +80,27 @@ const proximoDoLimite = computed(() =>
   itensUso.value.some((item) => item.limite !== null && item.percentual >= 80),
 )
 
+function sincronizarEmpresaSelecionada() {
+  empresaSelecionada.value = obterEmpresaVisualizacao()
+}
+
 async function carregarMeuPlano() {
   try {
+    if (aguardandoEmpresa.value) {
+      assinatura.value = null
+      usoPlano.value = null
+      erro.value = ''
+      carregando.value = false
+      return
+    }
+
     carregando.value = true
     erro.value = ''
+    assinatura.value = null
+    usoPlano.value = null
 
-    const [assinaturaApi, usoApi] = await Promise.all([buscarMinhaAssinatura(), buscarUsoPlano()])
+    const empresaId = empresaSelecionadaId.value
+    const [assinaturaApi, usoApi] = await Promise.all([buscarMinhaAssinatura(empresaId), buscarUsoPlano(empresaId)])
     assinatura.value = assinaturaApi || null
     usoPlano.value = usoApi || null
   } catch (error) {
@@ -82,14 +113,14 @@ async function carregarMeuPlano() {
 
 function criarItemUso(rotulo, camposUso, limite) {
   const uso = obterPrimeiroNumero(usoPlano.value, camposUso)
-  const percentual = limite === null ? 0 : Math.min(100, Math.round((uso / Math.max(limite, 1)) * 100))
+  const percentual = limite === null || limite === 0 ? null : Math.min(100, Math.round((uso / Math.max(limite, 1)) * 100))
 
   return {
     rotulo,
     uso,
     limite,
     percentual,
-    alerta: limite !== null && percentual >= 80,
+    alerta: limite !== null && limite > 0 && percentual !== null && percentual >= 80,
   }
 }
 
@@ -134,7 +165,15 @@ function rotuloTipoPlano(tipo) {
 }
 
 function exibirLimite(limite) {
-  return limite === null ? 'Ilimitado' : limite
+  if (limite === null) {
+    return 'Ilimitado'
+  }
+
+  if (limite === 0) {
+    return 'Não incluído'
+  }
+
+  return limite
 }
 
 function formatarPreco(preco) {
@@ -155,8 +194,19 @@ function obterMensagemErro(error, fallback) {
 }
 
 onMounted(() => {
+  sincronizarEmpresaSelecionada()
   carregarMeuPlano()
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
+})
+
+function atualizarContextoEmpresa() {
+  sincronizarEmpresaSelecionada()
+  carregarMeuPlano()
+}
 </script>
 
 <template>
@@ -176,7 +226,15 @@ onMounted(() => {
       <small>Fale com o administrador para alterar seu plano.</small>
     </section>
 
-    <section v-if="carregando" class="card">
+    <section v-if="contextoEmpresa" class="card contexto-operacao">
+      <p>{{ contextoEmpresa }}</p>
+    </section>
+
+    <section v-if="aguardandoEmpresa" class="card alerta informativo">
+      <p>Selecione uma empresa operacional para visualizar o plano, os limites e o uso atual.</p>
+    </section>
+
+    <section v-else-if="carregando" class="card">
       <p>Carregando plano...</p>
     </section>
 
@@ -231,6 +289,7 @@ onMounted(() => {
         <div class="permissoes">
           <span :class="{ ligado: permissaoLigada('permitePersonalizacao') }">Personalização</span>
           <span :class="{ ligado: permissaoLigada('permiteRelatorios') }">Relatórios</span>
+          <span :class="{ ligado: permissaoLigada('permiteEstoque') }">Estoque</span>
           <span :class="{ ligado: permissaoLigada('permiteAgendamentoPublico') }">Agendamento público</span>
           <span :class="{ ligado: permissaoLigada('permiteSuportePrioritario') }">Suporte prioritário</span>
         </div>
@@ -249,7 +308,7 @@ onMounted(() => {
             </div>
 
             <div class="barra">
-              <span :style="{ width: `${item.percentual}%` }"></span>
+              <span :style="{ width: item.percentual === null ? '0%' : `${item.percentual}%` }"></span>
             </div>
           </article>
         </div>

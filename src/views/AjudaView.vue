@@ -1,8 +1,9 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
+import { buscarVersaoSistema, formatarRotuloAmbiente, obterInfoVersaoSistemaPadrao } from '@/services/api'
 import { formatarDataPtBrSemFuso } from '@/utils/datas'
+import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +15,8 @@ const modoDetalhe = ref('resumo')
 const secaoNovidadesRef = ref(null)
 const mostrarListaTopicos = ref(true)
 const isViewportMobile = ref(false)
+const versaoPublica = ref(normalizarVersaoPublica())
+const carregandoVersaoPublica = ref(false)
 let mediaQueryTopicos = null
 
 const ABA_TUTORIAIS = 'tutoriais'
@@ -70,7 +73,7 @@ const perguntasFrequentes = [
   {
     pergunta: 'Como troco o tema da tela?',
     resposta:
-      'Use o seletor de tema no topo da tela e escolha Claro, Escuro ou NuvemMais. A mudança é rápida e ajuda a leitura no dia a dia.',
+      'Use o seletor de tema no topo da tela e escolha Claro, Moderno, Escuro, Suave ou NuvemMais. A mudança é rápida e ajuda a leitura no dia a dia.',
   },
   {
     pergunta: 'Como altero minha senha?',
@@ -139,13 +142,13 @@ const topicos = [
     id: 'modo-temas',
     titulo: 'Modo Essencial e aparência',
     resumo: 'Como simplificar o menu e mudar o visual da tela.',
-    palavrasChave: ['modo essencial', 'modo completo', 'tema', 'aparência', 'claro', 'escuro', 'nuvemmais'],
+    palavrasChave: ['modo essencial', 'modo completo', 'tema', 'aparência', 'claro', 'moderno', 'escuro', 'suave', 'nuvemmais'],
     introducao:
       'O Modo Essencial deixa a navegação mais simples, ideal para o uso do dia a dia. O Modo Completo libera todas as áreas permitidas para o seu perfil. No topo da tela, você também pode trocar o tema para deixar a leitura mais confortável.',
     pontos: [
       'Use o Modo Essencial quando quiser focar só no que é mais importante.',
       'Use o Modo Completo quando precisar acessar todos os recursos permitidos.',
-      'Troque o tema entre Claro, Escuro e NuvemMais conforme a sua preferência.',
+      'Troque o tema entre Claro, Moderno, Escuro, Suave e NuvemMais conforme a sua preferência.',
       'O visual muda sem alterar seus dados, permissões ou rotas públicas.',
     ],
     destaque: 'Bom para deixar o sistema mais leve para quem prefere poucos atalhos e leitura simples.',
@@ -350,6 +353,62 @@ const topicos = [
     rota: '/relatorios',
   },
   {
+    id: 'gestao-esportiva',
+    titulo: 'Gestão Esportiva',
+    resumo: 'Turmas, reposições, frequência e relatórios esportivos.',
+    palavrasChave: [
+      'turmas',
+      'capacidade',
+      'reposições',
+      'frequência',
+      'relatório esportivo',
+      'alunos',
+    ],
+    introducao:
+      'Esta seção reúne as orientações principais da Gestão Esportiva. Aqui você entende a capacidade das turmas, o fluxo das reposições e o uso do relatório de frequência sem misturar os conceitos.',
+    pontos: [
+      'Turmas usam capacidade regular e, quando necessário, vagas extras para participantes eventuais.',
+      'Reposições passam por direito disponível, reserva, utilização, expiração e cancelamento.',
+      'A concessão manual serve para correções administrativas ou situações autorizadas.',
+      'O relatório esportivo reúne filtros, indicadores e cards no celular.',
+    ],
+    destaque:
+      'A capacidade total da aula é a soma da capacidade regular com as vagas extras disponíveis.',
+    blocos: [
+      {
+        tipo: 'info',
+        titulo: 'Turmas e capacidade',
+        texto:
+          'A capacidade regular é a base da turma. As vagas extras somam participantes eventuais, como reposições e aulas avulsas. Quando os dois campos ficam vazios, a capacidade não é controlada.',
+      },
+      {
+        tipo: 'exemplo',
+        titulo: 'Exemplo prático',
+        texto:
+          'Se a turma tem 4 alunos regulares e 2 vagas extras, o limite total da aula passa a ser 6 participantes.',
+      },
+      {
+        tipo: 'atencao',
+        titulo: 'Vagas extras',
+        texto:
+          'As vagas extras dependem de uma capacidade regular informada. O badge de alunos continua mostrando os vinculados contra a capacidade regular.',
+      },
+      {
+        tipo: 'alerta',
+        titulo: 'Concessão manual',
+        texto:
+          'A concessão manual deve ser usada apenas para correções administrativas ou situações autorizadas.',
+      },
+      {
+        tipo: 'dica',
+        titulo: 'Ajuda contextual',
+        texto:
+          'Nas telas de turmas, reposições e frequência, o botão Ajuda desta tela leva até esta mesma seção.',
+      },
+    ],
+    rota: '/beach-tennis/turmas',
+  },
+  {
     id: 'minha-empresa',
     titulo: 'Minha empresa',
     resumo: 'Configuração dos dados principais da empresa.',
@@ -488,7 +547,7 @@ const conteudoDetalhadoPorTopico = {
     '1. Use o seletor de modo no topo da tela.',
     '2. Escolha Modo Essencial para ver menos opções e ficar mais simples.',
     '3. Escolha Modo Completo quando quiser ver todas as áreas permitidas.',
-    '4. No mesmo topo, troque o tema entre Claro, Escuro e NuvemMais.',
+    '4. No mesmo topo, troque o tema entre Claro, Moderno, Escuro, Suave e NuvemMais.',
     '5. Confira se a tela ficou mais fácil de ler para você.',
   ],
   dashboard: [
@@ -582,6 +641,17 @@ const conteudoDetalhadoPorTopico = {
     '4. Use os gráficos e as listas para entender melhor o movimento.',
     '5. Baixe ou copie os dados quando precisar mostrar para outra pessoa.',
   ],
+  'gestao-esportiva': [
+    '1. Entenda a diferença entre capacidade regular e vagas extras antes de cadastrar a turma.',
+    '2. Exemplo: com 4 alunos regulares e 2 vagas extras, a aula pode receber até 6 participantes.',
+    '3. Use vagas extras para reposições, aulas experimentais ou participantes eventuais, sem criar seis alunos fixos.',
+    '4. Ao conceder uma reposição manual, selecione o aluno, informe a validade e descreva o motivo autorizado.',
+    '5. No agendamento da reposição, escolha a aula de destino, confira a prévia e confirme apenas quando tudo estiver correto.',
+    '6. Ao cancelar a reserva, o participante sai da aula de destino e a turma principal do aluno continua a mesma.',
+    '7. Na frequência, registre Presente, Falta justificada, Falta sem justificativa, Reposição realizada ou Não lançado quando aplicável.',
+    '8. No relatório esportivo, filtre por período, turma, professor, aluno, situação e quantidade por página; os filtros ficam refletidos na URL e os cards aparecem no celular.',
+    '9. Use a ajuda contextual nas telas de turmas, reposições e frequência para abrir esta mesma seção rapidamente.',
+  ],
   'minha-empresa': [
     '1. Entre em Minha empresa para rever os dados principais do negócio.',
     '2. Confira nome, contato, endereço e horário de funcionamento.',
@@ -642,18 +712,26 @@ const conteudoDetalhadoPorTopico = {
 
 const historicoAtualizacoes = [
   {
-    versao: '1.2.2',
-    dataPublicacao: '2026-06-09',
+    versao: '1.4.1',
+    dataPublicacao: '2026-07-01',
     itens: [
-      'Upload próprio de imagens para logo, banner e produtos.',
-      'Imagens convertidas e padronizadas em WebP.',
-      'Cadastro de produto com imagem antes de salvar.',
-      'Edição segura de imagem com cancelamento restaurando a original.',
-      'Texto padrão global do botão dos produtos do catálogo/cardápio.',
-      'Melhorias nos campos de descrição e categoria da vitrine pública.',
-      'CTA de WhatsApp mais visível na aba Catálogo Público.',
-      'Ajustes visuais e correções de português no Estoque, Personalização e Catálogo Público.',
-      'Preservação de logo/banner ao salvar personalização.',
+      'Versão pública centralizada e automática.',
+      'Acesso à versão pelo rodapé.',
+      'Painel de informações restrito ao SUPER_ADMIN.',
+      'Melhorias na navegação da Ajuda.',
+    ],
+  },
+  {
+    versao: '1.4.0',
+    dataPublicacao: '2026-07-01',
+    itens: [
+      'Capacidade regular e vagas extras nas turmas.',
+      'Gestão completa de direitos de reposição.',
+      'Agendamento e cancelamento de reposições.',
+      'Identificação de participantes de reposição.',
+      'Relatório esportivo de frequência.',
+      'Melhorias responsivas em turmas, reposições e relatórios.',
+      'Ajustes de validação e experiência no mobile.',
     ],
   },
   {
@@ -674,7 +752,7 @@ const historicoAtualizacoes = [
     itens: [
       'Modo Essencial para navegação simplificada.',
       'Modo Completo para acesso a todos os recursos.',
-      'Temas Claro, Escuro e NuvemMais.',
+      'Temas Claro, Moderno, Escuro, Suave e NuvemMais.',
       'Central de Ajuda com modo Resumo e passo a passo.',
       'Links "Ajuda desta tela" nas principais telas do sistema.',
       'Dashboard Essencial com ações rápidas.',
@@ -754,6 +832,18 @@ function removerNumeracaoInicial(valor) {
   return String(valor || '').replace(/^\s*\d+[\.\)]\s+/, '')
 }
 
+function rotuloTipoBlocoAjuda(tipo) {
+  const rotulos = {
+    info: 'Informação',
+    atencao: 'Atenção',
+    alerta: 'Ação irreversível',
+    dica: 'Dica',
+    exemplo: 'Exemplo',
+  }
+
+  return rotulos[String(tipo || '').trim().toLowerCase()] || 'Observação'
+}
+
 function atualizarEstadoViewport(evento) {
   const ehMobile = typeof evento?.matches === 'boolean' ? evento.matches : mediaQueryTopicos?.matches || false
   isViewportMobile.value = ehMobile
@@ -823,7 +913,7 @@ async function selecionarAba(aba) {
   const hashAtual = route.hash || ''
 
   if (hashAtual !== hashDesejado) {
-    await router.replace({
+    await router.push({
       path: route.path,
       query: route.query,
       hash: hashDesejado,
@@ -916,6 +1006,33 @@ function formatarDataAtualizacao(valor) {
   return formatarDataPtBrSemFuso(valor)
 }
 
+function normalizarVersaoPublica(resposta) {
+  const padrao = obterInfoVersaoSistemaPadrao()
+  const origem = resposta && typeof resposta === 'object' ? resposta : {}
+
+  return {
+    nome: padrao.nome,
+    versao: obterVersaoFrontendComPrefixo(),
+    ambiente: origem.ambiente || origem.environment || origem.perfil || origem.stage || padrao.ambiente,
+    dataPublicacao:
+      origem.dataPublicacao || origem.publicadoEm || origem.releaseDate || origem.publishedAt || padrao.dataPublicacao,
+    novidades: Array.isArray(origem.novidades) && origem.novidades.length ? origem.novidades : padrao.novidades,
+  }
+}
+
+async function carregarVersaoPublica() {
+  carregandoVersaoPublica.value = true
+
+  try {
+    versaoPublica.value = normalizarVersaoPublica(await buscarVersaoSistema())
+  } catch (error) {
+    versaoPublica.value = normalizarVersaoPublica()
+    console.error(error)
+  } finally {
+    carregandoVersaoPublica.value = false
+  }
+}
+
 watch(
   () => route.hash,
   (hash) => {
@@ -936,6 +1053,7 @@ onMounted(() => {
     }
   }
 
+  void carregarVersaoPublica()
   void sincronizarAbaPelaHash(route.hash, false)
 })
 
@@ -1069,6 +1187,19 @@ onBeforeUnmount(() => {
             <p class="texto-principal">{{ topicoAtivo.introducao }}</p>
             <p class="texto-destaque">{{ topicoAtivo.destaque }}</p>
 
+            <section v-if="topicoAtivo.blocos?.length" class="blocos-ajuda" aria-label="Pontos em destaque">
+              <article
+                v-for="bloco in topicoAtivo.blocos"
+                :key="`${topicoAtivo.id}-${bloco.titulo}`"
+                class="bloco-ajuda"
+                :class="`tipo-${bloco.tipo || 'info'}`"
+              >
+                <span class="bloco-etiqueta">{{ rotuloTipoBlocoAjuda(bloco.tipo) }}</span>
+                <strong>{{ bloco.titulo }}</strong>
+                <p>{{ bloco.texto }}</p>
+              </article>
+            </section>
+
             <section class="modo-detalhe">
               <span>Modo de ajuda</span>
               <div class="modo-detalhe-botoes" role="tablist" aria-label="Nível de detalhe da ajuda">
@@ -1167,15 +1298,39 @@ onBeforeUnmount(() => {
           <p class="descricao-secao">
             Aqui ficam a versão atual, o histórico de atualizações e os principais lançamentos da plataforma.
           </p>
+          <p class="descricao-secao observacao-versoes">
+            Consulte nesta seção a versão atual e o histórico de atualizações.
+          </p>
         </div>
       </section>
 
-      <SystemVersionPanel
-        titulo="Versão do sistema"
-        discreto
-        :novidades-padrao="[]"
-        :mostrar-novidades="false"
-      />
+      <section class="versao-publica" aria-label="Versão atual do sistema">
+        <header class="versao-publica-cabecalho">
+          <div>
+            <p class="subtitulo">Versão do sistema</p>
+            <h3>Atualização publicada</h3>
+          </div>
+
+          <span class="selo-versao-publica">Versão {{ versaoPublica.versao || 'indisponível' }}</span>
+        </header>
+
+        <p v-if="carregandoVersaoPublica" class="texto-versao-publica">Consultando informações da API...</p>
+
+        <dl class="versao-publica-dados">
+          <div>
+            <dt>Versão do sistema</dt>
+            <dd>{{ versaoPublica.versao }}</dd>
+          </div>
+          <div>
+            <dt>Ambiente</dt>
+            <dd>{{ formatarRotuloAmbiente(versaoPublica.ambiente) }}</dd>
+          </div>
+          <div>
+            <dt>Publicação</dt>
+            <dd>{{ formatarDataAtualizacao(versaoPublica.dataPublicacao) }}</dd>
+          </div>
+        </dl>
+      </section>
 
       <section class="historico-atualizacoes" aria-label="Histórico de atualizações">
         <header class="historico-cabecalho">
@@ -1252,6 +1407,10 @@ onBeforeUnmount(() => {
 .descricao-secao {
   margin: 6px 0 0;
   color: var(--app-text-muted);
+}
+
+.observacao-versoes {
+  margin-top: 10px;
 }
 
 .cabecalho-pagina {
@@ -1362,6 +1521,81 @@ onBeforeUnmount(() => {
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.versao-publica {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+.versao-publica-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.versao-publica-cabecalho h3 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.selo-versao-publica {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-primary-soft) 42%, var(--app-surface));
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.texto-versao-publica {
+  margin: 0;
+  color: var(--app-text-muted);
+  line-height: 1.5;
+}
+
+.versao-publica-dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.versao-publica-dados div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface-soft);
+}
+
+.versao-publica-dados dt {
+  color: var(--app-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.versao-publica-dados dd {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 15px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .historico-atualizacoes,
@@ -1593,6 +1827,98 @@ onBeforeUnmount(() => {
 .texto-destaque {
   color: var(--app-text);
   font-weight: 700;
+}
+
+.blocos-ajuda {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.bloco-ajuda {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: var(--app-surface-soft);
+}
+
+.bloco-ajuda strong {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.bloco-ajuda p {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.bloco-etiqueta {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bloco-ajuda.tipo-info {
+  border-color: color-mix(in srgb, var(--app-primary) 22%, var(--app-border));
+  background: color-mix(in srgb, var(--app-primary-soft) 28%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-info .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-primary) 12%, var(--app-surface));
+  color: var(--app-primary);
+}
+
+.bloco-ajuda.tipo-atencao {
+  border-color: color-mix(in srgb, var(--app-warning) 26%, var(--app-border));
+  background: color-mix(in srgb, var(--app-warning-soft) 40%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-atencao .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-warning) 16%, var(--app-surface));
+  color: color-mix(in srgb, var(--app-warning) 76%, black);
+}
+
+.bloco-ajuda.tipo-alerta {
+  border-color: color-mix(in srgb, var(--app-danger) 24%, var(--app-border));
+  background: color-mix(in srgb, var(--app-danger-soft) 34%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-alerta .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-danger) 14%, var(--app-surface));
+  color: var(--app-danger);
+}
+
+.bloco-ajuda.tipo-dica {
+  border-color: color-mix(in srgb, var(--app-success) 22%, var(--app-border));
+  background: color-mix(in srgb, var(--app-success-soft) 36%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-dica .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-success) 14%, var(--app-surface));
+  color: var(--app-success);
+}
+
+.bloco-ajuda.tipo-exemplo {
+  border-color: color-mix(in srgb, var(--app-text) 16%, var(--app-border));
+  background: color-mix(in srgb, var(--app-surface-soft) 76%, var(--app-surface));
+}
+
+.bloco-ajuda.tipo-exemplo .bloco-etiqueta {
+  background: color-mix(in srgb, var(--app-text) 8%, var(--app-surface));
+  color: var(--app-text);
 }
 
 .modo-detalhe {
@@ -1856,9 +2182,18 @@ onBeforeUnmount(() => {
 
   .ferramentas-ajuda,
   .historico-atualizacoes,
+  .versao-publica,
   .topico-detalhe,
   .novidades-cabecalho {
     padding: 14px;
+  }
+
+  .versao-publica-cabecalho {
+    flex-direction: column;
+  }
+
+  .selo-versao-publica {
+    width: fit-content;
   }
 
   .resumo-item {

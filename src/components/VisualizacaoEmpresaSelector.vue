@@ -76,11 +76,11 @@ onBeforeUnmount(() => {
 <template>
   <section v-if="podeVisualizarEmpresas" class="visualizacao-empresa">
     <div>
-      <strong>Visualizar como empresa</strong>
+      <strong>Operar como empresa</strong>
       <p v-if="modoVisualizacaoAtivo">
-        Modo visualização: você está vendo dados da empresa {{ empresaSelecionada.nome }}. Alterações estão bloqueadas.
+        Modo operação: você está atuando na empresa {{ empresaSelecionada.nome }} como SUPER_ADMIN. Alterações estão liberadas e serão registradas em auditoria.
       </p>
-      <p v-else>Selecione uma empresa para atendimento e suporte.</p>
+      <p v-else>Selecione uma empresa para atuar com suporte operacional.</p>
     </div>
 
     <div class="visualizacao-controles">
@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
         type="button"
         @click="sairDaVisualizacao"
       >
-        Sair da visualização
+        Sair da operação
       </button>
     </div>
   </section>

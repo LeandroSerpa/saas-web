@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
+  EVENTO_EMPRESA_VISUALIZACAO,
   atualizarIndisponibilidade,
   buscarFuncionarios,
   buscarFuncionariosVinculadosAoServico,
@@ -8,6 +9,7 @@ import {
   buscarServicos,
   criarIndisponibilidade,
   excluirIndisponibilidade,
+  modoVisualizacaoEmpresaAtivo,
   salvarFuncionariosVinculadosAoServico,
 } from '@/services/api'
 
@@ -33,6 +35,7 @@ const removendoVinculosServicoId = ref(null)
 const erro = ref('')
 const mensagemSucesso = ref('')
 const mensagemVinculos = ref('')
+const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const indisponibilidadeEditandoId = ref(null)
 const ignorarResetAba = ref(false)
 const formularioVinculosRef = ref(null)
@@ -122,10 +125,29 @@ function criarFormularioInicial(tipo) {
   }
 }
 
+function limparMensagensDisponibilidade() {
+  erro.value = ''
+  mensagemSucesso.value = ''
+  mensagemVinculos.value = ''
+}
+
 async function carregarDados() {
   try {
     carregando.value = true
-    erro.value = ''
+    limparMensagensDisponibilidade()
+    modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+
+    if (modoVisualizacaoEmpresa.value) {
+      indisponibilidades.value = []
+      funcionarios.value = []
+      servicos.value = []
+      funcionariosSelecionados.value = []
+      vinculosPorServico.value = []
+      servicoVinculoId.value = ''
+      indisponibilidadeEditandoId.value = null
+      formulario.value = criarFormularioInicial(abaAtiva.value)
+      return
+    }
 
     const [indisponibilidadesApi, funcionariosApi, servicosApi] = await Promise.all([
       buscarIndisponibilidades({ tipo: tipoIndisponibilidadeAtivo.value }),
@@ -149,6 +171,11 @@ async function carregarDados() {
 }
 
 async function carregarIndisponibilidades() {
+  if (modoVisualizacaoEmpresa.value) {
+    indisponibilidades.value = []
+    return
+  }
+
   try {
     erro.value = ''
     const dados = await buscarIndisponibilidades({ tipo: tipoIndisponibilidadeAtivo.value })
@@ -160,6 +187,11 @@ async function carregarIndisponibilidades() {
 }
 
 async function salvarIndisponibilidade() {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
   try {
     erro.value = ''
     mensagemSucesso.value = ''
@@ -193,6 +225,11 @@ async function salvarIndisponibilidade() {
 }
 
 async function excluirIndisponibilidadeSelecionada(item) {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
   if (!window.confirm('Deseja excluir esta indisponibilidade?')) {
     return
   }
@@ -325,6 +362,10 @@ async function carregarVinculosDoServico({ limparSucesso = true } = {}) {
     return
   }
 
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
   try {
     carregandoVinculos.value = true
     erro.value = ''
@@ -345,6 +386,11 @@ async function carregarVinculosDoServico({ limparSucesso = true } = {}) {
 }
 
 async function carregarVinculosCadastrados() {
+  if (modoVisualizacaoEmpresa.value) {
+    vinculosPorServico.value = []
+    return
+  }
+
   if (servicosAtivos.value.length === 0) {
     vinculosPorServico.value = []
     return
@@ -378,6 +424,11 @@ async function carregarVinculosCadastrados() {
 }
 
 async function salvarVinculos() {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
   if (salvando.value) {
     return
   }
@@ -428,6 +479,11 @@ async function editarVinculosServico(servicoId) {
 }
 
 async function removerVinculosServico(servico) {
+  if (modoVisualizacaoEmpresa.value) {
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
   const confirmou = window.confirm(`Remover todos os vínculos de ${servico.nome}?`)
 
   if (!confirmou) {
@@ -756,8 +812,19 @@ function mensagemTecnica(mensagem) {
   ].includes(texto)
 }
 
+function atualizarModoVisualizacao() {
+  limparMensagensDisponibilidade()
+  modoVisualizacaoEmpresa.value = modoVisualizacaoEmpresaAtivo()
+  carregarDados()
+}
+
 onMounted(() => {
   carregarDados()
+  window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
 })
 </script>
 
@@ -777,6 +844,10 @@ onMounted(() => {
 
     <section v-if="erro" class="card erro">
       <p>{{ erro }}</p>
+    </section>
+
+    <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
+      <p>Selecione uma empresa no seletor superior para operar esta tela.</p>
     </section>
 
     <section v-if="mensagemSucesso" class="card sucesso-card">

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import EmpresaForm from '@/components/EmpresaForm.vue'
 import {
   buscarEmpresas,
@@ -10,6 +10,9 @@ import {
   montarLinkPublicoAgendamento,
 } from '@/services/api'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
+
+const CODIGO_MODULO_GESTAO_ESPORTIVA = 'GESTAO_ESPORTIVA'
+const CODIGO_SEGMENTO_BEACH_TENNIS = 'BEACH_TENNIS'
 
 const empresas = ref([])
 const segmentos = ref([])
@@ -72,7 +75,7 @@ function criarEmpresaInicial() {
     horaAbertura: '',
     horaFechamento: '',
     intervaloAgendaMinutos: 30,
-    atendeDominao: false,
+    atendeDomingo: false,
     atendeSegunda: true,
     atendeTerca: true,
     atendeQuarta: true,
@@ -83,6 +86,8 @@ function criarEmpresaInicial() {
     permitirAgendamentoPublico: false,
     mensagemPublica: '',
     segmentoNegocioId: '',
+    modulosAtivos: [],
+    gestaoEsportivaAtivo: false,
   }
 }
 
@@ -168,7 +173,7 @@ async function salvarEmpresa() {
       horaAbertura: empresa.value.horaAbertura,
       horaFechamento: empresa.value.horaFechamento,
       intervaloAgendaMinutos,
-      atendeDominao: Boolean(empresa.value.atendeDominao),
+      atendeDomingo: Boolean(empresa.value.atendeDomingo),
       atendeSegunda: Boolean(empresa.value.atendeSegunda),
       atendeTerca: Boolean(empresa.value.atendeTerca),
       atendeQuarta: Boolean(empresa.value.atendeQuarta),
@@ -181,6 +186,8 @@ async function salvarEmpresa() {
       permitirAgendamentoPublico: Boolean(empresa.value.permitirAgendamentoPublico),
       mensagemPublica: empresa.value.mensagemPublica,
       segmentoNegocioId: empresa.value.segmentoNegocioId || null,
+      modulosAtivos: montarModulosAtivosEmpresa(),
+      gestaoEsportivaAtivo: Boolean(empresa.value.gestaoEsportivaAtivo),
     }
 
     if (empresaEditandoId.value) {
@@ -216,7 +223,7 @@ function editarEmpresa(empresaItem) {
     horaAbertura: empresaItem.horaAbertura || '',
     horaFechamento: empresaItem.horaFechamento || '',
     intervaloAgendaMinutos: normalizarIntervaloAgenda(empresaItem.intervaloAgendaMinutos),
-    atendeDominao: Boolean(empresaItem.atendeDominao),
+    atendeDomingo: Boolean(empresaItem.atendeDomingo),
     atendeSegunda: empresaItem.atendeSegunda !== false,
     atendeTerca: empresaItem.atendeTerca !== false,
     atendeQuarta: empresaItem.atendeQuarta !== false,
@@ -229,6 +236,8 @@ function editarEmpresa(empresaItem) {
     ),
     mensagemPublica: empresaItem.mensagemPublica || '',
     segmentoNegocioId: empresaItem.segmentoNegocioId || empresaItem.segmentoNegocio?.id || '',
+    modulosAtivos: normalizarModulosAtivos(empresaItem),
+    gestaoEsportivaAtivo: empresaPossuiGestaoEsportiva(empresaItem),
   }
 }
 
@@ -344,6 +353,36 @@ function exibirSegmento(empresaItem) {
   )
 }
 
+function normalizarModulosAtivos(empresaItem = {}) {
+  const lista = Array.isArray(empresaItem.modulosAtivos) ? empresaItem.modulosAtivos : []
+  return [...new Set(lista.map((item) => String(item || '').trim().toUpperCase()).filter(Boolean))]
+}
+
+function empresaPossuiGestaoEsportiva(empresaItem = {}) {
+  if (empresaItem.gestaoEsportivaAtivo === true) {
+    return true
+  }
+
+  return normalizarModulosAtivos(empresaItem).includes(CODIGO_MODULO_GESTAO_ESPORTIVA)
+}
+
+function montarModulosAtivosEmpresa() {
+  const modulosAtuais = normalizarModulosAtivos(empresa.value)
+  const modulosSemGestaoEsportiva = modulosAtuais.filter((codigo) => codigo !== CODIGO_MODULO_GESTAO_ESPORTIVA)
+
+  return empresa.value.gestaoEsportivaAtivo
+    ? [...modulosSemGestaoEsportiva, CODIGO_MODULO_GESTAO_ESPORTIVA]
+    : modulosSemGestaoEsportiva
+}
+
+function segmentoSelecionado() {
+  return segmentos.value.find((item) => String(item.id) === String(empresa.value.segmentoNegocioId || '')) || null
+}
+
+function segmentoEhBeachTennis(segmento = {}) {
+  return String(segmento?.codigo || '').trim().toUpperCase() === CODIGO_SEGMENTO_BEACH_TENNIS
+}
+
 function exibirHorario(empresaItem) {
   if (!empresaItem.horaAbertura && !empresaItem.horaFechamento) {
     return '-'
@@ -354,7 +393,7 @@ function exibirHorario(empresaItem) {
 
 function exibirDiasAtendimento(empresaItem) {
   const dias = [
-    { campo: 'atendeDominao', rotulo: 'Domingo' },
+    { campo: 'atendeDomingo', rotulo: 'Domingo' },
     { campo: 'atendeSegunda', rotulo: 'Seg' },
     { campo: 'atendeTerca', rotulo: 'Terça' },
     { campo: 'atendeQuarta', rotulo: 'Qua' },
@@ -373,6 +412,15 @@ function exibirLinkPublico(empresaItem) {
 
   return montarLinkPublicoAgendamento(slug)
 }
+
+watch(
+  () => empresa.value.segmentoNegocioId,
+  () => {
+    if (segmentoEhBeachTennis(segmentoSelecionado())) {
+      empresa.value.gestaoEsportivaAtivo = true
+    }
+  },
+)
 
 onMounted(() => {
   carregarEmpresas()
@@ -485,6 +533,7 @@ onMounted(() => {
             <p><strong>Telefone:</strong> {{ exibirValor(empresaItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(empresaItem.email) }}</p>
             <p><strong>Segmento:</strong> {{ exibirSegmento(empresaItem) }}</p>
+            <p><strong>Gestão Esportiva:</strong> {{ empresaPossuiGestaoEsportiva(empresaItem) ? 'Ativa' : 'Inativa' }}</p>
             <p><strong>Endereço:</strong> {{ exibirValor(empresaItem.endereco) }}</p>
             <p><strong>Horário:</strong> {{ exibirHorario(empresaItem) }}</p>
             <p><strong>Dias:</strong> {{ exibirDiasAtendimento(empresaItem) }}</p>

@@ -1,5 +1,14 @@
 import { debugLog } from '@/utils/devDebug'
 import { normalizarUrlImagemPublica } from '@/utils/imagens'
+import { obterVersaoFrontend } from '@/utils/versaoAplicacao'
+import {
+  HEADER_EMPRESA_OPERACIONAL,
+  resolverEmpresaIdEfetiva,
+  resolverEmpresaOperacionalHeader,
+  resolverPayloadEmpresaEfetiva,
+  resolverQueryEmpresaEfetiva,
+  usuarioEhSuperAdmin,
+} from './empresaOperacionalHeader'
 
 const PUBLIC_APP_URL_HOMOLOGACAO = 'https://gestao-hml.nuvemmais.com.br'
 const PUBLIC_APP_URL_PRODUCAO = 'https://gestao.nuvemmais.com.br'
@@ -8,7 +17,7 @@ export const TEXTO_BOTAO_CATALOGO_PUBLICO_PADRAO = 'Pedir pelo WhatsApp'
 const API_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:8080' : 'https://api.nuvemmais.com.br'
 const PUBLIC_APP_URL_FALLBACK = import.meta.env.DEV ? 'http://localhost:5173' : PUBLIC_APP_URL_PRODUCAO
 export const APP_NAME = String(import.meta.env.VITE_APP_NAME || 'NuvemMais Gestão').trim() || 'NuvemMais Gestão'
-export const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || __APP_VERSION__ || '').trim()
+export const APP_VERSION = String(__APP_VERSION__ || '').trim()
 const MENSAGENS_PADRAO = {
   sessaoExpirada: 'Sessão expirada. Faça login novamente.',
   acessoNegado: 'Acesso negado. Você não tem permissão para acessar esta área.',
@@ -26,6 +35,7 @@ const CHAVE_EMPRESA_VISUALIZACAO = 'empresaVisualizacao'
 export const EVENTO_EMPRESA_VISUALIZACAO = 'empresa-visualizacao-atualizada'
 export const EVENTO_UNIDADES_ESTOQUE_ATUALIZADAS = 'unidades-estoque-atualizadas'
 const CAMINHOS_PUBLICOS_FRONTEND = ['/cadastro', '/cadastro-empresa', '/comece-agora', '/termos', '/privacidade', '/sobre']
+const CAMINHOS_NEUTROS_PARA_NOTIFICACOES = ['/login', '/cadastro-pendente', '/alterar-senha']
 
 function normalizarUrlBase(url, fallback = '') {
   const valor = String(url || '').trim()
@@ -48,21 +58,26 @@ const PUBLIC_APP_URL = normalizarUrlBase(import.meta.env.VITE_PUBLIC_APP_URL, PU
 export const APP_ENVIRONMENT = normalizarAmbienteAplicacao(
   import.meta.env.VITE_APP_ENVIRONMENT || (import.meta.env.DEV ? 'dev' : 'production'),
 )
-const VERSAO_PRODUCAO_PADRAO = '1.2.2'
-const VERSAO_HML_MINIMA = '1.2.2-hml'
 const DATA_PUBLICACAO_VERSAO_PADRAO =
-  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-06-09').trim() || '2026-06-09'
+  String(import.meta.env.VITE_APP_RELEASE_DATE || '2026-07-01').trim() || '2026-07-01'
 const NOVIDADES_VERSAO_PADRAO = Object.freeze([
-  'Upload próprio de imagens para logo, banner e produtos.',
-  'Imagens convertidas e padronizadas em WebP.',
-  'Cadastro de produto com imagem antes de salvar.',
-  'Edição segura de imagem com cancelamento restaurando a original.',
-  'Texto padrão global do botão dos produtos do catálogo/cardápio.',
-  'Melhorias nos campos de descrição e categoria da vitrine pública.',
-  'CTA de WhatsApp mais visível na aba Catálogo Público.',
-  'Ajustes visuais e correções de português no Estoque, Personalização e Catálogo Público.',
-  'Preservação de logo/banner ao salvar personalização.',
+  'Direitos e agendamento de reposições.',
+  'Capacidade regular e vagas extras nas turmas.',
+  'Relatório de frequência esportiva.',
 ])
+
+export function formatarVersaoFrontend(versao = APP_VERSION, ambiente = APP_ENVIRONMENT) {
+  const versaoNormalizada = String(versao || '').trim()
+
+  if (versaoNormalizada && versaoNormalizada !== APP_VERSION) {
+    return normalizarAmbienteAplicacao(ambiente) === 'homologacao'
+      ? garantirSufixoVersaoHomologacao(versaoNormalizada, `${removerSufixoVersaoHomologacao(versaoNormalizada)}-hml`)
+      : removerSufixoVersaoHomologacao(versaoNormalizada)
+  }
+
+  return obterVersaoFrontend()
+}
+
 
 export function obterUrlPublicaFrontend() {
   const origemAtual =
@@ -132,6 +147,40 @@ function rotaAtualEhPublicaFrontend() {
   }
 
   return caminhoEhRotaPublicaFrontend(window.location?.pathname || '')
+}
+
+function caminhoEvitaNotificacoesAutenticadas(caminho) {
+  const caminhoNormalizado = String(caminho || '').trim()
+
+  if (!caminhoNormalizado) {
+    return true
+  }
+
+  if (
+    caminhoEhRotaPublicaFrontend(caminhoNormalizado) ||
+    CAMINHOS_NEUTROS_PARA_NOTIFICACOES.includes(caminhoNormalizado)
+  ) {
+    return true
+  }
+
+  return (
+    caminhoNormalizado.startsWith('/agendar/') ||
+    caminhoNormalizado.startsWith('/catalogo/') ||
+    caminhoNormalizado.startsWith('/cardapio/')
+  )
+}
+
+export function temSessaoAutenticada() {
+  const token = localStorage.getItem('token')
+
+  return Boolean(token && carregarUsuarioSessao())
+}
+
+export function podeConsultarNotificacoesAutenticadas(caminho = '') {
+  const caminhoAtual =
+    String(caminho || '').trim() || (typeof window !== 'undefined' ? window.location?.pathname || '' : '')
+
+  return temSessaoAutenticada() && !caminhoEvitaNotificacoesAutenticadas(caminhoAtual)
 }
 
 function normalizarBooleano(valor) {
@@ -221,17 +270,17 @@ function resolverAmbienteSeguroPorHostname(hostname = obterHostnameAtual()) {
 
 function resolverVersaoSeguraPorHostname(hostname = obterHostnameAtual()) {
   if (hostnameIndicaHomologacao(hostname)) {
-    return VERSAO_HML_MINIMA
+    return garantirSufixoVersaoHomologacao(APP_VERSION)
   }
 
   if (hostnameEhProducaoOficial(hostname)) {
-    return VERSAO_PRODUCAO_PADRAO
+    return removerSufixoVersaoHomologacao(APP_VERSION)
   }
 
   return ''
 }
 
-function garantirSufixoVersaoHomologacao(versao, fallback = VERSAO_HML_MINIMA) {
+function garantirSufixoVersaoHomologacao(versao, fallback = `${removerSufixoVersaoHomologacao(APP_VERSION)}-hml`) {
   const valor = String(versao || '').trim()
 
   if (!valor) {
@@ -243,6 +292,12 @@ function garantirSufixoVersaoHomologacao(versao, fallback = VERSAO_HML_MINIMA) {
   }
 
   return `${valor}-hml`
+}
+
+function removerSufixoVersaoHomologacao(versao) {
+  return String(versao || '')
+    .trim()
+    .replace(/-hml$/i, '')
 }
 
 export function obterTipoSeloAmbiente(valor) {
@@ -288,34 +343,17 @@ export function formatarRotuloAmbiente(valor) {
 
 export function obterInfoVersaoSistemaPadrao() {
   const hostname = obterHostnameAtual()
-  const versaoSeguraPorHostname = resolverVersaoSeguraPorHostname(hostname)
   const ambienteSegurancaHost = resolverAmbienteSeguroPorHostname(hostname)
-  const versaoBase = String(APP_VERSION || '').trim()
-  const ambientePorVersao = /-hml$/i.test(versaoBase) ? 'homologacao' : APP_ENVIRONMENT
+  const ambientePorVersao = APP_ENVIRONMENT
   let ambiente = normalizarAmbienteAplicacao(ambienteSegurancaHost || ambientePorVersao || 'production')
 
   if (!hostnameEhLocal(hostname) && ['dev', 'local'].includes(ambiente)) {
     ambiente = hostnameIndicaHomologacao(hostname) ? 'homologacao' : 'production'
   }
 
-  let versao = versaoBase
-
-  if (ambiente === 'homologacao') {
-    const versaoMinimaHomologacao = versaoSeguraPorHostname || VERSAO_HML_MINIMA
-    const versaoHomologacaoBase =
-      !versaoBase || versaoEhMenorQue(versaoBase, versaoMinimaHomologacao) ? versaoMinimaHomologacao : versaoBase
-    versao = garantirSufixoVersaoHomologacao(versaoHomologacaoBase, versaoMinimaHomologacao)
-  } else if (ambiente === 'production') {
-    versao = versaoSeguraPorHostname || versaoBase || VERSAO_PRODUCAO_PADRAO
-  } else if (['local', 'dev'].includes(ambiente)) {
-    versao = versaoBase || 'dev'
-  } else {
-    versao = versaoBase || versaoSeguraPorHostname || VERSAO_PRODUCAO_PADRAO
-  }
-
   return {
     nome: APP_NAME,
-    versao,
+    versao: obterVersaoFrontend(),
     ambiente,
     dataPublicacao: DATA_PUBLICACAO_VERSAO_PADRAO,
     novidades: [...NOVIDADES_VERSAO_PADRAO],
@@ -610,23 +648,37 @@ export function limparEmpresaVisualizacao() {
 }
 
 export function modoVisualizacaoEmpresaAtivo() {
-  return Boolean(obterEmpresaVisualizacao())
+  const usuario = carregarUsuarioSessao()
+
+  return Boolean(usuarioEhSuperAdmin(usuario) && !obterEmpresaVisualizacao())
+}
+
+export function anexarEmpresaIdOperacionalNaQuery(filtros = {}) {
+  const usuario = carregarUsuarioSessao()
+  return resolverQueryEmpresaEfetiva(usuario, obterEmpresaVisualizacao(), filtros)
+}
+
+function montarQueryEmpresaOperacional(filtros = {}) {
+  return montarQueryString(anexarEmpresaIdOperacionalNaQuery(filtros))
+}
+
+function anexarEmpresaIdOperacionalNoPayload(dados = {}) {
+  const usuario = carregarUsuarioSessao()
+  return resolverPayloadEmpresaEfetiva(usuario, obterEmpresaVisualizacao(), dados)
 }
 
 export function aplicarEmpresaVisualizacao(filtros = {}) {
-  const empresaVisualizacao = obterEmpresaVisualizacao()
+  return anexarEmpresaIdOperacionalNaQuery(filtros)
+}
+
+function aplicarEmpresaSelecionadaNoPayload(dados = {}) {
+  return anexarEmpresaIdOperacionalNoPayload(dados)
+}
+
+export function obterEmpresaIdOperacao() {
   const usuario = carregarUsuarioSessao()
 
-  const perfil = normalizarTextoBusca(usuario?.perfil).replace(/^role_/, '')
-
-  if (!empresaVisualizacao?.id || perfil !== 'super_admin') {
-    return filtros
-  }
-
-  return {
-    ...(filtros || {}),
-    empresaId: filtros?.empresaId || empresaVisualizacao.id,
-  }
+  return String(resolverEmpresaIdEfetiva(usuario, obterEmpresaVisualizacao()) || '').trim()
 }
 
 export function notificarUnidadesEstoqueAtualizadas() {
@@ -677,6 +729,9 @@ function montarHeaders(comJson = false) {
 
   if (token) {
     headers.Authorization = `Bearer ${token}`
+    Object.assign(headers, resolverEmpresaOperacionalHeader(carregarUsuarioSessao(), obterEmpresaVisualizacao()))
+  } else {
+    delete headers[HEADER_EMPRESA_OPERACIONAL]
   }
 
   return headers
@@ -735,8 +790,16 @@ function solicitouPaginacao(filtros = {}) {
 }
 
 async function executarFetch(input, init) {
+  const configuracaoFetch = {
+    ...(init || {}),
+  }
+
+  if (configuracaoFetch.cache == null) {
+    configuracaoFetch.cache = 'no-store'
+  }
+
   try {
-    return await fetch(input, init)
+    return await fetch(input, configuracaoFetch)
   } catch (error) {
     const erro = new Error(MENSAGENS_PADRAO.redeApiIndisponivel)
     erro.status = 0
@@ -840,13 +903,23 @@ function extrairMensagemJson(dados) {
 
   const mensagens = [
     dados.message,
+    dados.mensagem,
     dados.detail,
+    dados.detalhe,
     dados.error,
+    dados.erro,
+    dados.title,
+    dados.titulo,
     dados.titulo,
     dados.descricao,
   ]
 
-  return mensagens.map(normalizarMensagemErro).find(Boolean) || ''
+  const mensagemDireta = mensagens.map(normalizarMensagemErro).find(Boolean)
+  if (mensagemDireta) {
+    return mensagemDireta
+  }
+
+  return extrairMensagemEstruturada(dados)
 }
 
 function normalizarMensagemErro(mensagem) {
@@ -857,6 +930,77 @@ function normalizarMensagemErro(mensagem) {
   }
 
   return sanitizarMensagemUsuario(texto, '')
+}
+
+function extrairMensagemEstruturada(valor, visitados = new Set()) {
+  if (valor === null || valor === undefined) {
+    return ''
+  }
+
+  if (typeof valor === 'string') {
+    return normalizarMensagemErro(valor)
+  }
+
+  if (typeof valor !== 'object') {
+    return ''
+  }
+
+  if (visitados.has(valor)) {
+    return ''
+  }
+
+  visitados.add(valor)
+
+  if (Array.isArray(valor)) {
+    for (const item of valor) {
+      const mensagem = extrairMensagemEstruturada(item, visitados)
+      if (mensagem) {
+        return mensagem
+      }
+    }
+    return ''
+  }
+
+  const camposPrioritarios = [
+    'message',
+    'mensagem',
+    'detail',
+    'detalhe',
+    'error',
+    'erro',
+    'title',
+    'titulo',
+    'descricao',
+    'description',
+  ]
+
+  for (const campo of camposPrioritarios) {
+    const mensagem = extrairMensagemEstruturada(valor[campo], visitados)
+    if (mensagem) {
+      return mensagem
+    }
+  }
+
+  const colecoes = [valor.errors, valor.violations, valor.violation, valor.violacao, valor.violacoes]
+  for (const colecao of colecoes) {
+    const mensagem = extrairMensagemEstruturada(colecao, visitados)
+    if (mensagem) {
+      return mensagem
+    }
+  }
+
+  for (const chave of Object.keys(valor)) {
+    if (camposPrioritarios.includes(chave)) {
+      continue
+    }
+
+    const mensagem = extrairMensagemEstruturada(valor[chave], visitados)
+    if (mensagem) {
+      return mensagem
+    }
+  }
+
+  return ''
 }
 
 function mensagemGenerica(mensagem) {
@@ -907,7 +1051,7 @@ export function obterMensagemAmigavelErro(error, fallback = MENSAGENS_PADRAO.err
 
 const OPCOES_EXCLUSAO_LOGICA = {
   emitir403: false,
-  mensagem403: 'Você não tem permissão para excluir este registro.',
+    mensagem403: 'Você não tem permissão para excluir este registro.',
 }
 
 async function extrairMensagemResposta(response) {
@@ -1064,6 +1208,7 @@ export async function buscarEmpresaPublica(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1073,6 +1218,7 @@ export async function buscarServicosPublicos(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/servicos`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1082,6 +1228,7 @@ export async function buscarCatalogoPublico(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/catalogo/${slugNormalizado}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return normalizarRespostaCatalogoPublico(await tratarRespostaPublica(response))
@@ -1094,6 +1241,7 @@ export async function buscarCardapioPublico(slug) {
 export async function buscarSegmentosPublicos() {
   const response = await executarFetch(`${API_URL}/publico/segmentos`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1133,6 +1281,7 @@ export async function buscarConteudoInstitucionalPublico(tipo) {
   const tipoNormalizado = String(tipo || '').trim()
   const response = await executarFetch(`${API_URL}/publico/institucional/${tipoNormalizado}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1160,6 +1309,7 @@ export async function buscarFuncionariosPublicos(slug, filtros = {}) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/funcionarios${montarQueryString(filtros)}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1175,6 +1325,7 @@ export async function buscarDisponibilidadePublica(slug, servicoId, funcionarioI
 
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/disponibilidade?${params}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1185,6 +1336,7 @@ export async function buscarDisponibilidadeDataPublica(slug, data) {
   const params = new URLSearchParams({ data })
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/disponibilidade-data?${params}`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -1202,9 +1354,10 @@ export async function criarAgendamentoPublico(slug, dados) {
 }
 
 export async function buscarMinhaPersonalizacao() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const filtrosConsulta = anexarEmpresaIdOperacionalNaQuery({})
   const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -1214,7 +1367,7 @@ export async function uploadLogoEmpresa(imagem) {
   const formData = new FormData()
   formData.append('imagem', imagem)
 
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'POST',
     headers: montarHeaders(),
     body: formData,
@@ -1224,25 +1377,27 @@ export async function uploadLogoEmpresa(imagem) {
 }
 
 export async function buscarStatusUploadsEmpresa() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const filtrosConsulta = anexarEmpresaIdOperacionalNaQuery({})
   const response = await executarFetch(`${API_URL}/minha-empresa/uploads/status${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarRespostaOpcional(response)
 }
 
 export async function buscarResumoUploadsEmpresa() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+  const filtrosConsulta = anexarEmpresaIdOperacionalNaQuery({})
   const response = await executarFetch(`${API_URL}/minha-empresa/uploads/resumo${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarRespostaOpcional(response)
 }
 
 export async function removerLogoEmpresa() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/logo${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -1254,7 +1409,7 @@ export async function uploadBannerEmpresa(imagem) {
   const formData = new FormData()
   formData.append('imagem', imagem)
 
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'POST',
     headers: montarHeaders(),
     body: formData,
@@ -1264,7 +1419,7 @@ export async function uploadBannerEmpresa(imagem) {
 }
 
 export async function removerBannerEmpresa() {
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao/banner${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -1282,7 +1437,7 @@ export async function buscarIndisponibilidades(filtros = {}) {
 }
 
 export async function buscarIndisponibilidadePorId(id) {
-  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}${montarQueryEmpresaOperacional()}`, {
     headers: montarHeaders(),
   })
 
@@ -1293,7 +1448,7 @@ export async function criarIndisponibilidade(dados) {
   const response = await executarFetch(`${API_URL}/indisponibilidades`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(dados),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
   })
 
   return tratarResposta(response)
@@ -1303,14 +1458,14 @@ export async function atualizarIndisponibilidade(id, dados) {
   const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(dados),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
   })
 
   return tratarResposta(response)
 }
 
 export async function excluirIndisponibilidade(id) {
-  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}`, {
+  const response = await executarFetch(`${API_URL}/indisponibilidades/${id}${montarQueryEmpresaOperacional()}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -1331,14 +1486,14 @@ export async function vincularFuncionarioServico(dados) {
   const response = await executarFetch(`${API_URL}/funcionario-servicos`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(dados),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
   })
 
   return tratarResposta(response)
 }
 
 export async function excluirFuncionarioServico(id) {
-  const response = await executarFetch(`${API_URL}/funcionario-servicos/${id}`, {
+  const response = await executarFetch(`${API_URL}/funcionario-servicos/${id}${montarQueryEmpresaOperacional()}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })
@@ -1347,13 +1502,14 @@ export async function excluirFuncionarioServico(id) {
 }
 
 export async function buscarFuncionariosVinculadosAoServico(servicoId) {
-  const urlPrincipal = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
+  const queryEmpresa = montarQueryEmpresaOperacional()
+  const urlPrincipal = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados${queryEmpresa}`
   const response = await executarFetch(urlPrincipal, {
     headers: montarHeaders(),
   })
 
   if (response.status === 404) {
-    const urlFallback = `${API_URL}/servicos/${servicoId}/funcionarios`
+    const urlFallback = `${API_URL}/servicos/${servicoId}/funcionarios${queryEmpresa}`
     const fallback = await executarFetch(urlFallback, {
       headers: montarHeaders(),
     })
@@ -1373,8 +1529,8 @@ export async function buscarFuncionariosVinculadosAoServico(servicoId) {
 }
 
 export async function salvarFuncionariosVinculadosAoServico(servicoId, funcionarioIds) {
-  const url = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados`
-  const payload = { funcionarioIds }
+  const url = `${API_URL}/servicos/${servicoId}/funcionarios-vinculados${montarQueryEmpresaOperacional()}`
+  const payload = aplicarEmpresaSelecionadaNoPayload({ funcionarioIds })
   const response = await executarFetch(url, {
     method: 'PUT',
     headers: montarHeaders(true),
@@ -1641,17 +1797,11 @@ function versaoEhMenorQue(versaoA, versaoB) {
 }
 
 function mesclarInfoVersaoSistema(respostaApi) {
-  const padrao = obterInfoVersaoSistemaPadrao()
   const origem = normalizarObjetoVersaoSistema(respostaApi)
-  const hostname = obterHostnameAtual()
-  const ambienteResposta = normalizarAmbienteAplicacao(
-    obterCampoVersaoSistema(origem, 'ambiente', 'environment', 'perfil', 'stage') || padrao.ambiente,
-  )
-  const ambienteApi =
-    !hostnameEhLocal(hostname) && ['dev', 'local'].includes(ambienteResposta)
-      ? resolverAmbienteSeguroPorHostname(hostname) || padrao.ambiente
-      : ambienteResposta
   const versaoApi = String(obterCampoVersaoSistema(origem, 'versao', 'version', 'appVersion') || '').trim()
+  const ambienteApi = normalizarAmbienteAplicacao(
+    obterCampoVersaoSistema(origem, 'ambiente', 'environment', 'perfil', 'stage') || '',
+  )
   const novidadesApi = normalizarNovidadesVersaoSistema(
     origem.novidades ??
       origem.changelog ??
@@ -1660,61 +1810,46 @@ function mesclarInfoVersaoSistema(respostaApi) {
       origem.alteracoes ??
       origem.changes,
   )
-  let versaoFinal = versaoApi || padrao.versao
-
-  if (ambienteApi === 'homologacao') {
-    const versaoMinimaHomologacao = resolverVersaoSeguraPorHostname(hostname) || VERSAO_HML_MINIMA
-    if (versaoEhMenorQue(versaoFinal, versaoMinimaHomologacao)) {
-      versaoFinal = versaoMinimaHomologacao
-    }
-    versaoFinal = garantirSufixoVersaoHomologacao(versaoFinal, versaoMinimaHomologacao)
-  } else if (ambienteApi === 'production') {
-    versaoFinal = versaoFinal || resolverVersaoSeguraPorHostname(hostname) || VERSAO_PRODUCAO_PADRAO
-  }
 
   return {
-    nome: padrao.nome,
-    versao: versaoFinal,
+    nome: APP_NAME,
+    versao: versaoApi,
     ambiente: ambienteApi,
-    dataPublicacao:
-      obterCampoVersaoSistema(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt') ||
-      padrao.dataPublicacao,
-    novidades: novidadesApi.length ? novidadesApi : padrao.novidades,
+    dataPublicacao: String(
+      obterCampoVersaoSistema(origem, 'dataPublicacao', 'publicadoEm', 'releaseDate', 'publishedAt') || '',
+    ).trim(),
+    novidades: novidadesApi,
   }
 }
 
 export async function buscarVersaoSistema() {
-  try {
-    const respostaApi = await tentarRotas(
-      [
-        {
-          url: `${API_URL}/publico/versao`,
-          init: {
-            headers: montarHeadersPublicos(),
-          },
-        },
-        {
-          url: `${API_URL}/versao`,
-          init: {
-            headers: montarHeaders(),
-          },
-        },
-      ],
+  const respostaApi = await tentarRotas(
+    [
       {
-        headers: montarHeadersPublicos(),
+        url: `${API_URL}/publico/versao`,
+        init: {
+          headers: montarHeadersPublicos(),
+        },
       },
       {
-        encerrarSessao401: false,
-        emitir403: false,
-        mensagem401: MENSAGENS_PADRAO.erroCarregarDados,
-        mensagem403: MENSAGENS_PADRAO.erroCarregarDados,
+        url: `${API_URL}/versao`,
+        init: {
+          headers: montarHeaders(),
+        },
       },
-    )
+    ],
+    {
+      headers: montarHeadersPublicos(),
+    },
+    {
+      encerrarSessao401: false,
+      emitir403: false,
+      mensagem401: MENSAGENS_PADRAO.erroCarregarDados,
+      mensagem403: MENSAGENS_PADRAO.erroCarregarDados,
+    },
+  )
 
-    return mesclarInfoVersaoSistema(respostaApi)
-  } catch (error) {
-    return obterInfoVersaoSistemaPadrao()
-  }
+  return mesclarInfoVersaoSistema(respostaApi)
 }
 
 export function mensagemIndicaBloqueioPlanoEstoque(mensagem) {
@@ -1758,10 +1893,10 @@ export async function salvarMinhaPersonalizacao(dados) {
     bannerUrl: normalizarUrlImagemPublica(dados?.bannerUrl),
   }
 
-  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/personalizacao${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(payload),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload)),
   })
 
   return tratarResposta(response)
@@ -1771,6 +1906,7 @@ export async function buscarPersonalizacaoPublica(slug) {
   const slugNormalizado = normalizarSlugPublico(slug)
   const response = await executarFetch(`${API_URL}/publico/empresas/${slugNormalizado}/personalizacao`, {
     headers: montarHeadersPublicos(),
+    cache: 'no-store',
   })
 
   return tratarRespostaPublica(response)
@@ -2118,6 +2254,7 @@ export async function buscarStatusFinanceiroMinhaEmpresa() {
   const filtrosConsulta = aplicarEmpresaVisualizacao({})
   const response = await executarFetch(`${API_URL}/minha-empresa/status-financeiro${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -2347,6 +2484,10 @@ export async function buscarRelatorioClientesRecorrentes(filtros = {}) {
 
 export async function buscarRelatorioStatus(filtros = {}) {
   return buscarRelatorio('/relatorios/status', filtros)
+}
+
+export async function buscarRelatorioFrequenciaGestaoEsportiva(filtros = {}) {
+  return buscarRelatorio('/relatorios/frequencia', filtros)
 }
 
 export async function buscarRelatorioAgendamentos(filtros = {}) {
@@ -2918,11 +3059,11 @@ export async function atualizarQuantidadeRapidaProduto(produtoId, quantidadeAtua
   const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/quantidade-rapida`, {
     method: 'PATCH',
     headers: montarHeaders(true),
-    body: JSON.stringify({
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({
       quantidadeAtual,
       quantidade: quantidadeAtual,
       saldoAtual: quantidadeAtual,
-    }),
+    })),
   })
 
   return normalizarProdutoEstoqueResposta(
@@ -2941,7 +3082,7 @@ export async function configurarEstoqueDiaProduto(produtoId, payload) {
   const response = await executarFetch(`${API_URL}/estoque/produtos/${produtoId}/estoque-dia`, {
     method: 'PATCH',
     headers: montarHeaders(true),
-    body: JSON.stringify(payload || {}),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload || {})),
   })
 
   return normalizarProdutoEstoqueResposta(
@@ -2960,7 +3101,7 @@ export async function reiniciarEstoqueDia(payload) {
   const response = await executarFetch(`${API_URL}/estoque/estoque-dia/reiniciar`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(payload || {}),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload || {})),
   })
 
   return normalizarRespostaProdutosEstoque(
@@ -2976,11 +3117,12 @@ export async function reiniciarEstoqueDia(payload) {
 }
 
 export async function buscarProdutoEstoque(id) {
+  const queryEmpresa = montarQueryEmpresaOperacional()
   return normalizarProdutoEstoqueResposta(
     await tentarRotas(
     [
-      `${API_URL}/estoque/produtos/${id}`,
-      `${API_URL}/produtos/${id}`,
+      `${API_URL}/estoque/produtos/${id}${queryEmpresa}`,
+      `${API_URL}/produtos/${id}${queryEmpresa}`,
     ],
     {
       headers: montarHeaders(),
@@ -2999,7 +3141,7 @@ export async function criarProdutoEstoque(dados) {
     {
       method: 'POST',
       headers: montarHeaders(true),
-      body: JSON.stringify(dados),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
     },
   )
   )
@@ -3015,7 +3157,7 @@ export async function atualizarProdutoEstoque(id, dados) {
     {
       method: 'PUT',
       headers: montarHeaders(true),
-      body: JSON.stringify(dados),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
     },
   )
   )
@@ -3024,12 +3166,13 @@ export async function atualizarProdutoEstoque(id, dados) {
 export async function ativarProdutoEstoque(id) {
   return tentarRotas(
     [
-      `${API_URL}/estoque/produtos/${id}/ativar`,
-      `${API_URL}/produtos/${id}/ativar`,
+      `${API_URL}/estoque/produtos/${id}/ativar${montarQueryEmpresaOperacional()}`,
+      `${API_URL}/produtos/${id}/ativar${montarQueryEmpresaOperacional()}`,
     ],
     {
       method: 'PATCH',
-      headers: montarHeaders(),
+      headers: montarHeaders(true),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({})),
     },
   )
 }
@@ -3037,12 +3180,13 @@ export async function ativarProdutoEstoque(id) {
 export async function desativarProdutoEstoque(id) {
   return tentarRotas(
     [
-      `${API_URL}/estoque/produtos/${id}/desativar`,
-      `${API_URL}/produtos/${id}/desativar`,
+      `${API_URL}/estoque/produtos/${id}/desativar${montarQueryEmpresaOperacional()}`,
+      `${API_URL}/produtos/${id}/desativar${montarQueryEmpresaOperacional()}`,
     ],
     {
       method: 'PATCH',
-      headers: montarHeaders(),
+      headers: montarHeaders(true),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({})),
     },
   )
 }
@@ -3072,7 +3216,7 @@ export async function criarMovimentacaoEstoque(dados) {
     {
       method: 'POST',
       headers: montarHeaders(true),
-      body: JSON.stringify(dados),
+      body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(dados)),
     },
   )
 }
@@ -3160,19 +3304,21 @@ export async function criarEmpresaCadastroGuiadoAdmin(payload) {
   return tratarResposta(response)
 }
 
-export async function buscarMinhaAssinatura() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+export async function buscarMinhaAssinatura(empresaId = '') {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(empresaId ? { empresaId } : {})
   const response = await executarFetch(`${API_URL}/minha-empresa/assinatura${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
 }
 
-export async function buscarUsoPlano() {
-  const filtrosConsulta = aplicarEmpresaVisualizacao({})
+export async function buscarUsoPlano(empresaId = '') {
+  const filtrosConsulta = aplicarEmpresaVisualizacao(empresaId ? { empresaId } : {})
   const response = await executarFetch(`${API_URL}/minha-empresa/uso-plano${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -3182,16 +3328,17 @@ export async function buscarMinhasConfiguracoesNotificacoes() {
   const filtrosConsulta = aplicarEmpresaVisualizacao({})
   const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
 }
 
 export async function salvarMinhasConfiguracoesNotificacoes(payload) {
-  const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa/notificacoes/configuracoes${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(payload),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload)),
   })
 
   return tratarResposta(response)
@@ -3478,6 +3625,10 @@ export async function restaurarAgendamento(id) {
 }
 
 export async function buscarNotificacoes(filtros = {}) {
+  if (!podeConsultarNotificacoesAutenticadas()) {
+    return []
+  }
+
   const filtrosConsulta = aplicarEmpresaVisualizacao(filtros)
   const response = await executarFetch(`${API_URL}/notificacoes${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
@@ -3487,6 +3638,10 @@ export async function buscarNotificacoes(filtros = {}) {
 }
 
 export async function buscarResumoNotificacoes() {
+  if (!podeConsultarNotificacoesAutenticadas()) {
+    return {}
+  }
+
   const filtrosConsulta = aplicarEmpresaVisualizacao({})
   const response = await executarFetch(`${API_URL}/notificacoes/resumo${montarQueryString(filtrosConsulta)}`, {
     headers: montarHeaders(),
@@ -3496,7 +3651,7 @@ export async function buscarResumoNotificacoes() {
 }
 
 export async function marcarNotificacaoComoLida(id) {
-  const response = await executarFetch(`${API_URL}/notificacoes/${id}/lida`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/lida${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3514,7 +3669,7 @@ export async function marcarNotificacaoComoLidaAdmin(id) {
 }
 
 export async function marcarTodasNotificacoesComoLidas() {
-  const response = await executarFetch(`${API_URL}/notificacoes/marcar-todas-lidas`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/marcar-todas-lidas${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3523,7 +3678,7 @@ export async function marcarTodasNotificacoesComoLidas() {
 }
 
 export async function arquivarNotificacao(id) {
-  const response = await executarFetch(`${API_URL}/notificacoes/${id}/arquivar`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/arquivar${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3532,7 +3687,7 @@ export async function arquivarNotificacao(id) {
 }
 
 export async function desarquivarNotificacao(id) {
-  const response = await executarFetch(`${API_URL}/notificacoes/${id}/desarquivar`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/desarquivar${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3541,7 +3696,7 @@ export async function desarquivarNotificacao(id) {
 }
 
 export async function excluirNotificacao(id) {
-  const response = await executarFetch(`${API_URL}/notificacoes/${id}/excluir`, {
+  const response = await executarFetch(`${API_URL}/notificacoes/${id}/excluir${montarQueryEmpresaOperacional()}`, {
     method: 'PATCH',
     headers: montarHeaders(),
   })
@@ -3835,15 +3990,15 @@ export async function buscarEmpresas(filtros = {}) {
 
 export async function buscarMinhaEmpresa() {
   const empresaVisualizacao = obterEmpresaVisualizacao()
+  const usuario = carregarUsuarioSessao()
 
-  const perfil = normalizarTextoBusca(carregarUsuarioSessao()?.perfil).replace(/^role_/, '')
-
-  if (empresaVisualizacao?.id && perfil === 'super_admin') {
+  if (empresaVisualizacao?.id && usuarioEhSuperAdmin(usuario)) {
     return buscarEmpresaPorId(empresaVisualizacao.id)
   }
 
   const response = await executarFetch(`${API_URL}/minha-empresa`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
@@ -3852,16 +4007,17 @@ export async function buscarMinhaEmpresa() {
 export async function buscarEmpresaPorId(id) {
   const response = await executarFetch(`${API_URL}/empresas/${id}`, {
     headers: montarHeaders(),
+    cache: 'no-store',
   })
 
   return tratarResposta(response)
 }
 
 export async function atualizarMinhaEmpresa(empresa) {
-  const response = await executarFetch(`${API_URL}/minha-empresa`, {
+  const response = await executarFetch(`${API_URL}/minha-empresa${montarQueryString(anexarEmpresaIdOperacionalNaQuery())}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(empresa),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(empresa)),
   })
 
   return tratarResposta(response)
@@ -3958,7 +4114,7 @@ export async function cadastrarCliente(cliente) {
   const response = await executarFetch(`${API_URL}/clientes`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(cliente),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(cliente)),
   })
 
   return tratarResposta(response)
@@ -3968,7 +4124,7 @@ export async function atualizarCliente(id, cliente) {
   const response = await executarFetch(`${API_URL}/clientes/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(cliente),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(cliente)),
   })
 
   return tratarResposta(response)
@@ -3983,11 +4139,625 @@ export async function excluirCliente(id, motivo = '') {
   return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
 }
 
+export async function buscarTurmasBeachTennis(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas${montarQueryEmpresaOperacional(filtros)}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function buscarContextoGestaoEsportiva() {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/contexto${montarQueryEmpresaOperacional()}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarRespostaCustomizada(response, {
+    emitir403: false,
+  })
+}
+
+export async function buscarTurmaBeachTennis(id) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas/${id}${montarQueryEmpresaOperacional()}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarTurmaBeachTennisOuLista(id, filtros = {}) {
+  const turmaId = String(id || '').trim()
+
+  if (!turmaId) {
+    return null
+  }
+
+  try {
+    const detalhe = await buscarTurmaBeachTennis(turmaId)
+    if (detalhe) {
+      return detalhe
+    }
+  } catch (error) {
+    if (error?.status !== 404) {
+      throw error
+    }
+  }
+
+  const turmas = await buscarTurmasBeachTennis(filtros)
+  return Array.isArray(turmas)
+    ? turmas.find((item) => String(item?.id || '') === turmaId) || null
+    : null
+}
+
+export async function criarTurmaBeachTennis(turma) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(turma)),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarTurmaBeachTennis(id, turma) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas/${id}${montarQueryEmpresaOperacional()}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(turma)),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function excluirTurmaBeachTennis(id, motivo = '') {
+  const response = await executarFetch(
+    `${API_URL}/beach-tennis/turmas/${id}${montarQueryEmpresaOperacional({ motivo })}`,
+    {
+      method: 'DELETE',
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response, OPCOES_EXCLUSAO_LOGICA)
+}
+
+export async function buscarAlunosTurmaBeachTennis(turmaId) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/turmas/${turmaId}/alunos${montarQueryEmpresaOperacional()}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function buscarAulasGestaoEsportiva(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas${montarQueryEmpresaOperacional(filtros)}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarAulaGestaoEsportiva(aulaId) {
+  const id = String(aulaId || '').trim()
+
+  if (!id) {
+    return null
+  }
+
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/${id}${montarQueryEmpresaOperacional()}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function listarReposicoesGestaoEsportiva(filtros = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/reposicoes${montarQueryEmpresaOperacional(filtros)}`, {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarReposicaoGestaoEsportiva(id) {
+  const reposicaoId = String(id || '').trim()
+
+  if (!reposicaoId) {
+    return null
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/reposicoes/${reposicaoId}${montarQueryEmpresaOperacional()}`,
+    {
+      headers: montarHeaders(),
+      cache: 'no-store',
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function listarDisponiveisPorAlunoReposicaoGestaoEsportiva(alunoId, filtros = {}) {
+  const id = String(alunoId || '').trim()
+
+  if (!id) {
+    return []
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/reposicoes/aluno/${id}/disponiveis${montarQueryEmpresaOperacional(filtros)}`,
+    {
+      headers: montarHeaders(),
+      cache: 'no-store',
+    },
+  )
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function gerarPreviaAgendamentoReposicaoGestaoEsportiva(direitoId, payload = {}) {
+  const reposicaoId = String(direitoId || '').trim()
+
+  if (!reposicaoId) {
+    return null
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/reposicoes/${reposicaoId}/agendamento/previa${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'POST',
+      headers: montarHeaders(true),
+      body: JSON.stringify(payload || {}),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function agendarReposicaoGestaoEsportiva(direitoId, payload = {}) {
+  const reposicaoId = String(direitoId || '').trim()
+
+  if (!reposicaoId) {
+    return null
+  }
+
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/reposicoes/${reposicaoId}/agendar${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cancelarAgendamentoReposicaoGestaoEsportiva(direitoId, payload = {}) {
+  const reposicaoId = String(direitoId || '').trim()
+
+  if (!reposicaoId) {
+    return null
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/reposicoes/${reposicaoId}/cancelar-agendamento${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'POST',
+      headers: montarHeaders(true),
+      body: JSON.stringify(payload || {}),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function criarAjusteManualReposicaoGestaoEsportiva(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/reposicoes/ajuste-manual${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cancelarAulaGestaoEsportiva(aulaId, motivo = '') {
+  const id = String(aulaId || '').trim()
+
+  if (!id) {
+    return null
+  }
+
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/${id}/cancelar${montarQueryEmpresaOperacional()}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify({
+      motivo: String(motivo || '').trim(),
+    }),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function reverterCancelamentoAulaGestaoEsportiva(aulaId) {
+  const id = String(aulaId || '').trim()
+
+  if (!id) {
+    return null
+  }
+
+  const response = await executarFetch(
+    `${API_URL}/gestao-esportiva/aulas/${id}/reverter-cancelamento${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'PUT',
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function gerarAulasGestaoEsportiva(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/gerar${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarFrequenciasAulaGestaoEsportiva(aulaId, frequencias = []) {
+  const id = String(aulaId || '').trim()
+
+  if (!id) {
+    return null
+  }
+
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/${id}/frequencias${montarQueryEmpresaOperacional()}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(frequencias),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarPreviaCancelamentoAulasGestaoEsportiva(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/previa${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cancelarAulasGestaoEsportivaEmLote(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/lote${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarPreviaReversaoAulasGestaoEsportiva(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/reversao/previa${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function reverterAulasGestaoEsportivaEmLote(payload = {}) {
+  const response = await executarFetch(`${API_URL}/gestao-esportiva/aulas/cancelamentos/reversao/lote${montarQueryEmpresaOperacional()}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarClientesDisponiveisBeachTennis(filtros = {}) {
+  const possuiFiltroAtivo = Object.prototype.hasOwnProperty.call(filtros, 'ativo')
+
+  return buscarClientes({
+    ...filtros,
+    ativo: possuiFiltroAtivo ? filtros.ativo : true,
+  })
+}
+
+export async function salvarAlunosTurmaBeachTennis(turmaId, alunoIds) {
+  const payload = aplicarEmpresaSelecionadaNoPayload({ alunoIds })
+  const response = await executarFetch(
+    `${API_URL}/beach-tennis/turmas/${turmaId}/alunos${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'PUT',
+      headers: montarHeaders(true),
+      body: JSON.stringify(payload),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function salvarClientesTurmaBeachTennis(turmaId, clienteIds) {
+  const ids = (Array.isArray(clienteIds) ? clienteIds : [clienteIds])
+    .map((id) => Number.parseInt(String(id).trim(), 10))
+    .filter((id) => Number.isFinite(id))
+
+  const response = await executarFetch(
+    `${API_URL}/beach-tennis/turmas/${turmaId}/alunos${montarQueryEmpresaOperacional()}`,
+    {
+      method: 'PUT',
+      headers: montarHeaders(true),
+      body: JSON.stringify({ clienteIds: ids }),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+function montarUrlBeachTennisAcordos(caminho = '', filtros = {}) {
+  return `${API_URL}/beach-tennis/acordos${caminho}${montarQueryEmpresaOperacional(filtros)}`
+}
+
+function montarUrlBeachTennisMensalidades(caminho = '', filtros = {}) {
+  return `${API_URL}/beach-tennis/mensalidades${caminho}${montarQueryEmpresaOperacional(filtros)}`
+}
+
+function montarUrlBeachTennisConfiguracao(caminho = '', filtros = {}) {
+  return `${API_URL}/beach-tennis/configuracao${caminho}${montarQueryEmpresaOperacional(filtros)}`
+}
+
+function montarUrlBeachTennisResumo(filtros = {}) {
+  return `${API_URL}/beach-tennis/financeiro/resumo${montarQueryEmpresaOperacional(filtros)}`
+}
+
+function normalizarDataHoraBeachTennis(valor) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) {
+    return ''
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(texto)) {
+    return texto
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    return `${texto}T00:00:00`
+  }
+
+  return texto
+}
+
+async function executarRecursoBeachTennis(url, { method = 'GET', payload, opcional = false } = {}) {
+  const response = await executarFetch(url, {
+    method,
+    headers: montarHeaders(payload !== undefined),
+    body: payload === undefined ? undefined : JSON.stringify(aplicarEmpresaSelecionadaNoPayload(payload)),
+  })
+
+  return opcional ? tratarRespostaOpcional(response) : tratarResposta(response)
+}
+
+export async function buscarAcordosBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos('', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarAcordoBeachTennis(id) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${id}`))
+}
+
+export async function buscarAcordoBeachTennisDetalhe(id) {
+  return buscarAcordoBeachTennis(id)
+}
+
+export async function buscarAcordosPaginadosBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos('/paginados', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesAlunosAcordoBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos('/opcoes/alunos', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesTurmasAcordoBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos('/opcoes/turmas', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarAcordoBeachTennis(acordo) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(), {
+    method: 'POST',
+    payload: acordo,
+  })
+}
+
+export async function atualizarAcordoBeachTennis(id, acordo) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${id}`), {
+    method: 'PUT',
+    payload: acordo,
+  })
+}
+
+export async function buscarAlunosAcordoBeachTennis(acordoId) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos(`/${acordoId}/alunos`), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function salvarAlunosAcordoBeachTennis(acordoId, alunoIds) {
+  const clienteIds = (Array.isArray(alunoIds) ? alunoIds : [alunoIds])
+    .map((id) => Number.parseInt(String(id).trim(), 10))
+    .filter((id) => Number.isFinite(id))
+
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${acordoId}/alunos`), {
+    method: 'PUT',
+    payload: { clienteIds },
+  })
+}
+
+export async function buscarTurmasAcordoBeachTennis(acordoId) {
+  const response = await executarFetch(montarUrlBeachTennisAcordos(`/${acordoId}/turmas`), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return normalizarColecaoResposta(dados)
+}
+
+export async function salvarTurmasAcordoBeachTennis(acordoId, turmaIds) {
+  const ids = (Array.isArray(turmaIds) ? turmaIds : [turmaIds])
+    .map((id) => Number.parseInt(String(id).trim(), 10))
+    .filter((id) => Number.isFinite(id))
+
+  return executarRecursoBeachTennis(montarUrlBeachTennisAcordos(`/${acordoId}/turmas`), {
+    method: 'PUT',
+    payload: { turmaIds: ids },
+  })
+}
+
+export async function buscarMensalidadesBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisMensalidades('', filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  const dados = await tratarResposta(response)
+  return solicitouPaginacao(filtros) ? dados : normalizarColecaoResposta(dados)
+}
+
+export async function buscarMensalidadeBeachTennis(id) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisMensalidades(`/${id}`))
+}
+
+export async function criarMensalidadeBeachTennis(mensalidade) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisMensalidades(), {
+    method: 'POST',
+    payload: mensalidade,
+  })
+}
+
+export async function gerarMensalidadesBeachTennis(dados = {}) {
+  const filtros = {
+    competencia: dados?.competencia,
+    acordoId: dados?.acordoId,
+  }
+
+  const response = await executarFetch(montarUrlBeachTennisMensalidades('/gerar', filtros), {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarMensalidadePagaBeachTennis(id, dados = {}) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisMensalidades(`/${id}/pagar`), {
+    method: 'PATCH',
+    payload: {
+      ...dados,
+      dataPagamento: normalizarDataHoraBeachTennis(dados?.dataPagamento),
+      observacoes: dados?.observacoes ?? dados?.observacao,
+    },
+  })
+}
+
+export async function cancelarMensalidadeBeachTennis(id, motivo = '') {
+  const response = await executarFetch(
+    `${API_URL}/beach-tennis/mensalidades/${id}/cancelar${montarQueryEmpresaOperacional({ observacoes: motivo })}`,
+    {
+      method: 'PATCH',
+      headers: montarHeaders(),
+    },
+  )
+
+  return tratarResposta(response)
+}
+
+export async function reabrirMensalidadeBeachTennis(id) {
+  const response = await executarFetch(`${API_URL}/beach-tennis/mensalidades/${id}/reabrir${montarQueryEmpresaOperacional()}`, {
+    method: 'PATCH',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function cobrarMensalidadeWhatsappBeachTennis(id) {
+  const response = await executarFetch(montarUrlBeachTennisMensalidades(`/${id}/mensagem-whatsapp`), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarConfiguracaoBeachTennisFinanceira() {
+  return executarRecursoBeachTennis(montarUrlBeachTennisConfiguracao())
+}
+
+export async function salvarConfiguracaoBeachTennisFinanceira(payload) {
+  return executarRecursoBeachTennis(montarUrlBeachTennisConfiguracao(), {
+    method: 'PUT',
+    payload,
+  })
+}
+
+export async function buscarResumoFinanceiroBeachTennis(filtros = {}) {
+  const response = await executarFetch(montarUrlBeachTennisResumo(filtros), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
 export async function cadastrarServico(servico) {
   const response = await executarFetch(`${API_URL}/servicos`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(servico),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(servico)),
   })
 
   return tratarResposta(response)
@@ -3997,7 +4767,7 @@ export async function atualizarServico(id, servico) {
   const response = await executarFetch(`${API_URL}/servicos/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(servico),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(servico)),
   })
 
   return tratarResposta(response)
@@ -4026,7 +4796,7 @@ export async function cadastrarFuncionario(funcionario) {
   const response = await executarFetch(`${API_URL}/funcionarios`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(funcionario),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(funcionario)),
   })
 
   return tratarResposta(response)
@@ -4036,7 +4806,7 @@ export async function atualizarFuncionario(id, funcionario) {
   const response = await executarFetch(`${API_URL}/funcionarios/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(funcionario),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(funcionario)),
   })
 
   return tratarResposta(response)
@@ -4064,8 +4834,8 @@ export async function atualizarAtivoFuncionario(id, ativo) {
 export async function excluirProdutoEstoque(id, motivo = '') {
   return tentarRotas(
     [
-      `${API_URL}/estoque/produtos/${id}${montarQueryString({ motivo })}`,
-      `${API_URL}/produtos/${id}${montarQueryString({ motivo })}`,
+      `${API_URL}/estoque/produtos/${id}${montarQueryEmpresaOperacional({ motivo })}`,
+      `${API_URL}/produtos/${id}${montarQueryEmpresaOperacional({ motivo })}`,
     ],
     {
       method: 'DELETE',
@@ -4101,7 +4871,7 @@ export async function cadastrarAgendamento(agendamento) {
   const response = await executarFetch(`${API_URL}/agendamentos`, {
     method: 'POST',
     headers: montarHeaders(true),
-    body: JSON.stringify(agendamento),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(agendamento)),
   })
 
   return tratarResposta(response)
@@ -4111,24 +4881,24 @@ export async function atualizarAgendamento(id, agendamento) {
   const response = await executarFetch(`${API_URL}/agendamentos/${id}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify(agendamento),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload(agendamento)),
   })
 
   return tratarResposta(response)
 }
 
 export async function atualizarStatusAgendamento(id, status) {
-  const response = await executarFetch(`${API_URL}/agendamentos/${id}/status`, {
+  const response = await executarFetch(`${API_URL}/agendamentos/${id}/status${montarQueryEmpresaOperacional()}`, {
     method: 'PUT',
     headers: montarHeaders(true),
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(aplicarEmpresaSelecionadaNoPayload({ status })),
   })
 
   return tratarResposta(response)
 }
 
 export async function excluirAgendamento(id, motivo = '') {
-  const response = await executarFetch(`${API_URL}/agendamentos/${id}${montarQueryString({ motivo })}`, {
+  const response = await executarFetch(`${API_URL}/agendamentos/${id}${montarQueryEmpresaOperacional({ motivo })}`, {
     method: 'DELETE',
     headers: montarHeaders(),
   })

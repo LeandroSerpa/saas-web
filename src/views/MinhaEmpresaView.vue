@@ -38,7 +38,7 @@ const errosCampos = reactive({
 const route = useRoute()
 const router = useRouter()
 const diasAtendimento = [
-  { campo: 'atendeDominao', rotulo: 'Domingo' },
+  { campo: 'atendeDomingo', rotulo: 'Domingo' },
   { campo: 'atendeSegunda', rotulo: 'Segunda' },
   { campo: 'atendeTerca', rotulo: 'Terça' },
   { campo: 'atendeQuarta', rotulo: 'Quarta' },
@@ -64,7 +64,7 @@ function criarEmpresaInicial() {
     horaAbertura: '',
     horaFechamento: '',
     intervaloAgendaMinutos: 30,
-    atendeDominao: false,
+    atendeDomingo: false,
     atendeSegunda: true,
     atendeTerca: true,
     atendeQuarta: true,
@@ -103,7 +103,7 @@ async function carregarMinhaEmpresa() {
       horaAbertura: empresaApi.horaAbertura || '',
       horaFechamento: empresaApi.horaFechamento || '',
       intervaloAgendaMinutos: normalizarIntervaloAgenda(empresaApi.intervaloAgendaMinutos),
-      atendeDominao: Boolean(empresaApi.atendeDominao),
+      atendeDomingo: Boolean(empresaApi.atendeDomingo),
       atendeSegunda: empresaApi.atendeSegunda !== false,
       atendeTerca: empresaApi.atendeTerca !== false,
       atendeQuarta: empresaApi.atendeQuarta !== false,
@@ -177,7 +177,7 @@ function validarIntervaloAgenda() {
 
 async function salvarEmpresa() {
   if (modoVisualizacaoEmpresa.value) {
-    erro.value = 'Modo visualização ativo. Alterações estão bloqueadas.'
+    erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
     return
   }
 
@@ -207,7 +207,7 @@ async function salvarEmpresa() {
       horaAbertura: empresa.value.horaAbertura,
       horaFechamento: empresa.value.horaFechamento,
       intervaloAgendaMinutos,
-      atendeDominao: Boolean(empresa.value.atendeDominao),
+      atendeDomingo: Boolean(empresa.value.atendeDomingo),
       atendeSegunda: Boolean(empresa.value.atendeSegunda),
       atendeTerca: Boolean(empresa.value.atendeTerca),
       atendeQuarta: Boolean(empresa.value.atendeQuarta),
@@ -340,7 +340,7 @@ onBeforeUnmount(() => {
     <section v-if="carregando" class="card"><p>Carregando empresa...</p></section>
 
     <section v-if="!carregando && modoVisualizacaoEmpresa" class="card aviso-visualizacao">
-      <p>Modo visualização: somente consulta. Alterações estão bloqueadas.</p>
+      <p>Selecione uma empresa no seletor superior para operar esta tela.</p>
     </section>
 
     <section v-if="!carregando" class="card formulario" :class="{ 'somente-leitura': modoVisualizacaoEmpresa }">

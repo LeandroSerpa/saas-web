@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
+import { RouterLink } from 'vue-router'
 import {
   alterarSenhaMinhaConta,
   atualizarMinhaConta,
@@ -9,6 +9,7 @@ import {
   obterMensagemAmigavelErro,
   salvarSessaoAutenticacao,
 } from '@/services/api'
+import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 import { emailBasicoValido, validarLoginCurto } from '@/utils/validacoes'
 
 const carregando = ref(true)
@@ -18,6 +19,7 @@ const erroDados = ref('')
 const erroSenha = ref('')
 const sucessoDados = ref('')
 const sucessoSenha = ref('')
+const versaoPublica = obterVersaoFrontendComPrefixo()
 const dadosConta = ref({
   nome: '',
   email: '',
@@ -341,7 +343,18 @@ function normalizarMensagem(valor) {
         </div>
       </form>
 
-      <SystemVersionPanel titulo="Versão e novidades" discreto />
+      <section class="card versao-publica">
+        <div class="titulo-card">
+          <h2>Versão do sistema</h2>
+          <p>Consulte a versão atual e o histórico de atualizações na Ajuda.</p>
+        </div>
+
+        <p class="versao-destaque">Versão {{ versaoPublica }}</p>
+
+        <RouterLink class="link-versao-ajuda" to="/ajuda#versao-novidades">
+          Ver novidades e histórico
+        </RouterLink>
+      </section>
     </template>
   </main>
 </template>
@@ -475,6 +488,30 @@ input:focus {
 
 .principal:hover {
   background: #1d4ed8;
+}
+
+.versao-publica {
+  display: grid;
+  gap: 12px;
+}
+
+.versao-destaque {
+  margin: 0;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.link-versao-ajuda {
+  width: fit-content;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.link-versao-ajuda:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 900px) {

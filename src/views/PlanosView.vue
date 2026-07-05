@@ -14,6 +14,14 @@ const tiposPlano = [
   { valor: 'PARCERIA', rotulo: 'Parceria / Permuta' },
   { valor: 'INTERNO', rotulo: 'Interno / Cortesia' },
 ]
+const CAMPOS_LIMITES = [
+  ['limiteUsuarios', 'limiteUsuarios'],
+  ['limiteClientes', 'limiteClientes'],
+  ['limiteFuncionarios', 'limiteFuncionarios'],
+  ['limiteServicos', 'limiteServicos'],
+  ['limiteProdutos', 'limiteProdutos'],
+  ['limiteAgendamentosMes', 'limiteAgendamentos'],
+]
 const planos = ref([])
 const carregando = ref(true)
 const salvando = ref(false)
@@ -27,11 +35,15 @@ const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 const paginaAtualHumana = computed(() => paginacao.value.page + 1)
 const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
 const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
+const quantidadePlanosDestaque = computed(() => planos.value.filter((planoItem) => ehDestaque(planoItem)).length)
+const avisoMultiplosDestaques = computed(() =>
+  quantidadePlanosDestaque.value > 1
+    ? 'Há mais de um plano marcado como destaque. Isso é permitido, mas vale revisar a apresentação comercial.'
+    : '',
+)
 
 const planosOrdenados = computed(() =>
-  [...planos.value].sort((planoA, planoB) =>
-    String(planoA.nome || '').localeCompare(String(planoB.nome || ''), 'pt-BR'),
-  ),
+  [...planos.value].sort(compararPlanosAdmin),
 )
 
 function criarPlanoInicial() {
@@ -42,7 +54,13 @@ function criarPlanoInicial() {
     precoMensal: '',
     ativo: true,
     visivelParaEmpresa: true,
-    exibirNoCadastroPublico: true,
+    exibirCadastroPublico: true,
+    ordemExibicao: '',
+    destaque: false,
+    selo: '',
+    publicoAlvo: '',
+    resumoComercial: '',
+    textoBotao: '',
     observacaoInterna: '',
     limiteUsuarios: '',
     limiteClientes: '',
@@ -110,6 +128,11 @@ async function salvarPlano() {
       return
     }
 
+    if (!validarOrdemExibicao(plano.value.ordemExibicao)) {
+      erro.value = 'Informe uma ordem de exibição inteira ou deixe o campo em branco.'
+      return
+    }
+
     salvando.value = true
     const dados = montarPayloadPlano()
 
@@ -165,7 +188,13 @@ function editarPlano(planoItem) {
     precoMensal: planoItem.precoMensal ?? planoItem.preco ?? '',
     ativo: estaAtivo(planoItem),
     visivelParaEmpresa: planoItem.visivelParaEmpresa ?? true,
-    exibirNoCadastroPublico: planoItem.exibirNoCadastroPublico ?? false,
+    exibirCadastroPublico: planoItem.exibirCadastroPublico ?? planoItem.exibirNoCadastroPublico ?? false,
+    ordemExibicao: obterOrdemExibicao(planoItem),
+    destaque: ehDestaque(planoItem),
+    selo: planoItem.selo || '',
+    publicoAlvo: planoItem.publicoAlvo || '',
+    resumoComercial: planoItem.resumoComercial || planoItem.resumo || '',
+    textoBotao: planoItem.textoBotao || '',
     observacaoInterna: planoItem.observacaoInterna || '',
     limiteUsuarios: obterLimite(planoItem, 'limiteUsuarios'),
     limiteClientes: obterLimite(planoItem, 'limiteClientes'),
@@ -198,7 +227,14 @@ function montarPayloadPlano() {
     precoMensal: numeroOuZero(plano.value.precoMensal),
     ativo: Boolean(plano.value.ativo),
     visivelParaEmpresa: plano.value.visivelParaEmpresa !== false,
-    exibirNoCadastroPublico: Boolean(plano.value.exibirNoCadastroPublico),
+    exibirCadastroPublico: Boolean(plano.value.exibirCadastroPublico),
+    exibirNoCadastroPublico: Boolean(plano.value.exibirCadastroPublico),
+    ordemExibicao: inteiroOuNulo(plano.value.ordemExibicao),
+    destaque: Boolean(plano.value.destaque),
+    selo: String(plano.value.selo || '').trim(),
+    publicoAlvo: String(plano.value.publicoAlvo || '').trim(),
+    resumoComercial: String(plano.value.resumoComercial || '').trim(),
+    textoBotao: String(plano.value.textoBotao || '').trim(),
     observacaoInterna: plano.value.observacaoInterna,
     limiteUsuarios: limiteOuNulo(plano.value.limiteUsuarios),
     limiteClientes: limiteOuNulo(plano.value.limiteClientes),
@@ -220,6 +256,24 @@ function limiteOuNulo(valor) {
 
 function numeroOuZero(valor) {
   return valor === '' || valor === null || valor === undefined ? 0 : Number(valor)
+}
+
+function inteiroOuNulo(valor) {
+  if (valor === '' || valor === null || valor === undefined) {
+    return null
+  }
+
+  const numero = Number(valor)
+
+  return Number.isFinite(numero) ? Math.trunc(numero) : null
+}
+
+function validarOrdemExibicao(valor) {
+  if (valor === '' || valor === null || valor === undefined) {
+    return true
+  }
+
+  return Number.isInteger(Number(valor))
 }
 
 function obterLimite(objeto, campo, alternativo = '') {
@@ -245,7 +299,7 @@ function planoVisivelParaEmpresa(planoItem) {
 }
 
 function planoExibidoNoCadastroPublico(planoItem) {
-  return planoItem.exibirNoCadastroPublico === true
+  return planoItem.exibirCadastroPublico === true || planoItem.exibirNoCadastroPublico === true
 }
 
 function formatarPreco(preco) {
@@ -256,7 +310,74 @@ function formatarPreco(preco) {
 }
 
 function exibirLimite(valor) {
-  return valor === null || valor === undefined || valor === '' ? 'Ilimitado' : valor
+  if (valor === null || valor === undefined || valor === '') return 'Ilimitado'
+
+  const numero = Number(valor)
+
+  if (!Number.isFinite(numero)) {
+    return 'Ilimitado'
+  }
+
+  if (numero === 0) {
+    return 'Não incluído'
+  }
+
+  if (numero < 0) {
+    return 'Não incluído'
+  }
+
+  if (numero >= 999999) {
+    return 'Ilimitado'
+  }
+
+  return new Intl.NumberFormat('pt-BR').format(numero)
+}
+
+function ehDestaque(planoItem) {
+  return planoItem?.destaque === true || planoItem?.destaque === 'true'
+}
+
+function obterOrdemExibicao(planoItem) {
+  const valor = planoItem?.ordemExibicao ?? planoItem?.ordem ?? planoItem?.ordemVisualizacao
+  return valor === null || valor === undefined || valor === '' ? '' : valor
+}
+
+function compararPlanosAdmin(planoA, planoB) {
+  const ordemA = inteiroOuNulo(planoA.ordemExibicao)
+  const ordemB = inteiroOuNulo(planoB.ordemExibicao)
+  const temOrdemA = Number.isInteger(ordemA)
+  const temOrdemB = Number.isInteger(ordemB)
+
+  if (temOrdemA || temOrdemB) {
+    if (!temOrdemA) return 1
+    if (!temOrdemB) return -1
+    if (ordemA !== ordemB) return ordemA - ordemB
+  }
+
+  const precoA = Number(planoA.precoMensal ?? planoA.preco ?? planoA.valor ?? planoA.valorMensal ?? 0)
+  const precoB = Number(planoB.precoMensal ?? planoB.preco ?? planoB.valor ?? planoB.valorMensal ?? 0)
+
+  if (precoA !== precoB) return precoA - precoB
+
+  return String(planoA.nome || '').localeCompare(String(planoB.nome || ''), 'pt-BR')
+}
+
+function recursosComerciaisPlano(planoItem) {
+  const resumo = []
+
+  if (String(planoItem.publicoAlvo || '').trim()) {
+    resumo.push(planoItem.publicoAlvo)
+  }
+
+  if (String(planoItem.resumoComercial || '').trim()) {
+    resumo.push(planoItem.resumoComercial)
+  }
+
+  if (String(planoItem.textoBotao || '').trim()) {
+    resumo.push(planoItem.textoBotao)
+  }
+
+  return resumo.slice(0, 6)
 }
 
 function obterMensagemErro(error, fallback) {
@@ -296,7 +417,7 @@ watch(
   () => plano.value.tipoPlano,
   (tipoPlano) => {
     if (!planoEditandoId.value) {
-      plano.value.exibirNoCadastroPublico = normalizarTipoPlano(tipoPlano) === 'COMERCIAL'
+      plano.value.exibirCadastroPublico = normalizarTipoPlano(tipoPlano) === 'COMERCIAL'
     }
   },
 )
@@ -323,10 +444,14 @@ watch(
       <p>{{ mensagemSucesso }}</p>
     </section>
 
+    <section v-if="avisoMultiplosDestaques" class="card aviso">
+      <p>{{ avisoMultiplosDestaques }}</p>
+    </section>
+
     <form class="card formulario" @submit.prevent="salvarPlano">
       <div class="titulo-card">
         <h2>{{ planoEditandoId ? 'Editar plano' : 'Novo plano' }}</h2>
-        <p>Limites vazios serão tratados como ilimitados.</p>
+        <p>Campos comerciais e limites técnicos ficam separados para facilitar a revisão.</p>
       </div>
 
       <div class="campos">
@@ -351,6 +476,38 @@ watch(
           Descrição
           <textarea v-model="plano.descricao" rows="3"></textarea>
         </label>
+      </div>
+
+      <div class="titulo-card bloco-comercial">
+        <h3>Campos comerciais</h3>
+        <p>Essas informações aparecem na apresentação do plano e no cadastro público quando a API fornecer os dados.</p>
+      </div>
+
+      <div class="campos">
+        <label>
+          Exibir no cadastro público
+          <input v-model="plano.exibirCadastroPublico" type="checkbox" />
+        </label>
+        <label>
+          Ordem de exibição
+          <input v-model="plano.ordemExibicao" type="number" step="1" placeholder="Opcional" />
+        </label>
+        <label>
+          Selo
+          <input v-model="plano.selo" type="text" placeholder="Ex: RECOMENDADO" />
+        </label>
+        <label>
+          Público-alvo
+          <input v-model="plano.publicoAlvo" type="text" placeholder="Ex: Para empresas com equipe e maior movimento" />
+        </label>
+        <label class="campo-grande">
+          Resumo comercial
+          <textarea v-model="plano.resumoComercial" rows="3" placeholder="Resumo simples para a vitrine comercial."></textarea>
+        </label>
+        <label class="campo-grande">
+          Texto do botão
+          <input v-model="plano.textoBotao" type="text" placeholder="Ex: Escolher o plano" />
+        </label>
         <label class="campo-grande">
           Observação interna
           <textarea
@@ -360,6 +517,14 @@ watch(
           ></textarea>
           <small>Visível apenas para o Administrador NuvemMais. Use para registrar detalhes comerciais, permutas ou acordos internos.</small>
         </label>
+      </div>
+
+      <div class="titulo-card bloco-comercial">
+        <h3>Limites técnicos</h3>
+        <p>Campos vazios continuam sendo tratados como ilimitados.</p>
+      </div>
+
+      <div class="campos">
         <label>
           Limite de usuários
           <input v-model="plano.limiteUsuarios" type="number" min="0" placeholder="Ilimitado" />
@@ -401,9 +566,9 @@ watch(
           Permite estoque
         </label>
         <label class="campo-checkbox ajuda-checkbox">
-          <input v-model="plano.exibirNoCadastroPublico" type="checkbox" />
+          <input v-model="plano.exibirCadastroPublico" type="checkbox" />
           Exibir no cadastro público
-          <small>Quando marcado, este plano aparece para empresas externas na página Comece agora.</small>
+          <small>Quando marcado, este plano aparece para empresas externas na página de cadastro.</small>
         </label>
         <label class="campo-checkbox">
           <input v-model="plano.permitePersonalizacao" type="checkbox" />
@@ -458,41 +623,60 @@ watch(
               <h3>{{ planoItem.nome }}</h3>
               <p class="preco">{{ formatarPreco(planoItem.precoMensal ?? planoItem.preco) }}</p>
             </div>
-            <span :class="['status', estaAtivo(planoItem) ? 'ativo' : 'inativo']">
-              {{ estaAtivo(planoItem) ? 'Ativo' : 'Inativo' }}
-            </span>
-            <span :class="['tipo-plano', normalizarTipoPlano(planoItem.tipoPlano).toLowerCase()]">
-              {{ rotuloTipoPlano(planoItem.tipoPlano) }}
-            </span>
+            <div class="badges-card">
+              <span v-if="ehDestaque(planoItem)" class="status destaque">Destaque</span>
+              <span :class="['status', estaAtivo(planoItem) ? 'ativo' : 'inativo']">
+                {{ estaAtivo(planoItem) ? 'Ativo' : 'Inativo' }}
+              </span>
+              <span :class="['tipo-plano', normalizarTipoPlano(planoItem.tipoPlano).toLowerCase()]">
+                {{ rotuloTipoPlano(planoItem.tipoPlano) }}
+              </span>
+            </div>
           </div>
 
           <p class="texto">{{ planoItem.descricao || '-' }}</p>
+          <p v-if="planoItem.publicoAlvo" class="publico-alvo">
+            <strong>Público-alvo:</strong> {{ planoItem.publicoAlvo }}
+          </p>
+          <p v-if="planoItem.resumoComercial" class="resumo-comercial">
+            {{ planoItem.resumoComercial }}
+          </p>
+          <p v-if="planoItem.textoBotao" class="texto-botao">
+            <strong>Texto do botão:</strong> {{ planoItem.textoBotao }}
+          </p>
           <p v-if="planoItem.observacaoInterna" class="observacao-interna">
             <strong>Observação interna:</strong> {{ planoItem.observacaoInterna }}
           </p>
 
-          <div class="limites">
-            <span>Usuários: {{ exibirLimite(planoItem.limiteUsuarios) }}</span>
-            <span>Clientes: {{ exibirLimite(planoItem.limiteClientes) }}</span>
-            <span>Funcionários: {{ exibirLimite(planoItem.limiteFuncionarios) }}</span>
-            <span>Serviços: {{ exibirLimite(planoItem.limiteServicos) }}</span>
-            <span>Produtos no estoque: {{ exibirLimite(planoItem.limiteProdutos) }}</span>
-            <span>Agendamentos/mês: {{ exibirLimite(planoItem.limiteAgendamentosMes ?? planoItem.limiteAgendamentos) }}</span>
-          </div>
+          <ul v-if="recursosComerciaisPlano(planoItem).length" class="recursos-comerciais">
+            <li v-for="recurso in recursosComerciaisPlano(planoItem)" :key="recurso">{{ recurso }}</li>
+          </ul>
 
-          <div class="permissoes">
-            <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalização</span>
-            <span :class="{ ligado: planoItem.permiteRelatorios }">Relatórios</span>
-            <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento público</span>
-            <span :class="{ ligado: planoItem.permiteEstoque }">Estoque: {{ planoItem.permiteEstoque ? 'Sim' : 'Nao' }}</span>
-            <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritário</span>
-            <span :class="{ ligado: planoVisivelParaEmpresa(planoItem) }">
-              Visível para empresa: {{ planoVisivelParaEmpresa(planoItem) ? 'Sim' : 'Não' }}
-            </span>
-            <span :class="{ ligado: planoExibidoNoCadastroPublico(planoItem) }">
-              Cadastro público: {{ planoExibidoNoCadastroPublico(planoItem) ? 'Sim' : 'Não' }}
-            </span>
-          </div>
+          <details class="detalhes-tecnicos">
+            <summary>Ver todos os recursos e limites</summary>
+            <div class="limites">
+              <span>Usuários: {{ exibirLimite(planoItem.limiteUsuarios) }}</span>
+              <span>Clientes: {{ exibirLimite(planoItem.limiteClientes) }}</span>
+              <span>Funcionários: {{ exibirLimite(planoItem.limiteFuncionarios) }}</span>
+              <span>Serviços: {{ exibirLimite(planoItem.limiteServicos) }}</span>
+              <span>Produtos no estoque: {{ exibirLimite(planoItem.limiteProdutos) }}</span>
+              <span>Agendamentos/mês: {{ exibirLimite(planoItem.limiteAgendamentosMes ?? planoItem.limiteAgendamentos) }}</span>
+            </div>
+
+            <div class="permissoes">
+              <span :class="{ ligado: planoItem.permitePersonalizacao }">Personalização</span>
+              <span :class="{ ligado: planoItem.permiteRelatorios }">Relatórios</span>
+              <span :class="{ ligado: planoItem.permiteAgendamentoPublico }">Agendamento público</span>
+              <span :class="{ ligado: planoItem.permiteEstoque }">Estoque: {{ planoItem.permiteEstoque ? 'Sim' : 'Não' }}</span>
+              <span :class="{ ligado: planoItem.permiteSuportePrioritario }">Suporte prioritário</span>
+              <span :class="{ ligado: planoVisivelParaEmpresa(planoItem) }">
+                Visível para empresa: {{ planoVisivelParaEmpresa(planoItem) ? 'Sim' : 'Não' }}
+              </span>
+              <span :class="{ ligado: planoExibidoNoCadastroPublico(planoItem) }">
+                Cadastro público: {{ planoExibidoNoCadastroPublico(planoItem) ? 'Sim' : 'Não' }}
+              </span>
+            </div>
+          </details>
 
           <div class="acoes">
             <button class="botao neutro" @click="editarPlano(planoItem)">Editar</button>
@@ -598,6 +782,12 @@ h3 {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
+.aviso {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .campos {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
@@ -660,6 +850,14 @@ textarea:focus {
   width: auto;
 }
 
+.bloco-comercial {
+  padding-bottom: 0;
+}
+
+.bloco-comercial h3 {
+  font-size: 18px;
+}
+
 label small {
   color: #64748b;
   font-size: 13px;
@@ -669,8 +867,15 @@ label small {
 
 .lista {
   display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px;
+}
+
+.badges-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .contador,
@@ -694,6 +899,11 @@ label small {
 .permissoes .ligado {
   background: #dcfce7;
   color: #166534;
+}
+
+.status.destaque {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .status.inativo,
@@ -728,6 +938,52 @@ label small {
 
 .observacao-interna strong {
   font-weight: 800;
+}
+
+.publico-alvo,
+.resumo-comercial,
+.texto-botao {
+  margin: 0;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.resumo-comercial {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.recursos-comerciais {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: #0f172a;
+}
+
+.recursos-comerciais li {
+  line-height: 1.45;
+}
+
+.detalhes-tecnicos {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.detalhes-tecnicos summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.detalhes-tecnicos summary:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 3px;
 }
 
 .preco {
@@ -841,4 +1097,3 @@ label small {
   }
 }
 </style>
-
