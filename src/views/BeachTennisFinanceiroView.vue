@@ -130,6 +130,7 @@ const acordoEditandoId = ref('')
 const inicializandoAcordoFormulario = ref(false)
 const mensalidadeManualAberta = ref(false)
 const mensalidadePagamentoAberta = ref(false)
+const configuracaoTermosAvancadosAberta = ref(false)
 const seletorAlunosAberto = ref(false)
 const seletorTurmasAberto = ref(false)
 const erro = ref('')
@@ -1240,21 +1241,33 @@ function obterSugestaoModalidade(codigo) {
   return sugestoes[chave] || null
 }
 
-function aplicarSugestoesModalidade() {
+function restaurarTermosPadrao() {
   const sugestao = obterSugestaoModalidade(configuracao.value.modalidadeCodigo)
   if (!sugestao) {
-    erro.value = 'Selecione uma modalidade com sugestoes disponiveis antes de aplicar os termos.'
+    erro.value = 'Selecione uma modalidade com termos disponíveis antes de restaurar os termos.'
     return
   }
 
-  const confirmou = window.confirm('Aplicar os termos sugeridos para a modalidade selecionada?')
+  const confirmou = confirmarAcao(
+    'Restaurar as nomenclaturas e o template da mensagem para os padrões sugeridos? Os dados PIX não serão apagados.',
+  )
   if (!confirmou) {
     return
   }
 
+  const chavePixAtual = configuracao.value.chavePix
+  const tipoChavePixAtual = configuracao.value.tipoChavePix
+  const nomeRecebedorAtual = configuracao.value.nomeRecebedor
+  const nomePlayAtual = configuracao.value.nomePlay
+
   configuracao.value = {
     ...configuracao.value,
     ...sugestao,
+    chavePix: chavePixAtual,
+    tipoChavePix: tipoChavePixAtual,
+    nomeRecebedor: nomeRecebedorAtual,
+    nomePlay: nomePlayAtual,
+    templateMensagem: criarConfiguracaoPadrao().templateMensagem,
   }
 }
 
@@ -3609,11 +3622,11 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Configuração e PIX</h2>
-              <p>Defina a identidade esportiva, a chave PIX, o nome do recebedor e o template da mensagem usada na cobrança.</p>
+              <p>Configure a chave PIX e a mensagem de cobrança. As nomenclaturas detalhadas ficam na área avançada.</p>
             </div>
             <div class="acoes-cabecalho">
-              <button class="botao secundario" type="button" @click="aplicarSugestoesModalidade">
-                Aplicar termos sugeridos
+              <button class="botao secundario" type="button" @click="restaurarTermosPadrao">
+                Restaurar termos padrão
               </button>
               <button class="botao principal" type="button" :disabled="salvandoConfiguracao" @click="salvarConfiguracao">
                 {{ salvandoConfiguracao ? 'Salvando...' : 'Salvar' }}
@@ -3622,71 +3635,6 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="campos">
-            <label>
-              Codigo da modalidade
-              <select v-model="configuracao.modalidadeCodigo">
-                <option value="">Selecione</option>
-                <option v-for="opcao in OPCOES_MODALIDADE" :key="opcao.valor" :value="opcao.valor">
-                  {{ opcao.rotulo }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              Nome exibido da modalidade
-              <input v-model="configuracao.nomeModalidade" type="text" placeholder="Ex: Futebol" />
-            </label>
-
-            <label>
-              Participante singular
-              <input v-model="configuracao.termoParticipanteSingular" type="text" placeholder="Ex: Atleta" />
-            </label>
-
-            <label>
-              Participantes plural
-              <input v-model="configuracao.termoParticipantePlural" type="text" placeholder="Ex: Atletas" />
-            </label>
-
-            <label>
-              Responsavel singular
-              <input v-model="configuracao.termoResponsavelSingular" type="text" placeholder="Ex: Treinador" />
-            </label>
-
-            <label>
-              Responsaveis plural
-              <input v-model="configuracao.termoResponsavelPlural" type="text" placeholder="Ex: Treinadores" />
-            </label>
-
-            <label>
-              Grupo singular
-              <input v-model="configuracao.termoGrupoSingular" type="text" placeholder="Ex: Equipe" />
-            </label>
-
-            <label>
-              Grupos plural
-              <input v-model="configuracao.termoGrupoPlural" type="text" placeholder="Ex: Equipes" />
-            </label>
-
-            <label>
-              Atividade singular
-              <input v-model="configuracao.termoAtividadeSingular" type="text" placeholder="Ex: Treino" />
-            </label>
-
-            <label>
-              Atividades plural
-              <input v-model="configuracao.termoAtividadePlural" type="text" placeholder="Ex: Treinos" />
-            </label>
-
-            <label>
-              Local singular
-              <input v-model="configuracao.termoLocalSingular" type="text" placeholder="Ex: Campo" />
-            </label>
-
-            <label>
-              Locais plural
-              <input v-model="configuracao.termoLocalPlural" type="text" placeholder="Ex: Campos" />
-            </label>
-
             <label>
               Tipo da chave PIX
               <select v-model="configuracao.tipoChavePix">
@@ -3732,6 +3680,90 @@ onBeforeUnmount(() => {
 
           <pre class="previsualizacao">{{ previewMensagemConfiguracao }}</pre>
         </section>
+
+        <details
+          class="card secao-avancada"
+          :open="configuracaoTermosAvancadosAberta"
+          @toggle="configuracaoTermosAvancadosAberta = $event.target.open"
+        >
+          <summary class="secao-avancada-summary">
+            <div>
+              <p class="subtitulo-secao">Configuração detalhada</p>
+              <h2>Termos e nomenclaturas avançadas</h2>
+              <p>Campos menos usados para ajustar a linguagem da modalidade.</p>
+            </div>
+            <span class="botao secundario secao-avancada-acao">
+              {{ configuracaoTermosAvancadosAberta ? 'Recolher' : 'Expandir' }}
+            </span>
+          </summary>
+
+          <div class="campos">
+            <label>
+              Código da modalidade
+              <select v-model="configuracao.modalidadeCodigo">
+                <option value="">Selecione</option>
+                <option v-for="opcao in OPCOES_MODALIDADE" :key="opcao.valor" :value="opcao.valor">
+                  {{ opcao.rotulo }}
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Nome exibido da modalidade
+              <input v-model="configuracao.nomeModalidade" type="text" placeholder="Ex: Futebol" />
+            </label>
+
+            <label>
+              Participante singular
+              <input v-model="configuracao.termoParticipanteSingular" type="text" placeholder="Ex: Atleta" />
+            </label>
+
+            <label>
+              Participantes plural
+              <input v-model="configuracao.termoParticipantePlural" type="text" placeholder="Ex: Atletas" />
+            </label>
+
+            <label>
+              Responsável singular
+              <input v-model="configuracao.termoResponsavelSingular" type="text" placeholder="Ex: Treinador" />
+            </label>
+
+            <label>
+              Responsáveis plural
+              <input v-model="configuracao.termoResponsavelPlural" type="text" placeholder="Ex: Treinadores" />
+            </label>
+
+            <label>
+              Grupo singular
+              <input v-model="configuracao.termoGrupoSingular" type="text" placeholder="Ex: Equipe" />
+            </label>
+
+            <label>
+              Grupos plural
+              <input v-model="configuracao.termoGrupoPlural" type="text" placeholder="Ex: Equipes" />
+            </label>
+
+            <label>
+              Atividade singular
+              <input v-model="configuracao.termoAtividadeSingular" type="text" placeholder="Ex: Treino" />
+            </label>
+
+            <label>
+              Atividades plural
+              <input v-model="configuracao.termoAtividadePlural" type="text" placeholder="Ex: Treinos" />
+            </label>
+
+            <label>
+              Local singular
+              <input v-model="configuracao.termoLocalSingular" type="text" placeholder="Ex: Campo" />
+            </label>
+
+            <label>
+              Locais plural
+              <input v-model="configuracao.termoLocalPlural" type="text" placeholder="Ex: Campos" />
+            </label>
+          </div>
+        </details>
       </section>
     </section>
 
@@ -3956,6 +3988,15 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.subtitulo-secao {
+  margin: 0 0 6px;
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .campo-grande {
@@ -4488,6 +4529,48 @@ th {
   margin-top: 12px;
 }
 
+.secao-avancada {
+  padding: 0;
+}
+
+.secao-avancada summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.secao-avancada summary::-webkit-details-marker {
+  display: none;
+}
+
+.secao-avancada summary h2 {
+  margin: 0;
+}
+
+.secao-avancada summary p {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+.secao-avancada[open] summary {
+  border-bottom: 1px solid var(--app-border);
+}
+
+.secao-avancada .campos {
+  padding: 18px 22px 22px;
+}
+
+.secao-avancada-acao {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .aviso-whatsapp {
   color: var(--app-warning);
   font-weight: 700;
@@ -4508,6 +4591,11 @@ th {
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .secao-avancada summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 760px) {
@@ -4525,7 +4613,8 @@ th {
   .cabecalho-card,
   .cabecalho-lista,
   .acoes-cabecalho,
-  .acoes-formulario {
+  .acoes-formulario,
+  .secao-avancada summary {
     align-items: stretch;
   }
 
@@ -4593,6 +4682,12 @@ th {
 
   .acoes-tabela .botao {
     width: 100%;
+  }
+
+  .secao-avancada summary,
+  .secao-avancada .campos {
+    padding-left: 18px;
+    padding-right: 18px;
   }
 }
 
