@@ -2,7 +2,7 @@
 import PublicFooter from '@/components/publico/PublicFooter.vue'
 import PublicHeader from '@/components/publico/PublicHeader.vue'
 import { RouterLink } from 'vue-router'
-import heroMarca from '@/assets/brand/nuvemmais-hero.png'
+import { brandAssets } from '@/utils/brandAssets'
 
 const credenciais = [
   'Multiempresa',
@@ -114,7 +114,7 @@ const modulos = [
       <PublicHeader />
 
       <div class="hero-stage">
-        <img class="hero-marca" :src="heroMarca" alt="" aria-hidden="true" />
+        <img class="hero-marca" :src="brandAssets.logoHero" alt="" aria-hidden="true" />
         <div class="hero-copy">
           <span class="selo claro">Portal público NuvemMais Gestão</span>
           <h1>Uma vitrine profissional para sua empresa e um painel para organizar a operação.</h1>

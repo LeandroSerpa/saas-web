@@ -8,6 +8,7 @@ import ModoNavegacaoSelector from '@/components/ModoNavegacaoSelector.vue'
 import SystemVersionPanel from '@/components/SystemVersionPanel.vue'
 import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import VisualizacaoEmpresaSelector from '@/components/VisualizacaoEmpresaSelector.vue'
+import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
 import {
   buscarStatusFinanceiroMinhaEmpresa,
   buscarMinhaAssinatura,
@@ -1416,10 +1417,10 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="marca">
-        <span class="marca-simbolo">LE</span>
+        <img class="marca-simbolo" :src="brandAssets.logoApp" alt="" aria-hidden="true" />
         <div>
           <strong>NuvemMais Gestão</strong>
-          <small>Gestão empresarial na nuvem</small>
+          <small>{{ BRAND_TAGLINE }}</small>
         </div>
       </div>
 
@@ -1756,12 +1757,8 @@ onBeforeUnmount(() => {
 .marca-simbolo {
   width: 44px;
   height: 44px;
-  display: grid;
-  place-items: center;
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--app-primary) 0%, var(--app-brand-end) 100%);
-  font-weight: 800;
-  color: white;
+  object-fit: cover;
   box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
 }
 
