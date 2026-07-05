@@ -356,6 +356,17 @@ const temaAparenciaAtual = computed(() => temaAparencia.value)
 const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloGestaoEsportivaVisivel = computed(() => contextoEsportivo.value?.ativo === true)
+const ROTULOS_MODULO_ESPORTIVO = Object.freeze({
+  BEACH_TENNIS: 'Beach Tennis',
+  FUTEBOL: 'Futebol',
+  FUTSAL: 'Futsal',
+  VOLEI: 'Volei',
+  TENIS: 'Tenis',
+  BASQUETE: 'Basquete',
+  NATACAO: 'Natacao',
+  ARTES_MARCIAIS: 'Artes marciais',
+  GESTAO_ESPORTIVA: 'Gestão Esportiva',
+})
 const empresaOperacional = ref(null)
 const empresaOperacionalCarregadaPara = ref('')
 const empresaOperacionalCarregando = ref(false)
@@ -424,7 +435,7 @@ const mostrarGrupoOperacao = computed(
     mostrarRelatoriosOperacao.value ||
     mostrarPrimeirosPassosOperacao.value,
 )
-const tituloMenuGestaoEsportiva = computed(() => 'GESTÃO ESPORTIVA')
+const tituloMenuGestaoEsportiva = computed(() => obterTituloModuloEsportivo(contextoEsportivo.value))
 const rotuloGrupoEsportivoPlural = computed(() => contextoEsportivo.value?.termoGrupoPlural || 'Turmas')
 const rotuloCadastroParticipanteMenu = computed(
   () => {
@@ -639,6 +650,30 @@ function obterCabecalhoPadrao(nomeRota) {
       descricao: 'Acompanhe os dados desta área da plataforma.',
     }
   )
+}
+
+function nomeModuloEsportivoEhGenerico(valor) {
+  const texto = String(valor || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+
+  return !texto || texto === 'esporte' || texto === 'gestao esportiva' || texto === 'modulo esportivo'
+}
+
+function obterTituloModuloEsportivo(contexto = {}) {
+  const nomeModalidade = String(contexto?.nomeModalidade || '').trim()
+  if (nomeModalidade && !nomeModuloEsportivoEhGenerico(nomeModalidade)) {
+    return nomeModalidade
+  }
+
+  const modalidadeCodigo = String(contexto?.modalidadeCodigo || '').trim().toUpperCase()
+  if (modalidadeCodigo && ROTULOS_MODULO_ESPORTIVO[modalidadeCodigo]) {
+    return ROTULOS_MODULO_ESPORTIVO[modalidadeCodigo]
+  }
+
+  return ROTULOS_MODULO_ESPORTIVO.GESTAO_ESPORTIVA
 }
 
 function formatarNomeRota(nomeRota) {

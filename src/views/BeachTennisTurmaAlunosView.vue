@@ -1693,14 +1693,15 @@ select {
 
 .lista-participantes {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
   min-width: 0;
 }
 
 .participante-card {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   border-radius: 18px;
   border: 1px solid var(--app-border);
   background: var(--app-surface-soft);
@@ -1813,7 +1814,8 @@ select {
 
   .metricas-capacidade,
   .grid-resumo-selecao,
-  .layout-gerencia {
+  .layout-gerencia,
+  .lista-participantes {
     grid-template-columns: 1fr;
   }
 

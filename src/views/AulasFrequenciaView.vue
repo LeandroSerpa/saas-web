@@ -3739,7 +3739,7 @@ onBeforeUnmount(() => {
 }
 
 .modal {
-  max-height: calc(100vh - 32px);
+  max-height: none;
   overflow: hidden;
   min-width: 0;
 }
@@ -3755,17 +3755,18 @@ onBeforeUnmount(() => {
 #modal-cancelamento-lote-painel,
 #modal-retomada-lote-painel {
   box-sizing: border-box;
-  width: min(1180px, calc(100vw - 32px)) !important;
-  min-width: min(1050px, calc(100vw - 32px)) !important;
+  width: min(1180px, calc(100vw - 48px)) !important;
+  min-width: min(1050px, calc(100vw - 48px)) !important;
   max-width: 1180px !important;
   flex: 0 1 1180px !important;
   flex-shrink: 0 !important;
-  max-height: calc(100vh - 32px);
+  height: calc(100dvh - 48px);
+  max-height: calc(100dvh - 48px);
 }
 
 .modal-lote {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 0;
   min-height: 0;
 }
@@ -4491,45 +4492,38 @@ textarea:focus {
 
 @media (max-width: 768px) {
   .modal-fundo {
-    padding: 0;
+    padding: 12px;
     place-items: stretch;
   }
 
   .modal-lote-painel {
-    position: fixed;
-    inset: 0;
     margin: 0;
-    border-radius: 0;
+    border-radius: 20px;
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
-    width: 100vw !important;
+    width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
-    height: 100vh;
-    max-height: none;
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
     overflow: hidden;
     flex: none !important;
   }
 
   #modal-cancelamento-lote-painel,
   #modal-retomada-lote-painel {
-    width: 100vw !important;
+    width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
     flex: none !important;
-    max-height: none;
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
   }
 
   @supports (width: 100dvw) {
     #modal-cancelamento-lote-painel,
     #modal-retomada-lote-painel {
-      width: 100dvw !important;
-    }
-  }
-
-  @supports (height: 100dvh) {
-    .modal-lote-painel {
-      height: 100dvh;
+      width: 100% !important;
     }
   }
 
