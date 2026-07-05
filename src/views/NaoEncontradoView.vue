@@ -13,6 +13,7 @@ const rotaAdmin = computed(() => route.path.startsWith('/admin'))
     <PublicHeader v-if="!rotaAdmin" compacto />
 
     <section class="card-feedback">
+      <span class="codigo">404</span>
       <span class="selo">Rota inexistente</span>
       <h1>Esta página não foi encontrada.</h1>
       <p>O endereço acessado não existe ou não está disponível para navegação direta.</p>
@@ -32,21 +33,35 @@ const rotaAdmin = computed(() => route.path.startsWith('/admin'))
 .pagina-feedback-publica {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 14% 18%, rgba(37, 99, 235, .16), transparent 30%),
+    linear-gradient(110deg, rgba(14, 165, 233, .1) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 14% 18%, rgba(37, 99, 235, .18), transparent 30%),
+    radial-gradient(circle at 86% 18%, rgba(20, 184, 166, .14), transparent 28%),
     #f8fafc;
   color: #0f172a;
 }
 
 .card-feedback {
-  width: min(100% - 28px, 620px);
+  width: min(100% - 28px, 680px);
   display: grid;
+  justify-items: start;
   gap: 16px;
-  margin: 52px auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 22px;
-  background: white;
-  padding: 32px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, .1);
+  margin: 54px auto;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, .94);
+  padding: 34px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, .14);
+}
+
+.codigo {
+  display: inline-flex;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  padding: 10px 14px;
+  color: white;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .selo {
@@ -62,14 +77,14 @@ p {
 }
 
 h1 {
-  font-size: 34px;
-  line-height: 1.12;
+  font-size: clamp(34px, 5vw, 52px);
+  line-height: 1.06;
   font-weight: 900;
 }
 
 p {
   color: #475569;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .acoes {
@@ -80,7 +95,7 @@ p {
 }
 
 .botao {
-  min-height: 46px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

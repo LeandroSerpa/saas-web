@@ -71,7 +71,7 @@ onMounted(carregarConteudo)
     <PublicHeader compacto />
 
     <section class="hero-legal">
-      <span class="selo">Leitura institucional</span>
+      <span class="selo claro">Leitura institucional</span>
       <h1>{{ conteudo.titulo }}</h1>
       <p>{{ conteudo.subtitulo }}</p>
     </section>
@@ -110,14 +110,15 @@ onMounted(carregarConteudo)
 .pagina-legal {
   min-height: 100vh;
   background:
+    linear-gradient(110deg, rgba(14, 165, 233, .1) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
     radial-gradient(circle at 86% 12%, rgba(20, 184, 166, .14), transparent 28%),
-    linear-gradient(135deg, #eef6ff 0%, #f8fafc 48%, #ffffff 100%);
+    #f8fafc;
   color: #0f172a;
 }
 
 .hero-legal,
 .conteudo-legal {
-  width: min(1040px, 100%);
+  width: min(1080px, 100%);
   margin: 0 auto;
   padding-right: 20px;
   padding-left: 20px;
@@ -126,8 +127,15 @@ onMounted(carregarConteudo)
 .hero-legal {
   display: grid;
   gap: 12px;
-  padding-top: 42px;
-  padding-bottom: 30px;
+  margin-top: 34px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(20, 184, 166, .28), transparent 28%),
+    linear-gradient(135deg, #1d4ed8 0%, #071124 100%);
+  padding-top: 48px;
+  padding-bottom: 48px;
+  color: white;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, .18);
 }
 
 .selo {
@@ -137,6 +145,10 @@ onMounted(carregarConteudo)
   text-transform: uppercase;
 }
 
+.selo.claro {
+  color: #7dd3fc;
+}
+
 h1,
 h2,
 p {
@@ -144,42 +156,38 @@ p {
 }
 
 h1 {
-  font-size: 44px;
-  line-height: 1.08;
+  max-width: 760px;
+  font-size: clamp(36px, 5vw, 58px);
+  line-height: 1.04;
   font-weight: 900;
-}
-
-.hero-legal p,
-.secao-texto p,
-.nota {
-  color: #475569;
-  font-size: 16px;
-  line-height: 1.7;
 }
 
 .hero-legal p {
   max-width: 720px;
+  color: #dbeafe;
   font-size: 18px;
+  line-height: 1.7;
 }
 
 .conteudo-legal {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 22px;
+  padding-top: 28px;
   padding-bottom: 34px;
 }
 
 .indice-card,
 .documento-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, .92);
-  box-shadow: 0 22px 52px rgba(15, 23, 42, .08);
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 24px 58px rgba(15, 23, 42, .08);
 }
 
 .indice-card {
   position: sticky;
-  top: 18px;
+  top: 92px;
   align-self: start;
   display: grid;
   gap: 10px;
@@ -188,7 +196,7 @@ h1 {
 
 .indice-card a {
   border-radius: 8px;
-  padding: 9px 10px;
+  padding: 10px;
   color: #334155;
   font-weight: 800;
   text-decoration: none;
@@ -201,14 +209,14 @@ h1 {
 
 .documento-card {
   display: grid;
-  gap: 22px;
-  padding: 30px;
+  gap: 24px;
+  padding: 32px;
 }
 
 .secao-texto {
   display: grid;
   gap: 8px;
-  scroll-margin-top: 20px;
+  scroll-margin-top: 110px;
 }
 
 .secao-texto span {
@@ -218,9 +226,16 @@ h1 {
 }
 
 .secao-texto h2 {
-  font-size: 22px;
+  font-size: 23px;
   line-height: 1.2;
   font-weight: 900;
+}
+
+.secao-texto p,
+.nota {
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.75;
 }
 
 .aviso,
@@ -238,10 +253,6 @@ h1 {
   .indice-card {
     position: static;
   }
-
-  h1 {
-    font-size: 34px;
-  }
 }
 
 @media (max-width: 560px) {
@@ -249,6 +260,13 @@ h1 {
   .conteudo-legal {
     padding-right: 14px;
     padding-left: 14px;
+  }
+
+  .hero-legal {
+    margin-top: 22px;
+    border-radius: 22px;
+    padding-top: 34px;
+    padding-bottom: 34px;
   }
 
   .documento-card,

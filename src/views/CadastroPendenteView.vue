@@ -21,10 +21,16 @@ function sair() {
     <PublicHeader compacto />
 
     <section class="card-pendente">
+      <div class="icone-status" aria-hidden="true">✓</div>
       <span class="selo">Cadastro pendente</span>
       <h1>Acesso em análise</h1>
       <p>{{ mensagem }}</p>
       <p>Nenhuma área interna ficará disponível enquanto a aprovação não for concluída.</p>
+      <div class="linha-status">
+        <span>Solicitação recebida</span>
+        <span>Análise da equipe</span>
+        <span>Liberação do acesso</span>
+      </div>
       <div class="acoes">
         <RouterLink class="botao secundario" to="/cadastro">Cadastrar outra empresa</RouterLink>
         <button class="botao principal" type="button" @click="sair">Voltar para login</button>
@@ -39,22 +45,36 @@ function sair() {
 .pagina-pendente {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 12% 18%, rgba(37, 99, 235, .16), transparent 30%),
-    radial-gradient(circle at 88% 12%, rgba(20, 184, 166, .14), transparent 28%),
+    linear-gradient(110deg, rgba(14, 165, 233, .1) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 12% 18%, rgba(37, 99, 235, .18), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(20, 184, 166, .16), transparent 28%),
     #f8fafc;
   color: #0f172a;
 }
 
 .card-pendente {
-  width: min(100% - 28px, 620px);
+  width: min(100% - 28px, 720px);
   display: grid;
+  justify-items: start;
   gap: 18px;
-  margin: 52px auto;
-  border: 1px solid #dbeafe;
-  border-radius: 22px;
-  background: white;
-  padding: 32px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, .1);
+  margin: 54px auto;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, .94);
+  padding: 34px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, .14);
+}
+
+.icone-status {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  color: white;
+  font-size: 24px;
+  font-weight: 900;
 }
 
 .selo {
@@ -70,15 +90,33 @@ p {
 }
 
 h1 {
-  font-size: 34px;
-  line-height: 1.12;
+  font-size: clamp(34px, 5vw, 52px);
+  line-height: 1.06;
   font-weight: 900;
 }
 
 p {
   color: #475569;
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.65;
+}
+
+.linha-status {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.linha-status span {
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: #eff6ff;
+  padding: 12px;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
 }
 
 .acoes {
@@ -89,7 +127,7 @@ p {
 }
 
 .botao {
-  min-height: 46px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -114,6 +152,10 @@ p {
 @media (max-width: 560px) {
   .card-pendente {
     padding: 22px;
+  }
+
+  .linha-status {
+    grid-template-columns: 1fr;
   }
 
   .acoes,

@@ -11,6 +11,11 @@ const carregando = ref(true)
 const versaoPublica = obterVersaoFrontendComPrefixo()
 
 const modulos = ['Agendamentos', 'Estoque e catálogo', 'Gestão Esportiva', 'Relatórios', 'Administração SaaS']
+const estatisticas = [
+  { valor: '6+', rotulo: 'frentes de gestão' },
+  { valor: '12', rotulo: 'segmentos atendidos' },
+  { valor: '24h', rotulo: 'portal online' },
+]
 const diferenciais = [
   'Plataforma modular para empresas de segmentos diferentes.',
   'Rotas públicas para cadastro, agendamento, catálogo e cardápio.',
@@ -82,9 +87,18 @@ onMounted(carregarConteudo)
     <PublicHeader compacto />
 
     <section class="hero-institucional">
-      <span class="selo">Institucional</span>
-      <h1>{{ conteudo.titulo }}</h1>
-      <p>{{ conteudo.subtitulo }}</p>
+      <div>
+        <span class="selo claro">Institucional</span>
+        <h1>{{ conteudo.titulo }}</h1>
+        <p>{{ conteudo.subtitulo }}</p>
+      </div>
+
+      <div class="estatisticas">
+        <article v-for="item in estatisticas" :key="item.rotulo">
+          <strong>{{ item.valor }}</strong>
+          <span>{{ item.rotulo }}</span>
+        </article>
+      </div>
     </section>
 
     <section class="conteudo-institucional">
@@ -135,14 +149,15 @@ onMounted(carregarConteudo)
 .pagina-institucional {
   min-height: 100vh;
   background:
+    linear-gradient(110deg, rgba(14, 165, 233, .1) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
     radial-gradient(circle at 88% 12%, rgba(20, 184, 166, .16), transparent 28%),
-    linear-gradient(135deg, #eef6ff 0%, #f8fafc 46%, #ecfeff 100%);
+    #f8fafc;
   color: #0f172a;
 }
 
 .hero-institucional,
 .conteudo-institucional {
-  width: min(1080px, 100%);
+  width: min(1120px, 100%);
   margin: 0 auto;
   padding-right: 20px;
   padding-left: 20px;
@@ -150,9 +165,23 @@ onMounted(carregarConteudo)
 
 .hero-institucional {
   display: grid;
-  gap: 12px;
-  padding-top: 44px;
-  padding-bottom: 34px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .46fr);
+  gap: 26px;
+  align-items: end;
+  margin-top: 34px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(20, 184, 166, .28), transparent 28%),
+    linear-gradient(135deg, #1d4ed8 0%, #071124 100%);
+  padding-top: 52px;
+  padding-bottom: 52px;
+  color: white;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, .18);
+}
+
+.hero-institucional > div:first-child {
+  display: grid;
+  gap: 14px;
 }
 
 .selo {
@@ -162,6 +191,10 @@ onMounted(carregarConteudo)
   text-transform: uppercase;
 }
 
+.selo.claro {
+  color: #7dd3fc;
+}
+
 h1,
 h2,
 p {
@@ -169,39 +202,56 @@ p {
 }
 
 h1 {
-  max-width: 760px;
-  font-size: 46px;
-  line-height: 1.08;
+  max-width: 820px;
+  font-size: clamp(38px, 5vw, 62px);
+  line-height: 1.02;
   font-weight: 900;
-}
-
-.hero-institucional p,
-.painel-resumo p,
-.secao-texto p,
-.nota {
-  color: #475569;
-  font-size: 16px;
-  line-height: 1.7;
 }
 
 .hero-institucional p {
   max-width: 720px;
+  color: #dbeafe;
   font-size: 18px;
+  line-height: 1.7;
+}
+
+.estatisticas {
+  display: grid;
+  gap: 10px;
+}
+
+.estatisticas article {
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .1);
+  padding: 16px;
+}
+
+.estatisticas strong {
+  display: block;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.estatisticas span {
+  color: #dbeafe;
+  font-weight: 800;
 }
 
 .conteudo-institucional {
   display: grid;
   grid-template-columns: minmax(260px, .42fr) minmax(0, 1fr);
   gap: 22px;
+  padding-top: 28px;
   padding-bottom: 34px;
 }
 
 .painel-resumo,
 .documento-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, .9);
-  box-shadow: 0 22px 52px rgba(15, 23, 42, .08);
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 24px 58px rgba(15, 23, 42, .08);
 }
 
 .painel-resumo {
@@ -217,6 +267,14 @@ h1 {
   font-size: 22px;
   line-height: 1.2;
   font-weight: 900;
+}
+
+.painel-resumo p,
+.secao-texto p,
+.nota {
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.7;
 }
 
 .chips {
@@ -236,7 +294,7 @@ h1 {
 
 .documento-card {
   display: grid;
-  gap: 20px;
+  gap: 22px;
   padding: 30px;
 }
 
@@ -296,12 +354,9 @@ h1 {
 }
 
 @media (max-width: 840px) {
+  .hero-institucional,
   .conteudo-institucional {
     grid-template-columns: 1fr;
-  }
-
-  h1 {
-    font-size: 36px;
   }
 }
 
@@ -310,6 +365,13 @@ h1 {
   .conteudo-institucional {
     padding-right: 14px;
     padding-left: 14px;
+  }
+
+  .hero-institucional {
+    margin-top: 22px;
+    border-radius: 22px;
+    padding-top: 34px;
+    padding-bottom: 34px;
   }
 
   .documento-card,

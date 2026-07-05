@@ -1,5 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import logoMarca from '@/assets/brand/nuvemmais-marca.svg'
 
 defineProps({
   compacto: {
@@ -12,7 +13,7 @@ defineProps({
 <template>
   <header :class="['public-header', { compacto }]">
     <RouterLink class="public-brand" to="/" aria-label="Ir para a página inicial">
-      <span class="public-brand-logo" aria-hidden="true">NM</span>
+      <img class="public-brand-logo" :src="logoMarca" alt="" aria-hidden="true" />
       <span class="public-brand-text">
         <strong>NuvemMais Gestão</strong>
         <small>Gestão empresarial na nuvem</small>
@@ -21,27 +22,43 @@ defineProps({
 
     <nav class="public-nav" aria-label="Navegação pública">
       <RouterLink to="/sobre">Sobre</RouterLink>
-      <RouterLink to="/cadastro">Comece agora</RouterLink>
+      <RouterLink to="/cadastro#planos">Planos</RouterLink>
       <RouterLink class="public-nav-login" to="/login">Entrar</RouterLink>
+      <RouterLink class="public-nav-cta" to="/cadastro">Começar agora</RouterLink>
     </nav>
   </header>
 </template>
 
 <style scoped>
 .public-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   width: min(1160px, 100%);
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 22px 20px;
+  padding: 16px 20px;
   color: #0f172a;
 }
 
+.public-header::before {
+  content: '';
+  position: absolute;
+  inset: 8px 12px;
+  z-index: -1;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .82);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, .08);
+  backdrop-filter: blur(18px);
+}
+
 .public-header.compacto {
-  padding-top: 18px;
-  padding-bottom: 18px;
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .public-brand,
@@ -51,29 +68,24 @@ defineProps({
 }
 
 .public-brand {
+  min-width: 0;
   gap: 12px;
   color: inherit;
   text-decoration: none;
 }
 
 .public-brand-logo {
-  display: inline-grid;
   width: 44px;
   height: 44px;
-  place-items: center;
+  flex: 0 0 auto;
   border-radius: 14px;
-  background:
-    linear-gradient(135deg, #2563eb 0%, #14b8a6 100%);
-  color: white;
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: .04em;
   box-shadow: 0 14px 26px rgba(37, 99, 235, .22);
 }
 
 .public-brand-text {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .public-brand strong {
@@ -88,7 +100,7 @@ defineProps({
 }
 
 .public-nav {
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -103,11 +115,13 @@ defineProps({
   font-size: 14px;
   font-weight: 900;
   text-decoration: none;
+  transition: background .18s ease, color .18s ease, transform .18s ease;
 }
 
 .public-nav a:hover {
   color: #2563eb;
   background: rgba(37, 99, 235, .08);
+  transform: translateY(-1px);
 }
 
 .public-nav .public-nav-login {
@@ -116,17 +130,41 @@ defineProps({
   box-shadow: 0 10px 22px rgba(15, 23, 42, .07);
 }
 
+.public-nav .public-nav-cta {
+  background: #0f172a;
+  color: white;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, .18);
+}
+
+.public-nav .public-nav-cta:hover {
+  background: #1d4ed8;
+  color: white;
+}
+
 @media (max-width: 700px) {
   .public-header {
-    align-items: flex-start;
+    position: relative;
+    align-items: stretch;
     flex-direction: column;
     padding-right: 14px;
     padding-left: 14px;
   }
 
+  .public-header::before {
+    inset: 8px;
+  }
+
   .public-nav {
     width: 100%;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .public-nav a {
+    justify-content: center;
+    padding-right: 10px;
+    padding-left: 10px;
   }
 
   .public-brand-logo {

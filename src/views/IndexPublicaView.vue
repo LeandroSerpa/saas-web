@@ -2,46 +2,40 @@
 import PublicFooter from '@/components/publico/PublicFooter.vue'
 import PublicHeader from '@/components/publico/PublicHeader.vue'
 import { RouterLink } from 'vue-router'
+import heroMarca from '@/assets/brand/nuvemmais-hero.png'
 
 const credenciais = [
   'Multiempresa',
-  'Módulos por segmento',
   'Agenda pública',
   'Catálogo',
+  'Módulos por segmento',
   'Gestão esportiva',
-  'Controle operacional',
+  'Administração SaaS',
+]
+
+const indicadores = [
+  { rotulo: 'Agenda', valor: '32', detalhe: 'atendimentos hoje' },
+  { rotulo: 'Receita', valor: 'R$ 8,4 mil', detalhe: 'controle do mês' },
+  { rotulo: 'Clientes', valor: '428', detalhe: 'cadastros ativos' },
+  { rotulo: 'Estoque', valor: '126', detalhe: 'produtos monitorados' },
+  { rotulo: 'Esporte', valor: '18', detalhe: 'turmas ativas' },
 ]
 
 const beneficios = [
   {
-    inicial: 'A',
-    titulo: 'Agenda mais organizada',
-    texto: 'Serviços, horários, equipe e clientes no mesmo fluxo, com menos improviso na rotina.',
+    titulo: 'Agenda com menos improviso',
+    texto: 'Serviços, profissionais, horários e clientes ficam conectados para uma rotina mais previsível.',
+    detalhe: 'Link público, equipe e disponibilidade em contexto.',
   },
   {
-    inicial: 'C',
-    titulo: 'Clientes em contexto',
-    texto: 'Cadastros e histórico acessíveis para melhorar atendimento, relacionamento e acompanhamento.',
+    titulo: 'Operação centralizada',
+    texto: 'Clientes, produtos, estoque, catálogo e histórico ficam organizados no mesmo ambiente de gestão.',
+    detalhe: 'Menos planilhas paralelas e mais clareza no dia a dia.',
   },
   {
-    inicial: 'S',
-    titulo: 'Serviços padronizados',
-    texto: 'Configure duração, valores e disponibilidade para deixar a operação mais previsível.',
-  },
-  {
-    inicial: 'E',
-    titulo: 'Equipe bem distribuída',
-    texto: 'Acompanhe profissionais, funcionários ou professores conforme o módulo usado pela empresa.',
-  },
-  {
-    inicial: 'V',
-    titulo: 'Vitrine pública',
-    texto: 'Use catálogo, cardápio ou link público quando esses recursos estiverem ativos para o negócio.',
-  },
-  {
-    inicial: 'R',
-    titulo: 'Relatórios para decidir',
-    texto: 'Visualize indicadores e dados operacionais sem depender de anotações soltas.',
+    titulo: 'Módulos por modelo de negócio',
+    texto: 'A empresa ativa o que faz sentido para sua operação, sem poluir o painel com recursos desnecessários.',
+    detalhe: 'Agenda, estoque, catálogo, esporte e relatórios.',
   },
 ]
 
@@ -54,74 +48,62 @@ const segmentos = [
   'Oficina',
   'Lava jato',
   'Personal trainer',
-  'Psicologia e terapia',
+  'Psicologia/Terapia',
   'Condomínio',
   'Fotografia',
   'Gestão esportiva',
 ]
 
+const modelos = [
+  'Serviços com horário marcado',
+  'Atendimento por equipe',
+  'Produtos com catálogo público',
+  'Turmas e aulas esportivas',
+]
+
 const passos = [
   {
-    titulo: 'Cadastre sua empresa',
-    texto: 'Envie as informações principais para nossa equipe analisar a entrada na plataforma.',
+    titulo: 'Cliente encontra o link',
+    texto: 'A empresa divulga o agendamento, catálogo ou cardápio conforme os recursos ativos no plano.',
   },
   {
-    titulo: 'Configure sua operação',
-    texto: 'Ajuste serviços, equipe, agenda, estoque, módulos e preferências da empresa.',
+    titulo: 'Solicitação entra organizada',
+    texto: 'Dados importantes chegam com contexto para reduzir ruído entre atendimento, equipe e gestão.',
   },
   {
-    titulo: 'Compartilhe seus links',
-    texto: 'Divulgue agendamento, catálogo ou cardápio público quando fizer sentido para o seu plano.',
+    titulo: 'Equipe acompanha pelo painel',
+    texto: 'Agenda, clientes, produtos, faturas e indicadores ficam visíveis para a rotina interna.',
   },
   {
-    titulo: 'Acompanhe pelo painel',
-    texto: 'Veja atendimentos, clientes, produtos, relatórios e rotinas administrativas com clareza.',
+    titulo: 'Gestão evolui por módulo',
+    texto: 'A operação pode crescer com estoque, relatórios, gestão esportiva e personalização pública.',
   },
 ]
 
 const modulos = [
   {
     titulo: 'Agendamentos',
-    texto: 'Clientes, profissionais, serviços, disponibilidade e links públicos de agendamento.',
+    texto: 'Clientes, serviços, profissionais, disponibilidade e link público de marcação.',
   },
   {
     titulo: 'Estoque e catálogo',
-    texto: 'Produtos, quantidades, catálogo público e cardápio digital para operações que vendem itens.',
+    texto: 'Produtos, quantidades, vitrine pública e cardápio digital quando aplicável ao negócio.',
   },
   {
     titulo: 'Gestão Esportiva',
-    texto: 'Turmas, alunos, professores, aulas, frequência, reposições e rotina de modalidades.',
+    texto: 'Turmas, alunos, professores, aulas, frequência e rotina de modalidades esportivas.',
+  },
+  {
+    titulo: 'Relatórios',
+    texto: 'Indicadores operacionais para acompanhar movimento, atendimentos e evolução da empresa.',
   },
   {
     titulo: 'Administração SaaS',
     texto: 'Empresas, planos, solicitações, assinaturas e visão administrativa da plataforma.',
   },
   {
-    titulo: 'Relatórios',
-    texto: 'Informações gerenciais para acompanhar desempenho e apoiar decisões do dia a dia.',
-  },
-  {
     titulo: 'Personalização pública',
-    texto: 'Identidade, links e páginas públicas preparados para uma apresentação mais profissional.',
-  },
-]
-
-const motivos = [
-  {
-    titulo: 'Menos retrabalho',
-    texto: 'As informações ficam centralizadas, reduzindo conversas perdidas e controles paralelos.',
-  },
-  {
-    titulo: 'Mais presença digital',
-    texto: 'Links públicos ajudam clientes a encontrar serviços, produtos e canais de atendimento.',
-  },
-  {
-    titulo: 'Operação por perfil',
-    texto: 'Permissões e módulos ajudam cada pessoa a acessar o que precisa, no contexto correto.',
-  },
-  {
-    titulo: 'Base para crescer',
-    texto: 'A estrutura multiempresa e modular acompanha negócios simples e operações mais completas.',
+    texto: 'Páginas públicas, identidade, links e presença digital com apresentação mais profissional.',
   },
 ]
 </script>
@@ -129,84 +111,79 @@ const motivos = [
 <template>
   <main class="pagina-index-publica">
     <section class="hero">
-      <span class="decor decor-um" aria-hidden="true"></span>
-      <span class="decor decor-dois" aria-hidden="true"></span>
-
       <PublicHeader />
 
-      <div class="hero-grid">
-        <article class="hero-conteudo">
-          <span class="selo">Portal público NuvemMais</span>
-          <h1>Gestão online para empresas que querem atender melhor e crescer com controle.</h1>
-          <p class="descricao">
-            Organize agenda, clientes, equipe, serviços, estoque, catálogo, gestão esportiva e administração SaaS em
-            uma plataforma moderna, modular e preparada para diferentes segmentos.
+      <div class="hero-stage">
+        <img class="hero-marca" :src="heroMarca" alt="" aria-hidden="true" />
+        <div class="hero-copy">
+          <span class="selo claro">Portal público NuvemMais Gestão</span>
+          <h1>Uma vitrine profissional para sua empresa e um painel para organizar a operação.</h1>
+          <p>
+            Centralize agenda, clientes, equipe, serviços, estoque, catálogo, gestão esportiva e rotinas administrativas
+            em uma plataforma modular preparada para empresas reais.
           </p>
-
           <div class="acoes-hero">
             <RouterLink class="botao principal" to="/cadastro">Começar agora</RouterLink>
             <RouterLink class="botao secundario" to="/login">Entrar no sistema</RouterLink>
           </div>
+        </div>
 
-          <div class="credenciais" aria-label="Destaques da plataforma">
-            <span v-for="item in credenciais" :key="item">{{ item }}</span>
+        <div class="produto-visual" aria-label="Prévia ilustrativa do painel NuvemMais Gestão">
+          <div class="produto-topo">
+            <span></span>
+            <span></span>
+            <span></span>
+            <strong>Painel operacional</strong>
           </div>
-        </article>
+          <div class="produto-grid">
+            <article class="agenda-card">
+              <div>
+                <small>Agenda de hoje</small>
+                <strong>32 atendimentos</strong>
+              </div>
+              <ol>
+                <li><span>09:00</span><p>Corte e barba</p><strong>Confirmado</strong></li>
+                <li><span>10:30</span><p>Aula em turma</p><strong>Aberto</strong></li>
+                <li><span>14:00</span><p>Consulta inicial</p><strong>Novo</strong></li>
+              </ol>
+            </article>
 
-        <aside class="mockup-painel" aria-label="Prévia ilustrativa do painel">
-          <div class="mockup-topo">
-            <span></span>
-            <span></span>
-            <span></span>
-            <strong>Operação de hoje</strong>
+            <article v-for="indicador in indicadores" :key="indicador.rotulo" class="indicador-card">
+              <small>{{ indicador.rotulo }}</small>
+              <strong>{{ indicador.valor }}</strong>
+              <p>{{ indicador.detalhe }}</p>
+            </article>
           </div>
-          <div class="mockup-corpo">
-            <section class="mockup-card destaque">
-              <small>Agenda</small>
-              <strong>32 atendimentos</strong>
-              <div class="barra"><span></span></div>
-            </section>
-            <section class="mockup-card">
-              <small>Clientes</small>
-              <strong>428</strong>
-              <p>cadastros ativos</p>
-            </section>
-            <section class="mockup-card">
-              <small>Estoque</small>
-              <strong>126</strong>
-              <p>produtos monitorados</p>
-            </section>
-            <section class="mockup-lista">
-              <div><span></span><p>Equipe disponível</p><strong>8</strong></div>
-              <div><span></span><p>Catálogo publicado</p><strong>Ativo</strong></div>
-              <div><span></span><p>Relatórios do mês</p><strong>OK</strong></div>
-            </section>
-          </div>
-        </aside>
+        </div>
       </div>
+    </section>
+
+    <section class="faixa-confianca" aria-label="Destaques da plataforma">
+      <span v-for="item in credenciais" :key="item">{{ item }}</span>
     </section>
 
     <section class="secao">
       <div class="secao-cabecalho">
         <span class="selo">Benefícios</span>
-        <h2>Uma rotina mais clara, do primeiro contato ao acompanhamento.</h2>
-        <p>Recursos pensados para reduzir bagunça operacional e dar uma visão mais profissional da empresa.</p>
+        <h2>O básico da gestão fica simples. O avançado fica no lugar certo.</h2>
+        <p>Uma experiência pensada para empresas que precisam vender, atender, organizar equipe e acompanhar resultados.</p>
       </div>
 
       <div class="grade beneficios">
         <article v-for="beneficio in beneficios" :key="beneficio.titulo" class="card-beneficio">
-          <span>{{ beneficio.inicial }}</span>
+          <span aria-hidden="true"></span>
           <h3>{{ beneficio.titulo }}</h3>
           <p>{{ beneficio.texto }}</p>
+          <strong>{{ beneficio.detalhe }}</strong>
         </article>
       </div>
     </section>
 
     <section class="secao segmentos-secao">
       <div class="secao-cabecalho">
-        <span class="selo">Para quem é</span>
-        <h2>Flexível para serviços, atendimento, produtos e esporte.</h2>
-        <p>O portal público apresenta uma plataforma preparada para segmentos diferentes sem perder organização.</p>
+        <span class="selo claro">Segmentos</span>
+        <h2>Visual único para negócios diferentes.</h2>
+        <p>O portal comunica uma plataforma flexível para atendimento, serviços, produtos, aulas e operações locais.</p>
       </div>
 
       <div class="segmentos">
@@ -217,15 +194,33 @@ const motivos = [
       </div>
     </section>
 
+    <section class="secao modelos-secao">
+      <div class="modelo-card">
+        <div>
+          <span class="selo">Uma plataforma, vários modelos</span>
+          <h2>Do atendimento local à gestão esportiva, sem duplicar sistemas.</h2>
+          <p>
+            A mesma base sustenta empresas que trabalham com horários, equipes, produtos, catálogo público, turmas e
+            acompanhamento operacional.
+          </p>
+        </div>
+
+        <div class="modelo-lista">
+          <span v-for="modelo in modelos" :key="modelo">{{ modelo }}</span>
+        </div>
+      </div>
+    </section>
+
     <section class="secao">
       <div class="secao-cabecalho">
-        <span class="selo">Como funciona</span>
-        <h2>Um caminho simples para sair da planilha e entrar no painel.</h2>
+        <span class="selo">Fluxo completo</span>
+        <h2>Do link público ao painel de gestão.</h2>
+        <p>O cliente vê uma entrada clara. A empresa recebe informação com contexto. A equipe trabalha com mais controle.</p>
       </div>
 
       <div class="linha-tempo">
         <article v-for="(passo, indice) in passos" :key="passo.titulo">
-          <span>{{ indice + 1 }}</span>
+          <span>{{ String(indice + 1).padStart(2, '0') }}</span>
           <h3>{{ passo.titulo }}</h3>
           <p>{{ passo.texto }}</p>
         </article>
@@ -235,45 +230,26 @@ const motivos = [
     <section class="secao modulos-secao">
       <div class="secao-cabecalho">
         <span class="selo">Módulos</span>
-        <h2>Ative o que combina com a operação da empresa.</h2>
-        <p>O NuvemMais Gestão pode apoiar desde uma agenda simples até rotinas com estoque, esporte e administração SaaS.</p>
+        <h2>Recursos premium para compor a operação certa.</h2>
+        <p>Ative o que combina com a empresa e mantenha a navegação limpa para quem usa o sistema todos os dias.</p>
       </div>
 
       <div class="grade modulos">
         <article v-for="modulo in modulos" :key="modulo.titulo" class="modulo-card">
+          <span aria-hidden="true"></span>
           <h3>{{ modulo.titulo }}</h3>
           <p>{{ modulo.texto }}</p>
         </article>
       </div>
     </section>
 
-    <section class="secao porque-secao">
-      <div class="porque-card">
-        <div class="secao-cabecalho">
-          <span class="selo">Por que usar</span>
-          <h2>Uma base confiável para profissionalizar a gestão.</h2>
-          <p>
-            O sistema ajuda empresas a organizar dados, padronizar processos e acompanhar a operação com mais segurança,
-            sem prometer automações financeiras que ainda não fazem parte do fluxo final.
-          </p>
-        </div>
-
-        <div class="motivos">
-          <article v-for="motivo in motivos" :key="motivo.titulo">
-            <h3>{{ motivo.titulo }}</h3>
-            <p>{{ motivo.texto }}</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
     <section class="cta-final">
-      <span class="selo">Comece com clareza</span>
-      <h2>Seu negócio com uma entrada pública mais profissional e um painel para acompanhar tudo.</h2>
-      <p>Cadastre sua empresa para análise ou acesse sua conta para continuar a gestão pelo sistema.</p>
+      <span class="selo claro">Comece com presença profissional</span>
+      <h2>Cadastre sua empresa e leve a rotina para um painel mais claro, modular e confiável.</h2>
+      <p>Envie a solicitação para análise ou acesse sua conta para continuar a gestão pelo sistema.</p>
       <div class="acoes-hero">
-        <RouterLink class="botao principal" to="/cadastro">Começar agora</RouterLink>
-        <RouterLink class="botao secundario claro" to="/login">Acessar minha conta</RouterLink>
+        <RouterLink class="botao principal claro" to="/cadastro">Começar agora</RouterLink>
+        <RouterLink class="botao secundario claro-borda" to="/login">Acessar minha conta</RouterLink>
       </div>
     </section>
 
@@ -285,69 +261,49 @@ const motivos = [
 .pagina-index-publica {
   min-height: 100vh;
   overflow: hidden;
-  background: #f8fafc;
+  background: #f7fafc;
   color: #0f172a;
 }
 
 .hero {
   position: relative;
-  border-bottom: 1px solid #dbeafe;
+  border-bottom: 1px solid rgba(148, 163, 184, .24);
   background:
-    radial-gradient(circle at 84% 18%, rgba(20, 184, 166, .22), transparent 28%),
-    radial-gradient(circle at 10% 16%, rgba(37, 99, 235, .2), transparent 32%),
-    linear-gradient(135deg, #eef6ff 0%, #f8fbff 48%, #ecfeff 100%);
-  padding-bottom: 82px;
+    linear-gradient(110deg, rgba(14, 165, 233, .16) 0 1px, transparent 1px 100%) 0 0 / 72px 72px,
+    radial-gradient(circle at 24% 12%, rgba(37, 99, 235, .42), transparent 34%),
+    radial-gradient(circle at 82% 26%, rgba(20, 184, 166, .28), transparent 30%),
+    linear-gradient(135deg, #071124 0%, #0f172a 48%, #123b78 100%);
+  color: white;
 }
 
-.decor {
-  position: absolute;
-  pointer-events: none;
-  border: 1px solid rgba(37, 99, 235, .15);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .4);
-  filter: blur(.2px);
-}
-
-.decor-um {
-  width: 220px;
-  height: 220px;
-  right: -86px;
-  top: 128px;
-}
-
-.decor-dois {
-  width: 140px;
-  height: 140px;
-  left: -60px;
-  bottom: 36px;
-}
-
-.hero-grid,
-.secao,
-.cta-final {
+.hero-stage {
+  position: relative;
   width: min(1160px, 100%);
   margin: 0 auto;
-  padding-right: 20px;
-  padding-left: 20px;
+  display: grid;
+  gap: 34px;
+  padding: 66px 20px 84px;
 }
 
-.hero-grid {
+.hero-marca {
+  position: absolute;
+  top: 108px;
+  right: 20px;
+  width: min(430px, 46vw);
+  border-radius: 18px;
+  opacity: .14;
+  filter: saturate(1.15);
+}
+
+.hero-copy {
   position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.02fr) minmax(360px, .82fr);
-  gap: 44px;
-  align-items: center;
-  padding-top: 56px;
-}
-
-.hero-conteudo,
-.secao-cabecalho,
-.card-beneficio,
-.modulo-card,
-.porque-card,
-.cta-final {
-  display: grid;
-  gap: 16px;
+  justify-items: center;
+  gap: 18px;
+  max-width: 920px;
+  margin: 0 auto;
+  text-align: center;
 }
 
 .selo {
@@ -357,63 +313,56 @@ const motivos = [
   text-transform: uppercase;
 }
 
+.selo.claro {
+  color: #7dd3fc;
+}
+
 h1,
 h2,
 h3,
-p {
+p,
+ol {
   margin: 0;
 }
 
 h1 {
-  max-width: 840px;
-  font-size: 60px;
-  line-height: 1.02;
+  max-width: 980px;
+  font-size: clamp(44px, 7vw, 78px);
+  line-height: .98;
   font-weight: 900;
 }
 
 h2 {
-  font-size: 36px;
-  line-height: 1.12;
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.04;
   font-weight: 900;
 }
 
 h3 {
   font-size: 20px;
+  line-height: 1.18;
   font-weight: 900;
 }
 
-.descricao,
-.secao-cabecalho p,
-.card-beneficio p,
-.modulo-card p,
-.linha-tempo p,
-.porque-card p,
-.cta-final p {
-  color: #475569;
-  font-size: 16px;
-  line-height: 1.65;
-}
-
-.descricao {
-  max-width: 760px;
+.hero-copy p {
+  max-width: 780px;
+  color: #dbeafe;
   font-size: 19px;
-}
-
-.acoes-hero,
-.credenciais {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  line-height: 1.7;
 }
 
 .acoes-hero {
-  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
 }
 
 .botao {
   display: inline-flex;
-  min-height: 48px;
+  min-height: 50px;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
@@ -429,213 +378,246 @@ h3 {
 }
 
 .botao.principal {
-  background: #2563eb;
-  color: white;
-  box-shadow: 0 18px 34px rgba(37, 99, 235, .24);
+  background: #38bdf8;
+  color: #071124;
+  box-shadow: 0 20px 38px rgba(56, 189, 248, .26);
 }
 
-.botao.secundario {
-  border: 1px solid #cbd5e1;
+.botao.principal.claro {
   background: white;
   color: #0f172a;
 }
 
-.botao.claro {
-  border-color: rgba(255, 255, 255, .5);
-  background: rgba(255, 255, 255, .12);
+.botao.secundario {
+  border: 1px solid rgba(255, 255, 255, .28);
+  background: rgba(255, 255, 255, .08);
   color: white;
 }
 
-.credenciais {
-  margin-top: 18px;
+.botao.claro-borda {
+  border-color: rgba(255, 255, 255, .42);
 }
 
-.credenciais span {
-  border: 1px solid rgba(37, 99, 235, .14);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .72);
-  padding: 9px 12px;
-  color: #1e3a8a;
-  font-size: 13px;
-  font-weight: 900;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .05);
-}
-
-.mockup-painel {
-  border: 1px solid rgba(148, 163, 184, .38);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, .78);
-  box-shadow: 0 28px 70px rgba(15, 23, 42, .16);
-  backdrop-filter: blur(18px);
+.produto-visual {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 980px);
+  margin: 16px auto 0;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 24px;
+  background: rgba(8, 15, 31, .72);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, .32);
+  backdrop-filter: blur(20px);
   overflow: hidden;
 }
 
-.mockup-topo {
+.produto-topo {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  padding: 15px 18px;
 }
 
-.mockup-topo span {
+.produto-topo span {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #cbd5e1;
+  background: rgba(226, 232, 240, .56);
 }
 
-.mockup-topo strong {
+.produto-topo strong {
   margin-left: auto;
-  color: #334155;
+  color: #bfdbfe;
   font-size: 13px;
   font-weight: 900;
 }
 
-.mockup-corpo {
+.produto-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(260px, 1.35fr) repeat(2, minmax(150px, .75fr));
   gap: 14px;
   padding: 18px;
 }
 
-.mockup-card,
-.mockup-lista {
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #ffffff;
-  padding: 16px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
+.agenda-card,
+.indicador-card {
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 
-.mockup-card {
+.agenda-card {
+  grid-row: span 3;
   display: grid;
-  gap: 8px;
-  min-height: 132px;
+  gap: 18px;
+  padding: 20px;
 }
 
-.mockup-card.destaque {
-  grid-column: 1 / -1;
-  background:
-    radial-gradient(circle at 90% 10%, rgba(20, 184, 166, .18), transparent 30%),
-    #0f172a;
-  color: white;
+.agenda-card small,
+.indicador-card small {
+  color: #93c5fd;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
-.mockup-card small,
-.mockup-card p {
-  color: #64748b;
-  font-weight: 800;
-}
-
-.mockup-card.destaque small {
-  color: #bfdbfe;
-}
-
-.mockup-card strong {
-  font-size: 26px;
-  line-height: 1.08;
-}
-
-.barra {
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .18);
-  overflow: hidden;
-}
-
-.barra span {
+.agenda-card strong {
   display: block;
-  width: 72%;
-  height: 100%;
-  border-radius: inherit;
-  background: #14b8a6;
+  margin-top: 6px;
+  font-size: 28px;
 }
 
-.mockup-lista {
-  grid-column: 1 / -1;
+.agenda-card ol {
   display: grid;
   gap: 10px;
+  padding: 0;
+  list-style: none;
 }
 
-.mockup-lista div {
+.agenda-card li {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 58px 1fr auto;
   align-items: center;
   gap: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .08);
+  padding: 12px;
 }
 
-.mockup-lista span {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #2563eb;
-}
-
-.mockup-lista p {
-  color: #334155;
-  font-weight: 800;
-}
-
-.mockup-lista strong {
-  font-size: 13px;
+.agenda-card li span,
+.agenda-card li strong {
+  color: #7dd3fc;
+  font-size: 12px;
   font-weight: 900;
 }
 
+.agenda-card li p {
+  color: #e0f2fe;
+  font-weight: 800;
+}
+
+.indicador-card {
+  min-height: 132px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 18px;
+}
+
+.indicador-card strong {
+  font-size: 27px;
+  line-height: 1;
+}
+
+.indicador-card p {
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.faixa-confianca {
+  width: min(1160px, calc(100% - 40px));
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin: -34px auto 0;
+  position: relative;
+  z-index: 2;
+}
+
+.faixa-confianca span {
+  display: grid;
+  min-height: 64px;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .94);
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, .08);
+}
+
+.secao,
+.cta-final {
+  width: min(1160px, 100%);
+  margin: 0 auto;
+  padding-right: 20px;
+  padding-left: 20px;
+}
+
 .secao {
-  padding-top: 74px;
-  padding-bottom: 74px;
+  padding-top: 84px;
+  padding-bottom: 84px;
 }
 
 .secao-cabecalho {
-  max-width: 780px;
-  margin-bottom: 28px;
+  display: grid;
+  gap: 14px;
+  max-width: 790px;
+  margin-bottom: 30px;
+}
+
+.secao-cabecalho p,
+.card-beneficio p,
+.modulo-card p,
+.linha-tempo p,
+.modelo-card p,
+.cta-final p {
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.65;
 }
 
 .grade {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .card-beneficio,
 .modulo-card,
-.linha-tempo article,
-.motivos article {
+.linha-tempo article {
+  display: grid;
+  gap: 14px;
   min-width: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 18px;
   background: white;
-  padding: 22px;
-  box-shadow: 0 14px 34px rgba(15, 23, 42, .06);
+  padding: 24px;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, .07);
 }
 
-.card-beneficio span {
-  display: inline-grid;
+.card-beneficio > span,
+.modulo-card > span {
   width: 42px;
   height: 42px;
-  place-items: center;
-  border-radius: 13px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-weight: 900;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, .16), rgba(20, 184, 166, .22));
 }
 
-.segmentos-secao,
-.porque-secao {
+.card-beneficio strong {
+  color: #1d4ed8;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.segmentos-secao {
   width: 100%;
   max-width: none;
   padding-right: max(20px, calc((100% - 1160px) / 2));
   padding-left: max(20px, calc((100% - 1160px) / 2));
-  background: #0f172a;
+  background:
+    linear-gradient(110deg, rgba(125, 211, 252, .1) 0 1px, transparent 1px 100%) 0 0 / 64px 64px,
+    #0f172a;
   color: white;
 }
 
-.segmentos-secao .secao-cabecalho p,
-.segmentos-secao .selo,
-.porque-secao .secao-cabecalho p,
-.porque-secao .selo {
-  color: #bfdbfe;
+.segmentos-secao .secao-cabecalho p {
+  color: #cbd5e1;
 }
 
 .segmentos {
@@ -647,26 +629,60 @@ h3 {
 .segmentos article {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 66px;
+  gap: 12px;
+  min-height: 70px;
   border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 14px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, .08);
   padding: 14px;
 }
 
 .segmentos span {
   display: inline-grid;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
   place-items: center;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, .12);
-  color: #bfdbfe;
+  border-radius: 12px;
+  background: rgba(125, 211, 252, .14);
+  color: #7dd3fc;
   font-weight: 900;
 }
 
-.segmentos strong {
+.modelos-secao {
+  padding-bottom: 32px;
+}
+
+.modelo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .62fr);
+  gap: 26px;
+  align-items: center;
+  border: 1px solid rgba(37, 99, 235, .14);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% 16%, rgba(20, 184, 166, .16), transparent 28%),
+    linear-gradient(135deg, #ffffff 0%, #eef6ff 100%);
+  padding: 34px;
+  box-shadow: 0 22px 54px rgba(15, 23, 42, .08);
+}
+
+.modelo-card > div:first-child {
+  display: grid;
+  gap: 14px;
+}
+
+.modelo-lista {
+  display: grid;
+  gap: 10px;
+}
+
+.modelo-lista span {
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: white;
+  padding: 14px 16px;
+  color: #1e3a8a;
   font-weight: 900;
 }
 
@@ -677,112 +693,92 @@ h3 {
 }
 
 .linha-tempo article {
-  position: relative;
-  display: grid;
-  gap: 12px;
-  border-top: 4px solid #2563eb;
+  border-top: 4px solid #38bdf8;
 }
 
 .linha-tempo article > span {
-  display: inline-grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 999px;
-  background: #2563eb;
-  color: white;
+  color: #2563eb;
+  font-size: 13px;
   font-weight: 900;
 }
 
 .modulos-secao {
-  padding-top: 20px;
+  padding-top: 34px;
 }
 
 .modulo-card {
-  min-height: 188px;
+  min-height: 208px;
   background:
     linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
-.porque-card {
-  width: min(1160px, 100%);
-  margin: 0 auto;
-  grid-template-columns: minmax(0, .9fr) minmax(360px, 1fr);
-  align-items: start;
-}
-
-.porque-card .secao-cabecalho {
-  margin-bottom: 0;
-}
-
-.motivos {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.motivos article {
-  background: rgba(255, 255, 255, .08);
-  border-color: rgba(255, 255, 255, .14);
-  box-shadow: none;
-}
-
-.motivos p {
-  color: #dbeafe;
-}
-
 .cta-final {
-  margin-top: 54px;
-  margin-bottom: 20px;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  margin-top: 26px;
+  margin-bottom: 24px;
   border-radius: 24px;
   background:
-    radial-gradient(circle at 90% 18%, rgba(20, 184, 166, .34), transparent 28%),
-    linear-gradient(135deg, #1d4ed8 0%, #0f172a 100%);
-  padding: 48px 36px;
+    linear-gradient(110deg, rgba(125, 211, 252, .12) 0 1px, transparent 1px 100%) 0 0 / 58px 58px,
+    radial-gradient(circle at 76% 24%, rgba(20, 184, 166, .3), transparent 28%),
+    linear-gradient(135deg, #1d4ed8 0%, #071124 100%);
+  padding: 54px 36px;
   color: white;
+  text-align: center;
   box-shadow: 0 28px 70px rgba(15, 23, 42, .18);
 }
 
-.cta-final .selo,
+.cta-final h2 {
+  max-width: 820px;
+}
+
 .cta-final p {
+  max-width: 680px;
   color: #dbeafe;
 }
 
 @media (max-width: 980px) {
-  .hero-grid,
-  .porque-card {
-    grid-template-columns: 1fr;
+  .produto-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .agenda-card {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .faixa-confianca,
   .grade,
   .segmentos,
   .linha-tempo {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  h1 {
-    font-size: 46px;
+  .modelo-card {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
-  .hero {
-    padding-bottom: 54px;
+  .hero-stage {
+    padding: 42px 14px 58px;
   }
 
-  .hero-grid {
-    padding: 34px 14px 0;
+  .hero-marca {
+    display: none;
+  }
+
+  .hero-copy {
+    text-align: left;
+    justify-items: start;
   }
 
   h1 {
-    font-size: 36px;
+    font-size: 40px;
   }
 
-  h2 {
-    font-size: 28px;
-  }
-
-  .descricao {
+  .hero-copy p {
     font-size: 16px;
   }
 
@@ -791,36 +787,37 @@ h3 {
     width: 100%;
   }
 
-  .mockup-corpo,
+  .produto-grid,
+  .faixa-confianca,
   .grade,
   .segmentos,
-  .linha-tempo,
-  .motivos {
+  .linha-tempo {
+    grid-template-columns: 1fr;
+  }
+
+  .agenda-card li {
     grid-template-columns: 1fr;
   }
 
   .secao {
-    padding: 52px 14px;
+    padding: 58px 14px;
   }
 
-  .segmentos-secao,
-  .porque-secao {
+  .segmentos-secao {
     padding-right: 14px;
     padding-left: 14px;
   }
 
+  .modelo-card,
   .card-beneficio,
   .modulo-card,
   .linha-tempo article,
-  .motivos article,
-  .mockup-card,
-  .mockup-lista {
-    padding: 18px;
+  .cta-final {
+    padding: 22px;
   }
 
   .cta-final {
     width: calc(100% - 28px);
-    padding: 34px 20px;
   }
 }
 </style>

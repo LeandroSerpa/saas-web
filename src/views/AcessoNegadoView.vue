@@ -31,21 +31,26 @@ const descricao = computed(() =>
 .pagina-feedback {
   display: grid;
   place-items: center;
-  min-height: 60vh;
+  min-height: 70vh;
+  padding: 28px 14px;
+  background:
+    linear-gradient(110deg, rgba(14, 165, 233, .1) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 18% 16%, rgba(37, 99, 235, .14), transparent 30%),
+    #f8fafc;
   color: #0f172a;
 }
 
 .card-feedback {
-  width: min(100%, 620px);
+  width: min(100%, 680px);
   display: grid;
   gap: 16px;
   border: 1px solid #fecaca;
-  border-radius: 18px;
+  border-radius: 26px;
   background:
     radial-gradient(circle at 94% 12%, rgba(248, 113, 113, .12), transparent 28%),
-    white;
-  padding: 30px;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, .08);
+    rgba(255, 255, 255, .96);
+  padding: 34px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, .12);
 }
 
 .selo {
@@ -61,14 +66,14 @@ p {
 }
 
 h1 {
-  font-size: 30px;
-  line-height: 1.15;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.08;
   font-weight: 900;
 }
 
 p {
   color: #475569;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .botao {
@@ -80,5 +85,16 @@ p {
   font-weight: 900;
   text-decoration: none;
   box-shadow: 0 14px 26px rgba(37, 99, 235, .18);
+}
+
+@media (max-width: 560px) {
+  .card-feedback {
+    padding: 22px;
+  }
+
+  .botao {
+    width: 100%;
+    text-align: center;
+  }
 }
 </style>

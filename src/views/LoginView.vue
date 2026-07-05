@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import PublicFooter from '@/components/publico/PublicFooter.vue'
 import PublicHeader from '@/components/publico/PublicHeader.vue'
+import logoMarca from '@/assets/brand/nuvemmais-marca.svg'
 import {
   erroIndicaCadastroPendente,
   login,
@@ -79,12 +80,23 @@ async function entrar() {
 
     <section class="login-shell">
       <aside class="painel-login">
-        <span class="selo">Acesso seguro</span>
-        <h1>Entre no painel e acompanhe sua operação em tempo real.</h1>
+        <span class="selo">Produto profissional</span>
+        <h1>Organize sua empresa em uma única plataforma.</h1>
         <p>
-          O NuvemMais Gestão reúne agenda, clientes, equipe, estoque, relatórios e recursos administrativos em um
-          ambiente online organizado.
+          Acesse agenda, clientes, equipe, estoque, relatórios e recursos administrativos com contexto de empresa e
+          permissões por perfil.
         </p>
+
+        <div class="mini-dashboard" aria-hidden="true">
+          <div class="mini-topo">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="mini-corpo">
+            <article><small>Hoje</small><strong>32</strong><p>atendimentos</p></article>
+            <article><small>Equipe</small><strong>8</strong><p>disponíveis</p></article>
+            <article class="largo"><small>Operação</small><strong>Agenda, catálogo e estoque no mesmo painel</strong></article>
+          </div>
+        </div>
 
         <div class="beneficios-login">
           <article>
@@ -104,7 +116,7 @@ async function entrar() {
 
       <section class="login-card">
         <div class="marca-login">
-          <span class="marca-simbolo">NM</span>
+          <img :src="logoMarca" alt="" aria-hidden="true" />
           <div>
             <strong>NuvemMais Gestão</strong>
             <small>Gestão empresarial na nuvem</small>
@@ -192,47 +204,38 @@ async function entrar() {
 .pagina-login {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 12% 20%, rgba(37, 99, 235, .16), transparent 30%),
-    radial-gradient(circle at 88% 12%, rgba(20, 184, 166, .18), transparent 28%),
+    linear-gradient(110deg, rgba(14, 165, 233, .12) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 10% 12%, rgba(37, 99, 235, .18), transparent 30%),
+    radial-gradient(circle at 92% 18%, rgba(20, 184, 166, .18), transparent 28%),
     #f8fafc;
   color: #0f172a;
 }
 
 .login-shell {
-  width: min(1080px, 100%);
-  min-height: calc(100vh - 210px);
+  width: min(1120px, 100%);
+  min-height: calc(100vh - 226px);
   display: grid;
-  grid-template-columns: minmax(0, .95fr) minmax(360px, 440px);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
   gap: 28px;
   align-items: center;
   margin: 0 auto;
-  padding: 38px 20px 56px;
+  padding: 42px 20px 58px;
 }
 
 .painel-login {
   position: relative;
   display: grid;
   gap: 18px;
-  border: 1px solid rgba(37, 99, 235, .12);
-  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 26px;
   background:
-    radial-gradient(circle at 90% 12%, rgba(20, 184, 166, .24), transparent 32%),
-    linear-gradient(135deg, #1d4ed8 0%, #0f172a 100%);
+    linear-gradient(110deg, rgba(125, 211, 252, .12) 0 1px, transparent 1px 100%) 0 0 / 58px 58px,
+    radial-gradient(circle at 84% 12%, rgba(20, 184, 166, .3), transparent 30%),
+    linear-gradient(135deg, #1d4ed8 0%, #071124 100%);
   padding: 38px;
   color: white;
   overflow: hidden;
-  box-shadow: 0 28px 70px rgba(15, 23, 42, .18);
-}
-
-.painel-login::after {
-  content: '';
-  position: absolute;
-  right: -70px;
-  bottom: -70px;
-  width: 210px;
-  height: 210px;
-  border: 1px solid rgba(255, 255, 255, .18);
-  border-radius: 999px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, .2);
 }
 
 .selo,
@@ -245,7 +248,7 @@ async function entrar() {
 }
 
 .painel-login .selo {
-  color: #bfdbfe;
+  color: #7dd3fc;
 }
 
 .painel-login h1,
@@ -256,9 +259,9 @@ async function entrar() {
 }
 
 .painel-login h1 {
-  max-width: 560px;
-  font-size: 42px;
-  line-height: 1.08;
+  max-width: 620px;
+  font-size: clamp(34px, 5vw, 56px);
+  line-height: 1.02;
   font-weight: 900;
 }
 
@@ -269,11 +272,73 @@ async function entrar() {
   line-height: 1.65;
 }
 
+.mini-dashboard {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 20px;
+  background: rgba(8, 15, 31, .5);
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+}
+
+.mini-topo {
+  display: flex;
+  gap: 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  padding: 13px 16px;
+}
+
+.mini-topo span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .5);
+}
+
+.mini-corpo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.mini-corpo article {
+  display: grid;
+  gap: 6px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .09);
+  padding: 14px;
+}
+
+.mini-corpo article.largo {
+  grid-column: 1 / -1;
+}
+
+.mini-corpo small {
+  color: #93c5fd;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mini-corpo strong {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.mini-corpo .largo strong {
+  font-size: 17px;
+}
+
+.mini-corpo p {
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
 .beneficios-login {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 14px;
 }
 
 .beneficios-login article {
@@ -299,11 +364,12 @@ async function entrar() {
   width: 100%;
   display: grid;
   gap: 22px;
-  border: 1px solid #e5e7eb;
-  border-radius: 20px;
-  background: white;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, .94);
   padding: 30px;
-  box-shadow: 0 24px 56px rgba(15, 23, 42, .12);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, .14);
+  backdrop-filter: blur(16px);
 }
 
 .marca-login {
@@ -312,16 +378,11 @@ async function entrar() {
   gap: 12px;
 }
 
-.marca-simbolo {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
+.marca-login img {
+  width: 46px;
+  height: 46px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #2563eb 0%, #14b8a6 100%);
-  color: white;
-  font-weight: 900;
-  box-shadow: 0 14px 26px rgba(37, 99, 235, .22);
+  box-shadow: 0 14px 26px rgba(37, 99, 235, .2);
 }
 
 .marca-login strong,
@@ -345,7 +406,7 @@ async function entrar() {
 }
 
 .cabecalho-login h2 {
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 900;
 }
 
@@ -366,10 +427,10 @@ input {
   width: 100%;
   min-width: 0;
   border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border-radius: 10px;
   background: white;
   box-sizing: border-box;
-  padding: 12px 13px;
+  padding: 13px 14px;
   font-size: 15px;
 }
 
@@ -403,7 +464,7 @@ input:focus {
   cursor: pointer;
   padding: 0;
   transform: translateY(-50%);
-  transition: background .15s ease, color .15s ease, transform .15s ease;
+  transition: background .15s ease, color .15s ease;
 }
 
 .botao-olho:hover {
@@ -428,7 +489,7 @@ input:focus {
 }
 
 .botao-login {
-  min-height: 48px;
+  min-height: 50px;
   border: none;
   border-radius: 8px;
   background: #2563eb;
@@ -436,7 +497,7 @@ input:focus {
   cursor: pointer;
   padding: 13px 16px;
   font-weight: 900;
-  box-shadow: 0 16px 28px rgba(37, 99, 235, .22);
+  box-shadow: 0 18px 32px rgba(37, 99, 235, .24);
   transition: transform .15s ease, opacity .15s ease, background .15s ease;
 }
 
@@ -454,7 +515,7 @@ input:focus {
 .nota-seguranca {
   margin: 0;
   border: 1px solid #dbeafe;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #eff6ff;
   padding: 12px 14px;
   color: #1e3a8a;
@@ -497,7 +558,7 @@ input:focus {
 
 .erro {
   border: 1px solid #fecaca;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fef2f2;
   color: #991b1b;
   padding: 14px 16px;
@@ -523,17 +584,17 @@ input:focus {
 
 @media (max-width: 560px) {
   .login-shell {
-    padding: 24px 14px 38px;
+    padding: 26px 14px 40px;
   }
 
   .painel-login,
   .login-card {
-    border-radius: 18px;
+    border-radius: 20px;
     padding: 22px;
   }
 
-  .painel-login h1 {
-    font-size: 30px;
+  .mini-corpo {
+    grid-template-columns: 1fr;
   }
 
   .links-institucionais {
