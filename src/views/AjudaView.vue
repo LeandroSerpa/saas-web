@@ -73,7 +73,7 @@ const perguntasFrequentes = [
   {
     pergunta: 'Como troco o tema da tela?',
     resposta:
-      'Use o seletor de tema no topo da tela e escolha Claro, Moderno, Escuro, Suave ou NuvemMais. A mudança é rápida e ajuda a leitura no dia a dia.',
+      'Use o seletor de tema no topo da tela e escolha uma aparência como Padrão Claro, Moderno Azul, NuvemMais Gestão, Natural Verde ou Escuro Safira. A mudança é rápida e ajuda a leitura no dia a dia.',
   },
   {
     pergunta: 'Como altero minha senha?',
@@ -148,7 +148,7 @@ const topicos = [
     pontos: [
       'Use o Modo Essencial quando quiser focar só no que é mais importante.',
       'Use o Modo Completo quando precisar acessar todos os recursos permitidos.',
-      'Troque o tema entre Claro, Moderno, Escuro, Suave e NuvemMais conforme a sua preferência.',
+      'Troque o tema entre as opções internas alinhadas ao catálogo público, como Padrão Claro, Moderno Azul, NuvemMais Gestão, Natural Verde e Escuro Safira.',
       'O visual muda sem alterar seus dados, permissões ou rotas públicas.',
     ],
     destaque: 'Bom para deixar o sistema mais leve para quem prefere poucos atalhos e leitura simples.',
@@ -547,7 +547,7 @@ const conteudoDetalhadoPorTopico = {
     '1. Use o seletor de modo no topo da tela.',
     '2. Escolha Modo Essencial para ver menos opções e ficar mais simples.',
     '3. Escolha Modo Completo quando quiser ver todas as áreas permitidas.',
-    '4. No mesmo topo, troque o tema entre Claro, Moderno, Escuro, Suave e NuvemMais.',
+    '4. No mesmo topo, troque o tema entre as opções disponíveis no seletor de aparência.',
     '5. Confira se a tela ficou mais fácil de ler para você.',
   ],
   dashboard: [
@@ -752,7 +752,7 @@ const historicoAtualizacoes = [
     itens: [
       'Modo Essencial para navegação simplificada.',
       'Modo Completo para acesso a todos os recursos.',
-      'Temas Claro, Moderno, Escuro, Suave e NuvemMais.',
+      'Temas internos alinhados aos temas públicos do catálogo.',
       'Central de Ajuda com modo Resumo e passo a passo.',
       'Links "Ajuda desta tela" nas principais telas do sistema.',
       'Dashboard Essencial com ações rápidas.',

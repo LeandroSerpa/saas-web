@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 112" role="img" aria-label="NuvemMais Gestão">
+  <defs>
+    <linearGradient id="mark-bg" x1="12" y1="8" x2="96" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="mark-line" x1="22" y1="22" x2="86" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="96" height="96" rx="25" fill="url(#mark-bg)"/>
+  <path d="M29 42a18 18 0 0 1 16-10h19a18 18 0 0 1 0 36H30a15 15 0 1 1-1-26Z" fill="#bfdbfe" opacity=".2"/>
+  <path d="M30 35h11l15 23 15-23h11v43H70V56L60 72h-8L42 56v22H30V35Z" fill="#ffffff"/>
+  <path d="M30 82h52v5H30z" fill="url(#mark-line)"/>
+  <text x="126" y="54" fill="#0f172a" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800">NuvemMais</text>
+  <text x="126" y="82" fill="#2563eb" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Gestão</text>
+</svg>

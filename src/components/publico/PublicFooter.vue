@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import logoMarca from '@/assets/brand/nuvemmais-marca.svg'
+import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
 </script>
 
 <template>
@@ -8,10 +8,10 @@ import logoMarca from '@/assets/brand/nuvemmais-marca.svg'
     <div class="public-footer-grid">
       <div class="public-footer-brand">
         <RouterLink class="public-footer-logo" to="/" aria-label="Ir para a página inicial">
-          <img :src="logoMarca" alt="" aria-hidden="true" />
+          <img :src="brandAssets.logoHorizontal" alt="NuvemMais Gestão" />
           <span>
             <strong>NuvemMais Gestão</strong>
-            <small>Gestão empresarial na nuvem</small>
+            <small>{{ BRAND_TAGLINE }}</small>
           </span>
         </RouterLink>
         <p>
@@ -73,14 +73,13 @@ import logoMarca from '@/assets/brand/nuvemmais-marca.svg'
 }
 
 .public-footer-logo img {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  box-shadow: 0 14px 26px rgba(37, 99, 235, .2);
+  width: min(238px, 100%);
+  height: 54px;
+  object-fit: contain;
 }
 
 .public-footer-logo span {
-  display: grid;
+  display: none;
   gap: 2px;
 }
 

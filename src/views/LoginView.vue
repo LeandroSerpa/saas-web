@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import PublicFooter from '@/components/publico/PublicFooter.vue'
 import PublicHeader from '@/components/publico/PublicHeader.vue'
-import logoMarca from '@/assets/brand/nuvemmais-marca.svg'
+import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
 import {
   erroIndicaCadastroPendente,
   login,
@@ -116,10 +116,10 @@ async function entrar() {
 
       <section class="login-card">
         <div class="marca-login">
-          <img :src="logoMarca" alt="" aria-hidden="true" />
+          <img :src="brandAssets.logoHorizontal" alt="NuvemMais Gestão" />
           <div>
             <strong>NuvemMais Gestão</strong>
-            <small>Gestão empresarial na nuvem</small>
+            <small>{{ BRAND_TAGLINE }}</small>
           </div>
         </div>
 
@@ -379,15 +379,14 @@ async function entrar() {
 }
 
 .marca-login img {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  box-shadow: 0 14px 26px rgba(37, 99, 235, .2);
+  width: min(250px, 100%);
+  height: 58px;
+  object-fit: contain;
 }
 
 .marca-login strong,
 .marca-login small {
-  display: block;
+  display: none;
 }
 
 .marca-login strong {

@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import logoMarca from '@/assets/brand/nuvemmais-marca.svg'
+import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
 
 defineProps({
   compacto: {
@@ -13,10 +13,10 @@ defineProps({
 <template>
   <header :class="['public-header', { compacto }]">
     <RouterLink class="public-brand" to="/" aria-label="Ir para a página inicial">
-      <img class="public-brand-logo" :src="logoMarca" alt="" aria-hidden="true" />
+      <img class="public-brand-logo" :src="brandAssets.logoHorizontal" alt="NuvemMais Gestão" />
       <span class="public-brand-text">
         <strong>NuvemMais Gestão</strong>
-        <small>Gestão empresarial na nuvem</small>
+        <small>{{ BRAND_TAGLINE }}</small>
       </span>
     </RouterLink>
 
@@ -75,15 +75,14 @@ defineProps({
 }
 
 .public-brand-logo {
-  width: 44px;
-  height: 44px;
+  width: min(238px, 46vw);
+  height: 54px;
   flex: 0 0 auto;
-  border-radius: 14px;
-  box-shadow: 0 14px 26px rgba(37, 99, 235, .22);
+  object-fit: contain;
 }
 
 .public-brand-text {
-  display: grid;
+  display: none;
   gap: 2px;
   min-width: 0;
 }
@@ -168,8 +167,8 @@ defineProps({
   }
 
   .public-brand-logo {
-    width: 40px;
-    height: 40px;
+    width: min(220px, 72vw);
+    height: 50px;
   }
 }
 </style>

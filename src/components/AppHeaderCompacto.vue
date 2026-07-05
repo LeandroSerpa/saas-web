@@ -1,5 +1,6 @@
 <script setup>
 import NotificacoesBell from '@/components/NotificacoesBell.vue'
+import { brandAssets } from '@/utils/brandAssets'
 
 defineProps({
   cabecalho: {
@@ -48,6 +49,8 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
           <span></span>
           <span></span>
         </button>
+
+        <img class="app-topbar-logo" :src="brandAssets.logoApp" alt="" aria-hidden="true" />
 
         <div class="app-topbar-titulo">
           <strong>NuvemMais Gestão</strong>
@@ -171,6 +174,15 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
   min-width: 0;
   display: grid;
   gap: 1px;
+}
+
+.app-topbar-logo {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
 }
 
 .app-topbar-titulo strong,
@@ -382,6 +394,10 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 
 @media (max-width: 480px) {
   .app-topbar-titulo {
+    display: none;
+  }
+
+  .app-topbar-logo {
     display: none;
   }
 
