@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import PublicFooter from '@/components/publico/PublicFooter.vue'
 import PublicHeader from '@/components/publico/PublicHeader.vue'
-import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
+import { BRAND_NAME, BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
 import {
   erroIndicaCadastroPendente,
   login,
@@ -20,6 +20,7 @@ const senha = ref('')
 const erro = ref(mensagemLogin)
 const carregando = ref(false)
 const mostrarSenha = ref(false)
+const logoComErro = ref(false)
 
 if (mensagemLogin) {
   sessionStorage.removeItem('mensagem-login')
@@ -72,6 +73,10 @@ async function entrar() {
     carregando.value = false
   }
 }
+
+function usarFallbackLogo() {
+  logoComErro.value = true
+}
 </script>
 
 <template>
@@ -116,10 +121,18 @@ async function entrar() {
 
       <section class="login-card">
         <div class="marca-login">
-          <img :src="brandAssets.logoHorizontal" alt="NuvemMais Gestão" />
-          <div>
-            <strong>NuvemMais Gestão</strong>
-            <small>{{ BRAND_TAGLINE }}</small>
+          <img
+            v-if="!logoComErro"
+            :src="brandAssets.logoHorizontal"
+            :alt="BRAND_NAME"
+            @error="usarFallbackLogo"
+          />
+          <div v-else class="marca-login-fallback">
+            <img class="marca-login-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
+            <div>
+              <strong>{{ BRAND_NAME }}</strong>
+              <small>{{ BRAND_TAGLINE }}</small>
+            </div>
           </div>
         </div>
 
@@ -379,8 +392,25 @@ async function entrar() {
 }
 
 .marca-login img {
+  display: block;
   width: min(250px, 100%);
-  height: 58px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  opacity: 1;
+  filter: none;
+}
+
+.marca-login-fallback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.marca-login-fallback-icon {
+  display: block;
+  width: 46px;
+  height: 46px;
   object-fit: contain;
 }
 

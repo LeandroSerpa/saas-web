@@ -1,8 +1,15 @@
 <script setup>
 import PublicFooter from '@/components/publico/PublicFooter.vue'
 import PublicHeader from '@/components/publico/PublicHeader.vue'
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { brandAssets } from '@/utils/brandAssets'
+import { BRAND_NAME, BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
+
+const heroComErro = ref(false)
+
+function usarFallbackHero() {
+  heroComErro.value = true
+}
 
 const credenciais = [
   'Multiempresa',
@@ -114,7 +121,17 @@ const modulos = [
       <PublicHeader />
 
       <div class="hero-stage">
-        <img class="hero-marca" :src="brandAssets.logoHero" alt="" aria-hidden="true" />
+        <img
+          v-if="!heroComErro"
+          class="hero-marca"
+          :src="brandAssets.logoHero"
+          :alt="BRAND_NAME"
+          @error="usarFallbackHero"
+        />
+        <div v-else class="hero-marca-fallback" aria-hidden="true">
+          <img :src="brandAssets.logoHorizontal" alt="" />
+          <small>{{ BRAND_TAGLINE }}</small>
+        </div>
         <div class="hero-copy">
           <span class="selo claro">Portal público NuvemMais Gestão</span>
           <h1>Uma vitrine profissional para sua empresa e um painel para organizar a operação.</h1>
@@ -287,12 +304,46 @@ const modulos = [
 
 .hero-marca {
   position: absolute;
-  top: 108px;
+  top: 122px;
   right: 20px;
-  width: min(430px, 46vw);
-  border-radius: 18px;
-  opacity: .14;
-  filter: saturate(1.15);
+  display: block;
+  width: min(500px, 48vw);
+  max-width: 100%;
+  height: auto;
+  border-radius: 24px;
+  object-fit: contain;
+  opacity: .92;
+  filter: none;
+  pointer-events: none;
+}
+
+.hero-marca-fallback {
+  position: absolute;
+  top: 136px;
+  right: 20px;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  border: 1px solid rgba(125, 211, 252, .2);
+  border-radius: 24px;
+  background: rgba(15, 23, 42, .42);
+  padding: 18px 20px;
+  box-shadow: 0 22px 44px rgba(2, 6, 23, .24);
+  backdrop-filter: blur(14px);
+}
+
+.hero-marca-fallback img {
+  display: block;
+  width: min(260px, 32vw);
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.hero-marca-fallback small {
+  color: #dbeafe;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .hero-copy {
@@ -766,6 +817,10 @@ h3 {
   }
 
   .hero-marca {
+    display: none;
+  }
+
+  .hero-marca-fallback {
     display: none;
   }
 

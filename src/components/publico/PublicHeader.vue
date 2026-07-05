@@ -1,6 +1,7 @@
 <script setup>
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
+import { BRAND_NAME, BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
 
 defineProps({
   compacto: {
@@ -8,15 +9,30 @@ defineProps({
     default: false,
   },
 })
+
+const logoComErro = ref(false)
+
+function usarFallbackLogo() {
+  logoComErro.value = true
+}
 </script>
 
 <template>
   <header :class="['public-header', { compacto }]">
     <RouterLink class="public-brand" to="/" aria-label="Ir para a página inicial">
-      <img class="public-brand-logo" :src="brandAssets.logoHorizontal" alt="NuvemMais Gestão" />
-      <span class="public-brand-text">
-        <strong>NuvemMais Gestão</strong>
-        <small>{{ BRAND_TAGLINE }}</small>
+      <img
+        v-if="!logoComErro"
+        class="public-brand-logo"
+        :src="brandAssets.logoHorizontal"
+        :alt="BRAND_NAME"
+        @error="usarFallbackLogo"
+      />
+      <span v-else class="public-brand-fallback">
+        <img class="public-brand-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
+        <span class="public-brand-fallback-copy">
+          <strong>{{ BRAND_NAME }}</strong>
+          <small>{{ BRAND_TAGLINE }}</small>
+        </span>
       </span>
     </RouterLink>
 
@@ -74,15 +90,35 @@ defineProps({
   text-decoration: none;
 }
 
-.public-brand-logo {
-  width: min(238px, 46vw);
-  height: 54px;
-  flex: 0 0 auto;
+.public-brand-logo,
+.public-brand-fallback-icon {
+  display: block;
+  max-width: 100%;
+  height: auto;
   object-fit: contain;
+  opacity: 1;
+  filter: none;
 }
 
-.public-brand-text {
-  display: none;
+.public-brand-logo {
+  width: min(244px, 48vw);
+  height: 56px;
+  flex: 0 0 auto;
+}
+
+.public-brand-fallback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.public-brand-fallback-icon {
+  width: 44px;
+  flex: 0 0 auto;
+}
+
+.public-brand-fallback-copy {
+  display: grid;
   gap: 2px;
   min-width: 0;
 }
@@ -167,8 +203,8 @@ defineProps({
   }
 
   .public-brand-logo {
-    width: min(220px, 72vw);
-    height: 50px;
+    width: min(224px, 72vw);
+    height: 52px;
   }
 }
 </style>

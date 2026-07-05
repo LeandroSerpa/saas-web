@@ -1,6 +1,13 @@
 <script setup>
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
+import { BRAND_NAME, BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
+
+const logoComErro = ref(false)
+
+function usarFallbackLogo() {
+  logoComErro.value = true
+}
 </script>
 
 <template>
@@ -8,10 +15,18 @@ import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
     <div class="public-footer-grid">
       <div class="public-footer-brand">
         <RouterLink class="public-footer-logo" to="/" aria-label="Ir para a página inicial">
-          <img :src="brandAssets.logoHorizontal" alt="NuvemMais Gestão" />
-          <span>
-            <strong>NuvemMais Gestão</strong>
-            <small>{{ BRAND_TAGLINE }}</small>
+          <img
+            v-if="!logoComErro"
+            :src="brandAssets.logoHorizontal"
+            :alt="BRAND_NAME"
+            @error="usarFallbackLogo"
+          />
+          <span v-else class="public-footer-fallback">
+            <img class="public-footer-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
+            <span class="public-footer-fallback-copy">
+              <strong>{{ BRAND_NAME }}</strong>
+              <small>{{ BRAND_TAGLINE }}</small>
+            </span>
           </span>
         </RouterLink>
         <p>
@@ -72,14 +87,34 @@ import { BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
   text-decoration: none;
 }
 
-.public-footer-logo img {
-  width: min(238px, 100%);
-  height: 54px;
+.public-footer-logo img,
+.public-footer-fallback-icon {
+  display: block;
+  max-width: 100%;
+  height: auto;
   object-fit: contain;
+  opacity: 1;
+  filter: none;
 }
 
-.public-footer-logo span {
-  display: none;
+.public-footer-logo img {
+  width: min(244px, 100%);
+  height: 56px;
+}
+
+.public-footer-fallback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.public-footer-fallback-icon {
+  width: 44px;
+  flex: 0 0 auto;
+}
+
+.public-footer-fallback-copy {
+  display: grid;
   gap: 2px;
 }
 
