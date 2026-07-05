@@ -130,6 +130,7 @@ const acordoEditandoId = ref('')
 const inicializandoAcordoFormulario = ref(false)
 const mensalidadeManualAberta = ref(false)
 const mensalidadePagamentoAberta = ref(false)
+const configuracaoTermosAvancadosAberta = ref(false)
 const seletorAlunosAberto = ref(false)
 const seletorTurmasAberto = ref(false)
 const erro = ref('')
@@ -213,6 +214,55 @@ const descricaoPagina = computed(() =>
   `Centralize acordos, mensalidades, cobranças no WhatsApp e a configuração de PIX para ${nomeModalidade.value}.`,
 )
 const nomeAcordoExemplo = computed(() => `Acordo ${nomeModalidade.value}`)
+const dadosExemploMensagemCobranca = computed(() => ({
+  nomeResponsavel: 'Mariana Lima',
+  nomeAcordo: 'Acordo Beach Tennis - Turma da Noite',
+  competencia: '2026-06',
+  valor: 189.9,
+  vencimento: '12/06/2026',
+  chavePix: 'chave-pix@exemplo.com',
+}))
+const placeholdersMensagemCobranca = [
+  { chave: '{nomeResponsavel}', descricao: 'Nome do responsável pelo pagamento' },
+  { chave: '{competencia}', descricao: 'Competência da cobrança' },
+  { chave: '{nomeAcordo}', descricao: 'Nome do acordo' },
+  { chave: '{valor}', descricao: 'Valor da mensalidade' },
+  { chave: '{vencimento}', descricao: 'Data de vencimento' },
+  { chave: '{chavePix}', descricao: 'Chave PIX configurada' },
+]
+const validacaoPixConfiguracao = computed(() => {
+  const tipoChavePix = String(configuracao.value.tipoChavePix || '').trim()
+  const chavePix = String(configuracao.value.chavePix || '').trim()
+  const nomeRecebedor = String(configuracao.value.nomeRecebedor || '').trim()
+  const algumCampoPixPreenchido = Boolean(tipoChavePix || chavePix || nomeRecebedor)
+  const faltando = []
+
+  if (algumCampoPixPreenchido) {
+    if (!tipoChavePix) faltando.push('o tipo da chave PIX')
+    if (!chavePix) faltando.push('a chave PIX')
+    if (!nomeRecebedor) faltando.push('o nome do recebedor')
+  }
+
+  let mensagem = ''
+  if (faltando.length === 1) {
+    mensagem = `Preencha ${faltando[0]} para salvar a configuração de PIX.`
+  } else if (faltando.length === 2) {
+    mensagem = `Preencha ${faltando[0]} e ${faltando[1]} para salvar a configuração de PIX.`
+  } else if (faltando.length >= 3) {
+    mensagem = 'Preencha o tipo da chave PIX, a chave PIX e o nome do recebedor para salvar a configuração de PIX.'
+  }
+
+  return {
+    ativo: algumCampoPixPreenchido,
+    valido: faltando.length === 0,
+    mensagem,
+    camposInvalidos: {
+      tipoChavePix: algumCampoPixPreenchido && !tipoChavePix,
+      chavePix: algumCampoPixPreenchido && !chavePix,
+      nomeRecebedor: algumCampoPixPreenchido && !nomeRecebedor,
+    },
+  }
+})
 const professoresDisponiveisAcordo = computed(() =>
   [...professoresAcordo.value]
     .map((item) => ({
@@ -366,16 +416,7 @@ const atrasosResumo = computed(() => {
 
   return calcularResumoLocal().atrasos.slice(0, 5)
 })
-const previewMensagemConfiguracao = computed(() =>
-  montarMensagemPreviewConfiguracao({
-    nomeResponsavel: 'Maria Souza',
-    nomeAcordo: nomeAcordoExemplo.value,
-    competencia: competenciaSelecionada.value,
-    valor: 250,
-    vencimento: '10/06/2026',
-    chavePix: configuracao.value.chavePix || '000.000.000-00',
-  }),
-)
+const previewMensagemConfiguracao = computed(() => montarMensagemPreviewConfiguracao(dadosExemploMensagemCobranca.value))
 
 function criarPaginaVazia(size = 10) {
   return {
@@ -554,6 +595,50 @@ function criarCobrancaWhatsappPadrao() {
     orientacao: '',
     whatsappUrl: '',
     telefone: '',
+  }
+}
+
+async function copiarTextoParaAreaTransferencia(texto, mensagemSucesso, mensagemErro) {
+  const valor = String(texto || '').trim()
+
+  if (!valor) {
+    erro.value = mensagemErro
+    return false
+  }
+
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText && typeof window !== 'undefined' && window.isSecureContext) {
+      await navigator.clipboard.writeText(valor)
+    } else if (typeof document !== 'undefined') {
+      const areaTemporaria = document.createElement('textarea')
+      areaTemporaria.value = valor
+      areaTemporaria.setAttribute('readonly', 'readonly')
+      areaTemporaria.style.position = 'absolute'
+      areaTemporaria.style.left = '-9999px'
+      document.body.appendChild(areaTemporaria)
+      areaTemporaria.select()
+      let copiado = false
+
+      try {
+        copiado = document.execCommand('copy')
+      } finally {
+        document.body.removeChild(areaTemporaria)
+      }
+
+      if (!copiado) {
+        throw new Error('Não foi possível copiar o texto.')
+      }
+    } else {
+      throw new Error('Área de transferência indisponível.')
+    }
+
+    sucesso.value = mensagemSucesso
+    erro.value = ''
+    return true
+  } catch (exception) {
+    erro.value = mensagemErro
+    console.error(exception)
+    return false
   }
 }
 
@@ -1240,21 +1325,33 @@ function obterSugestaoModalidade(codigo) {
   return sugestoes[chave] || null
 }
 
-function aplicarSugestoesModalidade() {
+function restaurarTermosPadrao() {
   const sugestao = obterSugestaoModalidade(configuracao.value.modalidadeCodigo)
   if (!sugestao) {
-    erro.value = 'Selecione uma modalidade com sugestoes disponiveis antes de aplicar os termos.'
+    erro.value = 'Selecione uma modalidade com termos disponíveis antes de restaurar os termos.'
     return
   }
 
-  const confirmou = window.confirm('Aplicar os termos sugeridos para a modalidade selecionada?')
+  const confirmou = confirmarAcao(
+    'Restaurar as nomenclaturas e o template da mensagem para os padrões sugeridos? Os dados PIX não serão apagados.',
+  )
   if (!confirmou) {
     return
   }
 
+  const chavePixAtual = configuracao.value.chavePix
+  const tipoChavePixAtual = configuracao.value.tipoChavePix
+  const nomeRecebedorAtual = configuracao.value.nomeRecebedor
+  const nomePlayAtual = configuracao.value.nomePlay
+
   configuracao.value = {
     ...configuracao.value,
     ...sugestao,
+    chavePix: chavePixAtual,
+    tipoChavePix: tipoChavePixAtual,
+    nomeRecebedor: nomeRecebedorAtual,
+    nomePlay: nomePlayAtual,
+    templateMensagem: criarConfiguracaoPadrao().templateMensagem,
   }
 }
 
@@ -2190,6 +2287,12 @@ async function salvarConfiguracao() {
     return
   }
 
+  if (!validacaoPixConfiguracao.value.valido) {
+    sucesso.value = ''
+    erro.value = validacaoPixConfiguracao.value.mensagem
+    return
+  }
+
   try {
     salvandoConfiguracao.value = true
     erro.value = ''
@@ -2224,6 +2327,29 @@ async function salvarConfiguracao() {
   } finally {
     salvandoConfiguracao.value = false
   }
+}
+
+async function copiarChavePixConfiguracao() {
+  const chavePix = String(configuracao.value.chavePix || '').trim()
+
+  if (!chavePix) {
+    erro.value = 'Cadastre uma chave PIX antes de copiar.'
+    return
+  }
+
+  await copiarTextoParaAreaTransferencia(
+    chavePix,
+    'Chave PIX copiada com sucesso.',
+    'Não foi possível copiar a chave PIX.',
+  )
+}
+
+async function copiarMensagemExemploConfiguracao() {
+  await copiarTextoParaAreaTransferencia(
+    previewMensagemConfiguracao.value,
+    'Mensagem de exemplo copiada com sucesso.',
+    'Não foi possível copiar a mensagem de exemplo.',
+  )
 }
 
 async function executarAcaoMensalidade(id, executar) {
@@ -3609,11 +3735,11 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Configuração e PIX</h2>
-              <p>Defina a identidade esportiva, a chave PIX, o nome do recebedor e o template da mensagem usada na cobrança.</p>
+              <p>Configure a chave PIX, o recebedor e a mensagem de cobrança. Se não for usar PIX, deixe os três campos em branco.</p>
             </div>
             <div class="acoes-cabecalho">
-              <button class="botao secundario" type="button" @click="aplicarSugestoesModalidade">
-                Aplicar termos sugeridos
+              <button class="botao secundario" type="button" @click="restaurarTermosPadrao">
+                Restaurar termos padrão
               </button>
               <button class="botao principal" type="button" :disabled="salvandoConfiguracao" @click="salvarConfiguracao">
                 {{ salvandoConfiguracao ? 'Salvando...' : 'Salvar' }}
@@ -3622,8 +3748,114 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="campos">
+            <label :class="{ 'campo-com-erro': validacaoPixConfiguracao.ativo && validacaoPixConfiguracao.camposInvalidos.tipoChavePix }">
+              Tipo da chave PIX
+              <select v-model="configuracao.tipoChavePix">
+                <option v-for="opcao in TIPO_CHAVE_PIX" :key="opcao.valor" :value="opcao.valor">
+                  {{ opcao.rotulo }}
+                </option>
+              </select>
+            </label>
+
+            <label
+              class="campo-grande"
+              :class="{ 'campo-com-erro': validacaoPixConfiguracao.ativo && validacaoPixConfiguracao.camposInvalidos.chavePix }"
+            >
+              Chave PIX
+              <input v-model="configuracao.chavePix" type="text" placeholder="Digite a chave PIX" />
+              <button
+                v-if="String(configuracao.chavePix || '').trim()"
+                class="botao secundario botao-acao-campo"
+                type="button"
+                @click="copiarChavePixConfiguracao"
+              >
+                Copiar chave PIX
+              </button>
+            </label>
+
+            <label :class="{ 'campo-com-erro': validacaoPixConfiguracao.ativo && validacaoPixConfiguracao.camposInvalidos.nomeRecebedor }">
+              Nome do recebedor
+              <input v-model="configuracao.nomeRecebedor" type="text" placeholder="Nome que aparecerá na cobrança" />
+            </label>
+
             <label>
-              Codigo da modalidade
+              Nome do evento livre
+              <input v-model="configuracao.nomePlay" type="text" :placeholder="nomeEventoLivre" />
+            </label>
+
+            <label class="campo-grande">
+              Template da mensagem
+              <textarea
+                v-model="configuracao.templateMensagem"
+                rows="6"
+                placeholder="Use {nomeResponsavel}, {competencia}, {nomeAcordo}, {valor}, {vencimento} e {chavePix}"
+              ></textarea>
+            </label>
+          </div>
+
+          <p v-if="validacaoPixConfiguracao.mensagem" class="feedback-lista erro-inline aviso-pix">
+            {{ validacaoPixConfiguracao.mensagem }}
+          </p>
+          <p v-else class="ajuda-campo aviso-pix">
+            Se preferir não usar PIX, deixe tipo, chave e recebedor vazios.
+          </p>
+        </section>
+
+        <section class="card ajuda-mensagem-pix">
+          <div class="cabecalho-card">
+            <div>
+              <h2>Ajuda da mensagem</h2>
+              <p>Estes marcadores são trocados automaticamente quando a cobrança é montada.</p>
+            </div>
+          </div>
+
+          <div class="lista-placeholders">
+            <article v-for="placeholder in placeholdersMensagemCobranca" :key="placeholder.chave" class="placeholder-item">
+              <code>{{ placeholder.chave }}</code>
+              <span>{{ placeholder.descricao }}</span>
+            </article>
+          </div>
+        </section>
+
+        <section class="card preview-configuracao">
+          <div class="cabecalho-card">
+            <div>
+              <h2>Prévia da mensagem no WhatsApp</h2>
+              <p>Exemplo com dados fictícios para validar o texto antes de salvar.</p>
+            </div>
+            <div class="acoes-cabecalho">
+              <button class="botao secundario" type="button" @click="copiarMensagemExemploConfiguracao">
+                Copiar mensagem de exemplo
+              </button>
+            </div>
+          </div>
+
+          <p class="ajuda-campo aviso-whatsapp">
+            O WhatsApp será aberto com a mensagem pronta, mas o envio continua manual.
+          </p>
+
+          <pre class="previsualizacao">{{ previewMensagemConfiguracao }}</pre>
+        </section>
+
+        <details
+          class="card secao-avancada"
+          :open="configuracaoTermosAvancadosAberta"
+          @toggle="configuracaoTermosAvancadosAberta = $event.target.open"
+        >
+          <summary class="secao-avancada-summary">
+            <div>
+              <p class="subtitulo-secao">Configuração detalhada</p>
+              <h2>Termos e nomenclaturas avançadas</h2>
+              <p>Campos menos usados para ajustar a linguagem da modalidade.</p>
+            </div>
+            <span class="botao secundario secao-avancada-acao">
+              {{ configuracaoTermosAvancadosAberta ? 'Recolher' : 'Expandir' }}
+            </span>
+          </summary>
+
+          <div class="campos">
+            <label>
+              Código da modalidade
               <select v-model="configuracao.modalidadeCodigo">
                 <option value="">Selecione</option>
                 <option v-for="opcao in OPCOES_MODALIDADE" :key="opcao.valor" :value="opcao.valor">
@@ -3648,12 +3880,12 @@ onBeforeUnmount(() => {
             </label>
 
             <label>
-              Responsavel singular
+              Responsável singular
               <input v-model="configuracao.termoResponsavelSingular" type="text" placeholder="Ex: Treinador" />
             </label>
 
             <label>
-              Responsaveis plural
+              Responsáveis plural
               <input v-model="configuracao.termoResponsavelPlural" type="text" placeholder="Ex: Treinadores" />
             </label>
 
@@ -3686,52 +3918,8 @@ onBeforeUnmount(() => {
               Locais plural
               <input v-model="configuracao.termoLocalPlural" type="text" placeholder="Ex: Campos" />
             </label>
-
-            <label>
-              Tipo da chave PIX
-              <select v-model="configuracao.tipoChavePix">
-                <option v-for="opcao in TIPO_CHAVE_PIX" :key="opcao.valor" :value="opcao.valor">
-                  {{ opcao.rotulo }}
-                </option>
-              </select>
-            </label>
-
-            <label class="campo-grande">
-              Chave PIX
-              <input v-model="configuracao.chavePix" type="text" placeholder="Digite a chave PIX" />
-            </label>
-
-            <label>
-              Nome do recebedor
-              <input v-model="configuracao.nomeRecebedor" type="text" placeholder="Nome que aparecerá na cobrança" />
-            </label>
-
-            <label>
-              Nome do evento livre
-              <input v-model="configuracao.nomePlay" type="text" :placeholder="nomeEventoLivre" />
-            </label>
-
-            <label class="campo-grande">
-              Template da mensagem
-              <textarea
-                v-model="configuracao.templateMensagem"
-                rows="6"
-                placeholder="Use {nomeResponsavel}, {nomeAcordo}, {competencia}, {valor}, {vencimento} e {chavePix}"
-              ></textarea>
-            </label>
           </div>
-        </section>
-
-        <section class="card preview-configuracao">
-          <div class="cabecalho-card">
-            <div>
-              <h2>Prévia da mensagem</h2>
-              <p>Exemplo com dados fictícios para validar o texto antes de salvar.</p>
-            </div>
-          </div>
-
-          <pre class="previsualizacao">{{ previewMensagemConfiguracao }}</pre>
-        </section>
+        </details>
       </section>
     </section>
 
@@ -3958,6 +4146,22 @@ onBeforeUnmount(() => {
   gap: 14px;
 }
 
+.campo-com-erro input,
+.campo-com-erro select,
+.campo-com-erro textarea {
+  border-color: var(--app-danger);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-danger) 20%, transparent);
+}
+
+.subtitulo-secao {
+  margin: 0 0 6px;
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .campo-grande {
   grid-column: 1 / -1;
 }
@@ -4177,6 +4381,52 @@ textarea {
 
 .erro-inline {
   color: var(--app-danger);
+}
+
+.aviso-pix,
+.aviso-whatsapp {
+  margin: 12px 0 0;
+}
+
+.aviso-whatsapp {
+  color: var(--app-text-muted);
+}
+
+.botao-acao-campo {
+  justify-self: start;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.ajuda-mensagem-pix {
+  display: grid;
+  gap: 14px;
+}
+
+.lista-placeholders {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.placeholder-item {
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+  background: var(--app-surface-strong);
+}
+
+.placeholder-item code {
+  font-weight: 900;
+  color: var(--app-primary);
+  white-space: nowrap;
+}
+
+.placeholder-item span {
+  color: var(--app-text-muted);
+  font-weight: 700;
 }
 
 .acoes-formulario,
@@ -4488,13 +4738,56 @@ th {
   margin-top: 12px;
 }
 
+.secao-avancada {
+  padding: 0;
+}
+
+.secao-avancada summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.secao-avancada summary::-webkit-details-marker {
+  display: none;
+}
+
+.secao-avancada summary h2 {
+  margin: 0;
+}
+
+.secao-avancada summary p {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+.secao-avancada[open] summary {
+  border-bottom: 1px solid var(--app-border);
+}
+
+.secao-avancada .campos {
+  padding: 18px 22px 22px;
+}
+
+.secao-avancada-acao {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .aviso-whatsapp {
-  color: var(--app-warning);
+  color: var(--app-text-muted);
   font-weight: 700;
 }
 
 @media (max-width: 1080px) {
   .campos,
+  .lista-placeholders,
   .grade-selecao,
   .grade-resumo,
   .grade-acordos {
@@ -4505,6 +4798,11 @@ th {
   .cabecalho-card,
   .cabecalho-lista,
   .acoes-cabecalho {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .secao-avancada summary {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -4525,7 +4823,8 @@ th {
   .cabecalho-card,
   .cabecalho-lista,
   .acoes-cabecalho,
-  .acoes-formulario {
+  .acoes-formulario,
+  .secao-avancada summary {
     align-items: stretch;
   }
 
@@ -4593,6 +4892,12 @@ th {
 
   .acoes-tabela .botao {
     width: 100%;
+  }
+
+  .secao-avancada summary,
+  .secao-avancada .campos {
+    padding-left: 18px;
+    padding-right: 18px;
   }
 }
 
