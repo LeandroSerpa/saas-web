@@ -1621,15 +1621,15 @@ select {
 }
 
 .card-turma-selecao {
-  padding: 18px;
+  padding: 16px;
   min-width: 0;
 }
 
 .grid-resumo-selecao {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+  gap: 8px 12px;
+  margin-top: 10px;
 }
 
 .botoes-mobile {
@@ -1639,14 +1639,14 @@ select {
 .layout-gerencia {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
 }
 
 .coluna {
   display: grid;
-  gap: 16px;
-  padding: 22px;
+  gap: 14px;
+  padding: 18px;
   border-radius: 20px;
   border: 1px solid var(--app-border);
   background: var(--app-surface);
@@ -1661,7 +1661,7 @@ select {
 .topo-coluna-turma,
 .conteudo-coluna {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   align-content: start;
   min-width: 0;
 }
@@ -1669,7 +1669,7 @@ select {
 .barra-filtros,
 .filtros-recolhiveis {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -1684,7 +1684,7 @@ select {
 }
 
 .estado-vazio {
-  padding: 28px 18px;
+  padding: 22px 16px;
   border-radius: 16px;
   border: 1px dashed var(--app-border);
   background: var(--app-surface-soft);
@@ -1694,14 +1694,14 @@ select {
 .lista-participantes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 
 .participante-card {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
   border-radius: 18px;
   border: 1px solid var(--app-border);
   background: var(--app-surface-soft);
@@ -1728,7 +1728,7 @@ select {
 .participante-selecao {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   min-width: 0;
 }
@@ -1744,25 +1744,27 @@ select {
 
 .participante-selecao small {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--app-text-muted);
+  font-size: 13px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .chips-participante {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 6px 10px;
+  padding: 5px 8px;
   border-radius: 999px;
   background: var(--app-primary-soft);
   color: var(--app-primary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -1779,7 +1781,7 @@ select {
 .rodape-coluna {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
   min-width: 0;
 }
@@ -1802,7 +1804,7 @@ select {
   padding: 24px;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 900px) {
   .cabecalho-pagina,
   .resumo-topo,
   .cabecalho-coluna,
