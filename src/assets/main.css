@@ -45,7 +45,7 @@ body[data-app-theme] .app-shell .card.confirmacao-card {
   background: var(--app-success-soft);
 }
 
-body[data-app-theme='escuro'] .app-shell :is(
+body[data-app-color-scheme='dark'] .app-shell :is(
   .card,
   .resumo-card,
   .base-card,
@@ -67,7 +67,7 @@ body[data-app-theme='escuro'] .app-shell :is(
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
 }
 
-body[data-app-theme='escuro'] .app-shell :is(
+body[data-app-color-scheme='dark'] .app-shell :is(
   .card,
   .resumo-card,
   .base-card,
@@ -87,7 +87,7 @@ body[data-app-theme='escuro'] .app-shell :is(
   color: var(--app-text);
 }
 
-body[data-app-theme='escuro'] .app-shell :is(
+body[data-app-color-scheme='dark'] .app-shell :is(
   .card,
   .resumo-card,
   .base-card,
@@ -217,7 +217,7 @@ body[data-app-theme] .app-shell .link-botao {
   border-color: var(--app-border);
 }
 
-body[data-app-theme='escuro'] .app-shell :is(
+body[data-app-color-scheme='dark'] .app-shell :is(
   .botao.secundario,
   .botao.neutro,
   .botao.compacto.secundario,
@@ -277,38 +277,38 @@ body[data-app-theme] .app-shell .botao-olho {
   border-color: var(--app-border);
 }
 
-body[data-app-theme='escuro'] .app-shell .contador {
+body[data-app-color-scheme='dark'] .app-shell .contador {
   background: color-mix(in srgb, var(--app-primary) 18%, var(--app-surface-soft));
   color: var(--app-text);
 }
 
-body[data-app-theme='escuro'] .app-shell .status.agendado {
+body[data-app-color-scheme='dark'] .app-shell .status.agendado {
   background: rgba(59, 130, 246, 0.18);
   color: #bfdbfe;
 }
 
-body[data-app-theme='escuro'] .app-shell .status.concluido {
+body[data-app-color-scheme='dark'] .app-shell .status.concluido {
   background: rgba(74, 222, 128, 0.16);
   color: #bbf7d0;
 }
 
-body[data-app-theme='escuro'] .app-shell .status.cancelado {
+body[data-app-color-scheme='dark'] .app-shell .status.cancelado {
   background: rgba(248, 113, 113, 0.16);
   color: #fecaca;
 }
 
-body[data-app-theme='escuro'] .app-shell .status.faltou {
+body[data-app-color-scheme='dark'] .app-shell .status.faltou {
   background: rgba(251, 191, 36, 0.16);
   color: #fde68a;
 }
 
-body[data-app-theme='escuro'] .app-shell .previa-agendamento {
+body[data-app-color-scheme='dark'] .app-shell .previa-agendamento {
   background: color-mix(in srgb, var(--app-primary) 12%, var(--app-surface-soft));
   border-color: color-mix(in srgb, var(--app-primary) 22%, var(--app-border));
 }
 
-body[data-app-theme='escuro'] .app-shell .previa-agendamento p,
-body[data-app-theme='escuro'] .app-shell .previa-agendamento strong {
+body[data-app-color-scheme='dark'] .app-shell .previa-agendamento p,
+body[data-app-color-scheme='dark'] .app-shell .previa-agendamento strong {
   color: var(--app-text);
 }
 
