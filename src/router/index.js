@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+const IndexPublicaView = () => import('../views/IndexPublicaView.vue')
 const DashboardView = () => import('../views/DashboardView.vue')
 const HomeView = () => import('../views/HomeView.vue')
 const ClientesView = () => import('../views/ClientesView.vue')
@@ -104,7 +105,9 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/dashboard',
+      name: 'index-publica',
+      component: IndexPublicaView,
+      meta: rotasPublicas,
     },
     {
       path: '/dashboard',
