@@ -1615,21 +1615,25 @@ select {
 
 .lista-turmas-selecao {
   display: grid;
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
   margin-top: 18px;
   min-width: 0;
 }
 
 .card-turma-selecao {
-  padding: 16px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
   min-width: 0;
 }
 
 .grid-resumo-selecao {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-  margin-top: 10px;
+  gap: 6px 10px;
+  margin-top: 8px;
 }
 
 .botoes-mobile {
@@ -1817,7 +1821,8 @@ select {
   .metricas-capacidade,
   .grid-resumo-selecao,
   .layout-gerencia,
-  .lista-participantes {
+  .lista-participantes,
+  .lista-turmas-selecao {
     grid-template-columns: 1fr;
   }
 
@@ -1868,6 +1873,10 @@ select {
 
   .coluna {
     padding-bottom: 18px;
+  }
+
+  .card-turma-selecao {
+    gap: 8px;
   }
 
   .barra-fixa-mobile {
