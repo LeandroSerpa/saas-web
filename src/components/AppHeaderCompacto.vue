@@ -1,6 +1,7 @@
 <script setup>
+import { ref } from 'vue'
 import NotificacoesBell from '@/components/NotificacoesBell.vue'
-import { brandAssets } from '@/utils/brandAssets'
+import { BRAND_NAME, brandAssets } from '@/utils/brandAssets'
 
 defineProps({
   cabecalho: {
@@ -38,6 +39,12 @@ defineProps({
 })
 
 defineEmits(['abrir-menu', 'executar-acao', 'sair'])
+
+const logoSrc = ref(brandAssets.logoSimbolo)
+
+function usarFallbackLogo() {
+  logoSrc.value = brandAssets.logoFallbackSvg
+}
 </script>
 
 <template>
@@ -50,10 +57,10 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
           <span></span>
         </button>
 
-        <img class="app-topbar-logo" :src="brandAssets.logoApp" alt="" aria-hidden="true" />
+        <img class="app-topbar-logo" :src="logoSrc" :alt="BRAND_NAME" @error="usarFallbackLogo" />
 
         <div class="app-topbar-titulo">
-          <strong>NuvemMais Gestão</strong>
+          <strong>{{ BRAND_NAME }}</strong>
           <small>{{ empresaLogada }}</small>
         </div>
       </div>
@@ -177,11 +184,14 @@ defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 }
 
 .app-topbar-logo {
+  display: block;
   width: 34px;
   height: 34px;
   flex: 0 0 auto;
   border-radius: 10px;
-  object-fit: cover;
+  object-fit: contain;
+  opacity: 1;
+  filter: none;
   box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
 }
 

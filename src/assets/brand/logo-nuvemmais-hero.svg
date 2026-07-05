@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" role="img" aria-label="NuvemMais Gestão">
+  <defs>
+    <linearGradient id="hero-accent" x1="85" y1="54" x2="635" y2="268" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7dd3fc" />
+      <stop offset="1" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="hero-line" x1="136" y1="72" x2="620" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#7dd3fc" />
+    </linearGradient>
+  </defs>
+  <g opacity=".18">
+    <circle cx="582" cy="90" r="86" fill="#7dd3fc" />
+    <circle cx="634" cy="236" r="48" fill="#38bdf8" />
+    <path d="M490 210h164" fill="none" stroke="#7dd3fc" stroke-linecap="round" stroke-width="10" />
+  </g>
+  <g>
+    <rect x="32" y="54" width="156" height="156" rx="36" fill="#ffffff" fill-opacity=".08" />
+    <rect x="40" y="62" width="140" height="140" rx="32" fill="#ffffff" fill-opacity=".06" />
+    <path
+      d="M72 145c0-14.3 11.2-26 25.2-27A32.5 32.5 0 0 1 128.6 94c16.7 0 30.3 13.6 30.3 30.4 0 1.4-.1 2.6-.2 4a23.6 23.6 0 0 1-16.2 40.8h-45C83.4 169.2 72 157.8 72 143.8Z"
+      fill="#7dd3fc"
+      opacity=".38"
+    />
+    <path d="M70 86h17l16 26 16-26h17v72h-16.6v-38.9l-16.4 24.8-16.4-24.8V158H70V86Z" fill="#ffffff" />
+    <path d="M72 172h74c12.4 0 22.4-10 22.4-22.4 0-9-5.4-17.2-13.8-20.7" fill="none" stroke="url(#hero-accent)" stroke-linecap="round" stroke-width="8" />
+  </g>
+  <g fill="#ffffff">
+    <text x="232" y="132" font-family="Segoe UI, Arial, sans-serif" font-size="58" font-weight="800">NuvemMais</text>
+    <text x="232" y="182" fill="#7dd3fc" font-family="Segoe UI, Arial, sans-serif" font-size="38" font-weight="700">Gestão</text>
+  </g>
+  <g fill="#dbeafe" font-family="Segoe UI, Arial, sans-serif">
+    <text x="232" y="226" font-size="24" font-weight="500">Gestão empresarial na nuvem para operação real.</text>
+  </g>
+  <g>
+    <path d="M232 246h290" fill="none" stroke="url(#hero-line)" stroke-linecap="round" stroke-width="8" />
+    <circle cx="548" cy="246" r="8" fill="#7dd3fc" />
+    <circle cx="576" cy="246" r="8" fill="#38bdf8" />
+  </g>
+</svg>

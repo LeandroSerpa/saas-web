@@ -1,16 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="NuvemMais Gestão">
   <defs>
-    <linearGradient id="bg" x1="12" y1="8" x2="84" y2="88" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2563eb"/>
-      <stop offset="1" stop-color="#0f172a"/>
+    <linearGradient id="nm-bg" x1="12" y1="8" x2="84" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563eb" />
+      <stop offset="1" stop-color="#0f172a" />
     </linearGradient>
-    <linearGradient id="accent" x1="24" y1="18" x2="72" y2="78" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7dd3fc"/>
-      <stop offset="1" stop-color="#ffffff"/>
+    <linearGradient id="nm-accent" x1="22" y1="20" x2="78" y2="78" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7dd3fc" />
+      <stop offset="1" stop-color="#38bdf8" />
     </linearGradient>
   </defs>
-  <rect width="96" height="96" rx="24" fill="url(#bg)"/>
-  <path d="M28 30a16 16 0 0 1 14-8h12a16 16 0 0 1 0 32H28a14 14 0 1 1 0-24Z" fill="url(#accent)" opacity=".18"/>
-  <path d="M26 27h10l12 18 12-18h10v42H60V47l-8 12-8-12v22H26V27Z" fill="#fff"/>
-  <path d="M26 69h44v4H26z" fill="#7dd3fc" opacity=".6"/>
+  <rect width="96" height="96" rx="24" fill="url(#nm-bg)" />
+  <path
+    d="M29 63.5c0-8.8 6.9-16 15.5-16.6A20 20 0 0 1 63.8 32c10.3 0 18.7 8.4 18.7 18.8 0 .8 0 1.6-.1 2.4a14.6 14.6 0 0 1-9.9 25.2H44.8C36 78.4 29 71.4 29 62.6Z"
+    fill="#bfdbfe"
+    opacity=".18"
+  />
+  <path d="M27 28h10.5L48 44.7 58.5 28H69v40H58.7V46.4L48 62.3 37.3 46.4V68H27V28Z" fill="#ffffff" />
+  <path
+    d="M28 73.5h43.8c7.4 0 13.4-6 13.4-13.4 0-5.4-3.2-10.3-8.2-12.4"
+    fill="none"
+    stroke="url(#nm-accent)"
+    stroke-linecap="round"
+    stroke-width="4"
+  />
 </svg>

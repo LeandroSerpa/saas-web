@@ -46,6 +46,12 @@ import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 const route = useRoute()
 const router = useRouter()
 
+function aplicarFallbackMarca(event) {
+  if (event?.target) {
+    event.target.src = brandAssets.logoFallbackSvg
+  }
+}
+
 const CABECALHOS_PADRAO = {
   dashboard: {
     subtitulo: 'Visão geral',
@@ -1417,7 +1423,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="marca">
-        <img class="marca-simbolo" :src="brandAssets.logoApp" alt="" aria-hidden="true" />
+        <img class="marca-simbolo" :src="brandAssets.logoSimbolo" alt="NuvemMais Gestão" @error="aplicarFallbackMarca" />
         <div>
           <strong>NuvemMais Gestão</strong>
           <small>{{ BRAND_TAGLINE }}</small>
@@ -1755,10 +1761,13 @@ onBeforeUnmount(() => {
 }
 
 .marca-simbolo {
+  display: block;
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  object-fit: cover;
+  object-fit: contain;
+  opacity: 1;
+  filter: none;
   box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
 }
 
