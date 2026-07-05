@@ -26,12 +26,7 @@ const STATUS = [
 const usuarioLogado = ref(obterUsuarioLogado())
 const superAdmin = computed(() => ehSuperAdmin(usuarioLogado.value))
 const filtros = ref(criarFiltrosMesAtual())
-const abasRelatorios = [
-  { id: 'resumo', rotulo: 'Resumo' },
-  { id: 'agendamentos', rotulo: 'Agendamentos por dia' },
-  { id: 'receita', rotulo: 'Receita por dia' },
-]
-const abaAtiva = ref('resumo')
+const abaAtiva = ref('visao-geral')
 const empresas = ref([])
 const resumo = ref({})
 const agendamentosPorDia = ref([])
@@ -159,6 +154,27 @@ const maiorReceitaDia = computed(() =>
     0,
   ),
 )
+
+const abasRelatorios = computed(() => [
+  {
+    id: 'visao-geral',
+    rotulo: 'Visão geral',
+    descricao: 'Resumo completo dos indicadores.',
+    detalhe: `${cardsPrincipais.value.length + cardsSecundarios.value.length} indicadores`,
+  },
+  {
+    id: 'agendamentos',
+    rotulo: 'Agendamentos por dia',
+    descricao: 'Volume agrupado por data.',
+    detalhe: `${agendamentosPorDia.value.length} dia(s)`,
+  },
+  {
+    id: 'receita',
+    rotulo: 'Receita por dia',
+    descricao: 'Valores previstos e concluídos.',
+    detalhe: `${receitaPorDia.value.length} dia(s)`,
+  },
+])
 
 const mostrarColunaEmpresa = computed(() => superAdmin.value && !filtros.value.empresaId)
 
@@ -617,27 +633,46 @@ onMounted(async () => {
       </div>
     </section>
 
-    <nav class="abas-relatorios" role="tablist" aria-label="Seções de relatórios">
-      <button
-        v-for="aba in abasRelatorios"
-        :key="aba.id"
-        type="button"
-        :class="['aba-relatorio', { ativa: abaAtiva === aba.id }]"
-        :aria-selected="abaAtiva === aba.id"
-        :tabindex="abaAtiva === aba.id ? 0 : -1"
-        role="tab"
-        @click="abaAtiva = aba.id"
-      >
-        {{ aba.rotulo }}
-      </button>
-    </nav>
+    <section class="card relatorios-navegacao">
+      <div class="titulo-card">
+        <h2>Navegação dos relatórios</h2>
+        <p>Troque entre a visão geral, os agendamentos por dia e a receita por dia.</p>
+      </div>
+
+      <nav class="relatorios-tabs" role="tablist" aria-label="Seções de relatórios">
+        <button
+          v-for="aba in abasRelatorios"
+          :key="aba.id"
+          type="button"
+          :id="`aba-${aba.id}`"
+          :class="['relatorios-tab', { 'relatorios-tab--active': abaAtiva === aba.id }]"
+          :aria-selected="abaAtiva === aba.id"
+          :aria-controls="`painel-${aba.id}`"
+          :tabindex="abaAtiva === aba.id ? 0 : -1"
+          role="tab"
+          @click="abaAtiva = aba.id"
+        >
+          <span class="relatorios-tab__cabecalho">
+            <span class="relatorios-tab__titulo">{{ aba.rotulo }}</span>
+            <span class="relatorios-tab__detalhe">{{ aba.detalhe }}</span>
+          </span>
+          <span class="relatorios-tab__descricao">{{ aba.descricao }}</span>
+        </button>
+      </nav>
+    </section>
 
     <section v-if="carregando" class="card">
       <p>Carregando relatórios do período...</p>
     </section>
 
     <template v-else>
-      <section v-show="abaAtiva === 'resumo'" class="grade-indicadores principais">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="grade-indicadores principais"
+      >
         <article
           v-for="card in cardsPrincipais"
           :key="card.titulo"
@@ -648,14 +683,26 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section v-show="abaAtiva === 'resumo'" class="grade-indicadores secundarios">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral-secundario"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="grade-indicadores secundarios"
+      >
         <article v-for="card in cardsSecundarios" :key="card.titulo" class="card indicador secundario-card">
           <span>{{ card.titulo }}</span>
           <strong>{{ card.valor }}</strong>
         </article>
       </section>
 
-      <section v-show="abaAtiva === 'agendamentos'" class="card grafico-card painel-relatorio">
+      <section
+        v-if="abaAtiva === 'agendamentos'"
+        id="painel-agendamentos"
+        role="tabpanel"
+        aria-labelledby="aba-agendamentos"
+        class="card grafico-card painel-relatorio"
+      >
         <div class="titulo-card">
           <h2>Agendamentos por dia</h2>
           <p>Total, concluídos, cancelados e faltas no período.</p>
@@ -686,7 +733,13 @@ onMounted(async () => {
         </template>
       </section>
 
-      <section v-show="abaAtiva === 'receita'" class="card grafico-card painel-relatorio">
+      <section
+        v-if="abaAtiva === 'receita'"
+        id="painel-receita"
+        role="tabpanel"
+        aria-labelledby="aba-receita"
+        class="card grafico-card painel-relatorio"
+      >
         <div class="titulo-card">
           <h2>Receita por dia</h2>
           <p>Receita prevista, concluída e perdas.</p>
@@ -724,7 +777,7 @@ onMounted(async () => {
         </template>
       </section>
 
-      <section v-show="false" class="grade-graficos">
+      <section v-if="false" class="grade-graficos">
         <article class="card grafico-card">
           <div class="titulo-card">
             <h2>Agendamentos por dia</h2>
@@ -792,7 +845,13 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section v-show="abaAtiva === 'resumo'" class="grade-tabelas">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral-ranking"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="grade-tabelas"
+      >
         <article class="card tabela-card">
           <h2>Ranking de serviços</h2>
           <div class="tabela-container">
@@ -856,7 +915,13 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section v-show="abaAtiva === 'resumo'" class="grade-tabelas">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral-clientes"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="grade-tabelas"
+      >
         <article class="card tabela-card">
           <h2>Clientes recorrentes</h2>
           <div class="tabela-container">
@@ -905,7 +970,13 @@ onMounted(async () => {
         </article>
       </section>
 
-      <section v-show="abaAtiva === 'resumo'" class="secao-lista">
+      <section
+        v-if="abaAtiva === 'visao-geral'"
+        id="painel-visao-geral-detalhe"
+        role="tabpanel"
+        aria-labelledby="aba-visao-geral"
+        class="secao-lista"
+      >
         <div class="cabecalho-lista">
           <div>
             <h2>Tabela detalhada de agendamentos</h2>
@@ -989,6 +1060,7 @@ onMounted(async () => {
   display: grid;
   gap: 24px;
   color: #111827;
+  overflow-x: clip;
 }
 
 .cabecalho-pagina,
@@ -1039,39 +1111,92 @@ onMounted(async () => {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
-.abas-relatorios {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-gutter: stable;
+.relatorios-navegacao {
+  display: grid;
+  gap: 16px;
 }
 
-.aba-relatorio {
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: white;
-  color: #334155;
-  padding: 10px 14px;
+.relatorios-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.relatorios-tab {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  width: 100%;
+  min-width: 0;
+  min-height: 112px;
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 16px 18px;
+  text-align: left;
   cursor: pointer;
-  font-weight: 800;
-  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
   transition:
     transform 0.15s ease,
     border-color 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease;
+    box-shadow 0.15s ease,
+    background 0.15s ease;
 }
 
-.aba-relatorio:hover {
-  transform: translateY(-1px);
+.relatorios-tab:hover {
+  transform: translateY(-2px);
+  border-color: #7dd3fc;
+  box-shadow: 0 12px 28px rgba(14, 165, 233, 0.12);
 }
 
-.aba-relatorio.ativa {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: white;
+.relatorios-tab:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.35);
+  outline-offset: 2px;
+}
+
+.relatorios-tab--active {
+  border-color: #38bdf8;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.14);
+}
+
+.relatorios-tab__cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.relatorios-tab__titulo {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.relatorios-tab__detalhe {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.relatorios-tab__descricao {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.relatorios-tab--active .relatorios-tab__titulo {
+  color: #0369a1;
+}
+
+.relatorios-tab--active .relatorios-tab__descricao {
+  color: #1e293b;
 }
 
 .filtros-relatorios,
@@ -1499,6 +1624,14 @@ th {
     min-width: 1050px;
   }
 
+  .relatorios-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .relatorios-tab:last-child {
+    grid-column: 1 / -1;
+  }
+
   .grade-indicadores.principais,
   .grade-indicadores.secundarios,
   .grade-graficos,
@@ -1513,6 +1646,18 @@ th {
   .acoes-filtros {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .relatorios-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .relatorios-tab:last-child {
+    grid-column: auto;
+  }
+
+  .relatorios-tab {
+    min-height: auto;
   }
 
   .grade-indicadores.principais,
