@@ -547,6 +547,7 @@ const router = createRouter({
       path: '/:pathMatch(.*)*',
       name: 'nao-encontrado',
       component: NaoEncontradoView,
+      meta: rotasPublicas,
     },
   ],
 })

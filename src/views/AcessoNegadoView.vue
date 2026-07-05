@@ -32,24 +32,26 @@ const descricao = computed(() =>
   display: grid;
   place-items: center;
   min-height: 60vh;
-  color: #111827;
+  color: #0f172a;
 }
 
 .card-feedback {
-  width: min(100%, 560px);
+  width: min(100%, 620px);
   display: grid;
-  gap: 14px;
-  background: white;
+  gap: 16px;
   border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 28px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 94% 12%, rgba(248, 113, 113, .12), transparent 28%),
+    white;
+  padding: 30px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, .08);
 }
 
 .selo {
   color: #b91c1c;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 900;
   text-transform: uppercase;
 }
 
@@ -59,23 +61,24 @@ p {
 }
 
 h1 {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 900;
 }
 
 p {
   color: #475569;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .botao {
   justify-self: start;
   border-radius: 8px;
-  padding: 11px 16px;
-  color: white;
   background: #2563eb;
-  font-weight: 800;
+  color: white;
+  padding: 12px 18px;
+  font-weight: 900;
   text-decoration: none;
+  box-shadow: 0 14px 26px rgba(37, 99, 235, .18);
 }
 </style>

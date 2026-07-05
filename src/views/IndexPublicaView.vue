@@ -1,38 +1,47 @@
 <script setup>
+import PublicFooter from '@/components/publico/PublicFooter.vue'
+import PublicHeader from '@/components/publico/PublicHeader.vue'
 import { RouterLink } from 'vue-router'
+
+const credenciais = [
+  'Multiempresa',
+  'Módulos por segmento',
+  'Agenda pública',
+  'Catálogo',
+  'Gestão esportiva',
+  'Controle operacional',
+]
 
 const beneficios = [
   {
-    titulo: 'Agenda',
-    texto: 'Organize horários, atendimentos, profissionais e disponibilidade em uma rotina mais clara.',
+    inicial: 'A',
+    titulo: 'Agenda mais organizada',
+    texto: 'Serviços, horários, equipe e clientes no mesmo fluxo, com menos improviso na rotina.',
   },
   {
-    titulo: 'Clientes',
-    texto: 'Mantenha cadastros, contatos e histórico de relacionamento sempre à mão.',
+    inicial: 'C',
+    titulo: 'Clientes em contexto',
+    texto: 'Cadastros e histórico acessíveis para melhorar atendimento, relacionamento e acompanhamento.',
   },
   {
-    titulo: 'Serviços',
-    texto: 'Configure serviços, duração, valores e regras de atendimento de forma simples.',
+    inicial: 'S',
+    titulo: 'Serviços padronizados',
+    texto: 'Configure duração, valores e disponibilidade para deixar a operação mais previsível.',
   },
   {
-    titulo: 'Equipe',
-    texto: 'Acompanhe funcionários, profissionais ou professores conforme o contexto da empresa.',
+    inicial: 'E',
+    titulo: 'Equipe bem distribuída',
+    texto: 'Acompanhe profissionais, funcionários ou professores conforme o módulo usado pela empresa.',
   },
   {
-    titulo: 'Estoque e catálogo',
-    texto: 'Controle produtos e compartilhe uma vitrine pública quando esse módulo estiver ativo.',
+    inicial: 'V',
+    titulo: 'Vitrine pública',
+    texto: 'Use catálogo, cardápio ou link público quando esses recursos estiverem ativos para o negócio.',
   },
   {
-    titulo: 'Gestão esportiva',
-    texto: 'Gerencie turmas, alunos, professores, aulas e rotinas esportivas com mais organização.',
-  },
-  {
-    titulo: 'Relatórios',
-    texto: 'Acompanhe indicadores e informações importantes para decidir com mais segurança.',
-  },
-  {
-    titulo: 'Administração SaaS',
-    texto: 'Tenha visão multiempresa, planos, solicitações e recursos administrativos para operação da plataforma.',
+    inicial: 'R',
+    titulo: 'Relatórios para decidir',
+    texto: 'Visualize indicadores e dados operacionais sem depender de anotações soltas.',
   },
 ]
 
@@ -54,111 +63,124 @@ const segmentos = [
 const passos = [
   {
     titulo: 'Cadastre sua empresa',
-    texto: 'Envie os dados principais para iniciar a entrada no NuvemMais Gestão.',
+    texto: 'Envie as informações principais para nossa equipe analisar a entrada na plataforma.',
   },
   {
-    titulo: 'Configure serviços e equipe',
-    texto: 'Ajuste profissionais, serviços, horários, módulos e recursos conforme sua operação.',
+    titulo: 'Configure sua operação',
+    texto: 'Ajuste serviços, equipe, agenda, estoque, módulos e preferências da empresa.',
   },
   {
-    titulo: 'Compartilhe seu link',
-    texto: 'Use links públicos de agendamento, catálogo ou cardápio quando estiverem disponíveis para sua empresa.',
+    titulo: 'Compartilhe seus links',
+    texto: 'Divulgue agendamento, catálogo ou cardápio público quando fizer sentido para o seu plano.',
   },
   {
-    titulo: 'Acompanhe tudo pelo painel',
-    texto: 'Visualize agenda, clientes, estoque, relatórios e rotinas administrativas em um só lugar.',
+    titulo: 'Acompanhe pelo painel',
+    texto: 'Veja atendimentos, clientes, produtos, relatórios e rotinas administrativas com clareza.',
   },
 ]
 
 const modulos = [
   {
     titulo: 'Agendamentos',
-    texto: 'Fluxo para organizar serviços, profissionais, clientes, horários e agendamentos públicos.',
+    texto: 'Clientes, profissionais, serviços, disponibilidade e links públicos de agendamento.',
   },
   {
     titulo: 'Estoque e catálogo',
-    texto: 'Controle de produtos, quantidades e publicação de catálogo ou cardápio digital.',
+    texto: 'Produtos, quantidades, catálogo público e cardápio digital para operações que vendem itens.',
   },
   {
     titulo: 'Gestão Esportiva',
-    texto: 'Recursos para turmas, alunos, professores, aulas, frequência e reposições.',
+    texto: 'Turmas, alunos, professores, aulas, frequência, reposições e rotina de modalidades.',
   },
   {
     titulo: 'Administração SaaS',
-    texto: 'Ferramentas para acompanhar empresas, planos, assinaturas, auditoria e lixeira global.',
+    texto: 'Empresas, planos, solicitações, assinaturas e visão administrativa da plataforma.',
+  },
+  {
+    titulo: 'Relatórios',
+    texto: 'Informações gerenciais para acompanhar desempenho e apoiar decisões do dia a dia.',
+  },
+  {
+    titulo: 'Personalização pública',
+    texto: 'Identidade, links e páginas públicas preparados para uma apresentação mais profissional.',
   },
 ]
 
-const confianca = [
-  'Multiempresa',
-  'Permissões por perfil',
-  'Ambiente online',
-  'Personalização da empresa',
-  'Auditoria e lixeira',
+const motivos = [
+  {
+    titulo: 'Menos retrabalho',
+    texto: 'As informações ficam centralizadas, reduzindo conversas perdidas e controles paralelos.',
+  },
+  {
+    titulo: 'Mais presença digital',
+    texto: 'Links públicos ajudam clientes a encontrar serviços, produtos e canais de atendimento.',
+  },
+  {
+    titulo: 'Operação por perfil',
+    texto: 'Permissões e módulos ajudam cada pessoa a acessar o que precisa, no contexto correto.',
+  },
+  {
+    titulo: 'Base para crescer',
+    texto: 'A estrutura multiempresa e modular acompanha negócios simples e operações mais completas.',
+  },
 ]
 </script>
 
 <template>
   <main class="pagina-index-publica">
     <section class="hero">
-      <nav class="nav-publica" aria-label="Navegação pública">
-        <RouterLink class="marca" to="/">
-          <span class="marca-simbolo">NM</span>
-          <span>NuvemMais Gestão</span>
-        </RouterLink>
+      <span class="decor decor-um" aria-hidden="true"></span>
+      <span class="decor decor-dois" aria-hidden="true"></span>
 
-        <div class="nav-links">
-          <RouterLink to="/sobre">Sobre</RouterLink>
-          <RouterLink to="/cadastro">Comece agora</RouterLink>
-          <RouterLink class="link-login" to="/login">Entrar</RouterLink>
-        </div>
-      </nav>
+      <PublicHeader />
 
       <div class="hero-grid">
         <article class="hero-conteudo">
-          <span class="selo">Gestão empresarial na nuvem</span>
-          <h1>NuvemMais Gestão</h1>
-          <p class="frase-valor">Mais controle para sua empresa atender, vender e crescer com organização.</p>
+          <span class="selo">Portal público NuvemMais</span>
+          <h1>Gestão online para empresas que querem atender melhor e crescer com controle.</h1>
           <p class="descricao">
-            Uma plataforma online para centralizar agenda, clientes, serviços, equipe, estoque, catálogo, gestão
-            esportiva e administração SaaS em uma experiência simples e profissional.
+            Organize agenda, clientes, equipe, serviços, estoque, catálogo, gestão esportiva e administração SaaS em
+            uma plataforma moderna, modular e preparada para diferentes segmentos.
           </p>
 
           <div class="acoes-hero">
             <RouterLink class="botao principal" to="/cadastro">Começar agora</RouterLink>
             <RouterLink class="botao secundario" to="/login">Entrar no sistema</RouterLink>
           </div>
+
+          <div class="credenciais" aria-label="Destaques da plataforma">
+            <span v-for="item in credenciais" :key="item">{{ item }}</span>
+          </div>
         </article>
 
-        <aside class="painel-preview" aria-label="Prévia visual do painel NuvemMais Gestão">
-          <div class="preview-topo">
+        <aside class="mockup-painel" aria-label="Prévia ilustrativa do painel">
+          <div class="mockup-topo">
             <span></span>
             <span></span>
             <span></span>
+            <strong>Operação de hoje</strong>
           </div>
-          <div class="preview-cabecalho">
-            <div>
-              <small>Painel</small>
-              <strong>Operação do dia</strong>
-            </div>
-            <span class="preview-status">Online</span>
-          </div>
-          <div class="preview-metricas">
-            <div>
+          <div class="mockup-corpo">
+            <section class="mockup-card destaque">
               <small>Agenda</small>
-              <strong>24</strong>
-              <span>atendimentos</span>
-            </div>
-            <div>
+              <strong>32 atendimentos</strong>
+              <div class="barra"><span></span></div>
+            </section>
+            <section class="mockup-card">
               <small>Clientes</small>
-              <strong>318</strong>
-              <span>cadastros</span>
-            </div>
-          </div>
-          <div class="preview-lista">
-            <span>Serviços configurados</span>
-            <span>Equipe disponível</span>
-            <span>Estoque acompanhado</span>
+              <strong>428</strong>
+              <p>cadastros ativos</p>
+            </section>
+            <section class="mockup-card">
+              <small>Estoque</small>
+              <strong>126</strong>
+              <p>produtos monitorados</p>
+            </section>
+            <section class="mockup-lista">
+              <div><span></span><p>Equipe disponível</p><strong>8</strong></div>
+              <div><span></span><p>Catálogo publicado</p><strong>Ativo</strong></div>
+              <div><span></span><p>Relatórios do mês</p><strong>OK</strong></div>
+            </section>
           </div>
         </aside>
       </div>
@@ -167,40 +189,42 @@ const confianca = [
     <section class="secao">
       <div class="secao-cabecalho">
         <span class="selo">Benefícios</span>
-        <h2>Tudo mais organizado para a rotina da empresa</h2>
-        <p>Recursos para reduzir improviso, melhorar acompanhamento e deixar a operação mais fácil de entender.</p>
+        <h2>Uma rotina mais clara, do primeiro contato ao acompanhamento.</h2>
+        <p>Recursos pensados para reduzir bagunça operacional e dar uma visão mais profissional da empresa.</p>
       </div>
 
       <div class="grade beneficios">
-        <article v-for="beneficio in beneficios" :key="beneficio.titulo" class="card">
-          <span class="icone-card" aria-hidden="true">{{ beneficio.titulo.slice(0, 1) }}</span>
+        <article v-for="beneficio in beneficios" :key="beneficio.titulo" class="card-beneficio">
+          <span>{{ beneficio.inicial }}</span>
           <h3>{{ beneficio.titulo }}</h3>
           <p>{{ beneficio.texto }}</p>
         </article>
       </div>
     </section>
 
-    <section class="secao faixa">
+    <section class="secao segmentos-secao">
       <div class="secao-cabecalho">
         <span class="selo">Para quem é</span>
-        <h2>Flexível para diferentes tipos de negócio</h2>
-        <p>O NuvemMais Gestão se adapta a empresas de atendimento, serviços, estoque, educação e esporte.</p>
+        <h2>Flexível para serviços, atendimento, produtos e esporte.</h2>
+        <p>O portal público apresenta uma plataforma preparada para segmentos diferentes sem perder organização.</p>
       </div>
 
       <div class="segmentos">
-        <span v-for="segmento in segmentos" :key="segmento">{{ segmento }}</span>
+        <article v-for="segmento in segmentos" :key="segmento">
+          <span aria-hidden="true">{{ segmento.slice(0, 1) }}</span>
+          <strong>{{ segmento }}</strong>
+        </article>
       </div>
     </section>
 
     <section class="secao">
       <div class="secao-cabecalho">
         <span class="selo">Como funciona</span>
-        <h2>Da entrada ao acompanhamento diário</h2>
-        <p>Um caminho simples para estruturar a empresa e começar a operar com mais clareza.</p>
+        <h2>Um caminho simples para sair da planilha e entrar no painel.</h2>
       </div>
 
-      <div class="passos">
-        <article v-for="(passo, indice) in passos" :key="passo.titulo" class="passo">
+      <div class="linha-tempo">
+        <article v-for="(passo, indice) in passos" :key="passo.titulo">
           <span>{{ indice + 1 }}</span>
           <h3>{{ passo.titulo }}</h3>
           <p>{{ passo.texto }}</p>
@@ -211,164 +235,119 @@ const confianca = [
     <section class="secao modulos-secao">
       <div class="secao-cabecalho">
         <span class="selo">Módulos</span>
-        <h2>Ative os recursos certos para cada operação</h2>
-        <p>Combine módulos conforme a realidade da empresa, sem misturar rotinas que precisam ficar claras.</p>
+        <h2>Ative o que combina com a operação da empresa.</h2>
+        <p>O NuvemMais Gestão pode apoiar desde uma agenda simples até rotinas com estoque, esporte e administração SaaS.</p>
       </div>
 
       <div class="grade modulos">
-        <article v-for="modulo in modulos" :key="modulo.titulo" class="card modulo-card">
+        <article v-for="modulo in modulos" :key="modulo.titulo" class="modulo-card">
           <h3>{{ modulo.titulo }}</h3>
           <p>{{ modulo.texto }}</p>
         </article>
       </div>
     </section>
 
-    <section class="secao confianca-secao">
-      <div class="confianca-card">
-        <div>
-          <span class="selo">Confiança</span>
-          <h2>Base preparada para crescer com controle</h2>
+    <section class="secao porque-secao">
+      <div class="porque-card">
+        <div class="secao-cabecalho">
+          <span class="selo">Por que usar</span>
+          <h2>Uma base confiável para profissionalizar a gestão.</h2>
           <p>
-            Recursos administrativos ajudam a manter cada empresa no contexto correto, com permissões, personalização,
-            rastreabilidade e organização dos dados.
+            O sistema ajuda empresas a organizar dados, padronizar processos e acompanhar a operação com mais segurança,
+            sem prometer automações financeiras que ainda não fazem parte do fluxo final.
           </p>
         </div>
 
-        <ul>
-          <li v-for="item in confianca" :key="item">{{ item }}</li>
-        </ul>
+        <div class="motivos">
+          <article v-for="motivo in motivos" :key="motivo.titulo">
+            <h3>{{ motivo.titulo }}</h3>
+            <p>{{ motivo.texto }}</p>
+          </article>
+        </div>
       </div>
     </section>
 
     <section class="cta-final">
-      <span class="selo">Próximo passo</span>
-      <h2>Leve sua operação para uma gestão mais profissional</h2>
-      <p>Comece o cadastro da empresa ou acesse sua conta para continuar de onde parou.</p>
+      <span class="selo">Comece com clareza</span>
+      <h2>Seu negócio com uma entrada pública mais profissional e um painel para acompanhar tudo.</h2>
+      <p>Cadastre sua empresa para análise ou acesse sua conta para continuar a gestão pelo sistema.</p>
       <div class="acoes-hero">
-        <RouterLink class="botao principal" to="/cadastro">Comece agora</RouterLink>
+        <RouterLink class="botao principal" to="/cadastro">Começar agora</RouterLink>
         <RouterLink class="botao secundario claro" to="/login">Acessar minha conta</RouterLink>
       </div>
     </section>
 
-    <footer class="rodape-publico">
-      <strong>NuvemMais Gestão</strong>
-      <nav aria-label="Links públicos do rodapé">
-        <RouterLink to="/login">Login</RouterLink>
-        <RouterLink to="/cadastro">Comece agora</RouterLink>
-        <RouterLink to="/sobre">Sobre</RouterLink>
-        <RouterLink to="/termos">Termos</RouterLink>
-        <RouterLink to="/privacidade">Privacidade</RouterLink>
-      </nav>
-    </footer>
+    <PublicFooter />
   </main>
 </template>
 
 <style scoped>
 .pagina-index-publica {
   min-height: 100vh;
+  overflow: hidden;
   background: #f8fafc;
   color: #0f172a;
 }
 
 .hero {
+  position: relative;
+  border-bottom: 1px solid #dbeafe;
   background:
-    radial-gradient(circle at 88% 12%, rgba(20, 184, 166, .22), transparent 30%),
-    linear-gradient(135deg, #eef6ff 0%, #f8fafc 48%, #ecfeff 100%);
-  border-bottom: 1px solid #e2e8f0;
-  padding: 22px 20px 76px;
+    radial-gradient(circle at 84% 18%, rgba(20, 184, 166, .22), transparent 28%),
+    radial-gradient(circle at 10% 16%, rgba(37, 99, 235, .2), transparent 32%),
+    linear-gradient(135deg, #eef6ff 0%, #f8fbff 48%, #ecfeff 100%);
+  padding-bottom: 82px;
 }
 
-.nav-publica,
+.decor {
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid rgba(37, 99, 235, .15);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .4);
+  filter: blur(.2px);
+}
+
+.decor-um {
+  width: 220px;
+  height: 220px;
+  right: -86px;
+  top: 128px;
+}
+
+.decor-dois {
+  width: 140px;
+  height: 140px;
+  left: -60px;
+  bottom: 36px;
+}
+
 .hero-grid,
 .secao,
-.cta-final,
-.rodape-publico {
+.cta-final {
   width: min(1160px, 100%);
   margin: 0 auto;
-}
-
-.nav-publica {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 70px;
-}
-
-.marca,
-.nav-links,
-.acoes-hero,
-.preview-status,
-.segmentos,
-.rodape-publico nav {
-  display: flex;
-  align-items: center;
-}
-
-.marca {
-  gap: 10px;
-  color: #0f172a;
-  font-weight: 900;
-  text-decoration: none;
-}
-
-.marca-simbolo {
-  display: inline-grid;
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  border-radius: 12px;
-  background: #2563eb;
-  color: white;
-  font-size: 13px;
-  letter-spacing: .04em;
-}
-
-.nav-links {
-  gap: 18px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.nav-links a,
-.rodape-publico a {
-  color: #334155;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.nav-links a:hover,
-.rodape-publico a:hover {
-  color: #2563eb;
-  text-decoration: underline;
-}
-
-.nav-links .link-login {
-  min-height: 40px;
-  padding: 10px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: white;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, .06);
+  padding-right: 20px;
+  padding-left: 20px;
 }
 
 .hero-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(320px, .8fr);
+  grid-template-columns: minmax(0, 1.02fr) minmax(360px, .82fr);
   gap: 44px;
   align-items: center;
+  padding-top: 56px;
 }
 
 .hero-conteudo,
 .secao-cabecalho,
-.card,
-.passo,
-.confianca-card,
-.cta-final,
-.preview-cabecalho,
-.preview-lista {
+.card-beneficio,
+.modulo-card,
+.porque-card,
+.cta-final {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .selo {
@@ -386,9 +365,9 @@ p {
 }
 
 h1 {
-  max-width: 820px;
-  font-size: 64px;
-  line-height: 1;
+  max-width: 840px;
+  font-size: 60px;
+  line-height: 1.02;
   font-weight: 900;
 }
 
@@ -403,19 +382,12 @@ h3 {
   font-weight: 900;
 }
 
-.frase-valor {
-  max-width: 760px;
-  color: #0f172a;
-  font-size: 28px;
-  line-height: 1.22;
-  font-weight: 900;
-}
-
 .descricao,
 .secao-cabecalho p,
-.card p,
-.passo p,
-.confianca-card p,
+.card-beneficio p,
+.modulo-card p,
+.linha-tempo p,
+.porque-card p,
 .cta-final p {
   color: #475569;
   font-size: 16px;
@@ -423,13 +395,19 @@ h3 {
 }
 
 .descricao {
-  max-width: 720px;
-  font-size: 18px;
+  max-width: 760px;
+  font-size: 19px;
+}
+
+.acoes-hero,
+.credenciais {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .acoes-hero {
-  gap: 12px;
-  flex-wrap: wrap;
   margin-top: 8px;
 }
 
@@ -443,10 +421,7 @@ h3 {
   font-weight: 900;
   text-align: center;
   text-decoration: none;
-  transition:
-    transform .18s ease,
-    box-shadow .18s ease,
-    background .18s ease;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
 }
 
 .botao:hover {
@@ -456,7 +431,7 @@ h3 {
 .botao.principal {
   background: #2563eb;
   color: white;
-  box-shadow: 0 16px 28px rgba(37, 99, 235, .24);
+  box-shadow: 0 18px 34px rgba(37, 99, 235, .24);
 }
 
 .botao.secundario {
@@ -466,129 +441,188 @@ h3 {
 }
 
 .botao.claro {
-  border-color: rgba(255, 255, 255, .48);
+  border-color: rgba(255, 255, 255, .5);
   background: rgba(255, 255, 255, .12);
   color: white;
 }
 
-.painel-preview {
-  display: grid;
-  gap: 18px;
-  border: 1px solid rgba(148, 163, 184, .45);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, .82);
-  padding: 22px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, .14);
-  backdrop-filter: blur(16px);
+.credenciais {
+  margin-top: 18px;
 }
 
-.preview-topo {
+.credenciais span {
+  border: 1px solid rgba(37, 99, 235, .14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .72);
+  padding: 9px 12px;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .05);
+}
+
+.mockup-painel {
+  border: 1px solid rgba(148, 163, 184, .38);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .78);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, .16);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+
+.mockup-topo {
   display: flex;
-  gap: 7px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px 18px;
 }
 
-.preview-topo span {
+.mockup-topo span {
   width: 10px;
   height: 10px;
   border-radius: 999px;
   background: #cbd5e1;
 }
 
-.preview-cabecalho {
-  grid-template-columns: 1fr auto;
-  align-items: center;
-}
-
-.preview-cabecalho small,
-.preview-metricas small,
-.preview-metricas span {
-  color: #64748b;
-  font-weight: 800;
-}
-
-.preview-cabecalho strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 24px;
-}
-
-.preview-status {
-  min-height: 34px;
-  padding: 7px 11px;
-  border-radius: 999px;
-  background: #dcfce7;
-  color: #166534;
+.mockup-topo strong {
+  margin-left: auto;
+  color: #334155;
   font-size: 13px;
   font-weight: 900;
 }
 
-.preview-metricas {
+.mockup-corpo {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  padding: 18px;
 }
 
-.preview-metricas div {
-  display: grid;
-  gap: 5px;
-  min-height: 130px;
+.mockup-card,
+.mockup-lista {
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #f8fafc;
+  border-radius: 14px;
+  background: #ffffff;
   padding: 16px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
 }
 
-.preview-metricas strong {
-  font-size: 38px;
-  line-height: 1;
+.mockup-card {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
 }
 
-.preview-lista span {
-  min-height: 42px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  padding: 11px 12px;
+.mockup-card.destaque {
+  grid-column: 1 / -1;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(20, 184, 166, .18), transparent 30%),
+    #0f172a;
+  color: white;
+}
+
+.mockup-card small,
+.mockup-card p {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.mockup-card.destaque small {
+  color: #bfdbfe;
+}
+
+.mockup-card strong {
+  font-size: 26px;
+  line-height: 1.08;
+}
+
+.barra {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  overflow: hidden;
+}
+
+.barra span {
+  display: block;
+  width: 72%;
+  height: 100%;
+  border-radius: inherit;
+  background: #14b8a6;
+}
+
+.mockup-lista {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.mockup-lista div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.mockup-lista span {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #2563eb;
+}
+
+.mockup-lista p {
   color: #334155;
   font-weight: 800;
 }
 
+.mockup-lista strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .secao {
-  padding: 72px 20px;
+  padding-top: 74px;
+  padding-bottom: 74px;
 }
 
 .secao-cabecalho {
-  max-width: 760px;
+  max-width: 780px;
   margin-bottom: 28px;
 }
 
 .grade {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
-.card {
+.card-beneficio,
+.modulo-card,
+.linha-tempo article,
+.motivos article {
   min-width: 0;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 16px;
   background: white;
   padding: 22px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .06);
 }
 
-.icone-card {
+.card-beneficio span {
   display: inline-grid;
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 13px;
   background: #eff6ff;
   color: #2563eb;
   font-weight: 900;
 }
 
-.faixa {
+.segmentos-secao,
+.porque-secao {
   width: 100%;
   max-width: none;
   padding-right: max(20px, calc((100% - 1160px) / 2));
@@ -597,45 +631,62 @@ h3 {
   color: white;
 }
 
-.faixa .secao-cabecalho p,
-.faixa .selo {
+.segmentos-secao .secao-cabecalho p,
+.segmentos-secao .selo,
+.porque-secao .secao-cabecalho p,
+.porque-secao .selo {
   color: #bfdbfe;
 }
 
 .segmentos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.segmentos article {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  min-height: 66px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .08);
+  padding: 14px;
 }
 
 .segmentos span {
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .08);
-  padding: 10px 14px;
-  color: white;
-  font-weight: 800;
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .12);
+  color: #bfdbfe;
+  font-weight: 900;
 }
 
-.passos {
+.segmentos strong {
+  font-weight: 900;
+}
+
+.linha-tempo {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
-.passo {
+.linha-tempo article {
   position: relative;
-  min-width: 0;
-  border-top: 3px solid #2563eb;
-  border-radius: 12px;
-  background: white;
-  padding: 22px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
+  display: grid;
+  gap: 12px;
+  border-top: 4px solid #2563eb;
 }
 
-.passo > span {
+.linha-tempo article > span {
   display: inline-grid;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   border-radius: 999px;
   background: #2563eb;
@@ -644,55 +695,52 @@ h3 {
 }
 
 .modulos-secao {
-  padding-top: 24px;
+  padding-top: 20px;
 }
 
 .modulo-card {
-  min-height: 190px;
-  border-color: #dbeafe;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  min-height: 188px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
-.confianca-secao {
-  padding-top: 24px;
+.porque-card {
+  width: min(1160px, 100%);
+  margin: 0 auto;
+  grid-template-columns: minmax(0, .9fr) minmax(360px, 1fr);
+  align-items: start;
 }
 
-.confianca-card {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, .7fr);
-  align-items: center;
-  border: 1px solid #dbeafe;
-  border-radius: 16px;
-  background: white;
-  padding: 30px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, .08);
+.porque-card .secao-cabecalho {
+  margin-bottom: 0;
 }
 
-.confianca-card ul {
+.motivos {
   display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.confianca-card li {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
-  padding: 12px 14px;
-  color: #334155;
-  font-weight: 900;
+.motivos article {
+  background: rgba(255, 255, 255, .08);
+  border-color: rgba(255, 255, 255, .14);
+  box-shadow: none;
+}
+
+.motivos p {
+  color: #dbeafe;
 }
 
 .cta-final {
-  margin-top: 36px;
-  border-radius: 18px;
+  margin-top: 54px;
+  margin-bottom: 20px;
+  border-radius: 24px;
   background:
-    radial-gradient(circle at 92% 20%, rgba(20, 184, 166, .34), transparent 28%),
+    radial-gradient(circle at 90% 18%, rgba(20, 184, 166, .34), transparent 28%),
     linear-gradient(135deg, #1d4ed8 0%, #0f172a 100%);
-  padding: 44px 34px;
+  padding: 48px 36px;
   color: white;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, .18);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, .18);
 }
 
 .cta-final .selo,
@@ -700,74 +748,38 @@ h3 {
   color: #dbeafe;
 }
 
-.rodape-publico {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 34px 20px 44px;
-  color: #334155;
-}
-
-.rodape-publico nav {
-  gap: 14px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
 @media (max-width: 980px) {
-  .nav-publica {
-    margin-bottom: 44px;
-  }
-
   .hero-grid,
-  .confianca-card {
+  .porque-card {
     grid-template-columns: 1fr;
   }
 
-  .grade {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .passos {
+  .grade,
+  .segmentos,
+  .linha-tempo {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   h1 {
-    font-size: 48px;
-  }
-
-  .frase-valor {
-    font-size: 24px;
+    font-size: 46px;
   }
 }
 
 @media (max-width: 640px) {
   .hero {
-    padding: 18px 14px 50px;
+    padding-bottom: 54px;
   }
 
-  .nav-publica,
-  .rodape-publico {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .nav-links,
-  .rodape-publico nav {
-    width: 100%;
-    justify-content: flex-start;
+  .hero-grid {
+    padding: 34px 14px 0;
   }
 
   h1 {
-    font-size: 38px;
+    font-size: 36px;
   }
 
   h2 {
     font-size: 28px;
-  }
-
-  .frase-valor {
-    font-size: 21px;
   }
 
   .descricao {
@@ -779,9 +791,11 @@ h3 {
     width: 100%;
   }
 
+  .mockup-corpo,
   .grade,
-  .passos,
-  .preview-metricas {
+  .segmentos,
+  .linha-tempo,
+  .motivos {
     grid-template-columns: 1fr;
   }
 
@@ -789,16 +803,24 @@ h3 {
     padding: 52px 14px;
   }
 
-  .card,
-  .passo,
-  .painel-preview,
-  .confianca-card {
+  .segmentos-secao,
+  .porque-secao {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .card-beneficio,
+  .modulo-card,
+  .linha-tempo article,
+  .motivos article,
+  .mockup-card,
+  .mockup-lista {
     padding: 18px;
   }
 
   .cta-final {
     width: calc(100% - 28px);
-    padding: 32px 20px;
+    padding: 34px 20px;
   }
 }
 </style>

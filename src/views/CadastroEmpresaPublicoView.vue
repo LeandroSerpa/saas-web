@@ -6,6 +6,8 @@ import {
   buscarSegmentosCadastroPublico,
   cadastrarEmpresaInteressadaPublico,
 } from '@/services/api'
+import PublicFooter from '@/components/publico/PublicFooter.vue'
+import PublicHeader from '@/components/publico/PublicHeader.vue'
 import PublicidadeNuvemMais from '@/components/PublicidadeNuvemMais.vue'
 import { debugLog } from '@/utils/devDebug'
 import {
@@ -685,12 +687,27 @@ onMounted(carregarOpcoes)
 
 <template>
   <main class="pagina-publica">
+    <PublicHeader compacto />
+
     <section class="conteudo">
-      <header class="cabecalho">
-        <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
-        <span class="marca">NuvemMais Gestão</span>
-        <h1>Cadastre sua empresa</h1>
-        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitação de entrada na plataforma.</p>
+      <header class="cabecalho cadastro-hero">
+        <div>
+          <span class="marca">Comece agora</span>
+          <h1>Cadastre sua empresa no NuvemMais Gestão</h1>
+          <p>
+            Responda algumas perguntas para nossa equipe analisar sua solicitação e preparar a entrada da empresa na
+            plataforma.
+          </p>
+          <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
+        </div>
+
+        <aside class="cadastro-resumo" aria-label="Resumo do processo de cadastro">
+          <strong>Como funciona</strong>
+          <span>1. Dados da empresa</span>
+          <span>2. Responsável</span>
+          <span>3. Segmento e plano</span>
+          <span>4. Análise da solicitação</span>
+        </aside>
       </header>
 
       <section v-if="sucesso" class="card confirmacao">
@@ -894,8 +911,8 @@ onMounted(carregarOpcoes)
               <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || 'Plano sem nome' }}</p>
               <p><strong>Preço mensal:</strong> {{ formatarMoeda(precoPlano(planoSelecionado)) }}</p>
               <p><strong>Resumo:</strong> {{ descricaoPlano(planoSelecionado) }}</p>
-              <p><strong>Estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? 'Incluido' : 'Nao incluso' }}</p>
-              <p><strong>Produtos no estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Nao incluso' }}</p>
+              <p><strong>Estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? 'Incluído' : 'Não incluso' }}</p>
+              <p><strong>Produtos no estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Não incluso' }}</p>
               <ul v-if="recursosPrincipaisPlano(planoSelecionado).length" class="recursos-revisao">
                 <li v-for="recurso in recursosPrincipaisPlano(planoSelecionado)" :key="recurso">{{ recurso }}</li>
               </ul>
@@ -917,6 +934,7 @@ onMounted(carregarOpcoes)
       </nav>
     </div>
   </section>
+  <PublicFooter />
   </main>
 </template>
 
@@ -1061,5 +1079,197 @@ onMounted(carregarOpcoes)
 .plano-acao .botao-plano.selecionado {
   background: #0f172a;
   border-color: #0f172a;
+}
+</style>
+
+<style scoped>
+.pagina-publica {
+  padding: 0;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(37, 99, 235, .16), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(20, 184, 166, .16), transparent 28%),
+    #f8fafc;
+  color: #0f172a;
+}
+
+.conteudo {
+  max-width: 1120px;
+  gap: 24px;
+  padding: 34px 20px 40px;
+}
+
+.cadastro-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .42fr);
+  align-items: stretch;
+  gap: 22px;
+  border: 1px solid #dbeafe;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 92% 14%, rgba(20, 184, 166, .2), transparent 30%),
+    linear-gradient(135deg, #ffffff 0%, #eef6ff 100%);
+  padding: 30px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .1);
+}
+
+.cadastro-hero > div {
+  display: grid;
+  gap: 12px;
+}
+
+.marca,
+.selo {
+  font-weight: 900;
+}
+
+h1 {
+  max-width: 720px;
+  font-size: 44px;
+  line-height: 1.08;
+  font-weight: 900;
+}
+
+h2 {
+  font-weight: 900;
+}
+
+.cabecalho p,
+.confirmacao > p {
+  max-width: 720px;
+  color: #475569;
+  line-height: 1.65;
+}
+
+.link-login {
+  width: fit-content;
+  justify-self: start;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  padding: 10px 14px;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .06);
+}
+
+.cadastro-resumo {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(37, 99, 235, .14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .78);
+  padding: 20px;
+}
+
+.cadastro-resumo strong {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.cadastro-resumo span {
+  border-radius: 10px;
+  background: #eff6ff;
+  padding: 10px 12px;
+  color: #1e3a8a;
+  font-weight: 900;
+}
+
+.card,
+.feedback {
+  border-color: #e2e8f0;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 22px 50px rgba(15, 23, 42, .08);
+}
+
+.etapas {
+  gap: 12px;
+}
+
+.etapa {
+  min-height: 70px;
+  border-color: #dbe4f0;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .05);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.etapa.concluida:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, .12);
+}
+
+.etapa span {
+  width: 30px;
+  height: 30px;
+}
+
+input,
+select,
+textarea {
+  border-radius: 10px;
+  padding: 12px 13px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.botao {
+  min-height: 46px;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.principal {
+  box-shadow: 0 14px 26px rgba(37, 99, 235, .22);
+}
+
+.confirmacao {
+  border-color: #bbf7d0;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(34, 197, 94, .16), transparent 28%),
+    #f0fdf4;
+}
+
+.plano-card {
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.links-institucionais {
+  padding-bottom: 6px;
+}
+
+.links-institucionais a {
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .cadastro-hero {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 560px) {
+  .conteudo {
+    padding: 24px 14px 34px;
+  }
+
+  .cadastro-hero,
+  .card,
+  .feedback {
+    padding: 20px;
+  }
+
+  .etapa {
+    min-height: 60px;
+  }
 }
 </style>
