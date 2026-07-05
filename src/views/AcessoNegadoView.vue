@@ -31,25 +31,32 @@ const descricao = computed(() =>
 .pagina-feedback {
   display: grid;
   place-items: center;
-  min-height: 60vh;
-  color: #111827;
+  min-height: 70vh;
+  padding: 28px 14px;
+  background:
+    linear-gradient(110deg, rgba(14, 165, 233, .1) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 18% 16%, rgba(37, 99, 235, .14), transparent 30%),
+    #f8fafc;
+  color: #0f172a;
 }
 
 .card-feedback {
-  width: min(100%, 560px);
+  width: min(100%, 680px);
   display: grid;
-  gap: 14px;
-  background: white;
+  gap: 16px;
   border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 28px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 94% 12%, rgba(248, 113, 113, .12), transparent 28%),
+    rgba(255, 255, 255, .96);
+  padding: 34px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, .12);
 }
 
 .selo {
   color: #b91c1c;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 900;
   text-transform: uppercase;
 }
 
@@ -59,23 +66,35 @@ p {
 }
 
 h1 {
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.08;
+  font-weight: 900;
 }
 
 p {
   color: #475569;
-  line-height: 1.5;
+  line-height: 1.65;
 }
 
 .botao {
   justify-self: start;
   border-radius: 8px;
-  padding: 11px 16px;
-  color: white;
   background: #2563eb;
-  font-weight: 800;
+  color: white;
+  padding: 12px 18px;
+  font-weight: 900;
   text-decoration: none;
+  box-shadow: 0 14px 26px rgba(37, 99, 235, .18);
+}
+
+@media (max-width: 560px) {
+  .card-feedback {
+    padding: 22px;
+  }
+
+  .botao {
+    width: 100%;
+    text-align: center;
+  }
 }
 </style>

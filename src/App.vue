@@ -302,6 +302,7 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
 const topicoAjudaContextual = computed(() => AJUDA_CONTEXTUAL_POR_ROTA[routeName.value] || '')
 const rotaLogin = computed(() => route.path === '/login')
 const rotaIndexPublica = computed(() => route.path === '/')
+const rotaNaoEncontradoPublica = computed(() => route.name === 'nao-encontrado')
 const rotaAgendamentoPublico = computed(() => route.path.startsWith('/agendar'))
 const rotaCatalogoPublico = computed(() => route.path.startsWith('/catalogo/') || route.path.startsWith('/cardapio/'))
 const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/comece-agora'].includes(route.path))
@@ -312,6 +313,7 @@ const trocaSenhaObrigatoria = computed(() => usuario.value?.trocaSenhaObrigatori
 const rotaSemLayout = computed(() =>
   rotaLogin.value ||
   rotaIndexPublica.value ||
+  rotaNaoEncontradoPublica.value ||
   rotaAgendamentoPublico.value ||
   rotaCatalogoPublico.value ||
   rotaCadastroPublico.value ||
@@ -953,6 +955,7 @@ function alterarTemaAparencia(novoTema) {
 function atualizarUsuarioLogado() {
   if (
     rotaIndexPublica.value ||
+    rotaNaoEncontradoPublica.value ||
     rotaAgendamentoPublico.value ||
     rotaCatalogoPublico.value ||
     rotaCadastroPublico.value ||

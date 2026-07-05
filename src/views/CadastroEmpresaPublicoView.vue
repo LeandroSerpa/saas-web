@@ -6,7 +6,8 @@ import {
   buscarSegmentosCadastroPublico,
   cadastrarEmpresaInteressadaPublico,
 } from '@/services/api'
-import PublicidadeNuvemMais from '@/components/PublicidadeNuvemMais.vue'
+import PublicFooter from '@/components/publico/PublicFooter.vue'
+import PublicHeader from '@/components/publico/PublicHeader.vue'
 import { debugLog } from '@/utils/devDebug'
 import {
   criarManipuladorPasteNumerico,
@@ -685,12 +686,27 @@ onMounted(carregarOpcoes)
 
 <template>
   <main class="pagina-publica">
+    <PublicHeader compacto />
+
     <section class="conteudo">
-      <header class="cabecalho">
-        <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
-        <span class="marca">NuvemMais Gestão</span>
-        <h1>Cadastre sua empresa</h1>
-        <p>Responda algumas perguntas para nossa equipe avaliar sua solicitação de entrada na plataforma.</p>
+      <header class="cabecalho cadastro-hero">
+        <div>
+          <span class="marca">Onboarding comercial</span>
+          <h1>Solicite acesso ao NuvemMais Gestão</h1>
+          <p>
+            Envie os dados principais da empresa, escolha o segmento e indique o plano desejado. Nossa equipe analisa a
+            solicitação e libera o acesso para você configurar a operação com segurança.
+          </p>
+          <RouterLink class="link-login" to="/login">Já tenho acesso</RouterLink>
+        </div>
+
+        <aside class="cadastro-resumo" aria-label="Resumo do processo de cadastro">
+          <strong>Como funciona</strong>
+          <span>1. Envie a solicitação</span>
+          <span>2. Nossa equipe analisa</span>
+          <span>3. Seu acesso é liberado</span>
+          <span>4. Você configura a empresa</span>
+        </aside>
       </header>
 
       <section v-if="sucesso" class="card confirmacao">
@@ -894,8 +910,8 @@ onMounted(carregarOpcoes)
               <p><strong>Plano:</strong> {{ planoSelecionado?.nome || planoSelecionado?.titulo || 'Plano sem nome' }}</p>
               <p><strong>Preço mensal:</strong> {{ formatarMoeda(precoPlano(planoSelecionado)) }}</p>
               <p><strong>Resumo:</strong> {{ descricaoPlano(planoSelecionado) }}</p>
-              <p><strong>Estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? 'Incluido' : 'Nao incluso' }}</p>
-              <p><strong>Produtos no estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Nao incluso' }}</p>
+              <p><strong>Estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? 'Incluído' : 'Não incluso' }}</p>
+              <p><strong>Produtos no estoque:</strong> {{ estoqueIncluido(planoSelecionado) ? limiteProdutosPlano(planoSelecionado) : 'Não incluso' }}</p>
               <ul v-if="recursosPrincipaisPlano(planoSelecionado).length" class="recursos-revisao">
                 <li v-for="recurso in recursosPrincipaisPlano(planoSelecionado)" :key="recurso">{{ recurso }}</li>
               </ul>
@@ -917,11 +933,213 @@ onMounted(carregarOpcoes)
       </nav>
     </div>
   </section>
+  <PublicFooter />
   </main>
 </template>
 
 <style scoped>
 .pagina-publica{min-height:100vh;background:#eef2f7;color:#111827;padding:34px 18px}.conteudo{max-width:1080px;margin:0 auto;display:grid;gap:20px}.cabecalho{display:grid;gap:8px}.marca,.selo{color:#2563eb;font-size:13px;font-weight:800;text-transform:uppercase}.link-login{justify-self:end;color:#2563eb;font-weight:800;text-decoration:none}h1,h2,p{margin:0}h1{font-size:38px;font-weight:800}h2{font-size:20px}.cabecalho p,.confirmacao>p{color:#475569;font-size:17px}.card,.feedback{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.formulario,.confirmacao,.revisao{display:grid;gap:18px}.etapas,.campos,.revisao{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}.etapas{grid-template-columns:repeat(5,minmax(120px,1fr))}.etapa{min-height:58px;border:1px solid #dbe4f0;border-radius:8px;background:white;color:#475569;cursor:default;font-weight:800}.etapa span{display:inline-grid;width:24px;height:24px;margin-right:7px;place-items:center;border-radius:999px;background:#e2e8f0}.etapa.ativa,.etapa.concluida{border-color:#2563eb;color:#1d4ed8}.etapa.concluida{cursor:pointer}.etapa.ativa span,.etapa.concluida span{background:#2563eb;color:white}.campo-grande{grid-column:1 / -1}label{display:grid;gap:7px;color:#334155;font-weight:800}label small{color:#64748b;font-size:13px}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:8px;padding:11px 12px;background:white;font:inherit;box-sizing:border-box}.aceite-termos{grid-column:1 / -1;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #dbe4f0;border-radius:8px;background:#f8fafc}.aceite-termos input{width:auto;margin-top:3px}.aceite-termos a{color:#2563eb}.acoes{display:flex;gap:12px;flex-wrap:wrap}.botao{border:none;border-radius:8px;padding:12px 18px;color:white;cursor:pointer;font-weight:800;text-align:center;text-decoration:none}.principal{background:#2563eb}.secundario{background:#0f172a}.botao:disabled{cursor:not-allowed;opacity:.65}.links-institucionais{display:flex;justify-content:center;gap:14px;flex-wrap:wrap}.links-institucionais a{color:#64748b;font-size:13px;font-weight:700;text-decoration:none}.links-institucionais a:hover{color:#2563eb;text-decoration:underline}.erro{border-color:#fecaca;background:#fef2f2;color:#991b1b}.confirmacao{border-color:#bbf7d0;background:#f0fdf4}.erro-campo{color:#b91c1c;font-weight:700}.etapa-planos{display:grid;gap:18px}.cabecalho-planos{display:grid;gap:7px}.cabecalho-planos p{color:#64748b}.aviso-planos{padding:12px 14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1e3a8a;font-weight:700;line-height:1.45}.grade-planos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}.plano-card{display:grid;grid-template-rows:auto auto 1fr auto auto;gap:16px;min-width:0;padding:18px;border:1px solid #dbe4f0;border-radius:8px;background:white;box-shadow:0 14px 30px rgba(15,23,42,.08);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}.plano-card.selecionado{border-color:#2563eb;box-shadow:0 20px 42px rgba(37,99,235,.2);transform:translateY(-2px)}.plano-topo{display:grid;gap:10px}.plano-topo h3{margin:0;font-size:22px;line-height:1.15;overflow-wrap:anywhere}.plano-topo strong{color:#0f172a;font-size:26px;line-height:1}.plano-topo strong span{color:#64748b;font-size:14px;font-weight:800}.plano-descricao{color:#475569;line-height:1.5}.lista-limites{display:grid;gap:8px;margin:0}.lista-limites div,.recursos-plano li{display:flex;justify-content:space-between;gap:12px;align-items:center}.lista-limites dt,.recursos-plano span{color:#64748b;font-weight:800}.lista-limites dd{margin:0;color:#0f172a;font-weight:900;text-align:right}.recursos-plano{display:grid;gap:8px;margin:0;padding:14px 0 0;border-top:1px solid #e2e8f0;list-style:none}.recursos-plano strong{color:#0f766e}.botao-plano{width:100%;min-height:46px;border:1px solid #2563eb;border-radius:8px;padding:12px 14px;background:#2563eb;color:white;cursor:pointer;font-weight:900}.plano-card.selecionado .botao-plano{background:#0f172a;border-color:#0f172a}.sem-planos{display:grid;gap:8px;padding:20px;border:1px dashed #93c5fd;border-radius:8px;background:#eff6ff;color:#1e3a8a}.sem-planos h3{margin:0}.sem-planos p{color:#334155}.recursos-revisao{display:grid;gap:6px;margin:10px 0 0;padding-left:20px;color:#334155}.recursos-revisao li{line-height:1.35}@media (max-width:900px){.etapas,.campos,.revisao{grid-template-columns:1fr}h1{font-size:31px}.grade-planos{grid-template-columns:1fr}.plano-topo strong{font-size:24px}}@media (max-width:560px){.pagina-publica{padding:22px 12px}.card,.feedback{padding:18px}.etapas{grid-template-columns:1fr}.acoes{display:grid;grid-template-columns:1fr}.botao,.botao-plano{width:100%}.lista-limites div,.recursos-plano li{align-items:flex-start}.plano-card{padding:16px}}
+</style>
+
+<style scoped>
+.pagina-publica {
+  background:
+    linear-gradient(110deg, rgba(14, 165, 233, .12) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 12% 12%, rgba(37, 99, 235, .2), transparent 30%),
+    radial-gradient(circle at 88% 18%, rgba(20, 184, 166, .18), transparent 30%),
+    #f8fafc;
+}
+
+.conteudo {
+  max-width: 1160px;
+}
+
+.cadastro-hero {
+  border-radius: 28px;
+  background:
+    linear-gradient(110deg, rgba(125, 211, 252, .12) 0 1px, transparent 1px 100%) 0 0 / 58px 58px,
+    radial-gradient(circle at 88% 18%, rgba(20, 184, 166, .34), transparent 30%),
+    linear-gradient(135deg, #1d4ed8 0%, #071124 100%);
+  color: white;
+}
+
+.cadastro-hero .marca {
+  color: #7dd3fc;
+}
+
+.cadastro-hero h1 {
+  color: white;
+  font-size: clamp(36px, 5vw, 58px);
+}
+
+.cadastro-hero p {
+  color: #dbeafe;
+}
+
+.cadastro-hero .link-login {
+  border-color: rgba(255, 255, 255, .28);
+  background: rgba(255, 255, 255, .1);
+  color: white;
+}
+
+.cadastro-resumo {
+  border-color: rgba(255, 255, 255, .18);
+  background: rgba(8, 15, 31, .42);
+  backdrop-filter: blur(16px);
+}
+
+.cadastro-resumo strong {
+  color: white;
+}
+
+.cadastro-resumo span {
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .1);
+  color: #e0f2fe;
+}
+
+.card,
+.feedback {
+  border-color: rgba(148, 163, 184, .24);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 26px 62px rgba(15, 23, 42, .1);
+}
+</style>
+
+<style scoped>
+.pagina-publica {
+  background:
+    linear-gradient(110deg, rgba(14, 165, 233, .12) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 12% 12%, rgba(37, 99, 235, .2), transparent 30%),
+    radial-gradient(circle at 88% 18%, rgba(20, 184, 166, .18), transparent 30%),
+    #f8fafc;
+}
+
+.conteudo {
+  max-width: 1160px;
+  gap: 26px;
+  padding-top: 42px;
+}
+
+.cadastro-hero {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 28px;
+  background:
+    linear-gradient(110deg, rgba(125, 211, 252, .12) 0 1px, transparent 1px 100%) 0 0 / 58px 58px,
+    radial-gradient(circle at 88% 18%, rgba(20, 184, 166, .34), transparent 30%),
+    linear-gradient(135deg, #1d4ed8 0%, #071124 100%);
+  color: white;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, .18);
+}
+
+.cadastro-hero .marca {
+  color: #7dd3fc;
+}
+
+.cadastro-hero h1 {
+  max-width: 760px;
+  color: white;
+  font-size: clamp(36px, 5vw, 58px);
+  line-height: 1.02;
+}
+
+.cadastro-hero p {
+  color: #dbeafe;
+  font-size: 18px;
+}
+
+.cadastro-hero .link-login {
+  border-color: rgba(255, 255, 255, .28);
+  background: rgba(255, 255, 255, .1);
+  color: white;
+  box-shadow: none;
+}
+
+.cadastro-resumo {
+  align-content: start;
+  border-color: rgba(255, 255, 255, .18);
+  background: rgba(8, 15, 31, .42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+  backdrop-filter: blur(16px);
+}
+
+.cadastro-resumo strong {
+  color: white;
+}
+
+.cadastro-resumo span {
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .1);
+  color: #e0f2fe;
+}
+
+.etapas {
+  margin-bottom: 16px;
+}
+
+.etapa {
+  background: rgba(255, 255, 255, .94);
+  border-color: rgba(148, 163, 184, .24);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, .07);
+}
+
+.etapa.ativa,
+.etapa.concluida {
+  border-color: #38bdf8;
+  background: #eff6ff;
+}
+
+.card,
+.feedback {
+  border-color: rgba(148, 163, 184, .24);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 26px 62px rgba(15, 23, 42, .1);
+}
+
+.formulario {
+  gap: 22px;
+}
+
+label {
+  color: #1f2937;
+}
+
+input,
+select,
+textarea {
+  border-radius: 12px;
+  border-color: #d1d5db;
+  padding: 13px 14px;
+}
+
+.plano-card {
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 92% 10%, rgba(20, 184, 166, .12), transparent 28%),
+    white;
+}
+
+.plano-card.selecionado {
+  border-color: #2563eb;
+}
+
+.confirmacao {
+  border-color: #bbf7d0;
+}
+
+@media (max-width: 560px) {
+  .conteudo {
+    padding-top: 26px;
+  }
+
+  .cadastro-hero h1 {
+    font-size: 34px;
+  }
+}
 </style>
 
 <style scoped>
@@ -1061,5 +1279,263 @@ onMounted(carregarOpcoes)
 .plano-acao .botao-plano.selecionado {
   background: #0f172a;
   border-color: #0f172a;
+}
+</style>
+
+<style scoped>
+.pagina-publica {
+  padding: 0;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(37, 99, 235, .16), transparent 30%),
+    radial-gradient(circle at 88% 12%, rgba(20, 184, 166, .16), transparent 28%),
+    #f8fafc;
+  color: #0f172a;
+}
+
+.conteudo {
+  max-width: 1120px;
+  gap: 24px;
+  padding: 34px 20px 40px;
+}
+
+.cadastro-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .42fr);
+  align-items: stretch;
+  gap: 22px;
+  border: 1px solid #dbeafe;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 92% 14%, rgba(20, 184, 166, .2), transparent 30%),
+    linear-gradient(135deg, #ffffff 0%, #eef6ff 100%);
+  padding: 30px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .1);
+}
+
+.cadastro-hero > div {
+  display: grid;
+  gap: 12px;
+}
+
+.marca,
+.selo {
+  font-weight: 900;
+}
+
+h1 {
+  max-width: 720px;
+  font-size: 44px;
+  line-height: 1.08;
+  font-weight: 900;
+}
+
+h2 {
+  font-weight: 900;
+}
+
+.cabecalho p,
+.confirmacao > p {
+  max-width: 720px;
+  color: #475569;
+  line-height: 1.65;
+}
+
+.link-login {
+  width: fit-content;
+  justify-self: start;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  padding: 10px 14px;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .06);
+}
+
+.cadastro-resumo {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(37, 99, 235, .14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .78);
+  padding: 20px;
+}
+
+.cadastro-resumo strong {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.cadastro-resumo span {
+  border-radius: 10px;
+  background: #eff6ff;
+  padding: 10px 12px;
+  color: #1e3a8a;
+  font-weight: 900;
+}
+
+.card,
+.feedback {
+  border-color: #e2e8f0;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 22px 50px rgba(15, 23, 42, .08);
+}
+
+.etapas {
+  gap: 12px;
+}
+
+.etapa {
+  min-height: 70px;
+  border-color: #dbe4f0;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .05);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.etapa.concluida:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, .12);
+}
+
+.etapa span {
+  width: 30px;
+  height: 30px;
+}
+
+input,
+select,
+textarea {
+  border-radius: 10px;
+  padding: 12px 13px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.botao {
+  min-height: 46px;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.principal {
+  box-shadow: 0 14px 26px rgba(37, 99, 235, .22);
+}
+
+.confirmacao {
+  border-color: #bbf7d0;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(34, 197, 94, .16), transparent 28%),
+    #f0fdf4;
+}
+
+.plano-card {
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.links-institucionais {
+  padding-bottom: 6px;
+}
+
+.links-institucionais a {
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .cadastro-hero {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 560px) {
+  .conteudo {
+    padding: 24px 14px 34px;
+  }
+
+  .cadastro-hero,
+  .card,
+  .feedback {
+    padding: 20px;
+  }
+
+  .etapa {
+    min-height: 60px;
+  }
+}
+</style>
+
+<style scoped>
+.pagina-publica {
+  background:
+    linear-gradient(110deg, rgba(14, 165, 233, .12) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 12% 12%, rgba(37, 99, 235, .2), transparent 30%),
+    radial-gradient(circle at 88% 18%, rgba(20, 184, 166, .18), transparent 30%),
+    #f8fafc;
+}
+
+.conteudo {
+  max-width: 1160px;
+}
+
+.cadastro-hero {
+  border-radius: 28px;
+  background:
+    linear-gradient(110deg, rgba(125, 211, 252, .12) 0 1px, transparent 1px 100%) 0 0 / 58px 58px,
+    radial-gradient(circle at 88% 18%, rgba(20, 184, 166, .34), transparent 30%),
+    linear-gradient(135deg, #1d4ed8 0%, #071124 100%);
+  color: white;
+}
+
+.cadastro-hero .marca {
+  color: #7dd3fc;
+}
+
+.cadastro-hero h1 {
+  color: white;
+  font-size: clamp(36px, 5vw, 58px);
+}
+
+.cadastro-hero p {
+  color: #dbeafe;
+}
+
+.cadastro-hero .link-login {
+  border-color: rgba(255, 255, 255, .28);
+  background: rgba(255, 255, 255, .1);
+  color: white;
+}
+
+.cadastro-resumo {
+  border-color: rgba(255, 255, 255, .18);
+  background: rgba(8, 15, 31, .42);
+  backdrop-filter: blur(16px);
+}
+
+.cadastro-resumo strong {
+  color: white;
+}
+
+.cadastro-resumo span {
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .1);
+  color: #e0f2fe;
+}
+
+.card,
+.feedback {
+  border-color: rgba(148, 163, 184, .24);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 26px 62px rgba(15, 23, 42, .1);
 }
 </style>
