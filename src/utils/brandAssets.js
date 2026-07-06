@@ -1,42 +1,31 @@
-import logoHero from '@/assets/brand/logo-nuvemmais-hero.svg'
-import logoHorizontal from '@/assets/brand/logo-nuvemmais-horizontal.svg'
-import logoSimbolo from '@/assets/brand/nuvemmais-marca.svg'
+﻿export const BRAND_NAME = 'NuvemMais Gestão'
+export const BRAND_SHORT_NAME = 'NuvemMais'
+export const BRAND_TAGLINE = 'Sistema de gestão empresarial na nuvem.'
+export const BRAND_DESCRIPTION =
+  'Organize agenda, clientes, catálogo, módulos e operação da sua empresa em uma plataforma moderna na nuvem.'
 
-export const logoApp = logoSimbolo
+export const logoHorizontal = '/brand/logo-nuvemmais-horizontal.png?v=142-assets-final'
+export const logoSimbolo = '/brand/logo-nuvemmais-simbolo.png?v=142-assets-final'
+export const logoHero = '/brand/logo-nuvemmais-hero.png?v=142-assets-final'
+export const logoApp = '/brand/logo-nuvemmais-app.png?v=142-assets-final'
 
-const logoFallbackMarkup = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="NuvemMais Gestão">
-  <defs>
-    <linearGradient id="fallback-bg" x1="12" y1="8" x2="84" y2="88" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2563eb" />
-      <stop offset="1" stop-color="#0f172a" />
-    </linearGradient>
-    <linearGradient id="fallback-line" x1="24" y1="18" x2="74" y2="80" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7dd3fc" />
-      <stop offset="1" stop-color="#38bdf8" />
-    </linearGradient>
-  </defs>
-  <rect width="96" height="96" rx="24" fill="url(#fallback-bg)" />
-  <path d="M27 28h10.5L48 44.7 58.5 28H69v40H58.7V46.4L48 62.3 37.3 46.4V68H27V28Z" fill="#ffffff" />
-  <path d="M28 73.5h43.8c7.4 0 13.4-6 13.4-13.4 0-5.4-3.2-10.3-8.2-12.4" fill="none" stroke="url(#fallback-line)" stroke-linecap="round" stroke-width="4" />
-</svg>
-`.trim()
+export const logoFallbackSvg =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120">
+      <rect width="420" height="120" rx="24" fill="#0f172a"/>
+      <text x="32" y="70" font-family="Arial, sans-serif" font-size="38" font-weight="800" fill="#ffffff">Nuvem</text>
+      <text x="185" y="70" font-family="Arial, sans-serif" font-size="38" font-weight="800" fill="#38bdf8">Mais</text>
+      <text x="32" y="98" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#93c5fd" letter-spacing="8">GESTÃO</text>
+    </svg>
+  `)
 
-export const logoFallbackSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(logoFallbackMarkup)}`
-
-export const BRAND_NAME = 'NuvemMais Gestão'
-export const BRAND_TAGLINE = 'Gestão empresarial na nuvem'
-
-export const brandAssets = Object.freeze({
+export const brandAssets = {
   logoHorizontal,
   logoSimbolo,
   logoHero,
   logoApp,
   logoFallbackSvg,
-})
-
-export {
-  logoHorizontal,
-  logoSimbolo,
-  logoHero,
 }
+
+export default brandAssets
