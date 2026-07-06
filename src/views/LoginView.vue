@@ -121,19 +121,22 @@ function usarFallbackLogo() {
 
       <section class="login-card">
         <div class="marca-login">
-          <img
-            v-if="!logoComErro"
-            :src="brandAssets.logoHorizontal"
-            :alt="BRAND_NAME"
-            @error="usarFallbackLogo"
-          />
-          <div v-else class="marca-login-fallback">
-            <img class="marca-login-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
-            <div>
-              <strong>{{ BRAND_NAME }}</strong>
-              <small>{{ BRAND_TAGLINE }}</small>
+          <div class="marca-login-visual">
+            <img
+              v-if="!logoComErro"
+              :src="brandAssets.logoHorizontal"
+              :alt="BRAND_NAME"
+              @error="usarFallbackLogo"
+            />
+            <div v-else class="marca-login-fallback">
+              <img class="marca-login-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
+              <div>
+                <strong>{{ BRAND_NAME }}</strong>
+                <small>{{ BRAND_TAGLINE }}</small>
+              </div>
             </div>
           </div>
+          <p class="marca-login-legenda">{{ BRAND_TAGLINE }}</p>
         </div>
 
         <div class="cabecalho-login">
@@ -249,6 +252,19 @@ function usarFallbackLogo() {
   color: white;
   overflow: hidden;
   box-shadow: 0 30px 80px rgba(15, 23, 42, .2);
+}
+
+.painel-login::before {
+  content: '';
+  position: absolute;
+  right: -68px;
+  bottom: -94px;
+  width: 240px;
+  height: 240px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(56, 189, 248, .3), transparent 72%);
+  filter: blur(12px);
+  pointer-events: none;
 }
 
 .selo,
@@ -375,25 +391,71 @@ function usarFallbackLogo() {
 
 .login-card {
   width: 100%;
+  position: relative;
+  overflow: hidden;
   display: grid;
   gap: 22px;
   border: 1px solid rgba(148, 163, 184, .24);
-  border-radius: 24px;
+  border-radius: 26px;
   background: rgba(255, 255, 255, .94);
   padding: 30px;
   box-shadow: 0 28px 70px rgba(15, 23, 42, .14);
   backdrop-filter: blur(16px);
 }
 
+.login-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 132px;
+  background:
+    radial-gradient(circle at 12% 0, rgba(37, 99, 235, .12), transparent 42%),
+    radial-gradient(circle at 88% 8%, rgba(14, 165, 233, .1), transparent 36%);
+  pointer-events: none;
+}
+
 .marca-login {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(37, 99, 235, .14);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, #071124 0%, #10264c 52%, #1d4ed8 100%);
+  box-shadow:
+    0 20px 40px rgba(15, 23, 42, .14),
+    inset 0 1px 0 rgba(255, 255, 255, .1);
+}
+
+.marca-login::before {
+  content: '';
+  position: absolute;
+  inset: 14px 18px auto;
+  height: 54px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(56, 189, 248, .32), transparent 72%);
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+.marca-login-visual,
+.marca-login-fallback {
+  position: relative;
+  z-index: 1;
+}
+
+.marca-login-visual {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
 }
 
 .marca-login img {
   display: block;
-  width: min(250px, 100%);
+  width: min(238px, 100%);
   max-width: 100%;
   height: auto;
   object-fit: contain;
@@ -416,7 +478,7 @@ function usarFallbackLogo() {
 
 .marca-login strong,
 .marca-login small {
-  display: none;
+  display: block;
 }
 
 .marca-login strong {
@@ -424,9 +486,22 @@ function usarFallbackLogo() {
   font-weight: 900;
 }
 
-.marca-login small,
+.marca-login small {
+  color: #bfdbfe;
+}
+
+.marca-login-legenda,
 .cabecalho-login p {
+  margin: 0;
   color: #64748b;
+}
+
+.marca-login-legenda {
+  position: relative;
+  z-index: 1;
+  color: #dbeafe;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .cabecalho-login {
@@ -620,6 +695,10 @@ input:focus {
   .login-card {
     border-radius: 20px;
     padding: 22px;
+  }
+
+  .marca-login {
+    padding: 16px;
   }
 
   .mini-corpo {

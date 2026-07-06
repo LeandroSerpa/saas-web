@@ -121,28 +121,37 @@ const modulos = [
       <PublicHeader />
 
       <div class="hero-stage">
-        <img
-          v-if="!heroComErro"
-          class="hero-marca"
-          :src="brandAssets.logoHero"
-          :alt="BRAND_NAME"
-          @error="usarFallbackHero"
-        />
-        <div v-else class="hero-marca-fallback" aria-hidden="true">
-          <img :src="brandAssets.logoHorizontal" alt="" />
-          <small>{{ BRAND_TAGLINE }}</small>
-        </div>
-        <div class="hero-copy">
-          <span class="selo claro">Portal público NuvemMais Gestão</span>
-          <h1>Uma vitrine profissional para sua empresa e um painel para organizar a operação.</h1>
-          <p>
-            Centralize agenda, clientes, equipe, serviços, estoque, catálogo, gestão esportiva e rotinas administrativas
-            em uma plataforma modular preparada para empresas reais.
-          </p>
-          <div class="acoes-hero">
-            <RouterLink class="botao principal" to="/cadastro">Começar agora</RouterLink>
-            <RouterLink class="botao secundario" to="/login">Entrar no sistema</RouterLink>
+        <div class="hero-conteudo">
+          <div class="hero-copy">
+            <span class="selo claro">Portal público NuvemMais Gestão</span>
+            <h1>Uma vitrine profissional para sua empresa e um painel para organizar a operação.</h1>
+            <p>
+              Centralize agenda, clientes, equipe, serviços, estoque, catálogo, gestão esportiva e rotinas
+              administrativas em uma plataforma modular preparada para empresas reais.
+            </p>
+            <div class="acoes-hero">
+              <RouterLink class="botao principal" to="/cadastro">Começar agora</RouterLink>
+              <RouterLink class="botao secundario" to="/login">Entrar no sistema</RouterLink>
+            </div>
           </div>
+
+          <aside class="hero-brand-panel" aria-label="Identidade visual da marca NuvemMais Gestão">
+            <span class="hero-brand-kicker">Identidade integrada</span>
+            <div class="hero-brand-frame">
+              <img
+                v-if="!heroComErro"
+                class="hero-marca"
+                :src="brandAssets.logoHero"
+                :alt="BRAND_NAME"
+                @error="usarFallbackHero"
+              />
+              <div v-else class="hero-marca-fallback">
+                <img :src="brandAssets.logoHorizontal" alt="" />
+                <small>{{ BRAND_TAGLINE }}</small>
+              </div>
+            </div>
+            <p>Logo, hero e produto aparecem com a mesma linguagem visual do portal e do sistema.</p>
+          </aside>
         </div>
 
         <div class="produto-visual" aria-label="Prévia ilustrativa do painel NuvemMais Gestão">
@@ -295,66 +304,125 @@ const modulos = [
 
 .hero-stage {
   position: relative;
-  width: min(1160px, 100%);
+  width: min(1180px, 100%);
   margin: 0 auto;
   display: grid;
-  gap: 34px;
-  padding: 66px 20px 84px;
+  gap: 28px;
+  padding: 38px 20px 84px;
 }
 
-.hero-marca {
-  position: absolute;
-  top: 122px;
-  right: 20px;
-  display: block;
-  width: min(500px, 48vw);
-  max-width: 100%;
-  height: auto;
-  border-radius: 24px;
-  object-fit: contain;
-  opacity: .92;
-  filter: none;
-  pointer-events: none;
-}
-
-.hero-marca-fallback {
-  position: absolute;
-  top: 136px;
-  right: 20px;
+.hero-conteudo {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 10px;
-  justify-items: start;
-  border: 1px solid rgba(125, 211, 252, .2);
-  border-radius: 24px;
-  background: rgba(15, 23, 42, .42);
-  padding: 18px 20px;
-  box-shadow: 0 22px 44px rgba(2, 6, 23, .24);
-  backdrop-filter: blur(14px);
-}
-
-.hero-marca-fallback img {
-  display: block;
-  width: min(260px, 32vw);
-  max-width: 100%;
-  height: auto;
-  object-fit: contain;
-}
-
-.hero-marca-fallback small {
-  color: #dbeafe;
-  font-size: 14px;
-  font-weight: 700;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  align-items: center;
+  gap: 28px;
 }
 
 .hero-copy {
   position: relative;
   z-index: 1;
   display: grid;
-  justify-items: center;
+  justify-items: start;
   gap: 18px;
-  max-width: 920px;
-  margin: 0 auto;
-  text-align: center;
+  max-width: 640px;
+  text-align: left;
+}
+
+.hero-brand-panel {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(125, 211, 252, .22);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(125, 211, 252, .14), transparent 34%),
+    rgba(8, 15, 31, .48);
+  box-shadow: 0 26px 60px rgba(2, 6, 23, .26);
+  backdrop-filter: blur(18px);
+}
+
+.hero-brand-panel::before {
+  content: '';
+  position: absolute;
+  inset: 18px 26px auto;
+  height: 120px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(56, 189, 248, .32), transparent 72%);
+  filter: blur(24px);
+  pointer-events: none;
+}
+
+.hero-brand-kicker {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, .08);
+  color: #bfdbfe;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.hero-brand-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 0.84;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(56, 189, 248, .18), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(241, 245, 249, .94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .72),
+    0 18px 36px rgba(15, 23, 42, .14);
+}
+
+.hero-marca {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center 56%;
+  opacity: .98;
+  filter: none;
+}
+
+.hero-marca-fallback {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 14px;
+  padding: 24px;
+}
+
+.hero-marca-fallback img {
+  display: block;
+  width: min(260px, 100%);
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.hero-marca-fallback small {
+  color: #1e3a8a;
+  font-size: 14px;
+  font-weight: 800;
 }
 
 .selo {
@@ -377,9 +445,9 @@ ol {
 }
 
 h1 {
-  max-width: 980px;
-  font-size: clamp(44px, 7vw, 78px);
-  line-height: .98;
+  max-width: 13ch;
+  font-size: clamp(42px, 6vw, 74px);
+  line-height: 1;
   font-weight: 900;
 }
 
@@ -396,16 +464,24 @@ h3 {
 }
 
 .hero-copy p {
-  max-width: 780px;
+  max-width: 620px;
   color: #dbeafe;
-  font-size: 19px;
-  line-height: 1.7;
+  font-size: 18px;
+  line-height: 1.68;
+}
+
+.hero-brand-panel p {
+  position: relative;
+  z-index: 1;
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .acoes-hero {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 4px;
@@ -452,8 +528,8 @@ h3 {
 .produto-visual {
   position: relative;
   z-index: 1;
-  width: min(100%, 980px);
-  margin: 16px auto 0;
+  width: 100%;
+  margin: 6px auto 0;
   border: 1px solid rgba(255, 255, 255, .2);
   border-radius: 24px;
   background: rgba(8, 15, 31, .72);
@@ -790,6 +866,18 @@ h3 {
 }
 
 @media (max-width: 980px) {
+  .hero-conteudo {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-copy {
+    max-width: none;
+  }
+
+  .hero-brand-panel {
+    max-width: 420px;
+  }
+
   .produto-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -816,17 +904,18 @@ h3 {
     padding: 42px 14px 58px;
   }
 
-  .hero-marca {
-    display: none;
-  }
-
-  .hero-marca-fallback {
-    display: none;
-  }
-
   .hero-copy {
     text-align: left;
     justify-items: start;
+  }
+
+  .hero-brand-panel {
+    max-width: none;
+    padding: 16px;
+  }
+
+  .hero-brand-frame {
+    aspect-ratio: 1;
   }
 
   h1 {

@@ -1423,8 +1423,10 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="marca">
-        <img class="marca-simbolo" :src="brandAssets.logoSimbolo" alt="NuvemMais Gestão" @error="aplicarFallbackMarca" />
-        <div>
+        <div class="marca-simbolo-bloco">
+          <img class="marca-simbolo" :src="brandAssets.logoApp" alt="NuvemMais Gestão" @error="aplicarFallbackMarca" />
+        </div>
+        <div class="marca-copy">
           <strong>NuvemMais Gestão</strong>
           <small>{{ BRAND_TAGLINE }}</small>
         </div>
@@ -1741,12 +1743,15 @@ onBeforeUnmount(() => {
 }
 
 .app-sidebar {
-  background: var(--app-sidebar-bg);
+  background:
+    radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.12), transparent 26%),
+    linear-gradient(180deg, color-mix(in srgb, var(--app-sidebar-bg) 96%, black), var(--app-sidebar-bg));
   color: var(--app-sidebar-text);
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 28px;
+  box-shadow: inset -1px 0 0 var(--app-sidebar-border);
 }
 
 .topo-menu-mobile,
@@ -1757,18 +1762,45 @@ onBeforeUnmount(() => {
 .marca {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--app-sidebar-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--app-sidebar-chip) 92%, black);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 30px rgba(2, 6, 23, 0.18);
+}
+
+.marca-simbolo-bloco {
+  width: 56px;
+  height: 56px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 18px;
+  padding: 6px;
+  background: linear-gradient(135deg, #071124, #1d4ed8);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  box-shadow:
+    0 14px 28px rgba(15, 23, 42, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .marca-simbolo {
   display: block;
-  width: 44px;
-  height: 44px;
+  width: 100%;
+  height: 100%;
   border-radius: 14px;
   object-fit: contain;
   opacity: 1;
   filter: none;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.24);
+}
+
+.marca-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
 }
 
 .marca strong,

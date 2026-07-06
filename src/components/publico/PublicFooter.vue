@@ -54,29 +54,47 @@ function usarFallbackLogo() {
 
 <style scoped>
 .public-footer {
-  width: min(1160px, 100%);
+  width: min(1180px, 100%);
   margin: 0 auto;
-  padding: 28px 20px 44px;
+  padding: 30px 20px 44px;
   color: #334155;
 }
 
 .public-footer-grid {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 36px;
-  border: 1px solid rgba(148, 163, 184, .22);
-  border-radius: 24px;
+  gap: 30px;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 28px;
   background:
     radial-gradient(circle at 92% 0%, rgba(20, 184, 166, .14), transparent 26%),
-    linear-gradient(135deg, rgba(255, 255, 255, .96), rgba(239, 246, 255, .9));
-  padding: 28px;
-  box-shadow: 0 24px 58px rgba(15, 23, 42, .08);
+    linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(239, 246, 255, .92));
+  padding: 30px;
+  box-shadow: 0 26px 60px rgba(15, 23, 42, .08);
+}
+
+.public-footer-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(37, 99, 235, .08), transparent 30%),
+    radial-gradient(circle at 76% 78%, rgba(14, 165, 233, .1), transparent 26%);
 }
 
 .public-footer-brand {
   display: grid;
-  max-width: 520px;
-  gap: 14px;
+  max-width: 540px;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
 }
 
 .public-footer-logo {
@@ -98,8 +116,8 @@ function usarFallbackLogo() {
 }
 
 .public-footer-logo img {
-  width: min(244px, 100%);
-  height: 56px;
+  width: clamp(196px, 22vw, 244px);
+  height: clamp(48px, 5vw, 58px);
 }
 
 .public-footer-fallback {
@@ -143,12 +161,16 @@ function usarFallbackLogo() {
 .public-footer nav {
   display: grid;
   align-content: start;
-  gap: 10px;
-  min-width: 136px;
+  gap: 12px;
+  min-width: 148px;
+  padding-top: 6px;
+  padding-left: 24px;
+  border-left: 1px solid rgba(148, 163, 184, .18);
 }
 
 .public-footer nav strong {
-  font-size: 13px;
+  font-size: 12px;
+  letter-spacing: .08em;
   text-transform: uppercase;
 }
 
@@ -174,6 +196,17 @@ function usarFallbackLogo() {
     grid-template-columns: 1fr;
     gap: 22px;
     padding: 22px;
+  }
+
+  .public-footer-brand,
+  .public-footer nav {
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .public-footer nav {
+    padding-top: 18px;
+    border-top: 1px solid rgba(148, 163, 184, .18);
   }
 }
 </style>

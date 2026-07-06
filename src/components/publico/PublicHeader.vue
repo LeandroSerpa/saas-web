@@ -50,25 +50,26 @@ function usarFallbackLogo() {
   position: sticky;
   top: 0;
   z-index: 30;
-  width: min(1160px, 100%);
+  width: min(1180px, 100%);
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 16px 20px;
+  gap: 24px;
+  padding: 18px 20px;
   color: #0f172a;
 }
 
 .public-header::before {
   content: '';
   position: absolute;
-  inset: 8px 12px;
+  inset: 6px 10px;
   z-index: -1;
-  border: 1px solid rgba(148, 163, 184, .2);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, .82);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, .08);
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, .94), rgba(248, 250, 252, .84));
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .08);
   backdrop-filter: blur(18px);
 }
 
@@ -84,8 +85,13 @@ function usarFallbackLogo() {
 }
 
 .public-brand {
+  flex: 1 1 auto;
   min-width: 0;
-  gap: 12px;
+  gap: 14px;
+  padding: 6px 8px 6px 6px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .34), rgba(239, 246, 255, .62));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .52);
   color: inherit;
   text-decoration: none;
 }
@@ -101,8 +107,8 @@ function usarFallbackLogo() {
 }
 
 .public-brand-logo {
-  width: min(244px, 48vw);
-  height: 56px;
+  width: clamp(188px, 20vw, 248px);
+  height: clamp(48px, 5vw, 60px);
   flex: 0 0 auto;
 }
 
@@ -135,19 +141,19 @@ function usarFallbackLogo() {
 }
 
 .public-nav {
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
 .public-nav a {
-  min-height: 38px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
-  border-radius: 8px;
-  padding: 9px 12px;
+  border-radius: 12px;
+  padding: 10px 14px;
   color: #334155;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
   text-decoration: none;
   transition: background .18s ease, color .18s ease, transform .18s ease;
@@ -161,18 +167,18 @@ function usarFallbackLogo() {
 
 .public-nav .public-nav-login {
   border: 1px solid #cbd5e1;
-  background: rgba(255, 255, 255, .86);
+  background: rgba(255, 255, 255, .92);
   box-shadow: 0 10px 22px rgba(15, 23, 42, .07);
 }
 
 .public-nav .public-nav-cta {
-  background: #0f172a;
+  background: linear-gradient(135deg, #0f172a, #1d4ed8);
   color: white;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, .18);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, .18);
 }
 
 .public-nav .public-nav-cta:hover {
-  background: #1d4ed8;
+  background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
   color: white;
 }
 
@@ -181,6 +187,7 @@ function usarFallbackLogo() {
     position: relative;
     align-items: stretch;
     flex-direction: column;
+    gap: 12px;
     padding-right: 14px;
     padding-left: 14px;
   }
@@ -196,6 +203,11 @@ function usarFallbackLogo() {
     gap: 8px;
   }
 
+  .public-brand {
+    justify-content: center;
+    padding: 10px 12px;
+  }
+
   .public-nav a {
     justify-content: center;
     padding-right: 10px;
@@ -203,8 +215,14 @@ function usarFallbackLogo() {
   }
 
   .public-brand-logo {
-    width: min(224px, 72vw);
-    height: 52px;
+    width: min(230px, 72vw);
+    height: 54px;
+  }
+}
+
+@media (max-width: 460px) {
+  .public-nav {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -40,7 +40,7 @@ defineProps({
 
 defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 
-const logoSrc = ref(brandAssets.logoSimbolo)
+const logoSrc = ref(brandAssets.logoApp)
 
 function usarFallbackLogo() {
   logoSrc.value = brandAssets.logoFallbackSvg
@@ -57,7 +57,9 @@ function usarFallbackLogo() {
           <span></span>
         </button>
 
-        <img class="app-topbar-logo" :src="logoSrc" :alt="BRAND_NAME" @error="usarFallbackLogo" />
+        <span class="app-topbar-brand-badge">
+          <img class="app-topbar-logo" :src="logoSrc" :alt="BRAND_NAME" @error="usarFallbackLogo" />
+        </span>
 
         <div class="app-topbar-titulo">
           <strong>{{ BRAND_NAME }}</strong>
@@ -128,8 +130,11 @@ function usarFallbackLogo() {
   grid-template-columns: minmax(0, 1fr) minmax(0, auto) auto;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  padding: 9px 12px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--app-primary) 10%, transparent), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--app-surface) 94%, white), var(--app-surface));
 }
 
 .app-topbar-identidade,
@@ -183,16 +188,30 @@ function usarFallbackLogo() {
   gap: 1px;
 }
 
+.app-topbar-brand-badge {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+  padding: 5px;
+  background: linear-gradient(135deg, #071124, #1d4ed8);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  box-shadow:
+    0 14px 26px rgba(37, 99, 235, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
 .app-topbar-logo {
   display: block;
-  width: 34px;
-  height: 34px;
+  width: 100%;
+  height: 100%;
   flex: 0 0 auto;
   border-radius: 10px;
   object-fit: contain;
   opacity: 1;
   filter: none;
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
 }
 
 .app-topbar-titulo strong,
@@ -222,10 +241,10 @@ function usarFallbackLogo() {
   max-width: 280px;
   display: grid;
   gap: 1px;
-  padding: 6px 10px;
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  background: var(--app-surface-soft);
+  padding: 7px 11px;
+  border: 1px solid color-mix(in srgb, var(--app-primary) 14%, var(--app-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--app-surface-soft) 92%, white);
 }
 
 .app-account-card strong {
@@ -407,8 +426,10 @@ function usarFallbackLogo() {
     display: none;
   }
 
-  .app-topbar-logo {
-    display: none;
+  .app-topbar-brand-badge {
+    width: 40px;
+    height: 40px;
+    padding: 4px;
   }
 
   .app-topbar {
