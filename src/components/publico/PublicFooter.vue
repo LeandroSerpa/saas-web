@@ -15,23 +15,26 @@ function usarFallbackLogo() {
     <div class="public-footer-grid">
       <div class="public-footer-brand">
         <RouterLink class="public-footer-logo" to="/" aria-label="Ir para a página inicial">
-          <img
-            v-if="!logoComErro"
-            :src="brandAssets.logoHorizontal"
-            :alt="BRAND_NAME"
-            @error="usarFallbackLogo"
-          />
-          <span v-else class="public-footer-fallback">
-            <img class="public-footer-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
-            <span class="public-footer-fallback-copy">
-              <strong>{{ BRAND_NAME }}</strong>
-              <small>{{ BRAND_TAGLINE }}</small>
+          <span class="public-footer-mark">
+            <img
+              v-if="!logoComErro"
+              :src="brandAssets.logoApp"
+              :alt="BRAND_NAME"
+              @error="usarFallbackLogo"
+            />
+            <span v-else class="public-footer-fallback">
+              <img class="public-footer-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
             </span>
+          </span>
+
+          <span class="public-footer-copy">
+            <strong>{{ BRAND_NAME }}</strong>
+            <small>{{ BRAND_TAGLINE }}</small>
           </span>
         </RouterLink>
         <p>
-          Portal público para apresentar a plataforma, receber solicitações de cadastro e manter o acesso ao sistema com
-          uma experiência profissional.
+          Sistema de gestão na nuvem para pequenos negócios que precisam organizar agenda, catálogo, páginas públicas e
+          rotina operacional.
         </p>
       </div>
 
@@ -66,13 +69,13 @@ function usarFallbackLogo() {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 30px;
-  border: 1px solid rgba(148, 163, 184, .18);
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 28px;
   background:
-    radial-gradient(circle at 92% 0%, rgba(20, 184, 166, .14), transparent 26%),
-    linear-gradient(135deg, rgba(255, 255, 255, .98), rgba(239, 246, 255, .92));
+    radial-gradient(circle at 92% 0%, rgba(20, 184, 166, 0.14), transparent 26%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.92));
   padding: 30px;
-  box-shadow: 0 26px 60px rgba(15, 23, 42, .08);
+  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
 }
 
 .public-footer-grid::before {
@@ -82,8 +85,8 @@ function usarFallbackLogo() {
   z-index: -1;
   border-radius: inherit;
   background:
-    radial-gradient(circle at 8% 18%, rgba(37, 99, 235, .08), transparent 30%),
-    radial-gradient(circle at 76% 78%, rgba(14, 165, 233, .1), transparent 26%);
+    radial-gradient(circle at 8% 18%, rgba(37, 99, 235, 0.08), transparent 30%),
+    radial-gradient(circle at 76% 78%, rgba(14, 165, 233, 0.1), transparent 26%);
 }
 
 .public-footer-brand {
@@ -91,10 +94,10 @@ function usarFallbackLogo() {
   max-width: 540px;
   gap: 16px;
   padding: 22px;
-  border: 1px solid rgba(148, 163, 184, .14);
+  border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 22px;
-  background: rgba(255, 255, 255, .72);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .public-footer-logo {
@@ -105,34 +108,41 @@ function usarFallbackLogo() {
   text-decoration: none;
 }
 
+.public-footer-mark {
+  width: 46px;
+  height: 46px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+  padding: 5px;
+  background: linear-gradient(135deg, #071124, #123b78);
+  box-shadow:
+    0 14px 26px rgba(37, 99, 235, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
 .public-footer-logo img,
 .public-footer-fallback-icon {
   display: block;
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   opacity: 1;
   filter: none;
 }
 
-.public-footer-logo img {
-  width: clamp(196px, 22vw, 244px);
-  height: clamp(48px, 5vw, 58px);
-}
-
 .public-footer-fallback {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.public-footer-fallback-icon {
-  width: 44px;
-  flex: 0 0 auto;
-}
-
-.public-footer-fallback-copy {
+  width: 100%;
+  height: 100%;
   display: grid;
+  place-items: center;
+}
+
+.public-footer-copy {
+  min-width: 0;
+  display: grid;
+  align-content: center;
   gap: 2px;
 }
 
@@ -165,12 +175,12 @@ function usarFallbackLogo() {
   min-width: 148px;
   padding-top: 6px;
   padding-left: 24px;
-  border-left: 1px solid rgba(148, 163, 184, .18);
+  border-left: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .public-footer nav strong {
   font-size: 12px;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -206,7 +216,7 @@ function usarFallbackLogo() {
 
   .public-footer nav {
     padding-top: 18px;
-    border-top: 1px solid rgba(148, 163, 184, .18);
+    border-top: 1px solid rgba(148, 163, 184, 0.18);
   }
 }
 </style>

@@ -40,7 +40,7 @@ defineProps({
 
 defineEmits(['abrir-menu', 'executar-acao', 'sair'])
 
-const logoSrc = ref(brandAssets.logoApp)
+const logoSrc = ref(brandAssets.logoSimbolo)
 
 function usarFallbackLogo() {
   logoSrc.value = brandAssets.logoFallbackSvg
@@ -189,14 +189,14 @@ function usarFallbackLogo() {
 }
 
 .app-topbar-brand-badge {
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   display: inline-grid;
   flex: 0 0 auto;
   place-items: center;
   border-radius: 14px;
-  padding: 5px;
-  background: linear-gradient(135deg, #071124, #1d4ed8);
+  padding: 4px;
+  background: linear-gradient(135deg, var(--app-brand-end), var(--app-primary));
   border: 1px solid rgba(59, 130, 246, 0.28);
   box-shadow:
     0 14px 26px rgba(37, 99, 235, 0.18),
@@ -208,7 +208,7 @@ function usarFallbackLogo() {
   width: 100%;
   height: 100%;
   flex: 0 0 auto;
-  border-radius: 10px;
+  border-radius: 9px;
   object-fit: contain;
   opacity: 1;
   filter: none;
@@ -303,7 +303,7 @@ function usarFallbackLogo() {
 }
 
 .app-action-button.sair:hover {
-  background: color-mix(in srgb, var(--app-sidebar-bg) 88%, white);
+  filter: brightness(1.08);
 }
 
 .app-page-heading {
@@ -427,8 +427,8 @@ function usarFallbackLogo() {
   }
 
   .app-topbar-brand-badge {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     padding: 4px;
   }
 

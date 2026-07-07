@@ -1,15 +1,46 @@
-import { corComAlpha, criarMapaVisualPublico, misturarCores } from './temasPublicos.js'
+import { corComAlpha, criarMapaVisualPublico, misturarCores, obterOpcoesTemasPublicos } from './temasPublicos.js'
 
 export const TEMA_APARENCIA_CLARO = 'claro'
 export const TEMA_APARENCIA_MODERNO = 'moderno'
 export const TEMA_APARENCIA_ESCURO = 'escuro'
 export const TEMA_APARENCIA_SUAVE = 'suave'
 export const TEMA_APARENCIA_NUVEMMAIS = 'nuvemmais'
-export const TEMA_APARENCIA_NATURAL = 'natural'
-export const TEMA_APARENCIA_PREMIUM = 'premium'
-export const TEMA_APARENCIA_ELEGANTE = 'elegante'
-export const TEMA_APARENCIA_ARTESANAL = 'artesanal'
-export const TEMA_APARENCIA_CRIATIVO = 'criativo'
+export const TEMA_APARENCIA_NUVEMMAIS_AZUL = 'nuvemmais-azul'
+export const TEMA_APARENCIA_OCEANO_PROFISSIONAL = 'oceano-profissional'
+export const TEMA_APARENCIA_SAFIRA_ESCURO = 'safira-escuro'
+export const TEMA_APARENCIA_ESMERALDA_GESTAO = 'esmeralda-gestao'
+export const TEMA_APARENCIA_VIOLETA_PREMIUM = 'violeta-premium'
+export const TEMA_APARENCIA_AMBAR_EXECUTIVO = 'ambar-executivo'
+export const TEMA_APARENCIA_RUBI_MODERNO = 'rubi-moderno'
+export const TEMA_APARENCIA_GRAFITE_CORPORATIVO = 'grafite-corporativo'
+export const TEMA_APARENCIA_AURORA_CIANO = 'aurora-ciano'
+export const TEMA_APARENCIA_TERRA_ELEGANTE = 'terra-elegante'
+export const TEMA_APARENCIA_ROSA_CRIATIVO = 'rosa-criativo'
+export const TEMA_APARENCIA_ROSA_BOUTIQUE = 'rosa-boutique'
+export const TEMA_APARENCIA_ROSA_MENINA = 'rosa-menina'
+export const TEMA_APARENCIA_AZUL_MENINO = 'azul-menino'
+export const TEMA_APARENCIA_AZUL_PROFISSIONAL = 'azul-profissional'
+export const TEMA_APARENCIA_VERDE_NATURAL = 'verde-natural'
+export const TEMA_APARENCIA_MADEIRA_ARTESANAL = 'madeira-artesanal'
+export const TEMA_APARENCIA_DOURADO_PREMIUM = 'dourado-premium'
+export const TEMA_APARENCIA_LILAS_DELICADO = 'lilas-delicado'
+export const TEMA_APARENCIA_VERMELHO_ENERGIA = 'vermelho-energia'
+export const TEMA_APARENCIA_LARANJA_CRIATIVO = 'laranja-criativo'
+export const TEMA_APARENCIA_PRETO_ELEGANTE = 'preto-elegante'
+export const TEMA_APARENCIA_BRANCO_MINIMALISTA = 'branco-minimalista'
+export const TEMA_APARENCIA_PET_SHOP = 'pet-shop'
+export const TEMA_APARENCIA_BARBEARIA = 'barbearia'
+export const TEMA_APARENCIA_CONFEITARIA = 'confeitaria'
+export const TEMA_APARENCIA_INFANTIL_COLORIDO = 'infantil-colorido'
+export const TEMA_APARENCIA_NATURAL = TEMA_APARENCIA_VERDE_NATURAL
+export const TEMA_APARENCIA_PREMIUM = TEMA_APARENCIA_DOURADO_PREMIUM
+export const TEMA_APARENCIA_ELEGANTE = TEMA_APARENCIA_PRETO_ELEGANTE
+export const TEMA_APARENCIA_ARTESANAL = TEMA_APARENCIA_MADEIRA_ARTESANAL
+export const TEMA_APARENCIA_CRIATIVO = TEMA_APARENCIA_LARANJA_CRIATIVO
+
+const TEMAS_PUBLICOS_DISPONIVEIS = obterOpcoesTemasPublicos()
+const TEMAS_PUBLICOS_POR_VALOR = new Map(TEMAS_PUBLICOS_DISPONIVEIS.map((tema) => [tema.valor, tema]))
+const TEMAS_PUBLICOS_ESCUROS = new Set(['ESCURO', 'PRETO_ELEGANTE'])
 
 function criarTemaInternoCompartilhado({
   valor,
@@ -18,7 +49,7 @@ function criarTemaInternoCompartilhado({
   corPrincipal,
   corSecundaria,
   colorScheme = 'light',
-  radius = '16px',
+  radius = '18px',
   shadow,
   shadowElevated,
   bgOverlay,
@@ -37,12 +68,12 @@ function criarTemaInternoCompartilhado({
     '--app-bg': visual.fundo,
     '--app-bg-overlay':
       bgOverlay ||
-      `radial-gradient(circle at top left, ${corComAlpha(visual.principal, escuro ? 0.18 : 0.11)}, transparent 32%), linear-gradient(180deg, ${misturarCores(visual.fundo, '#ffffff', escuro ? 0.06 : 0.2)} 0%, ${visual.fundo} 100%)`,
-    '--app-surface': escuro ? corComAlpha(visual.card, 0.96) : corComAlpha('#ffffff', 0.94),
+      `radial-gradient(circle at top left, ${corComAlpha(visual.principal, escuro ? 0.18 : 0.12)}, transparent 32%), linear-gradient(180deg, ${misturarCores(visual.fundo, '#ffffff', escuro ? 0.06 : 0.18)} 0%, ${visual.fundo} 100%)`,
+    '--app-surface': escuro ? corComAlpha(visual.card, 0.96) : misturarCores(visual.card, visual.fundo, 0.28),
     '--app-surface-soft': escuro
       ? misturarCores(visual.card, '#020617', 0.18)
-      : misturarCores(visual.fundo, '#ffffff', 0.5),
-    '--app-surface-strong': escuro ? misturarCores(visual.card, '#000000', 0.1) : '#ffffff',
+      : misturarCores(visual.fundo, '#ffffff', 0.48),
+    '--app-surface-strong': escuro ? misturarCores(visual.card, '#000000', 0.1) : misturarCores(visual.card, visual.fundo, 0.12),
     '--app-text': visual.texto,
     '--app-text-muted': visual.textoSuave,
     '--app-primary': visual.principal,
@@ -67,7 +98,7 @@ function criarTemaInternoCompartilhado({
     '--app-sidebar-link': escuro ? '#dbeafe' : '#e7f0ff',
     '--app-sidebar-link-active': '#ffffff',
     '--app-sidebar-item-active': escuro ? corComAlpha(visual.principal, 0.26) : corComAlpha(visual.principal, 0.22),
-    '--app-brand-end': brandEnd || visual.secundaria,
+    '--app-brand-end': brandEnd || visual.destaque,
     '--app-input-disabled-bg': escuro
       ? misturarCores(visual.card, '#020617', 0.22)
       : misturarCores(visual.fundo, '#e2e8f0', 0.28),
@@ -92,47 +123,65 @@ function criarTemaInternoCompartilhado({
   }
 }
 
+function criarTemaInternoPublico(temaPublico, valor, nome, ajustes = {}) {
+  const tema = TEMAS_PUBLICOS_POR_VALOR.get(temaPublico)
+
+  return criarTemaInternoCompartilhado({
+    valor,
+    nome: nome || tema?.nome || valor,
+    temaPublico,
+    corPrincipal: tema?.corPrincipal,
+    corSecundaria: tema?.corSecundaria,
+    colorScheme: TEMAS_PUBLICOS_ESCUROS.has(temaPublico) ? 'dark' : 'light',
+    ...ajustes,
+  })
+}
+
 export const TEMAS_INTERNOS = Object.freeze([
   criarTemaInternoCompartilhado({
     valor: TEMA_APARENCIA_CLARO,
-    nome: 'Padrão Claro',
+    nome: 'Padrão',
     temaPublico: 'PADRAO',
     corPrincipal: '#2563eb',
     corSecundaria: '#0f172a',
   }),
   criarTemaInternoCompartilhado({
     valor: TEMA_APARENCIA_MODERNO,
-    nome: 'Moderno Azul',
+    nome: 'Moderno',
     temaPublico: 'MODERNO',
     corPrincipal: '#2563eb',
     corSecundaria: '#4338ca',
-    radius: '18px',
-    sidebarBg: 'linear-gradient(180deg, #1e1b4b 0%, #1d4ed8 56%, #0f172a 100%)',
+    radius: '20px',
+    shadow: '0 22px 52px rgba(37, 99, 235, 0.12)',
+    shadowElevated: '0 28px 68px rgba(37, 99, 235, 0.16)',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(79, 70, 229, 0.18), transparent 30%), radial-gradient(circle at 88% 0%, rgba(37, 99, 235, 0.12), transparent 22%), linear-gradient(180deg, #f7faff 0%, #eef2ff 100%)',
+    sidebarBg: 'linear-gradient(180deg, #1e1b4b 0%, #1d4ed8 54%, #0f172a 100%)',
     brandEnd: '#4f46e5',
   }),
   criarTemaInternoCompartilhado({
-    valor: TEMA_APARENCIA_NUVEMMAIS,
-    nome: 'NuvemMais Gestão',
-    temaPublico: 'AZUL_PROFISSIONAL',
-    corPrincipal: '#1d4ed8',
-    corSecundaria: '#0b1b39',
-    sidebarBg: 'linear-gradient(180deg, #0b1b39 0%, #123b78 56%, #071124 100%)',
+    valor: TEMA_APARENCIA_ESCURO,
+    nome: 'Escuro',
+    temaPublico: 'ESCURO',
+    corPrincipal: '#60a5fa',
+    corSecundaria: '#111827',
+    colorScheme: 'dark',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 32%), linear-gradient(180deg, #101a2f 0%, #0b1220 100%)',
+    sidebarBg: 'linear-gradient(180deg, #050816 0%, #111827 100%)',
     brandEnd: '#38bdf8',
-    overrides: {
-      '--app-text': '#0b1b39',
-      '--app-text-muted': '#526581',
-      '--app-primary-soft': 'rgba(29, 78, 216, 0.14)',
-      '--app-border': '#cfe0f5',
-      '--app-focus-ring': 'rgba(29, 78, 216, 0.18)',
-    },
   }),
   criarTemaInternoCompartilhado({
     valor: TEMA_APARENCIA_SUAVE,
-    nome: 'Suave Celeste',
+    nome: 'Suave',
     temaPublico: 'SUAVE',
     corPrincipal: '#38bdf8',
-    corSecundaria: '#334155',
-    radius: '18px',
+    corSecundaria: '#475569',
+    radius: '20px',
+    shadow: '0 16px 34px rgba(56, 189, 248, 0.08)',
+    shadowElevated: '0 24px 48px rgba(56, 189, 248, 0.12)',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(125, 211, 252, 0.22), transparent 32%), radial-gradient(circle at 88% 0%, rgba(191, 219, 254, 0.18), transparent 24%), linear-gradient(180deg, #fcfdff 0%, #f7fbff 100%)',
     sidebarBg: 'linear-gradient(180deg, #334155 0%, #475569 100%)',
     brandEnd: '#7dd3fc',
     overrides: {
@@ -140,71 +189,149 @@ export const TEMAS_INTERNOS = Object.freeze([
       '--app-border': '#dbeafe',
     },
   }),
-  criarTemaInternoCompartilhado({
-    valor: TEMA_APARENCIA_NATURAL,
-    nome: 'Natural Verde',
-    temaPublico: 'VERDE_NATURAL',
-    corPrincipal: '#22c55e',
-    corSecundaria: '#14532d',
+  criarTemaInternoPublico('ROSA_BOUTIQUE', TEMA_APARENCIA_ROSA_BOUTIQUE, 'Rosa Boutique', {
+    sidebarBg: 'linear-gradient(180deg, #831843 0%, #be185d 58%, #3b1026 100%)',
+    brandEnd: '#f472b6',
+  }),
+  criarTemaInternoPublico('ROSA_MENINA', TEMA_APARENCIA_ROSA_MENINA, 'Rosa Menina', {
+    sidebarBg: 'linear-gradient(180deg, #831843 0%, #db2777 58%, #4a1022 100%)',
+    brandEnd: '#f9a8d4',
+  }),
+  criarTemaInternoPublico('AZUL_MENINO', TEMA_APARENCIA_AZUL_MENINO, 'Azul Menino', {
+    sidebarBg: 'linear-gradient(180deg, #075985 0%, #0284c7 58%, #0c4a6e 100%)',
+    brandEnd: '#7dd3fc',
+  }),
+  criarTemaInternoPublico('AZUL_PROFISSIONAL', TEMA_APARENCIA_AZUL_PROFISSIONAL, 'Azul Profissional', {
+    sidebarBg: 'linear-gradient(180deg, #0f172a 0%, #1d4ed8 58%, #071529 100%)',
+    brandEnd: '#38bdf8',
+  }),
+  criarTemaInternoPublico('VERDE_NATURAL', TEMA_APARENCIA_VERDE_NATURAL, 'Verde Natural', {
     sidebarBg: 'linear-gradient(180deg, #14532d 0%, #15803d 58%, #052e16 100%)',
     brandEnd: '#86efac',
   }),
-  criarTemaInternoCompartilhado({
-    valor: TEMA_APARENCIA_PREMIUM,
-    nome: 'Premium Dourado',
-    temaPublico: 'DOURADO_PREMIUM',
-    corPrincipal: '#ca8a04',
-    corSecundaria: '#713f12',
-    sidebarBg: 'linear-gradient(180deg, #713f12 0%, #a16207 56%, #241409 100%)',
-    brandEnd: '#facc15',
-    overrides: {
-      '--app-text': '#241a12',
-      '--app-text-muted': '#665648',
-      '--app-border': '#ead8a8',
-    },
-  }),
-  criarTemaInternoCompartilhado({
-    valor: TEMA_APARENCIA_ARTESANAL,
-    nome: 'Artesanal Madeira',
-    temaPublico: 'MADEIRA_ARTESANAL',
-    corPrincipal: '#92400e',
-    corSecundaria: '#292524',
+  criarTemaInternoPublico('MADEIRA_ARTESANAL', TEMA_APARENCIA_MADEIRA_ARTESANAL, 'Madeira Artesanal', {
     sidebarBg: 'linear-gradient(180deg, #292524 0%, #78350f 58%, #1c1917 100%)',
-    brandEnd: '#f59e0b',
-    overrides: {
-      '--app-text': '#2a2119',
-      '--app-text-muted': '#68594d',
-      '--app-border': '#dfcdbb',
-    },
+    brandEnd: '#d97706',
   }),
-  criarTemaInternoCompartilhado({
-    valor: TEMA_APARENCIA_ELEGANTE,
-    nome: 'Elegante Grafite',
-    temaPublico: 'PRETO_ELEGANTE',
-    corPrincipal: '#d4af37',
-    corSecundaria: '#111111',
-    colorScheme: 'dark',
-    radius: '16px',
-    sidebarBg: 'linear-gradient(180deg, #050505 0%, #18181b 60%, #0f0f0f 100%)',
+  criarTemaInternoPublico('DOURADO_PREMIUM', TEMA_APARENCIA_DOURADO_PREMIUM, 'Dourado Premium', {
+    sidebarBg: 'linear-gradient(180deg, #713f12 0%, #a16207 58%, #292524 100%)',
     brandEnd: '#facc15',
   }),
-  criarTemaInternoCompartilhado({
-    valor: TEMA_APARENCIA_CRIATIVO,
-    nome: 'Criativo Coral',
-    temaPublico: 'LARANJA_CRIATIVO',
-    corPrincipal: '#f97316',
-    corSecundaria: '#7c2d12',
-    sidebarBg: 'linear-gradient(180deg, #7c2d12 0%, #ea580c 58%, #1f2937 100%)',
+  criarTemaInternoPublico('LILAS_DELICADO', TEMA_APARENCIA_LILAS_DELICADO, 'Lilás Delicado', {
+    sidebarBg: 'linear-gradient(180deg, #3b0764 0%, #7e22ce 58%, #1e1b4b 100%)',
+    brandEnd: '#c084fc',
+  }),
+  criarTemaInternoPublico('VERMELHO_ENERGIA', TEMA_APARENCIA_VERMELHO_ENERGIA, 'Vermelho Energia', {
+    sidebarBg: 'linear-gradient(180deg, #7f1d1d 0%, #b91c1c 58%, #450a0a 100%)',
+    brandEnd: '#f87171',
+  }),
+  criarTemaInternoPublico('LARANJA_CRIATIVO', TEMA_APARENCIA_LARANJA_CRIATIVO, 'Laranja Criativo', {
+    sidebarBg: 'linear-gradient(180deg, #7c2d12 0%, #ea580c 58%, #431407 100%)',
+    brandEnd: '#fb923c',
+  }),
+  criarTemaInternoPublico('PRETO_ELEGANTE', TEMA_APARENCIA_PRETO_ELEGANTE, 'Preto Elegante', {
+    sidebarBg: 'linear-gradient(180deg, #050505 0%, #111111 58%, #1c1917 100%)',
+    brandEnd: '#d4af37',
+    overrides: {
+      '--app-bg': '#0f0f0f',
+      '--app-surface': 'rgba(24, 24, 27, 0.96)',
+      '--app-surface-soft': '#141416',
+      '--app-surface-strong': '#18181b',
+      '--app-text': '#f8fafc',
+      '--app-text-muted': '#d6d3d1',
+      '--app-border': 'rgba(212, 175, 55, 0.24)',
+    },
+  }),
+  criarTemaInternoPublico('BRANCO_MINIMALISTA', TEMA_APARENCIA_BRANCO_MINIMALISTA, 'Branco Minimalista', {
+    sidebarBg: 'linear-gradient(180deg, #0f172a 0%, #334155 58%, #020617 100%)',
+    brandEnd: '#64748b',
+  }),
+  criarTemaInternoPublico('PET_SHOP', TEMA_APARENCIA_PET_SHOP, 'Pet Shop', {
+    sidebarBg: 'linear-gradient(180deg, #134e4a 0%, #0f766e 58%, #042f2e 100%)',
+    brandEnd: '#5eead4',
+  }),
+  criarTemaInternoPublico('BARBEARIA', TEMA_APARENCIA_BARBEARIA, 'Barbearia', {
+    sidebarBg: 'linear-gradient(180deg, #020617 0%, #334155 58%, #0f172a 100%)',
+    brandEnd: '#94a3b8',
+  }),
+  criarTemaInternoPublico('CONFEITARIA', TEMA_APARENCIA_CONFEITARIA, 'Confeitaria', {
+    sidebarBg: 'linear-gradient(180deg, #7c2d12 0%, #e11d48 58%, #4a1022 100%)',
     brandEnd: '#fb7185',
   }),
+  criarTemaInternoPublico('INFANTIL_COLORIDO', TEMA_APARENCIA_INFANTIL_COLORIDO, 'Infantil Colorido', {
+    sidebarBg: 'linear-gradient(180deg, #14532d 0%, #2563eb 48%, #9a3412 100%)',
+    brandEnd: '#f97316',
+  }),
   criarTemaInternoCompartilhado({
-    valor: TEMA_APARENCIA_ESCURO,
-    nome: 'Escuro Safira',
+    valor: TEMA_APARENCIA_NUVEMMAIS,
+    nome: 'NuvemMais',
+    temaPublico: 'MODERNO',
+    corPrincipal: '#1d4ed8',
+    corSecundaria: '#0b1b39',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 28%), radial-gradient(circle at 88% 0%, rgba(14, 165, 233, 0.12), transparent 22%), linear-gradient(180deg, #f5f9ff 0%, #eaf3ff 100%)',
+    sidebarBg: 'linear-gradient(180deg, #0b1b39 0%, #10294f 100%)',
+    brandEnd: '#4f46e5',
+    overrides: {
+      '--app-text': '#0b1b39',
+      '--app-text-muted': '#526581',
+      '--app-primary': '#1d4ed8',
+      '--app-primary-strong': '#1e40af',
+      '--app-primary-soft': 'rgba(29, 78, 216, 0.14)',
+      '--app-border': '#cfe0f5',
+      '--app-danger': '#d9465f',
+      '--app-danger-soft': 'rgba(217, 70, 95, 0.14)',
+      '--app-success': '#059669',
+      '--app-success-soft': 'rgba(5, 150, 105, 0.14)',
+      '--app-warning': '#d97706',
+      '--app-warning-soft': 'rgba(217, 119, 6, 0.14)',
+      '--app-focus-ring': 'rgba(29, 78, 216, 0.18)',
+      '--app-overlay': 'rgba(11, 27, 57, 0.56)',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_NUVEMMAIS_AZUL,
+    nome: 'NuvemMais Azul',
+    temaPublico: 'MODERNO',
+    corPrincipal: '#1d4ed8',
+    corSecundaria: '#0f2a53',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(29, 78, 216, 0.16), transparent 30%), radial-gradient(circle at 88% 0%, rgba(2, 132, 199, 0.12), transparent 24%), linear-gradient(180deg, #f6faff 0%, #e8f2ff 100%)',
+    sidebarBg: 'linear-gradient(180deg, #0f2a53 0%, #123d73 58%, #071529 100%)',
+    brandEnd: '#0284c7',
+    overrides: {
+      '--app-text': '#10233f',
+      '--app-text-muted': '#56697f',
+      '--app-border': '#cbdcf0',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_OCEANO_PROFISSIONAL,
+    nome: 'Oceano Profissional',
+    temaPublico: 'MODERNO',
+    corPrincipal: '#0e7490',
+    corSecundaria: '#0f3b57',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(14, 116, 144, 0.16), transparent 30%), radial-gradient(circle at 90% 0%, rgba(20, 184, 166, 0.12), transparent 24%), linear-gradient(180deg, #f3fbfd 0%, #e7f5f8 100%)',
+    sidebarBg: 'linear-gradient(180deg, #0f3b57 0%, #0e7490 58%, #082f49 100%)',
+    brandEnd: '#14b8a6',
+    overrides: {
+      '--app-primary': '#0e7490',
+      '--app-primary-strong': '#155e75',
+      '--app-primary-soft': 'rgba(14, 116, 144, 0.14)',
+      '--app-border': '#c7e2e8',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_SAFIRA_ESCURO,
+    nome: 'Safira Escuro',
     temaPublico: 'ESCURO',
-    corPrincipal: '#60a5fa',
-    corSecundaria: '#111827',
+    corPrincipal: '#2563eb',
+    corSecundaria: '#172554',
     colorScheme: 'dark',
-    sidebarBg: 'linear-gradient(180deg, #050816 0%, #111827 100%)',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(37, 99, 235, 0.2), transparent 32%), radial-gradient(circle at 90% 0%, rgba(56, 189, 248, 0.12), transparent 24%), linear-gradient(180deg, #0b1327 0%, #050b18 100%)',
+    sidebarBg: 'linear-gradient(180deg, #020617 0%, #0f1b38 50%, #172554 100%)',
     brandEnd: '#38bdf8',
     overrides: {
       '--app-bg': '#050b18',
@@ -213,76 +340,280 @@ export const TEMAS_INTERNOS = Object.freeze([
       '--app-surface-strong': '#172033',
       '--app-text': '#eef6ff',
       '--app-text-muted': '#b6c8dd',
+      '--app-primary': '#2563eb',
+      '--app-primary-strong': '#1d4ed8',
       '--app-border': 'rgba(148, 163, 184, 0.26)',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_ESMERALDA_GESTAO,
+    nome: 'Esmeralda Gestão',
+    temaPublico: 'SUAVE',
+    corPrincipal: '#047857',
+    corSecundaria: '#064e3b',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(4, 120, 87, 0.15), transparent 30%), radial-gradient(circle at 88% 0%, rgba(20, 184, 166, 0.11), transparent 22%), linear-gradient(180deg, #f4fbf8 0%, #e9f7f0 100%)',
+    sidebarBg: 'linear-gradient(180deg, #064e3b 0%, #047857 58%, #022c22 100%)',
+    brandEnd: '#14b8a6',
+    overrides: {
+      '--app-primary': '#047857',
+      '--app-primary-strong': '#065f46',
+      '--app-primary-soft': 'rgba(4, 120, 87, 0.14)',
+      '--app-border': '#c8e5d8',
+      '--app-success': '#047857',
+      '--app-success-soft': 'rgba(4, 120, 87, 0.14)',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_VIOLETA_PREMIUM,
+    nome: 'Violeta Premium',
+    temaPublico: 'MODERNO',
+    corPrincipal: '#7c3aed',
+    corSecundaria: '#312e81',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(124, 58, 237, 0.15), transparent 30%), radial-gradient(circle at 90% 0%, rgba(59, 130, 246, 0.12), transparent 22%), linear-gradient(180deg, #fbf8ff 0%, #f0edff 100%)',
+    sidebarBg: 'linear-gradient(180deg, #312e81 0%, #5b21b6 58%, #111827 100%)',
+    brandEnd: '#2563eb',
+    overrides: {
+      '--app-primary': '#7c3aed',
+      '--app-primary-strong': '#6d28d9',
+      '--app-primary-soft': 'rgba(124, 58, 237, 0.13)',
+      '--app-border': '#ddd6fe',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_AMBAR_EXECUTIVO,
+    nome: 'Âmbar Executivo',
+    temaPublico: 'PADRAO',
+    corPrincipal: '#b45309',
+    corSecundaria: '#3f2a11',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(180, 83, 9, 0.13), transparent 30%), radial-gradient(circle at 88% 0%, rgba(217, 119, 6, 0.1), transparent 22%), linear-gradient(180deg, #fffaf2 0%, #f8efe3 100%)',
+    sidebarBg: 'linear-gradient(180deg, #3f2a11 0%, #7c4a03 58%, #1f2937 100%)',
+    brandEnd: '#d97706',
+    overrides: {
+      '--app-text': '#241a12',
+      '--app-text-muted': '#665648',
+      '--app-primary': '#b45309',
+      '--app-primary-strong': '#92400e',
+      '--app-primary-soft': 'rgba(180, 83, 9, 0.13)',
+      '--app-border': '#e8d4b7',
+      '--app-warning': '#b45309',
+      '--app-warning-soft': 'rgba(180, 83, 9, 0.14)',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_RUBI_MODERNO,
+    nome: 'Rubi Moderno',
+    temaPublico: 'MODERNO',
+    corPrincipal: '#be123c',
+    corSecundaria: '#4a1022',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(190, 18, 60, 0.13), transparent 30%), radial-gradient(circle at 88% 0%, rgba(244, 63, 94, 0.1), transparent 22%), linear-gradient(180deg, #fff7f8 0%, #f9edf1 100%)',
+    sidebarBg: 'linear-gradient(180deg, #4a1022 0%, #9f1239 58%, #111827 100%)',
+    brandEnd: '#e11d48',
+    overrides: {
+      '--app-primary': '#be123c',
+      '--app-primary-strong': '#9f1239',
+      '--app-primary-soft': 'rgba(190, 18, 60, 0.13)',
+      '--app-border': '#f0ccd5',
+      '--app-danger': '#be123c',
+      '--app-danger-soft': 'rgba(190, 18, 60, 0.14)',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_GRAFITE_CORPORATIVO,
+    nome: 'Grafite Corporativo',
+    temaPublico: 'PADRAO',
+    corPrincipal: '#334155',
+    corSecundaria: '#111827',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(51, 65, 85, 0.12), transparent 30%), radial-gradient(circle at 90% 0%, rgba(37, 99, 235, 0.08), transparent 22%), linear-gradient(180deg, #f7f9fb 0%, #edf1f5 100%)',
+    sidebarBg: 'linear-gradient(180deg, #111827 0%, #1f2937 58%, #020617 100%)',
+    brandEnd: '#2563eb',
+    overrides: {
+      '--app-primary': '#334155',
+      '--app-primary-strong': '#1f2937',
+      '--app-primary-soft': 'rgba(51, 65, 85, 0.12)',
+      '--app-border': '#d5dce5',
+      '--app-text': '#111827',
+      '--app-text-muted': '#596579',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_AURORA_CIANO,
+    nome: 'Aurora Ciano',
+    temaPublico: 'SUAVE',
+    corPrincipal: '#0e7490',
+    corSecundaria: '#164e63',
+    radius: '20px',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(6, 182, 212, 0.18), transparent 30%), radial-gradient(circle at 88% 0%, rgba(125, 211, 252, 0.2), transparent 24%), linear-gradient(180deg, #f7feff 0%, #e8f9fc 100%)',
+    sidebarBg: 'linear-gradient(180deg, #164e63 0%, #0e7490 58%, #083344 100%)',
+    brandEnd: '#06b6d4',
+    overrides: {
+      '--app-primary': '#0e7490',
+      '--app-primary-strong': '#155e75',
+      '--app-primary-soft': 'rgba(14, 116, 144, 0.13)',
+      '--app-border': '#bae6fd',
+      '--app-surface-soft': '#f3fcff',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_TERRA_ELEGANTE,
+    nome: 'Terra Elegante',
+    temaPublico: 'PADRAO',
+    corPrincipal: '#92400e',
+    corSecundaria: '#5f4631',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(146, 64, 14, 0.11), transparent 30%), radial-gradient(circle at 88% 0%, rgba(120, 72, 37, 0.08), transparent 22%), linear-gradient(180deg, #fffaf5 0%, #f3ebe1 100%)',
+    sidebarBg: 'linear-gradient(180deg, #4b3525 0%, #6b4f3a 58%, #24170f 100%)',
+    brandEnd: '#a16207',
+    overrides: {
+      '--app-text': '#2a2119',
+      '--app-text-muted': '#68594d',
+      '--app-primary': '#92400e',
+      '--app-primary-strong': '#78350f',
+      '--app-primary-soft': 'rgba(146, 64, 14, 0.12)',
+      '--app-border': '#dfcdbb',
+      '--app-surface-soft': '#fbf7f1',
+    },
+  }),
+  criarTemaInternoCompartilhado({
+    valor: TEMA_APARENCIA_ROSA_CRIATIVO,
+    nome: 'Rosa Criativo',
+    temaPublico: 'SUAVE',
+    corPrincipal: '#db2777',
+    corSecundaria: '#831843',
+    bgOverlay:
+      'radial-gradient(circle at top left, rgba(219, 39, 119, 0.12), transparent 30%), radial-gradient(circle at 88% 0%, rgba(244, 114, 182, 0.1), transparent 22%), linear-gradient(180deg, #fff8fb 0%, #fcecf4 100%)',
+    sidebarBg: 'linear-gradient(180deg, #831843 0%, #be185d 58%, #3b1026 100%)',
+    brandEnd: '#f472b6',
+    overrides: {
+      '--app-primary': '#db2777',
+      '--app-primary-strong': '#be185d',
+      '--app-primary-soft': 'rgba(219, 39, 119, 0.12)',
+      '--app-border': '#f4c8dc',
+      '--app-surface-soft': '#fff5fa',
     },
   }),
 ])
 
 const TEMAS_INTERNOS_POR_VALOR = new Map(TEMAS_INTERNOS.map((tema) => [tema.valor, tema]))
+const TEMAS_INTERNOS_ESTAVEIS = Object.freeze([
+  TEMA_APARENCIA_CLARO,
+  TEMA_APARENCIA_MODERNO,
+  TEMA_APARENCIA_ESCURO,
+  TEMA_APARENCIA_SUAVE,
+  TEMA_APARENCIA_ROSA_BOUTIQUE,
+  TEMA_APARENCIA_ROSA_MENINA,
+  TEMA_APARENCIA_AZUL_MENINO,
+  TEMA_APARENCIA_AZUL_PROFISSIONAL,
+  TEMA_APARENCIA_VERDE_NATURAL,
+  TEMA_APARENCIA_MADEIRA_ARTESANAL,
+  TEMA_APARENCIA_DOURADO_PREMIUM,
+  TEMA_APARENCIA_LILAS_DELICADO,
+  TEMA_APARENCIA_VERMELHO_ENERGIA,
+  TEMA_APARENCIA_LARANJA_CRIATIVO,
+  TEMA_APARENCIA_PRETO_ELEGANTE,
+  TEMA_APARENCIA_BRANCO_MINIMALISTA,
+  TEMA_APARENCIA_PET_SHOP,
+  TEMA_APARENCIA_BARBEARIA,
+  TEMA_APARENCIA_CONFEITARIA,
+  TEMA_APARENCIA_INFANTIL_COLORIDO,
+])
+const REDIRECIONAMENTOS_TEMAS_INTERNOS = Object.freeze({
+  [TEMA_APARENCIA_NUVEMMAIS]: TEMA_APARENCIA_AZUL_PROFISSIONAL,
+  [TEMA_APARENCIA_NUVEMMAIS_AZUL]: TEMA_APARENCIA_AZUL_PROFISSIONAL,
+  [TEMA_APARENCIA_OCEANO_PROFISSIONAL]: TEMA_APARENCIA_AZUL_PROFISSIONAL,
+  [TEMA_APARENCIA_SAFIRA_ESCURO]: TEMA_APARENCIA_ESCURO,
+  [TEMA_APARENCIA_ESMERALDA_GESTAO]: TEMA_APARENCIA_VERDE_NATURAL,
+  [TEMA_APARENCIA_VIOLETA_PREMIUM]: TEMA_APARENCIA_LILAS_DELICADO,
+  [TEMA_APARENCIA_AMBAR_EXECUTIVO]: TEMA_APARENCIA_DOURADO_PREMIUM,
+  [TEMA_APARENCIA_RUBI_MODERNO]: TEMA_APARENCIA_VERMELHO_ENERGIA,
+  [TEMA_APARENCIA_GRAFITE_CORPORATIVO]: TEMA_APARENCIA_BARBEARIA,
+  [TEMA_APARENCIA_AURORA_CIANO]: TEMA_APARENCIA_PET_SHOP,
+  [TEMA_APARENCIA_TERRA_ELEGANTE]: TEMA_APARENCIA_MADEIRA_ARTESANAL,
+  [TEMA_APARENCIA_ROSA_CRIATIVO]: TEMA_APARENCIA_ROSA_BOUTIQUE,
+})
 
 const ALIASES_TEMAS_INTERNOS = Object.freeze({
   CLARO: TEMA_APARENCIA_CLARO,
   LIGHT: TEMA_APARENCIA_CLARO,
   PADRAO: TEMA_APARENCIA_CLARO,
   PADRÃO: TEMA_APARENCIA_CLARO,
+  PADRAO_CLARO: TEMA_APARENCIA_CLARO,
   DEFAULT: TEMA_APARENCIA_CLARO,
-  BRANCO_MINIMALISTA: TEMA_APARENCIA_CLARO,
+  BRANCO_MINIMALISTA: TEMA_APARENCIA_BRANCO_MINIMALISTA,
 
   MODERNO: TEMA_APARENCIA_MODERNO,
-  NUVEMMAIS_AZUL: TEMA_APARENCIA_MODERNO,
-  OCEANO_PROFISSIONAL: TEMA_APARENCIA_MODERNO,
-  AZUL_MENINO: TEMA_APARENCIA_MODERNO,
-
-  NUVEMMAIS: TEMA_APARENCIA_NUVEMMAIS,
-  NUVEMMAIS_GESTAO: TEMA_APARENCIA_NUVEMMAIS,
-  NUVEMMAIS_GESTÃO: TEMA_APARENCIA_NUVEMMAIS,
-  AZUL_PROFISSIONAL: TEMA_APARENCIA_NUVEMMAIS,
-
-  SUAVE: TEMA_APARENCIA_SUAVE,
-  AURORA_CIANO: TEMA_APARENCIA_SUAVE,
-  PET_SHOP: TEMA_APARENCIA_SUAVE,
-  TURQUESA: TEMA_APARENCIA_SUAVE,
-
-  NATURAL: TEMA_APARENCIA_NATURAL,
-  VERDE_NATURAL: TEMA_APARENCIA_NATURAL,
-  VERDE_MENTA: TEMA_APARENCIA_NATURAL,
-  VERDE_OLIVA: TEMA_APARENCIA_NATURAL,
-  ESMERALDA_GESTAO: TEMA_APARENCIA_NATURAL,
-  ESMERALDA_GESTÃO: TEMA_APARENCIA_NATURAL,
-
-  PREMIUM: TEMA_APARENCIA_PREMIUM,
-  DOURADO_PREMIUM: TEMA_APARENCIA_PREMIUM,
-  SOLAR: TEMA_APARENCIA_PREMIUM,
-  AMBAR_EXECUTIVO: TEMA_APARENCIA_PREMIUM,
-
-  ARTESANAL: TEMA_APARENCIA_ARTESANAL,
-  MADEIRA_ARTESANAL: TEMA_APARENCIA_ARTESANAL,
-  CAFE: TEMA_APARENCIA_ARTESANAL,
-  CAFÉ: TEMA_APARENCIA_ARTESANAL,
-  TERRACOTA: TEMA_APARENCIA_ARTESANAL,
-  TERRA_ELEGANTE: TEMA_APARENCIA_ARTESANAL,
-
-  ELEGANTE: TEMA_APARENCIA_ELEGANTE,
-  PRETO_ELEGANTE: TEMA_APARENCIA_ELEGANTE,
-  PRETO_DOURADO: TEMA_APARENCIA_ELEGANTE,
-  PRETO_E_DOURADO: TEMA_APARENCIA_ELEGANTE,
-  GRAFITE_CORPORATIVO: TEMA_APARENCIA_ELEGANTE,
-
-  CRIATIVO: TEMA_APARENCIA_CRIATIVO,
-  LARANJA_CRIATIVO: TEMA_APARENCIA_CRIATIVO,
-  PEACH: TEMA_APARENCIA_CRIATIVO,
-  RUBI_MODERNO: TEMA_APARENCIA_CRIATIVO,
-  ROSA_CRIATIVO: TEMA_APARENCIA_CRIATIVO,
-  ROSA_BOUTIQUE: TEMA_APARENCIA_CRIATIVO,
-  ROSA_MENINA: TEMA_APARENCIA_CRIATIVO,
-  ROSA_CHIC: TEMA_APARENCIA_CRIATIVO,
-  CONFEITARIA: TEMA_APARENCIA_CRIATIVO,
-  INFANTIL_COLORIDO: TEMA_APARENCIA_CRIATIVO,
+  AZUL_MENINO: TEMA_APARENCIA_AZUL_MENINO,
 
   ESCURO: TEMA_APARENCIA_ESCURO,
   DARK: TEMA_APARENCIA_ESCURO,
+  ESCURO_SAFIRA: TEMA_APARENCIA_ESCURO,
+  BARBEARIA: TEMA_APARENCIA_BARBEARIA,
+
+  SUAVE: TEMA_APARENCIA_SUAVE,
+  PET_SHOP: TEMA_APARENCIA_PET_SHOP,
+  TURQUESA: TEMA_APARENCIA_PET_SHOP,
+
+  NUVEMMAIS: TEMA_APARENCIA_AZUL_PROFISSIONAL,
+  NUVEMMAIS_GESTAO: TEMA_APARENCIA_AZUL_PROFISSIONAL,
+  NUVEMMAIS_GESTÃO: TEMA_APARENCIA_AZUL_PROFISSIONAL,
+  AZUL_PROFISSIONAL: TEMA_APARENCIA_AZUL_PROFISSIONAL,
+
+  NUVEMMAIS_AZUL: TEMA_APARENCIA_AZUL_PROFISSIONAL,
+  OCEANO_PROFISSIONAL: TEMA_APARENCIA_AZUL_PROFISSIONAL,
   SAFIRA_ESCURO: TEMA_APARENCIA_ESCURO,
-  BARBEARIA: TEMA_APARENCIA_ESCURO,
+  ESMERALDA_GESTAO: TEMA_APARENCIA_VERDE_NATURAL,
+  ESMERALDA_GESTÃO: TEMA_APARENCIA_VERDE_NATURAL,
+  VIOLETA_PREMIUM: TEMA_APARENCIA_LILAS_DELICADO,
+  AMBAR_EXECUTIVO: TEMA_APARENCIA_DOURADO_PREMIUM,
+  RUBI_MODERNO: TEMA_APARENCIA_VERMELHO_ENERGIA,
+  GRAFITE_CORPORATIVO: TEMA_APARENCIA_BARBEARIA,
+  AURORA_CIANO: TEMA_APARENCIA_PET_SHOP,
+  TERRA_ELEGANTE: TEMA_APARENCIA_MADEIRA_ARTESANAL,
+  ROSA_CRIATIVO: TEMA_APARENCIA_ROSA_BOUTIQUE,
+
+  NATURAL: TEMA_APARENCIA_VERDE_NATURAL,
+  NATURAL_VERDE: TEMA_APARENCIA_VERDE_NATURAL,
+  VERDE_NATURAL: TEMA_APARENCIA_VERDE_NATURAL,
+  VERDE_MENTA: TEMA_APARENCIA_VERDE_NATURAL,
+  VERDE_OLIVA: TEMA_APARENCIA_VERDE_NATURAL,
+
+  PREMIUM: TEMA_APARENCIA_DOURADO_PREMIUM,
+  PREMIUM_DOURADO: TEMA_APARENCIA_DOURADO_PREMIUM,
+  DOURADO_PREMIUM: TEMA_APARENCIA_DOURADO_PREMIUM,
+  SOLAR: TEMA_APARENCIA_DOURADO_PREMIUM,
+
+  ELEGANTE: TEMA_APARENCIA_PRETO_ELEGANTE,
+  ELEGANTE_GRAFITE: TEMA_APARENCIA_BARBEARIA,
+  PRETO_ELEGANTE: TEMA_APARENCIA_PRETO_ELEGANTE,
+  PRETO_DOURADO: TEMA_APARENCIA_PRETO_ELEGANTE,
+  PRETO_E_DOURADO: TEMA_APARENCIA_PRETO_ELEGANTE,
+
+  ARTESANAL: TEMA_APARENCIA_MADEIRA_ARTESANAL,
+  ARTESANAL_MADEIRA: TEMA_APARENCIA_MADEIRA_ARTESANAL,
+  MADEIRA_ARTESANAL: TEMA_APARENCIA_MADEIRA_ARTESANAL,
+  CAFE: TEMA_APARENCIA_MADEIRA_ARTESANAL,
+  CAFÉ: TEMA_APARENCIA_MADEIRA_ARTESANAL,
+  TERRACOTA: TEMA_APARENCIA_MADEIRA_ARTESANAL,
+
+  CRIATIVO: TEMA_APARENCIA_LARANJA_CRIATIVO,
+  CRIATIVO_CORAL: TEMA_APARENCIA_LARANJA_CRIATIVO,
+  LARANJA_CRIATIVO: TEMA_APARENCIA_LARANJA_CRIATIVO,
+  PEACH: TEMA_APARENCIA_LARANJA_CRIATIVO,
+  CORAL: TEMA_APARENCIA_VERMELHO_ENERGIA,
+  ROSA_BOUTIQUE: TEMA_APARENCIA_ROSA_BOUTIQUE,
+  ROSA_MENINA: TEMA_APARENCIA_ROSA_MENINA,
+  ROSA_CHIC: TEMA_APARENCIA_ROSA_BOUTIQUE,
+  CONFEITARIA: TEMA_APARENCIA_CONFEITARIA,
+  INFANTIL_COLORIDO: TEMA_APARENCIA_INFANTIL_COLORIDO,
+  LILAS: TEMA_APARENCIA_LILAS_DELICADO,
+  LILAS_DELICADO: TEMA_APARENCIA_LILAS_DELICADO,
+  LAVANDA: TEMA_APARENCIA_LILAS_DELICADO,
+  VERMELHO_ENERGIA: TEMA_APARENCIA_VERMELHO_ENERGIA,
 })
 
 function normalizarChaveTemaInterno(valor) {
@@ -295,7 +626,10 @@ function normalizarChaveTemaInterno(valor) {
 }
 
 export function obterOpcoesTemasInternos() {
-  return TEMAS_INTERNOS.map(({ valor, nome, preview }) => ({ valor, nome, preview: { ...preview } }))
+  return TEMAS_INTERNOS_ESTAVEIS
+    .map((valor) => TEMAS_INTERNOS_POR_VALOR.get(valor))
+    .filter(Boolean)
+    .map(({ valor, nome, preview }) => ({ valor, nome, preview: { ...preview } }))
 }
 
 export function normalizarTemaInterno(valor) {
@@ -311,6 +645,11 @@ export function normalizarTemaInterno(valor) {
   }
 
   const valorNormalizado = String(valor || '').trim().toLowerCase()
+
+  if (REDIRECIONAMENTOS_TEMAS_INTERNOS[valorNormalizado]) {
+    return REDIRECIONAMENTOS_TEMAS_INTERNOS[valorNormalizado]
+  }
+
   return TEMAS_INTERNOS_POR_VALOR.has(valorNormalizado) ? valorNormalizado : TEMA_APARENCIA_CLARO
 }
 
