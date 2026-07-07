@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import {
@@ -7,14 +7,19 @@ import {
   atualizarMinhaConta,
   buscarMinhasPreferenciasAparencia,
   buscarMinhasPreferenciasOperacionais,
+  buscarMinhasPreferenciasTelas,
   buscarMinhaConta,
   buscarOpcoesMinhasPreferenciasAparencia,
   buscarOpcoesMinhasPreferenciasOperacionais,
+  buscarOpcoesMinhasPreferenciasTelas,
   resetarMinhasPreferenciasAparencia,
   resetarMinhasPreferenciasOperacionais,
+  resetarMinhaPreferenciaTela,
+  resetarMinhasPreferenciasTelas,
   carregarUsuarioSessao,
   obterMensagemAmigavelErro,
   salvarSessaoAutenticacao,
+  salvarMinhaPreferenciaTela,
   salvarMinhasPreferenciasAparencia,
   salvarMinhasPreferenciasOperacionais,
 } from '@/services/api'
@@ -42,6 +47,23 @@ import {
   resetarPreferenciasOperacionaisBackend,
   salvarPreferenciasOperacionaisBackend,
 } from '@/utils/preferenciasOperacionais'
+import {
+  carregarPreferenciasTelasBackend,
+  estadoSincronizacaoTelas,
+  mensagemSincronizacaoTelas,
+  normalizarChaveTela,
+  normalizarColunasVisiveis,
+  obterColunasTela,
+  obterPreferenciaTela,
+  obterResumoSincronizacaoTelas,
+  opcoesPreferenciasTelas,
+  origemOpcoesPreferenciasTelas,
+  origemPreferenciasTelas,
+  preferenciasTelas,
+  resetarPreferenciaTelaBackend,
+  resetarPreferenciasTelasBackend,
+  salvarPreferenciaTelaBackend,
+} from '@/utils/preferenciasTelas'
 import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 import { emailBasicoValido, validarLoginCurto } from '@/utils/validacoes'
 
@@ -115,6 +137,37 @@ const opcoesItensPorPaginaUso = computed(() =>
     titulo: opcao.nome,
   })),
 )
+const telaPreferenciasSelecionada = ref('DASHBOARD')
+const preferenciasTelasConta = computed(() => preferenciasTelas.value)
+const opcoesPreferenciasTelasConta = computed(() => opcoesPreferenciasTelas.value)
+const statusSincronizacaoTelas = computed(() => estadoSincronizacaoTelas.value)
+const mensagemStatusSincronizacaoTelas = computed(() => mensagemSincronizacaoTelas.value)
+const salvandoPreferenciasTelas = computed(() =>
+  ['carregando', 'salvando'].includes(statusSincronizacaoTelas.value),
+)
+const resumoSincronizacaoTelas = computed(() => obterResumoSincronizacaoTelas())
+const origemConfiguracaoTelas = computed(() =>
+  origemPreferenciasTelas.value === 'backend' ? 'Backend' : 'localStorage',
+)
+const origemOpcoesTelasConta = computed(() =>
+  origemOpcoesPreferenciasTelas.value === 'backend' ? 'Backend' : 'fallback local',
+)
+const telasPreferenciasConta = computed(() => opcoesPreferenciasTelasConta.value.telas)
+const modosVisualizacaoTelasConta = computed(() => opcoesPreferenciasTelasConta.value.modosVisualizacao)
+const itensPorPaginaTelasConta = computed(() => opcoesPreferenciasTelasConta.value.itensPorPagina)
+const ordenacoesDirecaoTelasConta = computed(() => opcoesPreferenciasTelasConta.value.ordenacoesDirecao)
+const preferenciaTelaFormulario = ref(criarFormularioPreferenciaTela('DASHBOARD'))
+const preferenciaTelaAtual = computed(() =>
+  obterPreferenciaTela(telaPreferenciasSelecionada.value, preferenciasTelasConta.value),
+)
+const ultimaAtualizacaoTela = computed(() => formatarDataHoraConta(preferenciaTelaAtual.value.atualizadoEm))
+const colunasTelaSelecionada = computed(() => obterColunasTela(telaPreferenciasSelecionada.value))
+const colunasTelaSelecionadaOpcoes = computed(() =>
+  colunasTelaSelecionada.value.map((coluna) => ({
+    valor: coluna,
+    nome: formatarNomeColunaConta(coluna),
+  })),
+)
 const dadosConta = ref({
   nome: '',
   email: '',
@@ -128,6 +181,11 @@ const senha = ref({
 onMounted(() => {
   void carregarConta()
   sincronizarPreferenciasUsoAgora()
+  sincronizarPreferenciasTelasAgora()
+})
+
+watch([telaPreferenciasSelecionada, preferenciasTelas], () => {
+  preferenciaTelaFormulario.value = criarFormularioPreferenciaTela(telaPreferenciasSelecionada.value)
 })
 
 async function carregarConta() {
@@ -325,6 +383,73 @@ function sincronizarPreferenciasUsoAgora() {
   )
 }
 
+function criarFormularioPreferenciaTela(chaveTela) {
+  const preferencia = obterPreferenciaTela(chaveTela, preferenciasTelas.value)
+
+  return {
+    ...preferencia,
+    colunasVisiveis: [...preferencia.colunasVisiveis],
+    filtrosSalvos: { ...preferencia.filtrosSalvos },
+  }
+}
+
+function selecionarTelaPreferencias(chaveTela) {
+  telaPreferenciasSelecionada.value = normalizarChaveTela(chaveTela)
+}
+
+function alternarColunaPreferenciaTela(coluna, marcado) {
+  const colunasAtuais = Array.isArray(preferenciaTelaFormulario.value.colunasVisiveis)
+    ? preferenciaTelaFormulario.value.colunasVisiveis
+    : []
+  const proximas = marcado
+    ? [...colunasAtuais, coluna]
+    : colunasAtuais.filter((colunaAtual) => colunaAtual !== coluna)
+
+  preferenciaTelaFormulario.value = {
+    ...preferenciaTelaFormulario.value,
+    colunasVisiveis: normalizarColunasVisiveis(telaPreferenciasSelecionada.value, proximas),
+  }
+}
+
+function salvarPreferenciasTelaSelecionada() {
+  if (salvandoPreferenciasTelas.value) {
+    return
+  }
+
+  void salvarPreferenciaTelaBackend(
+    telaPreferenciasSelecionada.value,
+    preferenciaTelaFormulario.value,
+    salvarMinhaPreferenciaTela,
+  )
+}
+
+function sincronizarPreferenciasTelasAgora() {
+  if (salvandoPreferenciasTelas.value) {
+    return
+  }
+
+  void carregarPreferenciasTelasBackend(
+    buscarMinhasPreferenciasTelas,
+    buscarOpcoesMinhasPreferenciasTelas,
+  )
+}
+
+function restaurarPreferenciaTelaSelecionada() {
+  if (salvandoPreferenciasTelas.value) {
+    return
+  }
+
+  void resetarPreferenciaTelaBackend(telaPreferenciasSelecionada.value, resetarMinhaPreferenciaTela)
+}
+
+function restaurarTodasPreferenciasTelas() {
+  if (salvandoPreferenciasTelas.value) {
+    return
+  }
+
+  void resetarPreferenciasTelasBackend(resetarMinhasPreferenciasTelas)
+}
+
 function atualizarSessaoConta(contaAtualizada) {
   const usuarioBase = carregarUsuarioSessao() || {}
 
@@ -427,6 +552,14 @@ function formatarDataHoraConta(valor) {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(data)
+}
+
+function formatarNomeColunaConta(coluna) {
+  return String(coluna || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/^./, (letra) => letra.toUpperCase())
 }
 </script>
 
@@ -750,6 +883,164 @@ function formatarDataHoraConta(valor) {
             @click="restaurarPreferenciasUsoPadrao"
           >
             Restaurar padrão
+          </button>
+        </div>
+      </section>
+
+      <section class="card formulario preferencias-telas-card">
+        <div class="titulo-card">
+          <h2>Preferências por tela</h2>
+          <p>Configure padrões por área sem alterar automaticamente as listagens nesta fase.</p>
+        </div>
+
+        <div class="aparencia-sincronizacao" :class="`aparencia-sincronizacao--${resumoSincronizacaoTelas.tipo}`">
+          <div>
+            <strong>{{ resumoSincronizacaoTelas.rotulo }}</strong>
+            <p>{{ resumoSincronizacaoTelas.detalhe }}</p>
+          </div>
+          <dl>
+            <div>
+              <dt>Origem</dt>
+              <dd>{{ origemConfiguracaoTelas }}</dd>
+            </div>
+            <div>
+              <dt>Opções</dt>
+              <dd>{{ origemOpcoesTelasConta }}</dd>
+            </div>
+            <div v-if="ultimaAtualizacaoTela">
+              <dt>Última atualização</dt>
+              <dd>{{ ultimaAtualizacaoTela }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="campos aparencia-campos">
+          <label>
+            Tela
+            <select
+              :value="telaPreferenciasSelecionada"
+              :disabled="salvandoPreferenciasTelas"
+              @change="selecionarTelaPreferencias($event.target.value)"
+            >
+              <option v-for="opcao in telasPreferenciasConta" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Modo de visualização
+            <select v-model="preferenciaTelaFormulario.modoVisualizacao" :disabled="salvandoPreferenciasTelas">
+              <option v-for="opcao in modosVisualizacaoTelasConta" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Itens por página
+            <select v-model.number="preferenciaTelaFormulario.itensPorPagina" :disabled="salvandoPreferenciasTelas">
+              <option v-for="opcao in itensPorPaginaTelasConta" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Ordenação padrão
+            <select v-model="preferenciaTelaFormulario.ordenacaoCampo" :disabled="salvandoPreferenciasTelas">
+              <option v-for="opcao in colunasTelaSelecionadaOpcoes" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Direção da ordenação
+            <select v-model="preferenciaTelaFormulario.ordenacaoDirecao" :disabled="salvandoPreferenciasTelas">
+              <option v-for="opcao in ordenacoesDirecaoTelasConta" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              v-model="preferenciaTelaFormulario.fixarFiltros"
+              type="checkbox"
+              :disabled="salvandoPreferenciasTelas"
+            />
+            <span>Fixar filtros</span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              v-model="preferenciaTelaFormulario.compactarCards"
+              type="checkbox"
+              :disabled="salvandoPreferenciasTelas"
+            />
+            <span>Compactar cards</span>
+          </label>
+        </div>
+
+        <div class="preferencias-telas-colunas">
+          <span class="campo-label">Colunas visíveis</span>
+          <div class="preferencias-telas-colunas-grid">
+            <label v-for="opcao in colunasTelaSelecionadaOpcoes" :key="opcao.valor" class="campo-checkbox">
+              <input
+                type="checkbox"
+                :checked="preferenciaTelaFormulario.colunasVisiveis.includes(opcao.valor)"
+                :disabled="salvandoPreferenciasTelas"
+                @change="alternarColunaPreferenciaTela(opcao.valor, $event.target.checked)"
+              />
+              <span>{{ opcao.nome }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="rodape-aparencia">
+          <p
+            v-if="mensagemStatusSincronizacaoTelas"
+            class="status-aparencia"
+            :class="`status-aparencia--${statusSincronizacaoTelas}`"
+          >
+            {{ mensagemStatusSincronizacaoTelas }}
+          </p>
+
+          <button
+            class="botao principal"
+            type="button"
+            :disabled="salvandoPreferenciasTelas"
+            @click="salvarPreferenciasTelaSelecionada"
+          >
+            Salvar
+          </button>
+
+          <button
+            class="botao secundario"
+            type="button"
+            :disabled="salvandoPreferenciasTelas"
+            @click="sincronizarPreferenciasTelasAgora"
+          >
+            Sincronizar agora
+          </button>
+
+          <button
+            class="botao secundario"
+            type="button"
+            :disabled="salvandoPreferenciasTelas"
+            @click="restaurarPreferenciaTelaSelecionada"
+          >
+            Restaurar tela
+          </button>
+
+          <button
+            class="botao secundario"
+            type="button"
+            :disabled="salvandoPreferenciasTelas"
+            @click="restaurarTodasPreferenciasTelas"
+          >
+            Restaurar todas as telas
           </button>
         </div>
       </section>
@@ -1094,6 +1385,25 @@ select:focus {
 
 .status-aparencia--salvo {
   color: var(--app-success);
+}
+
+.preferencias-telas-card {
+  align-items: start;
+}
+
+.preferencias-telas-colunas {
+  display: grid;
+  gap: 10px;
+}
+
+.preferencias-telas-colunas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.preferencias-telas-colunas-grid .campo-checkbox {
+  align-self: stretch;
 }
 
 @media (max-width: 900px) {

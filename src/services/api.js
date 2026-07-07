@@ -4049,6 +4049,58 @@ export async function resetarMinhasPreferenciasOperacionais() {
   return tratarResposta(response)
 }
 
+export async function buscarMinhasPreferenciasTelas() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMinhaPreferenciaTela(chaveTela) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/${encodeURIComponent(chaveTela)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMinhaPreferenciaTela(chaveTela, payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/${encodeURIComponent(chaveTela)}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhaPreferenciaTela(chaveTela) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/${encodeURIComponent(chaveTela)}/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhasPreferenciasTelas() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMinhasPreferenciasTelas() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarEmpresas(filtros = {}) {
   const response = await executarFetch(`${API_URL}/empresas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),
