@@ -4161,6 +4161,96 @@ export async function buscarOpcoesMinhasDicasUsuario() {
   return tratarResposta(response)
 }
 
+export async function buscarMeusAtalhosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoMeusAtalhosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMeusAtalhosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarPreferenciaAtalhoUsuario(chaveAtalho, payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/${encodeURIComponent(chaveAtalho)}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function reordenarAtalhosUsuario(lista = []) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/reordenar`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(Array.isArray(lista) ? lista : []),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarAtalhosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarAtalhosPersonalizadosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/personalizados`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarAtalhoPersonalizadoUsuario(payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/personalizados`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarAtalhoPersonalizadoUsuario(id, payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/personalizados/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function removerAtalhoPersonalizadoUsuario(id) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/personalizados/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarEmpresas(filtros = {}) {
   const response = await executarFetch(`${API_URL}/empresas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),

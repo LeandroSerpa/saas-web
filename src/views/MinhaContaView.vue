@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import CentralAtalhosUsuario from '@/components/CentralAtalhosUsuario.vue'
 import CentralDicasUsuario from '@/components/CentralDicasUsuario.vue'
 import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import {
@@ -895,6 +896,15 @@ function formatarNomeColunaConta(coluna) {
         </div>
 
         <CentralDicasUsuario />
+      </section>
+
+      <section class="card formulario atalhos-usuario-card">
+        <div class="titulo-card">
+          <h2>Atalhos e ações rápidas</h2>
+          <p>Organize favoritos, fixados e atalhos personalizados para acelerar sua rotina.</p>
+        </div>
+
+        <CentralAtalhosUsuario />
       </section>
 
       <section class="card formulario preferencias-telas-card">
