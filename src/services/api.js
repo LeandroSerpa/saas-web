@@ -3979,6 +3979,278 @@ export async function alterarSenhaMinhaConta(senhaAtual, novaSenha) {
   return tratarResposta(response)
 }
 
+export async function buscarMinhasPreferenciasAparencia() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/aparencia`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMinhasPreferenciasAparencia() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/aparencia/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMinhasPreferenciasAparencia(payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/aparencia`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhasPreferenciasAparencia() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/aparencia/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMinhasPreferenciasOperacionais() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/operacionais`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMinhasPreferenciasOperacionais() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/operacionais/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMinhasPreferenciasOperacionais(payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/operacionais`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhasPreferenciasOperacionais() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/operacionais/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMinhasPreferenciasTelas() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMinhaPreferenciaTela(chaveTela) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/${encodeURIComponent(chaveTela)}`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMinhaPreferenciaTela(chaveTela, payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/${encodeURIComponent(chaveTela)}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhaPreferenciaTela(chaveTela) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/${encodeURIComponent(chaveTela)}/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhasPreferenciasTelas() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMinhasPreferenciasTelas() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/telas/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMinhasDicasUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoMinhasDicasUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarDicaUsuarioVisualizada(chaveDica) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/${encodeURIComponent(chaveDica)}/visualizar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function dispensarDicaUsuario(chaveDica) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/${encodeURIComponent(chaveDica)}/dispensar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function reativarDicaUsuario(chaveDica) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/${encodeURIComponent(chaveDica)}/reativar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhasDicasUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMinhasDicasUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMeusAtalhosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoMeusAtalhosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMeusAtalhosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarPreferenciaAtalhoUsuario(chaveAtalho, payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/${encodeURIComponent(chaveAtalho)}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function reordenarAtalhosUsuario(lista = []) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/reordenar`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(Array.isArray(lista) ? lista : []),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarAtalhosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarAtalhosPersonalizadosUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/personalizados`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function criarAtalhoPersonalizadoUsuario(payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/personalizados`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function atualizarAtalhoPersonalizadoUsuario(id, payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/personalizados/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload || {}),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function removerAtalhoPersonalizadoUsuario(id) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/atalhos/personalizados/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarEmpresas(filtros = {}) {
   const response = await executarFetch(`${API_URL}/empresas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),

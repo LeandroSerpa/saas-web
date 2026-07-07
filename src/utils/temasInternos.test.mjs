@@ -10,9 +10,32 @@ import {
   obterOpcoesTemasInternos,
   obterTemaInternoPadrao,
 } from './temasInternos.js'
+import {
+  DENSIDADE_INTERFACE_COMPACTA,
+  DENSIDADE_INTERFACE_CONFORTAVEL,
+  MODO_NAVEGACAO_APARENCIA_AUTO,
+  MODO_NAVEGACAO_APARENCIA_EXPANDIDO,
+  ORIGEM_OPCOES_APARENCIA_BACKEND,
+  ORIGEM_OPCOES_APARENCIA_LOCAL,
+  ORIGEM_PREFERENCIAS_APARENCIA_BACKEND,
+  ORIGEM_PREFERENCIAS_APARENCIA_LOCAL,
+  carregarOpcoesAparenciaBackend,
+  carregarPreferenciasAparenciaBackend,
+  criarPayloadPreferenciasAparencia,
+  estadoSincronizacaoAparencia,
+  lerPreferenciasAparenciaLocais,
+  normalizarOpcoesAparenciaBackend,
+  obterResumoSincronizacaoAparencia,
+  opcoesAparencia,
+  origemOpcoesAparencia,
+  origemPreferenciasAparencia,
+  preferenciasAparencia,
+  resetarPreferenciasAparenciaBackend,
+  salvarPreferenciasAparenciaBackend,
+} from './aparencia.js'
 
 const TEMAS_ESTAVEIS_ESPERADOS = [
-  'claro',
+  'padrao',
   'moderno',
   'escuro',
   'suave',
@@ -147,6 +170,96 @@ function assertContrasteMinimo({ tema, primeiroPlano, fundos, minimo, contexto }
   }
 }
 
+function criarLocalStorageMock(valoresIniciais = {}) {
+  const dados = new Map(Object.entries(valoresIniciais))
+
+  return {
+    getItem(chave) {
+      return dados.has(chave) ? dados.get(chave) : null
+    },
+    setItem(chave, valor) {
+      dados.set(chave, String(valor))
+    },
+    removeItem(chave) {
+      dados.delete(chave)
+    },
+    clear() {
+      dados.clear()
+    },
+  }
+}
+
+function comLocalStorageMock(valores, teste) {
+  const windowAnterior = globalThis.window
+  globalThis.window = {
+    localStorage: criarLocalStorageMock(valores),
+  }
+
+  try {
+    return teste(globalThis.window.localStorage)
+  } finally {
+    if (windowAnterior === undefined) {
+      delete globalThis.window
+    } else {
+      globalThis.window = windowAnterior
+    }
+  }
+}
+
+async function comLocalStorageMockAsync(valores, teste) {
+  const windowAnterior = globalThis.window
+  globalThis.window = {
+    localStorage: criarLocalStorageMock(valores),
+  }
+
+  try {
+    return await teste(globalThis.window.localStorage)
+  } finally {
+    if (windowAnterior === undefined) {
+      delete globalThis.window
+    } else {
+      globalThis.window = windowAnterior
+    }
+  }
+}
+
+async function comConsoleErrorSilenciado(teste) {
+  const consoleErrorAnterior = console.error
+  console.error = () => {}
+
+  try {
+    return await teste()
+  } finally {
+    console.error = consoleErrorAnterior
+  }
+}
+
+function criarPayloadOpcoesAparenciaBackend(alteracoes = {}) {
+  return {
+    temas: obterOpcoesTemasInternos().map((tema) => ({
+      valor: tema.valor,
+      nome: `Backend ${tema.nome}`,
+      escuro: tema.escuro,
+      descricao: `Descrição backend para ${tema.nome}.`,
+    })),
+    modosNavegacao: [
+      { valor: 'AUTO', nome: 'Automático' },
+      { valor: 'EXPANDIDO', nome: 'Expandido' },
+      { valor: 'COMPACTO', nome: 'Compacto' },
+    ],
+    densidadesInterface: [
+      { valor: 'CONFORTAVEL', nome: 'Confortável' },
+      { valor: 'COMPACTA', nome: 'Compacta' },
+    ],
+    flags: {
+      reduzirAnimacoes: true,
+      altoContraste: true,
+    },
+    temaPadrao: 'padrao',
+    ...alteracoes,
+  }
+}
+
 describe('temasInternos', () => {
   it('exibe todos os temas equivalentes aos temas publicos no seletor', () => {
     const temasPublicos = obterOpcoesTemasPublicos()
@@ -183,6 +296,7 @@ describe('temasInternos', () => {
     assert.equal(obterTemaInternoPadrao(), TEMA_APARENCIA_CLARO)
     assert.equal(normalizarTemaInterno(undefined), TEMA_APARENCIA_CLARO)
     assert.equal(normalizarTemaInterno(''), TEMA_APARENCIA_CLARO)
+    assert.equal(normalizarTemaInterno('claro'), TEMA_APARENCIA_CLARO)
   })
 
   it('preserva compatibilidade com valores antigos apontando para temas do seletor', () => {
@@ -335,5 +449,212 @@ describe('temasInternos', () => {
 
     assert.equal(temaAntes, 'moderno')
     assert.equal(normalizarTemaInterno(preferencias.tema), 'moderno')
+  })
+
+  it('usa localStorage como fallback seguro e preserva a chave antiga de tema', () => {
+    comLocalStorageMock({ temaAparencia: 'nuvemmais-azul' }, (storage) => {
+      const preferencias = lerPreferenciasAparenciaLocais()
+
+      assert.equal(preferencias.temaInterno, 'azul-profissional')
+      assert.equal(preferencias.modoNavegacao, MODO_NAVEGACAO_APARENCIA_AUTO)
+      assert.equal(preferencias.densidadeInterface, DENSIDADE_INTERFACE_CONFORTAVEL)
+
+      storage.setItem('preferenciasAparencia', JSON.stringify({ temaInterno: 'tema-inexistente' }))
+      storage.removeItem('temaAparencia')
+
+      assert.equal(lerPreferenciasAparenciaLocais().temaInterno, TEMA_APARENCIA_CLARO)
+    })
+  })
+
+  it('usa fallback local quando o endpoint de opcoes falha', async () => {
+    const opcoes = await comConsoleErrorSilenciado(() =>
+      carregarOpcoesAparenciaBackend(async () => {
+        throw new Error('opcoes indisponiveis')
+      }),
+    )
+
+    assert.equal(opcoes.temas.length, 20)
+    assert.deepEqual(
+      opcoes.temas.map((tema) => tema.valor),
+      TEMAS_ESTAVEIS_ESPERADOS,
+    )
+    assert.equal(origemOpcoesAparencia.value, ORIGEM_OPCOES_APARENCIA_LOCAL)
+  })
+
+  it('usa fallback local quando o payload de opcoes esta incompleto', async () => {
+    const opcoes = await carregarOpcoesAparenciaBackend(async () =>
+      criarPayloadOpcoesAparenciaBackend({
+        temas: [{ valor: 'padrao', nome: 'Padrão backend', escuro: false }],
+      }),
+    )
+
+    assert.equal(opcoes.temas.length, 20)
+    assert.equal(opcoes.temas[0].valor, TEMA_APARENCIA_CLARO)
+    assert.equal(opcoes.temas[0].nome, 'Padrão')
+    assert.equal(origemOpcoesAparencia.value, ORIGEM_OPCOES_APARENCIA_LOCAL)
+  })
+
+  it('usa nomes e descricoes do backend quando opcoes sao validas', async () => {
+    const { valido, opcoes } = normalizarOpcoesAparenciaBackend(criarPayloadOpcoesAparenciaBackend())
+
+    assert.equal(valido, true)
+    assert.equal(opcoes.temas.length, 20)
+    assert.equal(opcoes.temas[0].nome, 'Backend Padrão')
+    assert.equal(opcoes.temas[0].descricao, 'Descrição backend para Padrão.')
+    assert.equal(typeof opcoes.temas[0].preview.fundo, 'string')
+  })
+
+  it('prioriza preferencia do backend quando ela e valida', async () => {
+    await comLocalStorageMockAsync(
+      {
+        preferenciasAparencia: JSON.stringify({ temaInterno: 'moderno' }),
+      },
+      async () => {
+        const preferencias = await carregarPreferenciasAparenciaBackend(
+          async () => ({
+            temaInterno: 'escuro',
+            modoNavegacao: 'EXPANDIDO',
+            densidadeInterface: 'COMPACTA',
+            reduzirAnimacoes: true,
+            altoContraste: true,
+            atualizadoEm: '2026-07-06T00:00:00',
+          }),
+          async () => criarPayloadOpcoesAparenciaBackend(),
+        )
+
+        assert.equal(preferencias.temaInterno, 'escuro')
+        assert.equal(preferencias.modoNavegacao, MODO_NAVEGACAO_APARENCIA_EXPANDIDO)
+        assert.equal(origemPreferenciasAparencia.value, ORIGEM_PREFERENCIAS_APARENCIA_BACKEND)
+        assert.equal(origemOpcoesAparencia.value, ORIGEM_OPCOES_APARENCIA_BACKEND)
+        assert.equal(opcoesAparencia.value.temas.length, 20)
+      },
+    )
+  })
+
+  it('usa localStorage quando a preferencia do backend falha', async () => {
+    await comLocalStorageMockAsync(
+      {
+        preferenciasAparencia: JSON.stringify({
+          temaInterno: 'pet-shop',
+          modoNavegacao: 'COMPACTO',
+        }),
+      },
+      async () => {
+        const preferencias = await comConsoleErrorSilenciado(() =>
+          carregarPreferenciasAparenciaBackend(
+            async () => {
+              throw new Error('preferencia indisponivel')
+            },
+            async () => {
+              throw new Error('opcoes indisponiveis')
+            },
+          ),
+        )
+
+        assert.equal(preferencias.temaInterno, 'pet-shop')
+        assert.equal(origemPreferenciasAparencia.value, ORIGEM_PREFERENCIAS_APARENCIA_LOCAL)
+        assert.equal(origemOpcoesAparencia.value, ORIGEM_OPCOES_APARENCIA_LOCAL)
+        assert.equal(estadoSincronizacaoAparencia.value, 'erro')
+      },
+    )
+  })
+
+  it('gera o payload esperado para salvar preferencias no backend', async () => {
+    const chamadas = []
+
+    await salvarPreferenciasAparenciaBackend(
+      {
+        temaInterno: 'claro',
+        modoNavegacao: 'expandido',
+        densidadeInterface: 'compacta',
+        reduzirAnimacoes: true,
+        altoContraste: true,
+      },
+      async (payload) => {
+        chamadas.push(payload)
+        return { ...payload, atualizadoEm: '2026-07-06T00:00:00' }
+      },
+    )
+
+    assert.deepEqual(chamadas, [
+      {
+        temaInterno: TEMA_APARENCIA_CLARO,
+        modoNavegacao: MODO_NAVEGACAO_APARENCIA_EXPANDIDO,
+        densidadeInterface: DENSIDADE_INTERFACE_COMPACTA,
+        reduzirAnimacoes: true,
+        altoContraste: true,
+      },
+    ])
+    assert.equal(preferenciasAparencia.value.atualizadoEm, '2026-07-06T00:00:00')
+  })
+
+  it('normaliza payload direto sem enviar campos somente de leitura', () => {
+    assert.deepEqual(
+      criarPayloadPreferenciasAparencia({
+        temaInterno: 'rosa-menina',
+        modoNavegacao: 'AUTO',
+        densidadeInterface: 'CONFORTAVEL',
+        reduzirAnimacoes: false,
+        altoContraste: false,
+        atualizadoEm: '2026-07-06T00:00:00',
+      }),
+      {
+        temaInterno: 'rosa-menina',
+        modoNavegacao: MODO_NAVEGACAO_APARENCIA_AUTO,
+        densidadeInterface: DENSIDADE_INTERFACE_CONFORTAVEL,
+        reduzirAnimacoes: false,
+        altoContraste: false,
+      },
+    )
+  })
+
+  it('restaura preferencias pelo endpoint de reset e deixa estado salvo', async () => {
+    let resetChamado = 0
+
+    const preferencias = await resetarPreferenciasAparenciaBackend(async () => {
+      resetChamado += 1
+      return {
+        temaInterno: 'padrao',
+        modoNavegacao: 'AUTO',
+        densidadeInterface: 'CONFORTAVEL',
+        reduzirAnimacoes: false,
+        altoContraste: false,
+        atualizadoEm: '2026-07-06T00:00:00',
+      }
+    })
+
+    assert.equal(resetChamado, 1)
+    assert.equal(preferencias.temaInterno, TEMA_APARENCIA_CLARO)
+    assert.equal(preferencias.reduzirAnimacoes, false)
+    assert.equal(estadoSincronizacaoAparencia.value, 'salvo')
+    assert.equal(origemPreferenciasAparencia.value, ORIGEM_PREFERENCIAS_APARENCIA_BACKEND)
+  })
+
+  it('representa status de sincronizacao no estado utilitario', () => {
+    assert.deepEqual(obterResumoSincronizacaoAparencia({
+      estado: 'salvo',
+      origem: ORIGEM_PREFERENCIAS_APARENCIA_BACKEND,
+      mensagem: '',
+    }), {
+      rotulo: 'Sincronizado',
+      detalhe: 'Preferência vinculada ao seu usuário.',
+      tipo: 'sucesso',
+    })
+
+    assert.equal(
+      obterResumoSincronizacaoAparencia({
+        estado: 'ocioso',
+        origem: ORIGEM_PREFERENCIAS_APARENCIA_LOCAL,
+      }).rotulo,
+      'Salvo localmente',
+    )
+
+    assert.equal(
+      obterResumoSincronizacaoAparencia({
+        estado: 'erro',
+        origem: ORIGEM_PREFERENCIAS_APARENCIA_LOCAL,
+      }).rotulo,
+      'Erro ao sincronizar',
+    )
   })
 })

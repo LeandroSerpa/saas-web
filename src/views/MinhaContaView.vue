@@ -1,14 +1,71 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import CentralAtalhosUsuario from '@/components/CentralAtalhosUsuario.vue'
+import CentralDicasUsuario from '@/components/CentralDicasUsuario.vue'
+import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import {
   alterarSenhaMinhaConta,
   atualizarMinhaConta,
+  buscarMinhasPreferenciasAparencia,
+  buscarMinhasPreferenciasOperacionais,
+  buscarMinhasPreferenciasTelas,
   buscarMinhaConta,
+  buscarOpcoesMinhasPreferenciasAparencia,
+  buscarOpcoesMinhasPreferenciasOperacionais,
+  buscarOpcoesMinhasPreferenciasTelas,
+  resetarMinhasPreferenciasAparencia,
+  resetarMinhasPreferenciasOperacionais,
+  resetarMinhaPreferenciaTela,
+  resetarMinhasPreferenciasTelas,
   carregarUsuarioSessao,
   obterMensagemAmigavelErro,
   salvarSessaoAutenticacao,
+  salvarMinhaPreferenciaTela,
+  salvarMinhasPreferenciasAparencia,
+  salvarMinhasPreferenciasOperacionais,
 } from '@/services/api'
+import {
+  carregarPreferenciasAparenciaBackend,
+  estadoSincronizacaoAparencia,
+  mensagemSincronizacaoAparencia,
+  obterResumoSincronizacaoAparencia,
+  opcoesAparencia,
+  origemOpcoesAparencia,
+  origemPreferenciasAparencia,
+  preferenciasAparencia,
+  resetarPreferenciasAparenciaBackend,
+  salvarPreferenciasAparenciaBackend,
+} from '@/utils/aparencia'
+import {
+  carregarPreferenciasOperacionaisBackend,
+  estadoSincronizacaoOperacionais,
+  mensagemSincronizacaoOperacionais,
+  obterResumoSincronizacaoOperacionais,
+  opcoesPreferenciasOperacionais,
+  origemOpcoesPreferenciasOperacionais,
+  origemPreferenciasOperacionais,
+  preferenciasOperacionais,
+  resetarPreferenciasOperacionaisBackend,
+  salvarPreferenciasOperacionaisBackend,
+} from '@/utils/preferenciasOperacionais'
+import {
+  carregarPreferenciasTelasBackend,
+  estadoSincronizacaoTelas,
+  mensagemSincronizacaoTelas,
+  normalizarChaveTela,
+  normalizarColunasVisiveis,
+  obterColunasTela,
+  obterPreferenciaTela,
+  obterResumoSincronizacaoTelas,
+  opcoesPreferenciasTelas,
+  origemOpcoesPreferenciasTelas,
+  origemPreferenciasTelas,
+  preferenciasTelas,
+  resetarPreferenciaTelaBackend,
+  resetarPreferenciasTelasBackend,
+  salvarPreferenciaTelaBackend,
+} from '@/utils/preferenciasTelas'
 import { obterVersaoFrontendComPrefixo } from '@/utils/versaoAplicacao'
 import { emailBasicoValido, validarLoginCurto } from '@/utils/validacoes'
 
@@ -20,6 +77,99 @@ const erroSenha = ref('')
 const sucessoDados = ref('')
 const sucessoSenha = ref('')
 const versaoPublica = obterVersaoFrontendComPrefixo()
+const preferenciasAparenciaConta = computed(() => preferenciasAparencia.value)
+const opcoesAparenciaConta = computed(() => opcoesAparencia.value)
+const statusSincronizacaoAparencia = computed(() => estadoSincronizacaoAparencia.value)
+const mensagemStatusSincronizacaoAparencia = computed(() => mensagemSincronizacaoAparencia.value)
+const salvandoAparencia = computed(() =>
+  ['carregando', 'salvando'].includes(statusSincronizacaoAparencia.value),
+)
+const resumoSincronizacaoAparencia = computed(() => obterResumoSincronizacaoAparencia())
+const origemConfiguracaoAparencia = computed(() =>
+  origemPreferenciasAparencia.value === 'backend' ? 'Backend' : 'localStorage',
+)
+const origemOpcoesAparenciaConta = computed(() =>
+  origemOpcoesAparencia.value === 'backend' ? 'Backend' : 'fallback local',
+)
+const ultimaAtualizacaoAparencia = computed(() => formatarDataHoraConta(preferenciasAparenciaConta.value.atualizadoEm))
+const opcoesModoNavegacaoAparencia = computed(() =>
+  opcoesAparenciaConta.value.modosNavegacao.map((opcao) => ({
+    valor: opcao.valor,
+    titulo: opcao.nome,
+  })),
+)
+const opcoesDensidadeInterface = computed(() =>
+  opcoesAparenciaConta.value.densidadesInterface.map((opcao) => ({
+    valor: opcao.valor,
+    titulo: opcao.nome,
+  })),
+)
+const exibeReducaoAnimacoes = computed(() => opcoesAparenciaConta.value.flags.reduzirAnimacoes === true)
+const exibeAltoContraste = computed(() => opcoesAparenciaConta.value.flags.altoContraste === true)
+const preferenciasUsoConta = computed(() => preferenciasOperacionais.value)
+const opcoesPreferenciasUsoConta = computed(() => opcoesPreferenciasOperacionais.value)
+const statusSincronizacaoUso = computed(() => estadoSincronizacaoOperacionais.value)
+const mensagemStatusSincronizacaoUso = computed(() => mensagemSincronizacaoOperacionais.value)
+const salvandoPreferenciasUso = computed(() =>
+  ['carregando', 'salvando'].includes(statusSincronizacaoUso.value),
+)
+const resumoSincronizacaoUso = computed(() => obterResumoSincronizacaoOperacionais())
+const origemConfiguracaoUso = computed(() =>
+  origemPreferenciasOperacionais.value === 'backend' ? 'Backend' : 'localStorage',
+)
+const origemOpcoesUsoConta = computed(() =>
+  origemOpcoesPreferenciasOperacionais.value === 'backend' ? 'Backend' : 'fallback local',
+)
+const ultimaAtualizacaoUso = computed(() => formatarDataHoraConta(preferenciasUsoConta.value.atualizadoEm))
+const opcoesPaginaInicialUso = computed(() =>
+  opcoesPreferenciasUsoConta.value.paginasIniciais.map((opcao) => ({
+    valor: opcao.valor,
+    titulo: opcao.nome,
+  })),
+)
+const opcoesModuloPreferidoUso = computed(() =>
+  opcoesPreferenciasUsoConta.value.modulosPreferidos.map((opcao) => ({
+    valor: opcao.valor,
+    titulo: opcao.nome,
+  })),
+)
+const opcoesItensPorPaginaUso = computed(() =>
+  opcoesPreferenciasUsoConta.value.itensPorPagina.map((opcao) => ({
+    valor: opcao.valor,
+    titulo: opcao.nome,
+  })),
+)
+const telaPreferenciasSelecionada = ref('DASHBOARD')
+const preferenciasTelasConta = computed(() => preferenciasTelas.value)
+const opcoesPreferenciasTelasConta = computed(() => opcoesPreferenciasTelas.value)
+const statusSincronizacaoTelas = computed(() => estadoSincronizacaoTelas.value)
+const mensagemStatusSincronizacaoTelas = computed(() => mensagemSincronizacaoTelas.value)
+const salvandoPreferenciasTelas = computed(() =>
+  ['carregando', 'salvando'].includes(statusSincronizacaoTelas.value),
+)
+const resumoSincronizacaoTelas = computed(() => obterResumoSincronizacaoTelas())
+const origemConfiguracaoTelas = computed(() =>
+  origemPreferenciasTelas.value === 'backend' ? 'Backend' : 'localStorage',
+)
+const origemOpcoesTelasConta = computed(() =>
+  origemOpcoesPreferenciasTelas.value === 'backend' ? 'Backend' : 'fallback local',
+)
+const telasPreferenciasConta = computed(() => opcoesPreferenciasTelasConta.value.telas)
+const modosVisualizacaoTelasConta = computed(() => opcoesPreferenciasTelasConta.value.modosVisualizacao)
+const itensPorPaginaTelasConta = computed(() => opcoesPreferenciasTelasConta.value.itensPorPagina)
+const ordenacoesDirecaoTelasConta = computed(() => opcoesPreferenciasTelasConta.value.ordenacoesDirecao)
+const preferenciaTelaFormulario = ref(criarFormularioPreferenciaTela('DASHBOARD'))
+const preferenciaTelaAtual = computed(() =>
+  obterPreferenciaTela(telaPreferenciasSelecionada.value, preferenciasTelasConta.value),
+)
+const ultimaAtualizacaoTela = computed(() => formatarDataHoraConta(preferenciaTelaAtual.value.atualizadoEm))
+const colunasTelaSelecionada = computed(() => obterColunasTela(telaPreferenciasSelecionada.value))
+const colunasTelaSelecionadaOpcoes = computed(() =>
+  colunasTelaSelecionada.value.map((coluna) => ({
+    valor: coluna,
+    nome: formatarNomeColunaConta(coluna),
+  })),
+)
 const dadosConta = ref({
   nome: '',
   email: '',
@@ -30,8 +180,15 @@ const senha = ref({
   nova: '',
   confirmar: '',
 })
+onMounted(() => {
+  void carregarConta()
+  sincronizarPreferenciasUsoAgora()
+  sincronizarPreferenciasTelasAgora()
+})
 
-onMounted(carregarConta)
+watch([telaPreferenciasSelecionada, preferenciasTelas], () => {
+  preferenciaTelaFormulario.value = criarFormularioPreferenciaTela(telaPreferenciasSelecionada.value)
+})
 
 async function carregarConta() {
   try {
@@ -166,6 +323,135 @@ async function salvarSenha() {
   }
 }
 
+async function salvarAparencia(alteracoes = {}) {
+  await salvarPreferenciasAparenciaBackend(
+    {
+      ...preferenciasAparencia.value,
+      ...alteracoes,
+    },
+    salvarMinhasPreferenciasAparencia,
+  )
+}
+
+function alterarTemaAparenciaConta(temaInterno) {
+  void salvarAparencia({ temaInterno })
+}
+
+function alterarCampoAparencia(campo, valor) {
+  void salvarAparencia({ [campo]: valor })
+}
+
+function restaurarAparenciaPadrao() {
+  void resetarPreferenciasAparenciaBackend(resetarMinhasPreferenciasAparencia)
+}
+
+function sincronizarAparenciaAgora() {
+  if (salvandoAparencia.value) {
+    return
+  }
+
+  void carregarPreferenciasAparenciaBackend(
+    buscarMinhasPreferenciasAparencia,
+    buscarOpcoesMinhasPreferenciasAparencia,
+  )
+}
+
+async function salvarPreferenciasUso(alteracoes = {}) {
+  await salvarPreferenciasOperacionaisBackend(
+    {
+      ...preferenciasOperacionais.value,
+      ...alteracoes,
+    },
+    salvarMinhasPreferenciasOperacionais,
+  )
+}
+
+function alterarCampoPreferenciasUso(campo, valor) {
+  void salvarPreferenciasUso({ [campo]: valor })
+}
+
+function restaurarPreferenciasUsoPadrao() {
+  void resetarPreferenciasOperacionaisBackend(resetarMinhasPreferenciasOperacionais)
+}
+
+function sincronizarPreferenciasUsoAgora() {
+  if (salvandoPreferenciasUso.value) {
+    return
+  }
+
+  void carregarPreferenciasOperacionaisBackend(
+    buscarMinhasPreferenciasOperacionais,
+    buscarOpcoesMinhasPreferenciasOperacionais,
+  )
+}
+
+function criarFormularioPreferenciaTela(chaveTela) {
+  const preferencia = obterPreferenciaTela(chaveTela, preferenciasTelas.value)
+
+  return {
+    ...preferencia,
+    colunasVisiveis: [...preferencia.colunasVisiveis],
+    filtrosSalvos: { ...preferencia.filtrosSalvos },
+  }
+}
+
+function selecionarTelaPreferencias(chaveTela) {
+  telaPreferenciasSelecionada.value = normalizarChaveTela(chaveTela)
+}
+
+function alternarColunaPreferenciaTela(coluna, marcado) {
+  const colunasAtuais = Array.isArray(preferenciaTelaFormulario.value.colunasVisiveis)
+    ? preferenciaTelaFormulario.value.colunasVisiveis
+    : []
+  const proximas = marcado
+    ? [...colunasAtuais, coluna]
+    : colunasAtuais.filter((colunaAtual) => colunaAtual !== coluna)
+
+  preferenciaTelaFormulario.value = {
+    ...preferenciaTelaFormulario.value,
+    colunasVisiveis: normalizarColunasVisiveis(telaPreferenciasSelecionada.value, proximas),
+  }
+}
+
+function salvarPreferenciasTelaSelecionada() {
+  if (salvandoPreferenciasTelas.value) {
+    return
+  }
+
+  void salvarPreferenciaTelaBackend(
+    telaPreferenciasSelecionada.value,
+    preferenciaTelaFormulario.value,
+    salvarMinhaPreferenciaTela,
+  )
+}
+
+function sincronizarPreferenciasTelasAgora() {
+  if (salvandoPreferenciasTelas.value) {
+    return
+  }
+
+  void carregarPreferenciasTelasBackend(
+    buscarMinhasPreferenciasTelas,
+    buscarOpcoesMinhasPreferenciasTelas,
+  )
+}
+
+function restaurarPreferenciaTelaSelecionada() {
+  if (salvandoPreferenciasTelas.value) {
+    return
+  }
+
+  void resetarPreferenciaTelaBackend(telaPreferenciasSelecionada.value, resetarMinhaPreferenciaTela)
+}
+
+function restaurarTodasPreferenciasTelas() {
+  if (salvandoPreferenciasTelas.value) {
+    return
+  }
+
+  void resetarPreferenciasTelasBackend(resetarMinhasPreferenciasTelas)
+}
+
 function atualizarSessaoConta(contaAtualizada) {
   const usuarioBase = carregarUsuarioSessao() || {}
 
@@ -250,6 +536,33 @@ function normalizarMensagem(valor) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
 }
+
+function formatarDataHoraConta(valor) {
+  const texto = String(valor || '').trim()
+
+  if (!texto) {
+    return ''
+  }
+
+  const data = new Date(texto)
+
+  if (Number.isNaN(data.getTime())) {
+    return texto
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(data)
+}
+
+function formatarNomeColunaConta(coluna) {
+  return String(coluna || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/^./, (letra) => letra.toUpperCase())
+}
 </script>
 
 <template>
@@ -304,6 +617,453 @@ function normalizarMensagem(valor) {
           </button>
         </div>
       </form>
+
+      <section class="card formulario aparencia-card">
+        <div class="titulo-card">
+          <h2>Aparência</h2>
+          <p>Quando sincronizada, sua preferência acompanha seu usuário em outros navegadores.</p>
+        </div>
+
+        <div class="aparencia-sincronizacao" :class="`aparencia-sincronizacao--${resumoSincronizacaoAparencia.tipo}`">
+          <div>
+            <strong>{{ resumoSincronizacaoAparencia.rotulo }}</strong>
+            <p>{{ resumoSincronizacaoAparencia.detalhe }}</p>
+          </div>
+          <dl>
+            <div>
+              <dt>Origem</dt>
+              <dd>{{ origemConfiguracaoAparencia }}</dd>
+            </div>
+            <div>
+              <dt>Opções</dt>
+              <dd>{{ origemOpcoesAparenciaConta }}</dd>
+            </div>
+            <div v-if="ultimaAtualizacaoAparencia">
+              <dt>Última atualização</dt>
+              <dd>{{ ultimaAtualizacaoAparencia }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="campos aparencia-campos">
+          <div class="campo-aparencia campo-aparencia-tema">
+            <span class="campo-label">Tema interno</span>
+            <TemaAparenciaSelector
+              :tema="preferenciasAparenciaConta.temaInterno"
+              :status-sincronizacao="statusSincronizacaoAparencia"
+              :mensagem-sincronizacao="mensagemStatusSincronizacaoAparencia"
+              @update:tema="alterarTemaAparenciaConta"
+            />
+          </div>
+
+          <label>
+            Modo de navegação
+            <select
+              :value="preferenciasAparenciaConta.modoNavegacao"
+              :disabled="salvandoAparencia"
+              @change="alterarCampoAparencia('modoNavegacao', $event.target.value)"
+            >
+              <option v-for="opcao in opcoesModoNavegacaoAparencia" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.titulo }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Densidade
+            <select
+              :value="preferenciasAparenciaConta.densidadeInterface"
+              :disabled="salvandoAparencia"
+              @change="alterarCampoAparencia('densidadeInterface', $event.target.value)"
+            >
+              <option v-for="opcao in opcoesDensidadeInterface" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.titulo }}
+              </option>
+            </select>
+          </label>
+
+          <label v-if="exibeReducaoAnimacoes" class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasAparenciaConta.reduzirAnimacoes"
+              :disabled="salvandoAparencia"
+              @change="alterarCampoAparencia('reduzirAnimacoes', $event.target.checked)"
+            />
+            <span>Reduzir animações</span>
+          </label>
+
+          <label v-if="exibeAltoContraste" class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasAparenciaConta.altoContraste"
+              :disabled="salvandoAparencia"
+              @change="alterarCampoAparencia('altoContraste', $event.target.checked)"
+            />
+            <span>Alto contraste</span>
+          </label>
+        </div>
+
+        <div class="rodape-aparencia">
+          <p
+            v-if="mensagemStatusSincronizacaoAparencia"
+            class="status-aparencia"
+            :class="`status-aparencia--${statusSincronizacaoAparencia}`"
+          >
+            {{ mensagemStatusSincronizacaoAparencia }}
+          </p>
+
+          <button class="botao secundario" type="button" :disabled="salvandoAparencia" @click="sincronizarAparenciaAgora">
+            Sincronizar agora
+          </button>
+
+          <button class="botao secundario" type="button" :disabled="salvandoAparencia" @click="restaurarAparenciaPadrao">
+            Restaurar padrão
+          </button>
+        </div>
+      </section>
+
+      <section class="card formulario preferencias-uso-card">
+        <div class="titulo-card">
+          <h2>Preferências de uso</h2>
+          <p>Essas escolhas ficam salvas para sua conta, sem alterar a navegação automaticamente nesta fase.</p>
+        </div>
+
+        <div class="aparencia-sincronizacao" :class="`aparencia-sincronizacao--${resumoSincronizacaoUso.tipo}`">
+          <div>
+            <strong>{{ resumoSincronizacaoUso.rotulo }}</strong>
+            <p>{{ resumoSincronizacaoUso.detalhe }}</p>
+          </div>
+          <dl>
+            <div>
+              <dt>Origem</dt>
+              <dd>{{ origemConfiguracaoUso }}</dd>
+            </div>
+            <div>
+              <dt>Opções</dt>
+              <dd>{{ origemOpcoesUsoConta }}</dd>
+            </div>
+            <div v-if="ultimaAtualizacaoUso">
+              <dt>Última atualização</dt>
+              <dd>{{ ultimaAtualizacaoUso }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="campos aparencia-campos">
+          <label>
+            Página inicial preferida
+            <select
+              :value="preferenciasUsoConta.paginaInicial"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('paginaInicial', $event.target.value)"
+            >
+              <option v-for="opcao in opcoesPaginaInicialUso" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.titulo }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Módulo preferido
+            <select
+              :value="preferenciasUsoConta.moduloPreferido"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('moduloPreferido', $event.target.value)"
+            >
+              <option v-for="opcao in opcoesModuloPreferidoUso" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.titulo }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Itens por página
+            <select
+              :value="preferenciasUsoConta.itensPorPagina"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('itensPorPagina', Number($event.target.value))"
+            >
+              <option v-for="opcao in opcoesItensPorPaginaUso" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.titulo }}
+              </option>
+            </select>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasUsoConta.mostrarResumoInicial"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('mostrarResumoInicial', $event.target.checked)"
+            />
+            <span>Mostrar resumo inicial</span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasUsoConta.mostrarDicas"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('mostrarDicas', $event.target.checked)"
+            />
+            <span>Mostrar dicas de uso</span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasUsoConta.confirmarAcoesCriticas"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('confirmarAcoesCriticas', $event.target.checked)"
+            />
+            <span>Confirmar ações críticas</span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasUsoConta.notificacoesInternasAtivas"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('notificacoesInternasAtivas', $event.target.checked)"
+            />
+            <span>Notificações internas ativas</span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasUsoConta.alertasAgendamento"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('alertasAgendamento', $event.target.checked)"
+            />
+            <span>Alertas de agendamento</span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasUsoConta.alertasFinanceiro"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('alertasFinanceiro', $event.target.checked)"
+            />
+            <span>Alertas financeiros</span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              type="checkbox"
+              :checked="preferenciasUsoConta.alertasSistema"
+              :disabled="salvandoPreferenciasUso"
+              @change="alterarCampoPreferenciasUso('alertasSistema', $event.target.checked)"
+            />
+            <span>Alertas do sistema</span>
+          </label>
+        </div>
+
+        <div class="rodape-aparencia">
+          <p
+            v-if="mensagemStatusSincronizacaoUso"
+            class="status-aparencia"
+            :class="`status-aparencia--${statusSincronizacaoUso}`"
+          >
+            {{ mensagemStatusSincronizacaoUso }}
+          </p>
+
+          <button
+            class="botao secundario"
+            type="button"
+            :disabled="salvandoPreferenciasUso"
+            @click="sincronizarPreferenciasUsoAgora"
+          >
+            Sincronizar agora
+          </button>
+
+          <button
+            class="botao secundario"
+            type="button"
+            :disabled="salvandoPreferenciasUso"
+            @click="restaurarPreferenciasUsoPadrao"
+          >
+            Restaurar padrão
+          </button>
+        </div>
+      </section>
+
+      <section class="card formulario dicas-usuario-card">
+        <div class="titulo-card">
+          <h2>Dicas e primeiros passos</h2>
+          <p>Acompanhe orientações contextuais da sua conta e reative dicas quando precisar.</p>
+        </div>
+
+        <CentralDicasUsuario />
+      </section>
+
+      <section class="card formulario atalhos-usuario-card">
+        <div class="titulo-card">
+          <h2>Atalhos e ações rápidas</h2>
+          <p>Organize favoritos, fixados e atalhos personalizados para acelerar sua rotina.</p>
+        </div>
+
+        <CentralAtalhosUsuario />
+      </section>
+
+      <section class="card formulario preferencias-telas-card">
+        <div class="titulo-card">
+          <h2>Preferências por tela</h2>
+          <p>Configure padrões por área sem alterar automaticamente as listagens nesta fase.</p>
+        </div>
+
+        <div class="aparencia-sincronizacao" :class="`aparencia-sincronizacao--${resumoSincronizacaoTelas.tipo}`">
+          <div>
+            <strong>{{ resumoSincronizacaoTelas.rotulo }}</strong>
+            <p>{{ resumoSincronizacaoTelas.detalhe }}</p>
+          </div>
+          <dl>
+            <div>
+              <dt>Origem</dt>
+              <dd>{{ origemConfiguracaoTelas }}</dd>
+            </div>
+            <div>
+              <dt>Opções</dt>
+              <dd>{{ origemOpcoesTelasConta }}</dd>
+            </div>
+            <div v-if="ultimaAtualizacaoTela">
+              <dt>Última atualização</dt>
+              <dd>{{ ultimaAtualizacaoTela }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="campos aparencia-campos">
+          <label>
+            Tela
+            <select
+              :value="telaPreferenciasSelecionada"
+              :disabled="salvandoPreferenciasTelas"
+              @change="selecionarTelaPreferencias($event.target.value)"
+            >
+              <option v-for="opcao in telasPreferenciasConta" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Modo de visualização
+            <select v-model="preferenciaTelaFormulario.modoVisualizacao" :disabled="salvandoPreferenciasTelas">
+              <option v-for="opcao in modosVisualizacaoTelasConta" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Itens por página
+            <select v-model.number="preferenciaTelaFormulario.itensPorPagina" :disabled="salvandoPreferenciasTelas">
+              <option v-for="opcao in itensPorPaginaTelasConta" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Ordenação padrão
+            <select v-model="preferenciaTelaFormulario.ordenacaoCampo" :disabled="salvandoPreferenciasTelas">
+              <option v-for="opcao in colunasTelaSelecionadaOpcoes" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Direção da ordenação
+            <select v-model="preferenciaTelaFormulario.ordenacaoDirecao" :disabled="salvandoPreferenciasTelas">
+              <option v-for="opcao in ordenacoesDirecaoTelasConta" :key="opcao.valor" :value="opcao.valor">
+                {{ opcao.nome }}
+              </option>
+            </select>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              v-model="preferenciaTelaFormulario.fixarFiltros"
+              type="checkbox"
+              :disabled="salvandoPreferenciasTelas"
+            />
+            <span>Fixar filtros</span>
+          </label>
+
+          <label class="campo-checkbox">
+            <input
+              v-model="preferenciaTelaFormulario.compactarCards"
+              type="checkbox"
+              :disabled="salvandoPreferenciasTelas"
+            />
+            <span>Compactar cards</span>
+          </label>
+        </div>
+
+        <div class="preferencias-telas-colunas">
+          <span class="campo-label">Colunas visíveis</span>
+          <div class="preferencias-telas-colunas-grid">
+            <label v-for="opcao in colunasTelaSelecionadaOpcoes" :key="opcao.valor" class="campo-checkbox">
+              <input
+                type="checkbox"
+                :checked="preferenciaTelaFormulario.colunasVisiveis.includes(opcao.valor)"
+                :disabled="salvandoPreferenciasTelas"
+                @change="alternarColunaPreferenciaTela(opcao.valor, $event.target.checked)"
+              />
+              <span>{{ opcao.nome }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="rodape-aparencia">
+          <p
+            v-if="mensagemStatusSincronizacaoTelas"
+            class="status-aparencia"
+            :class="`status-aparencia--${statusSincronizacaoTelas}`"
+          >
+            {{ mensagemStatusSincronizacaoTelas }}
+          </p>
+
+          <button
+            class="botao principal"
+            type="button"
+            :disabled="salvandoPreferenciasTelas"
+            @click="salvarPreferenciasTelaSelecionada"
+          >
+            Salvar
+          </button>
+
+          <button
+            class="botao secundario"
+            type="button"
+            :disabled="salvandoPreferenciasTelas"
+            @click="sincronizarPreferenciasTelasAgora"
+          >
+            Sincronizar agora
+          </button>
+
+          <button
+            class="botao secundario"
+            type="button"
+            :disabled="salvandoPreferenciasTelas"
+            @click="restaurarPreferenciaTelaSelecionada"
+          >
+            Restaurar tela
+          </button>
+
+          <button
+            class="botao secundario"
+            type="button"
+            :disabled="salvandoPreferenciasTelas"
+            @click="restaurarTodasPreferenciasTelas"
+          >
+            Restaurar todas as telas
+          </button>
+        </div>
+      </section>
 
       <section v-if="erroSenha" class="card erro">
         <p>{{ erroSenha }}</p>
@@ -363,7 +1123,7 @@ function normalizarMensagem(valor) {
 .pagina {
   display: grid;
   gap: 18px;
-  color: #111827;
+  color: var(--app-text);
 }
 
 .cabecalho-pagina {
@@ -375,7 +1135,7 @@ function normalizarMensagem(valor) {
 
 .subtitulo {
   margin: 0 0 4px;
-  color: #2563eb;
+  color: var(--app-primary);
   font-size: 14px;
   font-weight: 800;
   text-transform: uppercase;
@@ -389,27 +1149,27 @@ function normalizarMensagem(valor) {
 
 .descricao {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--app-text-muted);
 }
 
 .card {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 22px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--app-shadow);
 }
 
 .erro {
-  border-color: #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+  border-color: var(--app-danger);
+  background: var(--app-danger-soft);
+  color: var(--app-danger);
 }
 
 .sucesso {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-  color: #166534;
+  border-color: var(--app-success);
+  background: var(--app-success-soft);
+  color: var(--app-success);
 }
 
 .formulario {
@@ -424,7 +1184,7 @@ function normalizarMensagem(valor) {
 
 .titulo-card p {
   margin: 6px 0 0;
-  color: #64748b;
+  color: var(--app-text-muted);
 }
 
 .campos {
@@ -440,26 +1200,29 @@ function normalizarMensagem(valor) {
 label {
   display: grid;
   gap: 6px;
-  color: #374151;
+  color: var(--app-text);
   font-size: 14px;
   font-weight: 700;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-width: 0;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 11px 12px;
   font-size: 15px;
-  background: white;
+  background: var(--app-surface);
+  color: var(--app-text);
   box-sizing: border-box;
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 3px var(--app-focus-ring);
 }
 
 .acoes {
@@ -483,11 +1246,22 @@ input:focus {
 }
 
 .principal {
-  background: #2563eb;
+  background: var(--app-primary);
 }
 
 .principal:hover {
-  background: #1d4ed8;
+  background: var(--app-primary-strong);
+}
+
+.secundario {
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+.secundario:hover {
+  border-color: var(--app-primary);
+  color: var(--app-primary);
 }
 
 .versao-publica {
@@ -497,14 +1271,14 @@ input:focus {
 
 .versao-destaque {
   margin: 0;
-  color: #111827;
+  color: var(--app-text);
   font-size: 16px;
   font-weight: 800;
 }
 
 .link-versao-ajuda {
   width: fit-content;
-  color: #2563eb;
+  color: var(--app-primary);
   font-size: 14px;
   font-weight: 800;
   text-decoration: none;
@@ -512,6 +1286,144 @@ input:focus {
 
 .link-versao-ajuda:hover {
   text-decoration: underline;
+}
+
+.aparencia-card {
+  align-items: start;
+}
+
+.aparencia-campos {
+  align-items: end;
+}
+
+.aparencia-sincronizacao {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface-soft);
+}
+
+.aparencia-sincronizacao strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 14px;
+}
+
+.aparencia-sincronizacao p {
+  margin: 4px 0 0;
+  color: var(--app-text-muted);
+  font-size: 13px;
+}
+
+.aparencia-sincronizacao dl {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.aparencia-sincronizacao dt {
+  color: var(--app-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.aparencia-sincronizacao dd {
+  margin: 2px 0 0;
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.aparencia-sincronizacao--erro {
+  border-color: var(--app-warning);
+}
+
+.aparencia-sincronizacao--sucesso {
+  border-color: var(--app-success);
+}
+
+.campo-aparencia {
+  display: grid;
+  gap: 6px;
+}
+
+.campo-aparencia-tema {
+  grid-column: 1 / -1;
+  justify-items: start;
+}
+
+.campo-label {
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.campo-checkbox {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  align-self: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface-soft);
+}
+
+.campo-checkbox input {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  accent-color: var(--app-primary);
+}
+
+.rodape-aparencia {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-aparencia {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.status-aparencia--erro {
+  color: var(--app-warning);
+}
+
+.status-aparencia--salvo {
+  color: var(--app-success);
+}
+
+.preferencias-telas-card {
+  align-items: start;
+}
+
+.preferencias-telas-colunas {
+  display: grid;
+  gap: 10px;
+}
+
+.preferencias-telas-colunas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.preferencias-telas-colunas-grid .campo-checkbox {
+  align-self: stretch;
 }
 
 @media (max-width: 900px) {
@@ -524,6 +1436,22 @@ input:focus {
   }
 
   .botao {
+    width: 100%;
+  }
+
+  .rodape-aparencia {
+    align-items: stretch;
+  }
+
+  .aparencia-sincronizacao {
+    grid-template-columns: 1fr;
+  }
+
+  .aparencia-sincronizacao dl {
+    justify-content: flex-start;
+  }
+
+  .status-aparencia {
     width: 100%;
   }
 }
