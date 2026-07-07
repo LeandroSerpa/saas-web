@@ -3979,6 +3979,76 @@ export async function alterarSenhaMinhaConta(senhaAtual, novaSenha) {
   return tratarResposta(response)
 }
 
+export async function buscarMinhasPreferenciasAparencia() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/aparencia`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMinhasPreferenciasAparencia() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/aparencia/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMinhasPreferenciasAparencia(payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/aparencia`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhasPreferenciasAparencia() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/aparencia/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarMinhasPreferenciasOperacionais() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/operacionais`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMinhasPreferenciasOperacionais() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/operacionais/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarMinhasPreferenciasOperacionais(payload) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/operacionais`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhasPreferenciasOperacionais() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/operacionais/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarEmpresas(filtros = {}) {
   const response = await executarFetch(`${API_URL}/empresas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),

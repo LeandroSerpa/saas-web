@@ -1,6 +1,6 @@
 import { corComAlpha, criarMapaVisualPublico, misturarCores, obterOpcoesTemasPublicos } from './temasPublicos.js'
 
-export const TEMA_APARENCIA_CLARO = 'claro'
+export const TEMA_APARENCIA_CLARO = 'padrao'
 export const TEMA_APARENCIA_MODERNO = 'moderno'
 export const TEMA_APARENCIA_ESCURO = 'escuro'
 export const TEMA_APARENCIA_SUAVE = 'suave'
@@ -629,14 +629,20 @@ export function obterOpcoesTemasInternos() {
   return TEMAS_INTERNOS_ESTAVEIS
     .map((valor) => TEMAS_INTERNOS_POR_VALOR.get(valor))
     .filter(Boolean)
-    .map(({ valor, nome, preview }) => ({ valor, nome, preview: { ...preview } }))
+    .map(({ valor, nome, colorScheme, preview }) => ({
+      valor,
+      nome,
+      descricao: '',
+      escuro: colorScheme === 'dark',
+      preview: { ...preview },
+    }))
 }
 
-export function normalizarTemaInterno(valor) {
+export function obterValorTemaInternoConhecido(valor) {
   const texto = normalizarChaveTemaInterno(valor)
 
   if (!texto) {
-    return TEMA_APARENCIA_CLARO
+    return ''
   }
 
   const alias = ALIASES_TEMAS_INTERNOS[texto]
@@ -650,7 +656,50 @@ export function normalizarTemaInterno(valor) {
     return REDIRECIONAMENTOS_TEMAS_INTERNOS[valorNormalizado]
   }
 
-  return TEMAS_INTERNOS_POR_VALOR.has(valorNormalizado) ? valorNormalizado : TEMA_APARENCIA_CLARO
+  return TEMAS_INTERNOS_POR_VALOR.has(valorNormalizado) ? valorNormalizado : ''
+}
+
+export function normalizarTemaInterno(valor) {
+  return obterValorTemaInternoConhecido(valor) || TEMA_APARENCIA_CLARO
+}
+
+export function mesclarOpcoesTemasInternos(opcoesBackend = []) {
+  const metadadosBackend = new Map()
+
+  if (Array.isArray(opcoesBackend)) {
+    for (const opcao of opcoesBackend) {
+      if (!opcao || typeof opcao !== 'object') {
+        continue
+      }
+
+      const valor = obterValorTemaInternoConhecido(opcao.valor)
+
+      if (!valor) {
+        continue
+      }
+
+      const nome = String(opcao.nome || '').trim()
+      const descricao = String(opcao.descricao || '').trim()
+
+      metadadosBackend.set(valor, {
+        nome,
+        descricao,
+        escuro: opcao.escuro === true,
+      })
+    }
+  }
+
+  return obterOpcoesTemasInternos().map((tema) => {
+    const metadados = metadadosBackend.get(tema.valor) || {}
+
+    return {
+      ...tema,
+      nome: metadados.nome || tema.nome,
+      descricao: metadados.descricao || tema.descricao,
+      escuro: typeof metadados.escuro === 'boolean' ? metadados.escuro : tema.escuro,
+      preview: { ...tema.preview },
+    }
+  })
 }
 
 export function obterTemaInterno(valor) {

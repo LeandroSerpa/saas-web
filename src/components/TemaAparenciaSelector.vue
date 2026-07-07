@@ -1,24 +1,35 @@
 <script setup>
 import { computed } from 'vue'
 
-import { obterOpcoesTemasInternos } from '@/utils/temasInternos'
+import { opcoesAparencia } from '@/utils/aparencia'
 
 const props = defineProps({
   tema: {
     type: String,
     required: true,
   },
+  statusSincronizacao: {
+    type: String,
+    default: '',
+  },
+  mensagemSincronizacao: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['update:tema'])
 
-const opcoes = obterOpcoesTemasInternos().map((tema) => ({
-  valor: tema.valor,
-  titulo: tema.nome,
-  preview: tema.preview,
-}))
+const opcoes = computed(() =>
+  opcoesAparencia.value.temas.map((tema) => ({
+    valor: tema.valor,
+    titulo: tema.nome,
+    descricao: tema.descricao,
+    preview: tema.preview,
+  })),
+)
 
-const temaSelecionado = computed(() => opcoes.find((opcao) => opcao.valor === props.tema) || opcoes[0])
+const temaSelecionado = computed(() => opcoes.value.find((opcao) => opcao.valor === props.tema) || opcoes.value[0])
 
 const estilosPreview = computed(() => ({
   '--tema-preview-fundo': temaSelecionado.value.preview.fundo,
@@ -27,27 +38,59 @@ const estilosPreview = computed(() => ({
   '--tema-preview-secundario': temaSelecionado.value.preview.secundario,
   '--tema-preview-menu': temaSelecionado.value.preview.menu,
 }))
+
+const textoSincronizacao = computed(() => {
+  if (props.statusSincronizacao === 'salvando' || props.statusSincronizacao === 'carregando') {
+    return 'Salvando...'
+  }
+
+  if (props.statusSincronizacao === 'salvo') {
+    return 'Salvo'
+  }
+
+  if (props.statusSincronizacao === 'erro') {
+    return 'Não foi possível sincronizar'
+  }
+
+  return ''
+})
 </script>
 
 <template>
-  <label class="seletor-compacto seletor-tema" for="tema-aparencia">
-    <span class="tema-preview" :style="estilosPreview" aria-hidden="true">
-      <span class="tema-preview-menu"></span>
-      <span class="tema-preview-conteudo">
-        <span class="tema-preview-linha"></span>
-        <span class="tema-preview-barra"></span>
+  <span class="seletor-tema-wrapper">
+    <label class="seletor-compacto seletor-tema" for="tema-aparencia">
+      <span class="tema-preview" :style="estilosPreview" aria-hidden="true">
+        <span class="tema-preview-menu"></span>
+        <span class="tema-preview-conteudo">
+          <span class="tema-preview-linha"></span>
+          <span class="tema-preview-barra"></span>
+        </span>
       </span>
-    </span>
-    <span class="seletor-rotulo">Tema:</span>
-    <select id="tema-aparencia" :value="props.tema" @change="emit('update:tema', $event.target.value)">
-      <option v-for="opcao in opcoes" :key="opcao.valor" :value="opcao.valor">
-        {{ opcao.titulo }}
-      </option>
-    </select>
-  </label>
+      <span class="seletor-rotulo">Tema:</span>
+      <select id="tema-aparencia" :value="props.tema" @change="emit('update:tema', $event.target.value)">
+        <option v-for="opcao in opcoes" :key="opcao.valor" :value="opcao.valor">
+          {{ opcao.titulo }}
+        </option>
+      </select>
+    </label>
+    <small
+      v-if="temaSelecionado.descricao || textoSincronizacao"
+      class="seletor-status"
+      :class="`seletor-status--${props.statusSincronizacao}`"
+      :title="props.mensagemSincronizacao || textoSincronizacao"
+    >
+      {{ textoSincronizacao || temaSelecionado.descricao }}
+    </small>
+  </span>
 </template>
 
 <style scoped>
+.seletor-tema-wrapper {
+  min-width: 0;
+  display: inline-grid;
+  gap: 3px;
+}
+
 .seletor-compacto {
   min-width: 0;
   display: inline-flex;
@@ -142,7 +185,27 @@ const estilosPreview = computed(() => ({
   min-width: 162px;
 }
 
+.seletor-status {
+  min-height: 13px;
+  color: var(--app-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.seletor-status--erro {
+  color: var(--app-warning);
+}
+
+.seletor-status--salvo {
+  color: var(--app-success);
+}
+
 @media (max-width: 480px) {
+  .seletor-tema-wrapper {
+    width: 100%;
+  }
+
   .seletor-compacto {
     max-width: 100%;
     padding-inline: 9px;

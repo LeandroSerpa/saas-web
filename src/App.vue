@@ -14,6 +14,8 @@ import {
   buscarMinhaAssinatura,
   buscarVersaoSistema,
   buscarMinhaEmpresa,
+  buscarMinhasPreferenciasAparencia,
+  buscarOpcoesMinhasPreferenciasAparencia,
   buscarUsoPlano,
   carregarUsuarioSessao,
   EVENTO_EMPRESA_VISUALIZACAO,
@@ -21,6 +23,7 @@ import {
   obterInfoVersaoSistemaPadrao,
   obterEmpresaIdOperacao,
   obterTipoSeloAmbiente,
+  salvarMinhasPreferenciasAparencia,
 } from '@/services/api'
 import {
   carregarContextoGestaoEsportiva,
@@ -30,13 +33,23 @@ import {
 } from '@/utils/gestaoEsportiva'
 import {
   aplicarTemaAparenciaNoDocumento,
-  salvarTemaAparencia,
+  carregarPreferenciasAparenciaBackend,
+  estadoSincronizacaoAparencia,
+  mensagemSincronizacaoAparencia,
+  MODO_NAVEGACAO_APARENCIA_AUTO,
+  MODO_NAVEGACAO_APARENCIA_COMPACTO,
+  MODO_NAVEGACAO_APARENCIA_EXPANDIDO,
+  preferenciasAparencia,
+  salvarPreferenciasAparenciaBackend,
+  salvarPreferenciasAparenciaLocais,
   sincronizarTemaAparencia,
   temaAparencia,
 } from '@/utils/aparencia'
 import {
+  MODO_NAVEGACAO_ESSENCIAL,
   MODO_NAVEGACAO_COMPLETO,
   modoNavegacao,
+  obterModoNavegacaoPadrao,
   salvarModoNavegacao,
   sincronizarModoNavegacao,
 } from '@/utils/modoNavegacao'
@@ -364,6 +377,8 @@ const superAdmin = computed(() => ehSuperAdmin(usuario.value))
 const adminEmpresa = computed(() => ehAdmin(usuario.value) && !ehSuperAdmin(usuario.value))
 const modoNavegacaoAtual = computed(() => modoNavegacao.value)
 const temaAparenciaAtual = computed(() => temaAparencia.value)
+const statusSincronizacaoAparencia = computed(() => estadoSincronizacaoAparencia.value)
+const mensagemStatusSincronizacaoAparencia = computed(() => mensagemSincronizacaoAparencia.value)
 const modoNavegacaoCompleto = computed(() => modoNavegacaoAtual.value === MODO_NAVEGACAO_COMPLETO)
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloGestaoEsportivaVisivel = computed(() => contextoEsportivo.value?.ativo === true)
@@ -488,6 +503,7 @@ let timeoutMensagemGlobal = null
 let observadorCabecalhoPagina = null
 let elementoAcaoCabecalhoPagina = null
 let elementoFocoAnteriorInformacoesSistema = null
+let preferenciasAparenciaCarregadasPara = ''
 const MENSAGEM_ERRO_GLOBAL_PADRAO = 'Ocorreu um erro inesperado. Recarregue a página para continuar.'
 
 const cabecalhoExibido = computed(() => {
@@ -953,10 +969,86 @@ function alterarModoNavegacao(novoModo) {
   if (!modoSalvo) {
     return
   }
+
+  const modoPreferencia =
+    modoSalvo === MODO_NAVEGACAO_COMPLETO
+      ? MODO_NAVEGACAO_APARENCIA_EXPANDIDO
+      : MODO_NAVEGACAO_APARENCIA_COMPACTO
+
+  void salvarPreferenciasAparenciaBackend(
+    {
+      ...preferenciasAparencia.value,
+      modoNavegacao: modoPreferencia,
+    },
+    salvarMinhasPreferenciasAparencia,
+  )
 }
 
 function alterarTemaAparencia(novoTema) {
-  salvarTemaAparencia(novoTema)
+  const preferencias = salvarPreferenciasAparenciaLocais({
+    ...preferenciasAparencia.value,
+    temaInterno: novoTema,
+  })
+
+  if (usuario.value) {
+    void salvarPreferenciasAparenciaBackend(preferencias, salvarMinhasPreferenciasAparencia)
+  }
+}
+
+function obterChavePreferenciasAparenciaUsuario(usuarioAtual) {
+  if (!usuarioAtual) {
+    return ''
+  }
+
+  return String(usuarioAtual.id || usuarioAtual.email || usuarioAtual.login || usuarioAtual.perfil || 'usuario').trim()
+}
+
+function resolverModoNavegacaoPreferencia(modoPreferencia, usuarioAtual) {
+  if (modoPreferencia === MODO_NAVEGACAO_APARENCIA_EXPANDIDO) {
+    return MODO_NAVEGACAO_COMPLETO
+  }
+
+  if (modoPreferencia === MODO_NAVEGACAO_APARENCIA_COMPACTO) {
+    return MODO_NAVEGACAO_ESSENCIAL
+  }
+
+  if (modoPreferencia === MODO_NAVEGACAO_APARENCIA_AUTO) {
+    return obterModoNavegacaoPadrao(usuarioAtual)
+  }
+
+  return ''
+}
+
+function aplicarModoNavegacaoDaPreferencia() {
+  if (!usuario.value) {
+    return
+  }
+
+  const modoPreferido = resolverModoNavegacaoPreferencia(preferenciasAparencia.value?.modoNavegacao, usuario.value)
+
+  if (modoPreferido) {
+    salvarModoNavegacao(usuario.value, modoPreferido)
+  }
+}
+
+async function sincronizarPreferenciasAparenciaUsuario({ forcar = false } = {}) {
+  if (!usuario.value) {
+    preferenciasAparenciaCarregadasPara = ''
+    return
+  }
+
+  const chaveUsuario = obterChavePreferenciasAparenciaUsuario(usuario.value)
+
+  if (!forcar && preferenciasAparenciaCarregadasPara === chaveUsuario) {
+    return
+  }
+
+  preferenciasAparenciaCarregadasPara = chaveUsuario
+  await carregarPreferenciasAparenciaBackend(
+    buscarMinhasPreferenciasAparencia,
+    buscarOpcoesMinhasPreferenciasAparencia,
+  )
+  aplicarModoNavegacaoDaPreferencia()
 }
 
 function atualizarUsuarioLogado() {
@@ -976,6 +1068,7 @@ function atualizarUsuarioLogado() {
     empresaOperacionalCarregando.value = false
     assinaturaOperacional.value = null
     usoPlanoOperacional.value = null
+    preferenciasAparenciaCarregadasPara = ''
     limparContextoGestaoEsportiva()
     return
   }
@@ -984,6 +1077,7 @@ function atualizarUsuarioLogado() {
 
   if (usuario.value) {
     sincronizarModoNavegacao(usuario.value)
+    void sincronizarPreferenciasAparenciaUsuario()
     carregarContextoGestaoEsportiva()
     void carregarEmpresaOperacional()
   } else {
@@ -992,6 +1086,7 @@ function atualizarUsuarioLogado() {
     empresaOperacionalCarregando.value = false
     assinaturaOperacional.value = null
     usoPlanoOperacional.value = null
+    preferenciasAparenciaCarregadasPara = ''
     limparContextoGestaoEsportiva()
   }
 
@@ -1317,6 +1412,13 @@ watch(
   { immediate: true },
 )
 
+watch(
+  () => preferenciasAparencia.value.modoNavegacao,
+  () => {
+    aplicarModoNavegacaoDaPreferencia()
+  },
+)
+
 watch(menuMobileAberto, (aberto) => {
   if (typeof document !== 'undefined') {
     document.body.classList.toggle('menu-mobile-aberto', aberto)
@@ -1608,7 +1710,12 @@ onBeforeUnmount(() => {
       >
         <template #preferencias>
           <ModoNavegacaoSelector :modo="modoNavegacaoAtual" @update:modo="alterarModoNavegacao" />
-          <TemaAparenciaSelector :tema="temaAparenciaAtual" @update:tema="alterarTemaAparencia" />
+          <TemaAparenciaSelector
+            :tema="temaAparenciaAtual"
+            :status-sincronizacao="statusSincronizacaoAparencia"
+            :mensagem-sincronizacao="mensagemStatusSincronizacaoAparencia"
+            @update:tema="alterarTemaAparencia"
+          />
         </template>
 
         <template #acoes-secundarias>
