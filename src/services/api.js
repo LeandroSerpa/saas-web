@@ -4101,6 +4101,66 @@ export async function buscarOpcoesMinhasPreferenciasTelas() {
   return tratarResposta(response)
 }
 
+export async function buscarMinhasDicasUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarResumoMinhasDicasUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function marcarDicaUsuarioVisualizada(chaveDica) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/${encodeURIComponent(chaveDica)}/visualizar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function dispensarDicaUsuario(chaveDica) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/${encodeURIComponent(chaveDica)}/dispensar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function reativarDicaUsuario(chaveDica) {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/${encodeURIComponent(chaveDica)}/reativar`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarMinhasDicasUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/reset`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function buscarOpcoesMinhasDicasUsuario() {
+  const response = await executarFetch(`${API_URL}/minhas-preferencias/dicas/opcoes`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarEmpresas(filtros = {}) {
   const response = await executarFetch(`${API_URL}/empresas${montarQueryString(filtros)}`, {
     headers: montarHeaders(),

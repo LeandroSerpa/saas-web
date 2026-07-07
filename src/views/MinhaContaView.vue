@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import CentralDicasUsuario from '@/components/CentralDicasUsuario.vue'
 import TemaAparenciaSelector from '@/components/TemaAparenciaSelector.vue'
 import {
   alterarSenhaMinhaConta,
@@ -885,6 +886,15 @@ function formatarNomeColunaConta(coluna) {
             Restaurar padrão
           </button>
         </div>
+      </section>
+
+      <section class="card formulario dicas-usuario-card">
+        <div class="titulo-card">
+          <h2>Dicas e primeiros passos</h2>
+          <p>Acompanhe orientações contextuais da sua conta e reative dicas quando precisar.</p>
+        </div>
+
+        <CentralDicasUsuario />
       </section>
 
       <section class="card formulario preferencias-telas-card">
