@@ -1424,7 +1424,7 @@ onBeforeUnmount(() => {
 
       <div class="marca">
         <div class="marca-simbolo-bloco">
-          <img class="marca-simbolo" :src="brandAssets.logoApp" alt="NuvemMais Gestão" @error="aplicarFallbackMarca" />
+          <img class="marca-simbolo" :src="brandAssets.logoSimbolo" alt="NuvemMais Gestão" @error="aplicarFallbackMarca" />
         </div>
         <div class="marca-copy">
           <strong>NuvemMais Gestão</strong>
@@ -1745,7 +1745,7 @@ onBeforeUnmount(() => {
 .app-sidebar {
   background:
     radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.12), transparent 26%),
-    linear-gradient(180deg, color-mix(in srgb, var(--app-sidebar-bg) 96%, black), var(--app-sidebar-bg));
+    var(--app-sidebar-bg);
   color: var(--app-sidebar-text);
   padding: 24px;
   display: flex;
@@ -1773,14 +1773,14 @@ onBeforeUnmount(() => {
 }
 
 .marca-simbolo-bloco {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   display: inline-grid;
   flex: 0 0 auto;
   place-items: center;
   border-radius: 18px;
-  padding: 6px;
-  background: linear-gradient(135deg, #071124, #1d4ed8);
+  padding: 5px;
+  background: linear-gradient(135deg, var(--app-brand-end), var(--app-primary));
   border: 1px solid rgba(59, 130, 246, 0.28);
   box-shadow:
     0 14px 28px rgba(15, 23, 42, 0.22),
@@ -1791,7 +1791,7 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 14px;
+  border-radius: 13px;
   object-fit: contain;
   opacity: 1;
   filter: none;

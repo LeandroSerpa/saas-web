@@ -88,7 +88,7 @@ function usarFallbackLogo() {
         <span class="selo">Produto profissional</span>
         <h1>Organize sua empresa em uma única plataforma.</h1>
         <p>
-          Acesse agenda, clientes, equipe, estoque, relatórios e recursos administrativos com contexto de empresa e
+          Acesse agenda, clientes, equipe, catálogo, estoque e recursos administrativos com contexto de empresa e
           permissões por perfil.
         </p>
 
@@ -97,9 +97,20 @@ function usarFallbackLogo() {
             <span></span><span></span><span></span>
           </div>
           <div class="mini-corpo">
-            <article><small>Hoje</small><strong>32</strong><p>atendimentos</p></article>
-            <article><small>Equipe</small><strong>8</strong><p>disponíveis</p></article>
-            <article class="largo"><small>Operação</small><strong>Agenda, catálogo e estoque no mesmo painel</strong></article>
+            <article>
+              <small>Agenda</small>
+              <strong>Compromissos do dia</strong>
+              <p>Horários e atendimentos em um só lugar.</p>
+            </article>
+            <article>
+              <small>Equipe</small>
+              <strong>Contexto por perfil</strong>
+              <p>Permissões e acessos organizados.</p>
+            </article>
+            <article class="largo">
+              <small>Painel</small>
+              <strong>Agenda, catálogo, páginas públicas e estoque no mesmo ambiente</strong>
+            </article>
           </div>
         </div>
 
@@ -122,21 +133,27 @@ function usarFallbackLogo() {
       <section class="login-card">
         <div class="marca-login">
           <div class="marca-login-visual">
-            <img
-              v-if="!logoComErro"
-              :src="brandAssets.logoHorizontal"
-              :alt="BRAND_NAME"
-              @error="usarFallbackLogo"
-            />
-            <div v-else class="marca-login-fallback">
-              <img class="marca-login-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
-              <div>
-                <strong>{{ BRAND_NAME }}</strong>
-                <small>{{ BRAND_TAGLINE }}</small>
-              </div>
+            <span class="marca-login-icone">
+              <img
+                v-if="!logoComErro"
+                :src="brandAssets.logoApp"
+                :alt="BRAND_NAME"
+                @error="usarFallbackLogo"
+              />
+              <img
+                v-else
+                class="marca-login-fallback-icon"
+                :src="brandAssets.logoFallbackSvg"
+                alt=""
+                aria-hidden="true"
+              />
+            </span>
+
+            <div class="marca-login-copy">
+              <strong>{{ BRAND_NAME }}</strong>
+              <small>{{ BRAND_TAGLINE }}</small>
             </div>
           </div>
-          <p class="marca-login-legenda">{{ BRAND_TAGLINE }}</p>
         </div>
 
         <div class="cabecalho-login">
@@ -220,9 +237,9 @@ function usarFallbackLogo() {
 .pagina-login {
   min-height: 100vh;
   background:
-    linear-gradient(110deg, rgba(14, 165, 233, .12) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
-    radial-gradient(circle at 10% 12%, rgba(37, 99, 235, .18), transparent 30%),
-    radial-gradient(circle at 92% 18%, rgba(20, 184, 166, .18), transparent 28%),
+    linear-gradient(110deg, rgba(14, 165, 233, 0.12) 0 1px, transparent 1px 100%) 0 0 / 70px 70px,
+    radial-gradient(circle at 10% 12%, rgba(37, 99, 235, 0.18), transparent 30%),
+    radial-gradient(circle at 92% 18%, rgba(20, 184, 166, 0.18), transparent 28%),
     #f8fafc;
   color: #0f172a;
 }
@@ -242,16 +259,16 @@ function usarFallbackLogo() {
   position: relative;
   display: grid;
   gap: 18px;
-  border: 1px solid rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 26px;
   background:
-    linear-gradient(110deg, rgba(125, 211, 252, .12) 0 1px, transparent 1px 100%) 0 0 / 58px 58px,
-    radial-gradient(circle at 84% 12%, rgba(20, 184, 166, .3), transparent 30%),
+    linear-gradient(110deg, rgba(125, 211, 252, 0.12) 0 1px, transparent 1px 100%) 0 0 / 58px 58px,
+    radial-gradient(circle at 84% 12%, rgba(20, 184, 166, 0.3), transparent 30%),
     linear-gradient(135deg, #1d4ed8 0%, #071124 100%);
   padding: 38px;
   color: white;
   overflow: hidden;
-  box-shadow: 0 30px 80px rgba(15, 23, 42, .2);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.2);
 }
 
 .painel-login::before {
@@ -262,7 +279,7 @@ function usarFallbackLogo() {
   width: 240px;
   height: 240px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(56, 189, 248, .3), transparent 72%);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.3), transparent 72%);
   filter: blur(12px);
   pointer-events: none;
 }
@@ -304,9 +321,9 @@ function usarFallbackLogo() {
 .mini-dashboard {
   display: grid;
   gap: 0;
-  border: 1px solid rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 20px;
-  background: rgba(8, 15, 31, .5);
+  background: rgba(8, 15, 31, 0.5);
   overflow: hidden;
   backdrop-filter: blur(16px);
 }
@@ -314,7 +331,7 @@ function usarFallbackLogo() {
 .mini-topo {
   display: flex;
   gap: 7px;
-  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   padding: 13px 16px;
 }
 
@@ -322,7 +339,7 @@ function usarFallbackLogo() {
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .5);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .mini-corpo {
@@ -336,7 +353,7 @@ function usarFallbackLogo() {
   display: grid;
   gap: 6px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, .09);
+  background: rgba(255, 255, 255, 0.09);
   padding: 14px;
 }
 
@@ -351,12 +368,8 @@ function usarFallbackLogo() {
 }
 
 .mini-corpo strong {
-  font-size: 24px;
-  line-height: 1.1;
-}
-
-.mini-corpo .largo strong {
-  font-size: 17px;
+  font-size: 18px;
+  line-height: 1.2;
 }
 
 .mini-corpo p {
@@ -373,9 +386,9 @@ function usarFallbackLogo() {
 .beneficios-login article {
   display: grid;
   gap: 6px;
-  border: 1px solid rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 14px;
-  background: rgba(255, 255, 255, .1);
+  background: rgba(255, 255, 255, 0.1);
   padding: 14px;
 }
 
@@ -395,11 +408,11 @@ function usarFallbackLogo() {
   overflow: hidden;
   display: grid;
   gap: 22px;
-  border: 1px solid rgba(148, 163, 184, .24);
+  border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 26px;
-  background: rgba(255, 255, 255, .94);
+  background: rgba(255, 255, 255, 0.94);
   padding: 30px;
-  box-shadow: 0 28px 70px rgba(15, 23, 42, .14);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.14);
   backdrop-filter: blur(16px);
 }
 
@@ -409,8 +422,8 @@ function usarFallbackLogo() {
   inset: 0 0 auto;
   height: 132px;
   background:
-    radial-gradient(circle at 12% 0, rgba(37, 99, 235, .12), transparent 42%),
-    radial-gradient(circle at 88% 8%, rgba(14, 165, 233, .1), transparent 36%);
+    radial-gradient(circle at 12% 0, rgba(37, 99, 235, 0.12), transparent 42%),
+    radial-gradient(circle at 88% 8%, rgba(14, 165, 233, 0.1), transparent 36%);
   pointer-events: none;
 }
 
@@ -421,13 +434,15 @@ function usarFallbackLogo() {
   align-items: flex-start;
   gap: 12px;
   padding: 18px;
-  border: 1px solid rgba(37, 99, 235, .14);
+  border: 1px solid rgba(191, 219, 254, 0.42);
   border-radius: 20px;
   background:
-    linear-gradient(135deg, #071124 0%, #10264c 52%, #1d4ed8 100%);
+    radial-gradient(circle at 18% 0, rgba(125, 211, 252, 0.26), transparent 34%),
+    linear-gradient(135deg, #071124 0%, #0f2a53 50%, #1d4ed8 100%);
+  color: #f8fafc;
   box-shadow:
-    0 20px 40px rgba(15, 23, 42, .14),
-    inset 0 1px 0 rgba(255, 255, 255, .1);
+    0 20px 40px rgba(15, 23, 42, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .marca-login::before {
@@ -436,7 +451,7 @@ function usarFallbackLogo() {
   inset: 14px 18px auto;
   height: 54px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(56, 189, 248, .32), transparent 72%);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.32), transparent 72%);
   filter: blur(18px);
   pointer-events: none;
 }
@@ -451,57 +466,61 @@ function usarFallbackLogo() {
   width: 100%;
   display: flex;
   align-items: center;
+  gap: 14px;
 }
 
-.marca-login img {
+.marca-login-icone {
+  width: 56px;
+  height: 56px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 18px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 14px 28px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.marca-login-icone img {
   display: block;
-  width: min(238px, 100%);
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   opacity: 1;
   filter: none;
 }
 
-.marca-login-fallback {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.marca-login-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #f8fafc;
 }
 
 .marca-login-fallback-icon {
-  display: block;
-  width: 46px;
-  height: 46px;
-  object-fit: contain;
+  border-radius: 12px;
 }
 
-.marca-login strong,
-.marca-login small {
-  display: block;
-}
-
-.marca-login strong {
+.marca-login-copy strong {
+  color: #ffffff;
   font-size: 17px;
   font-weight: 900;
+  line-height: 1.2;
 }
 
-.marca-login small {
-  color: #bfdbfe;
-}
-
-.marca-login-legenda,
-.cabecalho-login p {
-  margin: 0;
-  color: #64748b;
-}
-
-.marca-login-legenda {
-  position: relative;
-  z-index: 1;
+.marca-login-copy small {
   color: #dbeafe;
   font-size: 13px;
   font-weight: 700;
+  line-height: 1.35;
+}
+
+.cabecalho-login p {
+  margin: 0;
+  color: #64748b;
 }
 
 .cabecalho-login {
@@ -541,7 +560,7 @@ input {
 input:focus {
   outline: none;
   border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .campo-senha {
@@ -568,7 +587,7 @@ input:focus {
   cursor: pointer;
   padding: 0;
   transform: translateY(-50%);
-  transition: background .15s ease, color .15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .botao-olho:hover {
@@ -579,7 +598,7 @@ input:focus {
 .botao-olho:focus {
   outline: none;
   color: #1d4ed8;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .botao-olho svg {
@@ -601,8 +620,8 @@ input:focus {
   cursor: pointer;
   padding: 13px 16px;
   font-weight: 900;
-  box-shadow: 0 18px 32px rgba(37, 99, 235, .24);
-  transition: transform .15s ease, opacity .15s ease, background .15s ease;
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.24);
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
 }
 
 .botao-login:hover {
@@ -611,7 +630,7 @@ input:focus {
 }
 
 .botao-login:disabled {
-  opacity: .6;
+  opacity: 0.6;
   cursor: not-allowed;
   transform: none;
 }
@@ -699,6 +718,11 @@ input:focus {
 
   .marca-login {
     padding: 16px;
+  }
+
+  .marca-login-icone {
+    width: 52px;
+    height: 52px;
   }
 
   .mini-corpo {

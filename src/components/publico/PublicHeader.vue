@@ -20,19 +20,22 @@ function usarFallbackLogo() {
 <template>
   <header :class="['public-header', { compacto }]">
     <RouterLink class="public-brand" to="/" aria-label="Ir para a página inicial">
-      <img
-        v-if="!logoComErro"
-        class="public-brand-logo"
-        :src="brandAssets.logoHorizontal"
-        :alt="BRAND_NAME"
-        @error="usarFallbackLogo"
-      />
-      <span v-else class="public-brand-fallback">
-        <img class="public-brand-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
-        <span class="public-brand-fallback-copy">
-          <strong>{{ BRAND_NAME }}</strong>
-          <small>{{ BRAND_TAGLINE }}</small>
+      <span class="public-brand-mark">
+        <img
+          v-if="!logoComErro"
+          class="public-brand-logo"
+          :src="brandAssets.logoApp"
+          :alt="BRAND_NAME"
+          @error="usarFallbackLogo"
+        />
+        <span v-else class="public-brand-fallback">
+          <img class="public-brand-fallback-icon" :src="brandAssets.logoFallbackSvg" alt="" aria-hidden="true" />
         </span>
+      </span>
+
+      <span class="public-brand-copy">
+        <strong>{{ BRAND_NAME }}</strong>
+        <small>{{ BRAND_TAGLINE }}</small>
       </span>
     </RouterLink>
 
@@ -65,11 +68,11 @@ function usarFallbackLogo() {
   position: absolute;
   inset: 6px 10px;
   z-index: -1;
-  border: 1px solid rgba(148, 163, 184, .18);
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 24px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, .94), rgba(248, 250, 252, .84));
-  box-shadow: 0 24px 60px rgba(15, 23, 42, .08);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.84));
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(18px);
 }
 
@@ -88,45 +91,50 @@ function usarFallbackLogo() {
   flex: 1 1 auto;
   min-width: 0;
   gap: 14px;
-  padding: 6px 8px 6px 6px;
+  padding: 8px 12px 8px 8px;
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, .34), rgba(239, 246, 255, .62));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .52);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.34), rgba(239, 246, 255, 0.62));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52);
   color: inherit;
   text-decoration: none;
+}
+
+.public-brand-mark {
+  width: 48px;
+  height: 48px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 16px;
+  padding: 5px;
+  background: linear-gradient(135deg, #071124, #123b78);
+  box-shadow:
+    0 14px 26px rgba(37, 99, 235, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .public-brand-logo,
 .public-brand-fallback-icon {
   display: block;
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   opacity: 1;
   filter: none;
 }
 
-.public-brand-logo {
-  width: clamp(188px, 20vw, 248px);
-  height: clamp(48px, 5vw, 60px);
-  flex: 0 0 auto;
-}
-
 .public-brand-fallback {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.public-brand-fallback-icon {
-  width: 44px;
-  flex: 0 0 auto;
-}
-
-.public-brand-fallback-copy {
+  width: 100%;
+  height: 100%;
   display: grid;
-  gap: 2px;
+  place-items: center;
+}
+
+.public-brand-copy {
   min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 2px;
 }
 
 .public-brand strong {
@@ -156,25 +164,25 @@ function usarFallbackLogo() {
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
-  transition: background .18s ease, color .18s ease, transform .18s ease;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
 .public-nav a:hover {
   color: #2563eb;
-  background: rgba(37, 99, 235, .08);
+  background: rgba(37, 99, 235, 0.08);
   transform: translateY(-1px);
 }
 
 .public-nav .public-nav-login {
   border: 1px solid #cbd5e1;
-  background: rgba(255, 255, 255, .92);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .07);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.07);
 }
 
 .public-nav .public-nav-cta {
   background: linear-gradient(135deg, #0f172a, #1d4ed8);
   color: white;
-  box-shadow: 0 16px 32px rgba(15, 23, 42, .18);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
 }
 
 .public-nav .public-nav-cta:hover {
@@ -204,7 +212,7 @@ function usarFallbackLogo() {
   }
 
   .public-brand {
-    justify-content: center;
+    justify-content: flex-start;
     padding: 10px 12px;
   }
 
@@ -214,9 +222,9 @@ function usarFallbackLogo() {
     padding-left: 10px;
   }
 
-  .public-brand-logo {
-    width: min(230px, 72vw);
-    height: 54px;
+  .public-brand-mark {
+    width: 44px;
+    height: 44px;
   }
 }
 
