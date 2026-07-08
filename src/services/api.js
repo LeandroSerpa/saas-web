@@ -3959,6 +3959,14 @@ export async function buscarMinhaConta() {
   return tratarResposta(response)
 }
 
+export async function buscarResumoMinhaConta() {
+  const response = await executarFetch(`${API_URL}/minha-conta/resumo`, {
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function atualizarMinhaConta(payload) {
   const response = await executarFetch(`${API_URL}/minha-conta`, {
     method: 'PUT',
