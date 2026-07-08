@@ -77,13 +77,6 @@ onMounted(carregarConteudo)
     </section>
 
     <section class="conteudo-legal">
-      <aside class="indice-card">
-        <span class="selo">Nesta página</span>
-        <a v-for="(secao, indice) in conteudo.secoes" :key="`${secao.titulo}-${indice}`" :href="`#secao-${indice}`">
-          {{ secao.titulo || `Seção ${indice + 1}` }}
-        </a>
-      </aside>
-
       <article class="documento-card">
         <p v-if="carregando" class="aviso">Carregando conteúdo...</p>
 
@@ -93,7 +86,6 @@ onMounted(carregarConteudo)
           :key="`${secao.titulo}-${secao.texto}`"
           class="secao-texto"
         >
-          <span>{{ String(indice + 1).padStart(2, '0') }}</span>
           <h2 v-if="secao.titulo">{{ secao.titulo }}</h2>
           <p>{{ secao.texto }}</p>
         </section>
@@ -171,58 +163,27 @@ h1 {
 
 .conteudo-legal {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
   gap: 22px;
   padding-top: 28px;
   padding-bottom: 34px;
 }
 
-.indice-card,
-.documento-card {
-  border: 1px solid rgba(148, 163, 184, .24);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, .94);
-  box-shadow: 0 24px 58px rgba(15, 23, 42, .08);
-}
-
-.indice-card {
-  position: sticky;
-  top: 92px;
-  align-self: start;
-  display: grid;
-  gap: 10px;
-  padding: 20px;
-}
-
-.indice-card a {
-  border-radius: 8px;
-  padding: 10px;
-  color: #334155;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.indice-card a:hover {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
 .documento-card {
   display: grid;
   gap: 24px;
+  max-width: 840px;
+  margin: 0 auto;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .94);
   padding: 32px;
+  box-shadow: 0 24px 58px rgba(15, 23, 42, .08);
 }
 
 .secao-texto {
   display: grid;
   gap: 8px;
   scroll-margin-top: 110px;
-}
-
-.secao-texto span {
-  color: #2563eb;
-  font-size: 12px;
-  font-weight: 900;
 }
 
 .secao-texto h2 {
@@ -245,16 +206,6 @@ h1 {
   font-weight: 800;
 }
 
-@media (max-width: 760px) {
-  .conteudo-legal {
-    grid-template-columns: 1fr;
-  }
-
-  .indice-card {
-    position: static;
-  }
-}
-
 @media (max-width: 560px) {
   .hero-legal,
   .conteudo-legal {
@@ -269,8 +220,7 @@ h1 {
     padding-bottom: 34px;
   }
 
-  .documento-card,
-  .indice-card {
+  .documento-card {
     padding: 20px;
   }
 }

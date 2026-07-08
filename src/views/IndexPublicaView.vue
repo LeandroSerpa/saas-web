@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import PublicFooter from '@/components/publico/PublicFooter.vue'
 import PublicHeader from '@/components/publico/PublicHeader.vue'
+import PublicPlanosSection from '@/components/publico/PublicPlanosSection.vue'
 import { BRAND_NAME, BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
 
 const heroComErro = ref(false)
@@ -207,7 +208,7 @@ const modulos = [
       </div>
     </section>
 
-    <section class="secao">
+    <section id="recursos" class="secao">
       <div class="secao-cabecalho">
         <span class="selo">Por que usar</span>
         <h2>Uma plataforma pensada para pequenas empresas que precisam atender bem e organizar a rotina.</h2>
@@ -278,6 +279,8 @@ const modulos = [
         </article>
       </div>
     </section>
+
+    <PublicPlanosSection />
 
     <section class="cta-final">
       <span class="selo claro">Comece com mais organização</span>

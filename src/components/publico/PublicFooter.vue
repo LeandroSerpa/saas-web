@@ -2,8 +2,15 @@
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { BRAND_NAME, BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
+import {
+  LINKS_MENU_PUBLICO,
+  obterRotaPublicaCadastro,
+  obterRotaPublicaEntrar,
+  obterRotaPublicaInicio,
+} from '@/utils/navegacaoPublica'
 
 const logoComErro = ref(false)
+const LINKS_PORTAL_FOOTER = LINKS_MENU_PUBLICO.filter((link) => link.chave !== 'sobre')
 
 function usarFallbackLogo() {
   logoComErro.value = true
@@ -14,7 +21,7 @@ function usarFallbackLogo() {
   <footer class="public-footer">
     <div class="public-footer-grid">
       <div class="public-footer-brand">
-        <RouterLink class="public-footer-logo" to="/" aria-label="Ir para a página inicial">
+        <RouterLink class="public-footer-logo" :to="obterRotaPublicaInicio()" aria-label="Ir para a página inicial">
           <span class="public-footer-mark">
             <img
               v-if="!logoComErro"
@@ -33,23 +40,25 @@ function usarFallbackLogo() {
           </span>
         </RouterLink>
         <p>
-          Sistema de gestão na nuvem para pequenos negócios que precisam organizar agenda, catálogo, páginas públicas e
-          rotina operacional.
+          Sistema de gestão na nuvem para pequenos negócios que precisam organizar agenda, catálogo, páginas públicas
+          e rotina operacional.
         </p>
       </div>
 
       <nav aria-label="Links públicos">
         <strong>Portal</strong>
-        <RouterLink to="/cadastro">Começar agora</RouterLink>
-        <RouterLink to="/login">Entrar</RouterLink>
-        <RouterLink to="/sobre">Sobre</RouterLink>
+        <RouterLink v-for="link in LINKS_PORTAL_FOOTER" :key="link.chave" :to="link.to">
+          {{ link.rotulo }}
+        </RouterLink>
+        <RouterLink :to="obterRotaPublicaEntrar()">Entrar</RouterLink>
       </nav>
 
       <nav aria-label="Links institucionais">
         <strong>Institucional</strong>
         <RouterLink to="/termos">Termos</RouterLink>
         <RouterLink to="/privacidade">Privacidade</RouterLink>
-        <RouterLink to="/cadastro#planos">Planos</RouterLink>
+        <RouterLink to="/sobre">Sobre</RouterLink>
+        <RouterLink :to="obterRotaPublicaCadastro()">Começar agora</RouterLink>
       </nav>
     </div>
   </footer>

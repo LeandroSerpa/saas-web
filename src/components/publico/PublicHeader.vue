@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { BRAND_NAME, BRAND_TAGLINE, brandAssets } from '@/utils/brandAssets'
+import { LINKS_ACAO_PUBLICA, LINKS_MENU_PUBLICO } from '@/utils/navegacaoPublica'
 
 defineProps({
   compacto: {
@@ -40,10 +41,17 @@ function usarFallbackLogo() {
     </RouterLink>
 
     <nav class="public-nav" aria-label="Navegação pública">
-      <RouterLink to="/sobre">Sobre</RouterLink>
-      <RouterLink to="/cadastro#planos">Planos</RouterLink>
-      <RouterLink class="public-nav-login" to="/login">Entrar</RouterLink>
-      <RouterLink class="public-nav-cta" to="/cadastro">Começar agora</RouterLink>
+      <RouterLink v-for="link in LINKS_MENU_PUBLICO" :key="link.chave" :to="link.to">
+        {{ link.rotulo }}
+      </RouterLink>
+      <RouterLink
+        v-for="link in LINKS_ACAO_PUBLICA"
+        :key="link.chave"
+        :class="link.classe"
+        :to="link.to"
+      >
+        {{ link.rotulo }}
+      </RouterLink>
     </nav>
   </header>
 </template>
