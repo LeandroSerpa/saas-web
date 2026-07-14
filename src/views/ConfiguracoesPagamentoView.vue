@@ -1,6 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { buscarMetodosPagamentoAdmin, salvarMetodosPagamentoAdmin } from '@/services/api'
+import PixConfigForm from '@/components/PixConfigForm.vue'
+import {
+  buscarConfiguracaoPixEmpresa,
+  buscarMetodosPagamentoAdmin,
+  gerarPreviewMensagemPix,
+  resetarConfiguracaoPixEmpresa,
+  salvarConfiguracaoPixEmpresa,
+} from '@/services/api'
+import { montarPayloadPix, normalizarConfiguracaoPix, validarConfiguracaoPix } from '@/utils/pix'
 import { METODOS_PAGAMENTO, normalizarListaMetodosPagamento } from '@/utils/metodosPagamento'
 
 const metodosBase = METODOS_PAGAMENTO
@@ -10,6 +18,13 @@ const carregando = ref(true)
 const salvando = ref(false)
 const erro = ref('')
 const sucesso = ref('')
+const carregandoPix = ref(true)
+const salvandoPix = ref(false)
+const erroPix = ref('')
+const sucessoPix = ref('')
+const previsaoServidorPix = ref('')
+const carregandoPrevisaoServidorPix = ref(false)
+const configuracaoPix = ref(criarConfiguracaoPixPadrao())
 
 const pixDesmarcado = computed(() => !ativos.value.includes('PIX'))
 
@@ -26,6 +41,23 @@ async function carregarDados() {
     console.error(error)
   } finally {
     carregando.value = false
+  }
+}
+
+async function carregarConfiguracaoPix() {
+  try {
+    carregandoPix.value = true
+    erroPix.value = ''
+    sucessoPix.value = ''
+    previsaoServidorPix.value = ''
+    const dados = await buscarConfiguracaoPixEmpresa()
+    configuracaoPix.value = normalizarConfiguracaoPix(dados)
+  } catch (error) {
+    configuracaoPix.value = criarConfiguracaoPixPadrao()
+    erroPix.value = obterMensagemErro(error, 'Não foi possível carregar a configuração de PIX.')
+    console.error(error)
+  } finally {
+    carregandoPix.value = false
   }
 }
 
@@ -56,11 +88,104 @@ async function salvar() {
   }
 }
 
+function criarConfiguracaoPixPadrao() {
+  return normalizarConfiguracaoPix({
+    pixAtivo: false,
+    tipoChavePix: '',
+    chavePix: '',
+    nomeRecebedor: '',
+    instrucoesPix: '',
+    templateMensagem: '',
+  })
+}
+
+async function salvarConfiguracaoPix() {
+  const validacao = validarConfiguracaoPix(configuracaoPix.value)
+
+  if (!validacao.valido) {
+    erroPix.value = validacao.mensagem
+    sucessoPix.value = ''
+    return
+  }
+
+  try {
+    salvandoPix.value = true
+    erroPix.value = ''
+    sucessoPix.value = ''
+    await salvarConfiguracaoPixEmpresa(montarPayloadPix(configuracaoPix.value))
+    await carregarConfiguracaoPix()
+    sucessoPix.value = 'Configuração de PIX salva com sucesso.'
+  } catch (error) {
+    erroPix.value = obterMensagemErro(error, 'Não foi possível salvar a configuração de PIX.')
+    console.error(error)
+  } finally {
+    salvandoPix.value = false
+  }
+}
+
+async function resetarConfiguracaoPix() {
+  if (typeof window !== 'undefined' && !window.confirm('Restaurar a configuração de PIX para o padrão?')) {
+    return
+  }
+
+  try {
+    salvandoPix.value = true
+    erroPix.value = ''
+    sucessoPix.value = ''
+    await resetarConfiguracaoPixEmpresa()
+    configuracaoPix.value = criarConfiguracaoPixPadrao()
+    previsaoServidorPix.value = ''
+    sucessoPix.value = 'Configuração de PIX restaurada com sucesso.'
+  } catch (error) {
+    erroPix.value = obterMensagemErro(error, 'Não foi possível restaurar a configuração de PIX.')
+    console.error(error)
+  } finally {
+    salvandoPix.value = false
+  }
+}
+
+async function gerarPreviaServidorPix(dadosTeste) {
+  const validacao = validarConfiguracaoPix(configuracaoPix.value)
+
+  if (!validacao.valido) {
+    erroPix.value = validacao.mensagem
+    return
+  }
+
+  try {
+    carregandoPrevisaoServidorPix.value = true
+    erroPix.value = ''
+    sucessoPix.value = ''
+
+    const resposta = await gerarPreviewMensagemPix({
+      ...montarPayloadPix(configuracaoPix.value),
+      ...dadosTeste,
+    })
+
+    previsaoServidorPix.value =
+      resposta?.mensagemPreview ||
+      resposta?.mensagem ||
+      resposta?.preview ||
+      resposta?.textoMensagem ||
+      resposta?.texto ||
+      ''
+  } catch (error) {
+    previsaoServidorPix.value = ''
+    erroPix.value = obterMensagemErro(error, 'Não foi possível gerar a prévia pelo servidor.')
+    console.error(error)
+  } finally {
+    carregandoPrevisaoServidorPix.value = false
+  }
+}
+
 function obterMensagemErro(error, fallback) {
   return String(error?.message || '').trim() || fallback
 }
 
-onMounted(carregarDados)
+onMounted(() => {
+  carregarDados()
+  carregarConfiguracaoPix()
+})
 </script>
 
 <template>
@@ -80,6 +205,22 @@ onMounted(carregarDados)
     <section class="card aviso-pix">
       <strong>O PIX é o método padrão das faturas recorrentes automáticas.</strong>
       <p v-if="pixDesmarcado">Atenção: faturas recorrentes usam PIX por padrão. Recomendamos manter PIX ativo.</p>
+    </section>
+
+    <section class="card pix-card">
+      <PixConfigForm
+        v-model="configuracaoPix"
+        :carregando="carregandoPix"
+        :erro="erroPix"
+        :sucesso="sucessoPix"
+        :salvando="salvandoPix"
+        :carregando-previsao-servidor="carregandoPrevisaoServidorPix"
+        :previsao-servidor="previsaoServidorPix"
+        :previsao-servidor-disponivel="true"
+        @salvar="salvarConfiguracaoPix"
+        @resetar="resetarConfiguracaoPix"
+        @gerar-previsao-servidor="gerarPreviaServidorPix"
+      />
     </section>
 
     <section class="card painel">
@@ -158,6 +299,10 @@ h1 {
 .aviso-pix p {
   margin-top: 8px;
   color: #92400e;
+}
+
+.pix-card {
+  display: grid;
 }
 
 .painel {
