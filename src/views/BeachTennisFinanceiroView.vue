@@ -35,6 +35,12 @@ import {
   rotuloPerfilBeachTennis,
 } from '@/utils/beachTennis'
 import {
+  aplicarTemplatePix,
+  copiarTextoSeguro,
+  montarPayloadPix,
+  validarConfiguracaoPix,
+} from '@/utils/pix'
+import {
   carregarContextoGestaoEsportiva,
   contextoGestaoEsportiva,
   recarregarContextoGestaoEsportiva,
@@ -230,39 +236,6 @@ const placeholdersMensagemCobranca = [
   { chave: '{vencimento}', descricao: 'Data de vencimento' },
   { chave: '{chavePix}', descricao: 'Chave PIX configurada' },
 ]
-const validacaoPixConfiguracao = computed(() => {
-  const tipoChavePix = String(configuracao.value.tipoChavePix || '').trim()
-  const chavePix = String(configuracao.value.chavePix || '').trim()
-  const nomeRecebedor = String(configuracao.value.nomeRecebedor || '').trim()
-  const algumCampoPixPreenchido = Boolean(tipoChavePix || chavePix || nomeRecebedor)
-  const faltando = []
-
-  if (algumCampoPixPreenchido) {
-    if (!tipoChavePix) faltando.push('o tipo da chave PIX')
-    if (!chavePix) faltando.push('a chave PIX')
-    if (!nomeRecebedor) faltando.push('o nome do recebedor')
-  }
-
-  let mensagem = ''
-  if (faltando.length === 1) {
-    mensagem = `Preencha ${faltando[0]} para salvar a configuração de PIX.`
-  } else if (faltando.length === 2) {
-    mensagem = `Preencha ${faltando[0]} e ${faltando[1]} para salvar a configuração de PIX.`
-  } else if (faltando.length >= 3) {
-    mensagem = 'Preencha o tipo da chave PIX, a chave PIX e o nome do recebedor para salvar a configuração de PIX.'
-  }
-
-  return {
-    ativo: algumCampoPixPreenchido,
-    valido: faltando.length === 0,
-    mensagem,
-    camposInvalidos: {
-      tipoChavePix: algumCampoPixPreenchido && !tipoChavePix,
-      chavePix: algumCampoPixPreenchido && !chavePix,
-      nomeRecebedor: algumCampoPixPreenchido && !nomeRecebedor,
-    },
-  }
-})
 const professoresDisponiveisAcordo = computed(() =>
   [...professoresAcordo.value]
     .map((item) => ({
@@ -415,6 +388,16 @@ const atrasosResumo = computed(() => {
   }
 
   return calcularResumoLocal().atrasos.slice(0, 5)
+})
+const validacaoPixConfiguracao = computed(() => {
+  const validacao = validarConfiguracaoPix(configuracao.value)
+
+  return {
+    ativo: validacao.pixAtivo,
+    valido: validacao.valido,
+    mensagem: validacao.mensagem,
+    camposInvalidos: validacao.camposInvalidos,
+  }
 })
 const previewMensagemConfiguracao = computed(() => montarMensagemPreviewConfiguracao(dadosExemploMensagemCobranca.value))
 
@@ -607,29 +590,10 @@ async function copiarTextoParaAreaTransferencia(texto, mensagemSucesso, mensagem
   }
 
   try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText && typeof window !== 'undefined' && window.isSecureContext) {
-      await navigator.clipboard.writeText(valor)
-    } else if (typeof document !== 'undefined') {
-      const areaTemporaria = document.createElement('textarea')
-      areaTemporaria.value = valor
-      areaTemporaria.setAttribute('readonly', 'readonly')
-      areaTemporaria.style.position = 'absolute'
-      areaTemporaria.style.left = '-9999px'
-      document.body.appendChild(areaTemporaria)
-      areaTemporaria.select()
-      let copiado = false
+    const copiou = await copiarTextoSeguro(valor)
 
-      try {
-        copiado = document.execCommand('copy')
-      } finally {
-        document.body.removeChild(areaTemporaria)
-      }
-
-      if (!copiado) {
-        throw new Error('Não foi possível copiar o texto.')
-      }
-    } else {
-      throw new Error('Área de transferência indisponível.')
+    if (!copiou) {
+      throw new Error('Não foi possível copiar o texto.')
     }
 
     sucesso.value = mensagemSucesso
@@ -2261,24 +2225,17 @@ function montarMensagemPreviewLocal(mensalidade) {
     valor: mensalidade.valor || 0,
     vencimento: mensalidade.vencimento ? formatarData(mensalidade.vencimento) : 'sem vencimento informado',
     chavePix: configuracao.value.chavePix || 'chave PIX não configurada',
+    nomeRecebedor: configuracao.value.nomeRecebedor || '',
   })
 }
 
 function montarMensagemPreviewConfiguracao(dados = {}) {
-  const template = String(configuracao.value.templateMensagem || criarConfiguracaoPadrao().templateMensagem)
-  const substituicoes = {
-    '{nomeResponsavel}': dados.nomeResponsavel || '',
-    '{nomeAcordo}': dados.nomeAcordo || '',
-    '{competencia}': formatarCompetencia(dados.competencia || ''),
-    '{valor}': formatarMoeda(dados.valor || 0),
-    '{vencimento}': dados.vencimento || '',
-    '{chavePix}': dados.chavePix || '',
-  }
-
-  return Object.entries(substituicoes).reduce(
-    (texto, [chave, valor]) => texto.replaceAll(chave, String(valor || '')),
-    template,
-  )
+  return aplicarTemplatePix(configuracao.value.templateMensagem || criarConfiguracaoPadrao().templateMensagem, {
+    ...dados,
+    competencia: formatarCompetencia(dados.competencia || ''),
+    valor: dados.valor || 0,
+    vencimento: dados.vencimento || '',
+  })
 }
 
 async function salvarConfiguracao() {
@@ -2311,10 +2268,7 @@ async function salvarConfiguracao() {
       termoAtividadePlural: String(configuracao.value.termoAtividadePlural || '').trim(),
       termoLocalSingular: String(configuracao.value.termoLocalSingular || '').trim(),
       termoLocalPlural: String(configuracao.value.termoLocalPlural || '').trim(),
-      chavePix: String(configuracao.value.chavePix || '').trim(),
-      tipoChavePix: String(configuracao.value.tipoChavePix || '').trim().toUpperCase(),
-      nomeRecebedorPix: String(configuracao.value.nomeRecebedor || '').trim(),
-      mensagemCobrancaTemplate: String(configuracao.value.templateMensagem || '').trim(),
+      ...montarPayloadPix(configuracao.value),
       nomePlay: String(configuracao.value.nomePlay || 'PLAY').trim() || 'PLAY',
     })
 
