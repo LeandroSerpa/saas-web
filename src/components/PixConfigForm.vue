@@ -82,7 +82,6 @@ const ajudaTipo = computed(
 
 const templateTextarea = ref(null)
 const editorAvancadoAberto = ref(false)
-const opcoesMontagem = ref(criarOpcoesMontagemPadrao())
 
 const TIPOS_CHAVE_PIX = [
   { valor: 'CPF', rotulo: 'CPF' },
@@ -93,16 +92,16 @@ const TIPOS_CHAVE_PIX = [
 ]
 
 const OPCOES_MONTAGEM_PIX = [
-  { campo: 'incluirNomeResponsavel', rotulo: 'Incluir nome do responsável', ativoPadrao: true },
-  { campo: 'incluirCompetencia', rotulo: 'Incluir competência', ativoPadrao: true },
-  { campo: 'incluirNomeAcordo', rotulo: 'Incluir nome do acordo', ativoPadrao: true },
-  { campo: 'incluirValor', rotulo: 'Incluir valor', ativoPadrao: true },
-  { campo: 'incluirVencimento', rotulo: 'Incluir vencimento', ativoPadrao: true },
-  { campo: 'incluirChavePix', rotulo: 'Incluir chave PIX', ativoPadrao: true },
-  { campo: 'incluirNomeRecebedorPix', rotulo: 'Incluir nome do recebedor', ativoPadrao: false },
-  { campo: 'incluirEmpresa', rotulo: 'Incluir nome da empresa', ativoPadrao: false },
-  { campo: 'incluirInstrucoesPix', rotulo: 'Incluir instruções PIX', ativoPadrao: true },
-  { campo: 'incluirPedidoComprovante', rotulo: 'Incluir pedido de comprovante', ativoPadrao: true },
+  { campo: 'incluirNomeResponsavel', rotulo: 'Incluir nome do responsável', ativoPadrao: true, mostrarAcoes: false },
+  { campo: 'incluirCompetencia', rotulo: 'Incluir competência', ativoPadrao: true, mostrarAcoes: false },
+  { campo: 'incluirNomeAcordo', rotulo: 'Incluir nome do acordo', ativoPadrao: true, mostrarAcoes: false },
+  { campo: 'incluirValor', rotulo: 'Incluir valor', ativoPadrao: true, mostrarAcoes: false },
+  { campo: 'incluirVencimento', rotulo: 'Incluir vencimento', ativoPadrao: true, mostrarAcoes: false },
+  { campo: 'incluirChavePix', rotulo: 'Incluir chave PIX', ativoPadrao: true, mostrarAcoes: false },
+  { campo: 'incluirNomeRecebedorPix', rotulo: 'Incluir nome do recebedor', ativoPadrao: false, mostrarAcoes: false },
+  { campo: 'incluirEmpresa', rotulo: 'Incluir nome da empresa', ativoPadrao: false, mostrarAcoes: false },
+  { campo: 'incluirInstrucoesPix', rotulo: 'Incluir instruções PIX', ativoPadrao: true, mostrarAcoes: false },
+  { campo: 'incluirPedidoComprovante', rotulo: 'Incluir pedido de comprovante', ativoPadrao: true, mostrarAcoes: false },
 ]
 
 const PLACEHOLDER_BOTOES = [
@@ -142,6 +141,8 @@ function criarOpcoesMontagemPadrao() {
     return acc
   }, {})
 }
+
+const opcoesMontagem = ref(criarOpcoesMontagemPadrao())
 
 function atualizarCampos(parcial) {
   emit('update:modelValue', {
