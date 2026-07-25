@@ -8,7 +8,13 @@ import {
   resetarConfiguracaoPixEmpresa,
   salvarConfiguracaoPixEmpresa,
 } from '@/services/api'
-import { montarPayloadPix, normalizarConfiguracaoPix, validarConfiguracaoPix } from '@/utils/pix'
+import {
+  gerarTemplatePixPadrao,
+  montarPayloadPix,
+  normalizarConfiguracaoPix,
+  validarConfiguracaoPix,
+  validarPlaceholdersPix,
+} from '@/utils/pix'
 import { METODOS_PAGAMENTO, normalizarListaMetodosPagamento } from '@/utils/metodosPagamento'
 
 const metodosBase = METODOS_PAGAMENTO
@@ -95,15 +101,26 @@ function criarConfiguracaoPixPadrao() {
     chavePix: '',
     nomeRecebedor: '',
     instrucoesPix: '',
-    templateMensagem: '',
+    templateMensagem: gerarTemplatePixPadrao(),
   })
 }
 
-async function salvarConfiguracaoPix() {
-  const validacao = validarConfiguracaoPix(configuracaoPix.value)
+async function salvarConfiguracaoPix(payload = {}) {
+  const configuracaoParaSalvar = {
+    ...configuracaoPix.value,
+    ...payload,
+  }
+  const validacao = validarConfiguracaoPix(configuracaoParaSalvar)
+  const validacaoTemplate = validarPlaceholdersPix(configuracaoParaSalvar.templateMensagem)
 
   if (!validacao.valido) {
     erroPix.value = validacao.mensagem
+    sucessoPix.value = ''
+    return
+  }
+
+  if (!validacaoTemplate.valido) {
+    erroPix.value = validacaoTemplate.mensagem
     sucessoPix.value = ''
     return
   }
@@ -112,6 +129,7 @@ async function salvarConfiguracaoPix() {
     salvandoPix.value = true
     erroPix.value = ''
     sucessoPix.value = ''
+    configuracaoPix.value = normalizarConfiguracaoPix(configuracaoParaSalvar)
     await salvarConfiguracaoPixEmpresa(montarPayloadPix(configuracaoPix.value))
     await carregarConfiguracaoPix()
     sucessoPix.value = 'Configuração de PIX salva com sucesso.'
@@ -145,10 +163,20 @@ async function resetarConfiguracaoPix() {
 }
 
 async function gerarPreviaServidorPix(dadosTeste) {
-  const validacao = validarConfiguracaoPix(configuracaoPix.value)
+  const configuracaoParaPrevia = {
+    ...configuracaoPix.value,
+    ...dadosTeste,
+  }
+  const validacao = validarConfiguracaoPix(configuracaoParaPrevia)
+  const validacaoTemplate = validarPlaceholdersPix(configuracaoParaPrevia.templateMensagem)
 
   if (!validacao.valido) {
     erroPix.value = validacao.mensagem
+    return
+  }
+
+  if (!validacaoTemplate.valido) {
+    erroPix.value = validacaoTemplate.mensagem
     return
   }
 
@@ -158,7 +186,7 @@ async function gerarPreviaServidorPix(dadosTeste) {
     sucessoPix.value = ''
 
     const resposta = await gerarPreviewMensagemPix({
-      ...montarPayloadPix(configuracaoPix.value),
+      ...montarPayloadPix(configuracaoParaPrevia),
       ...dadosTeste,
     })
 
