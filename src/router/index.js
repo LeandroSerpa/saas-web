@@ -52,7 +52,11 @@ const SobreView = () => import('../views/SobreView.vue')
 const AjudaView = () => import('../views/AjudaView.vue')
 const EstoqueView = () => import('../views/EstoqueView.vue')
 import { caminhoEhRotaPublicaFrontend, carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
+import { buscarMinhaEmpresa, obterEmpresaVisualizacao } from '@/services/api'
 import { carregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
+import {
+  avaliarAcessoCatalogoOperacional,
+} from '@/utils/acessoCatalogoOperacional'
 import { ehAdmin, ehSuperAdmin } from '@/utils/permissoes'
 
 const rotasProtegidas = {
@@ -62,6 +66,11 @@ const rotasProtegidas = {
 const rotasAdmin = {
   requiresAuth: true,
   requiresAdmin: true,
+}
+
+const rotasCatalogoOperacional = {
+  requiresAuth: true,
+  requiresCatalogoOperacional: true,
 }
 
 const rotasSuperAdmin = {
@@ -260,13 +269,13 @@ const router = createRouter({
       path: '/estoque',
       name: 'estoque',
       component: EstoqueView,
-      meta: rotasAdmin,
+      meta: rotasCatalogoOperacional,
     },
     {
       path: '/catalogo-publico',
       name: 'catalogo-publico-interno',
       component: EstoqueView,
-      meta: rotasAdmin,
+      meta: rotasCatalogoOperacional,
     },
     {
       path: '/ajuda',
@@ -590,6 +599,26 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresSuperAdmin) {
     if (!ehSuperAdmin(usuario)) {
+      return { name: 'acesso-negado' }
+    }
+  }
+
+  if (to.meta.requiresCatalogoOperacional) {
+    const empresaVisualizacao = obterEmpresaVisualizacao()
+    const superAdminGlobal = ehSuperAdmin(usuario) && !empresaVisualizacao?.id
+    const empresaOperacional = superAdminGlobal
+      ? null
+      : await buscarMinhaEmpresa().catch((error) => {
+          console.error(error)
+          return null
+        })
+    const avaliacaoCatalogo = avaliarAcessoCatalogoOperacional({
+      usuario,
+      empresaOperacional,
+      empresaVisualizacao,
+    })
+
+    if (!avaliacaoCatalogo.permitido) {
       return { name: 'acesso-negado' }
     }
   }
