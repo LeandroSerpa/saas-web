@@ -22,6 +22,7 @@ import {
   limparSessaoAutenticacao,
   obterInfoVersaoSistemaPadrao,
   obterEmpresaIdOperacao,
+  obterEmpresaVisualizacao,
   obterTipoSeloAmbiente,
   salvarMinhasPreferenciasAparencia,
 } from '@/services/api'
@@ -31,6 +32,13 @@ import {
   limparContextoGestaoEsportiva,
   recarregarContextoGestaoEsportiva,
 } from '@/utils/gestaoEsportiva'
+import {
+  avaliarAcessoCatalogoOperacional,
+} from '@/utils/acessoCatalogoOperacional'
+import {
+  formatarEmpresaLogadaCabecalho,
+  resolverEmpresaEfetivaCabecalho,
+} from '@/utils/empresaCabecalho'
 import {
   aplicarTemaAparenciaNoDocumento,
   carregarPreferenciasAparenciaBackend,
@@ -329,6 +337,7 @@ const rotaCadastroPublico = computed(() => ['/cadastro', '/cadastro-empresa', '/
 const rotaInstitucionalPublica = computed(() => ['/termos', '/privacidade', '/sobre'].includes(route.path))
 const rotaCadastroPendente = computed(() => route.path === '/cadastro-pendente')
 const usuario = ref(carregarUsuarioSessao())
+const empresaVisualizacaoOperacional = ref(obterEmpresaVisualizacao())
 const trocaSenhaObrigatoria = computed(() => usuario.value?.trocaSenhaObrigatoria === true)
 const rotaSemLayout = computed(() =>
   rotaLogin.value ||
@@ -342,20 +351,20 @@ const rotaSemLayout = computed(() =>
   (route.path === '/alterar-senha' && trocaSenhaObrigatoria.value),
 )
 const mostrarNotificacoes = computed(() => Boolean(usuario.value) && !rotaSemLayout.value)
+const empresaEfetivaCabecalho = computed(() => {
+  return resolverEmpresaEfetivaCabecalho({
+    usuario: usuario.value,
+    empresaOperacional: empresaOperacional.value,
+    empresaVisualizacaoOperacional: empresaVisualizacaoOperacional.value,
+    superAdmin: superAdmin.value,
+  })
+})
 const empresaLogada = computed(() => {
-  if (usuario.value?.empresaNome) {
-    return `Empresa: ${usuario.value.empresaNome}`
-  }
-
-  if (usuario.value?.empresaId) {
-    return 'Empresa'
-  }
-
-  if (ehSuperAdmin(usuario.value)) {
-    return 'Plataforma NuvemMais'
-  }
-
-  return 'Empresa'
+  return formatarEmpresaLogadaCabecalho({
+    usuario: usuario.value,
+    empresaEfetiva: empresaEfetivaCabecalho.value,
+    superAdmin: superAdmin.value,
+  })
 })
 const identificacaoConta = computed(() => {
   const email = String(usuario.value?.email || '').trim()
@@ -405,9 +414,15 @@ const modulosAtivosEmpresa = computed(() => normalizarModulosAtivos(empresaOpera
 const moduloAgendamentoAtivo = computed(() =>
   avaliarVisibilidadeOperacao(['AGEND'], () => true, avaliarCapacidadeAgendamentoOperacional),
 )
-const moduloEstoqueAtivo = computed(() =>
-  avaliarVisibilidadeOperacao(['ESTOQ'], () => podeGerenciarUsuarios.value, avaliarCapacidadeEstoqueOperacional),
+const avaliacaoCatalogoOperacao = computed(() =>
+  avaliarAcessoCatalogoOperacional({
+    usuario: usuario.value,
+    empresaOperacional: empresaOperacional.value,
+    modulos: modulosAtivosEmpresa.value,
+    carregando: empresaOperacionalCarregando.value,
+  }),
 )
+const podeGerenciarCatalogoOperacao = computed(() => avaliacaoCatalogoOperacao.value.permitido)
 const contextoEmpresaOperacionalAtivo = computed(() => {
   if (empresaOperacionalCarregando.value) {
     return false
@@ -438,8 +453,8 @@ const mostrarServicosOperacao = computed(
 const mostrarFuncionariosOperacao = computed(
   () => podeVerMenuOperacional.value && !deveExibirGestaoEsportiva.value,
 )
-const mostrarEstoqueOperacao = computed(() => moduloEstoqueAtivo.value)
-const mostrarCatalogoPublicoOperacao = computed(() => moduloEstoqueAtivo.value)
+const mostrarEstoqueOperacao = computed(() => podeGerenciarCatalogoOperacao.value)
+const mostrarCatalogoPublicoOperacao = computed(() => podeGerenciarCatalogoOperacao.value)
 const mostrarDisponibilidadeOperacao = computed(
   () => moduloAgendamentoAtivo.value && modoNavegacaoCompleto.value && podeGerenciarUsuarios.value,
 )
@@ -455,8 +470,7 @@ const mostrarGrupoOperacao = computed(
     mostrarClientesOperacao.value ||
     mostrarServicosOperacao.value ||
     mostrarFuncionariosOperacao.value ||
-    mostrarEstoqueOperacao.value ||
-    mostrarCatalogoPublicoOperacao.value ||
+    podeGerenciarCatalogoOperacao.value ||
     mostrarDisponibilidadeOperacao.value ||
     mostrarRelatoriosOperacao.value ||
     mostrarPrimeirosPassosOperacao.value,
@@ -1064,6 +1078,7 @@ function atualizarUsuarioLogado() {
     usuario.value = null
     statusFinanceiro.value = null
     empresaOperacional.value = null
+    empresaVisualizacaoOperacional.value = null
     empresaOperacionalCarregadaPara.value = ''
     empresaOperacionalCarregando.value = false
     assinaturaOperacional.value = null
@@ -1074,6 +1089,7 @@ function atualizarUsuarioLogado() {
   }
 
   usuario.value = carregarUsuarioSessao()
+  empresaVisualizacaoOperacional.value = obterEmpresaVisualizacao()
 
   if (usuario.value) {
     sincronizarModoNavegacao(usuario.value)
@@ -1082,6 +1098,7 @@ function atualizarUsuarioLogado() {
     void carregarEmpresaOperacional()
   } else {
     empresaOperacional.value = null
+    empresaVisualizacaoOperacional.value = null
     empresaOperacionalCarregadaPara.value = ''
     empresaOperacionalCarregando.value = false
     assinaturaOperacional.value = null
@@ -1098,6 +1115,7 @@ async function carregarEmpresaOperacional() {
 
   if (superAdmin.value && !empresaIdOperacao) {
     empresaOperacional.value = null
+    empresaVisualizacaoOperacional.value = null
     empresaOperacionalCarregadaPara.value = ''
     empresaOperacionalCarregando.value = false
     assinaturaOperacional.value = null
@@ -1170,6 +1188,7 @@ async function atualizarVisualizacaoEmpresaGlobal() {
     return
   }
 
+  empresaVisualizacaoOperacional.value = obterEmpresaVisualizacao()
   await recarregarContextoGestaoEsportiva()
   await carregarEmpresaOperacional()
   recarregamentoVisualizacaoEmpresa.value += 1
