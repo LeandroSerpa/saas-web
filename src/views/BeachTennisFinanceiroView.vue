@@ -35,11 +35,17 @@ import {
   rotuloPerfilBeachTennis,
 } from '@/utils/beachTennis'
 import {
-  aplicarTemplatePix,
   copiarTextoSeguro,
+  gerarMensagemPixFallback,
+  gerarTemplatePixPadrao,
   montarPayloadPix,
+  mensagemPixContemValoresNaoResolvidos,
+  normalizarCobrancaWhatsappPix,
   validarConfiguracaoPix,
+  validarPlaceholdersPix,
+  abrirWhatsappSeguro,
 } from '@/utils/pix'
+import PixConfigForm from '@/components/PixConfigForm.vue'
 import {
   carregarContextoGestaoEsportiva,
   contextoGestaoEsportiva,
@@ -183,7 +189,6 @@ const mensalidadeManual = ref(criarMensalidadeManualPadrao())
 const pagamentoMensalidade = ref(criarPagamentoPadrao())
 const cobrancaWhatsapp = ref(criarCobrancaWhatsappPadrao())
 const apoioMensalidadesCarregado = ref(false)
-let janelaWhatsapp = null
 let botaoAberturaSeletorAlunos = null
 let botaoAberturaSeletorTurmas = null
 let temporizadorBuscaAcordos = null
@@ -391,15 +396,15 @@ const atrasosResumo = computed(() => {
 })
 const validacaoPixConfiguracao = computed(() => {
   const validacao = validarConfiguracaoPix(configuracao.value)
+  const validacaoTemplate = validarPlaceholdersPix(configuracao.value.templateMensagem)
 
   return {
     ativo: validacao.pixAtivo,
-    valido: validacao.valido,
-    mensagem: validacao.mensagem,
+    valido: validacao.valido && validacaoTemplate.valido,
+    mensagem: validacaoTemplate.valido ? validacao.mensagem : validacaoTemplate.mensagem,
     camposInvalidos: validacao.camposInvalidos,
   }
 })
-const previewMensagemConfiguracao = computed(() => montarMensagemPreviewConfiguracao(dadosExemploMensagemCobranca.value))
 
 function criarPaginaVazia(size = 10) {
   return {
@@ -564,8 +569,7 @@ function criarConfiguracaoPadrao() {
     tipoChavePix: '',
     chavePix: '',
     nomeRecebedor: '',
-    templateMensagem:
-      'Olá, {nomeResponsavel}! A mensalidade referente a {competencia}, do acordo {nomeAcordo}, está no valor de {valor} e vence em {vencimento}. PIX: {chavePix}. Após o pagamento, por favor envie o comprovante. Obrigado!',
+    templateMensagem: gerarTemplatePixPadrao(),
     nomePlay: 'PLAY',
   }
 }
@@ -578,6 +582,7 @@ function criarCobrancaWhatsappPadrao() {
     orientacao: '',
     whatsappUrl: '',
     telefone: '',
+    popupBloqueado: false,
   }
 }
 
@@ -2148,8 +2153,6 @@ async function cobrarNoWhatsApp(mensalidade) {
     return
   }
 
-  janelaWhatsapp = abrirJanelaWhatsApp()
-
   try {
     processandoAcaoId.value = String(mensalidade.id)
     erro.value = ''
@@ -2157,38 +2160,85 @@ async function cobrarNoWhatsApp(mensalidade) {
 
     const resposta = await cobrarMensalidadeWhatsappBeachTennis(mensalidade.id)
 
-    const whatsappUrl = textoResposta(resposta, 'whatsappUrl', 'urlWhatsapp', 'linkWhatsapp')
-    const telefone = textoResposta(resposta, 'telefoneNormalizado', 'telefone')
-    const mensagem = textoResposta(resposta, 'mensagem', 'preview', 'mensagemPreview', 'textoMensagem') ||
-      montarMensagemPreviewLocal(mensalidade)
-    const orientacao =
-      textoResposta(resposta, 'orientacao', 'ajuda', 'mensagemOrientacao') ||
-      orientarCobrancaWhatsApp(mensalidade)
+    const telefoneLocal = extrairTelefoneResponsavel(mensalidade)
+    const mensagemLocal = montarMensagemPreviewLocal(mensalidade)
+    const cobrancaNormalizada = normalizarCobrancaWhatsappPix(resposta, {
+      mensagemFallback: mensagemLocal,
+      telefoneFallback: telefoneLocal,
+      orientacaoFallback: orientarCobrancaWhatsApp(mensalidade),
+    })
+    const {
+      mensagem,
+      whatsappUrl,
+      telefone,
+      podeAbrirWhatsApp: podeAbrirWhatsapp,
+      motivoBloqueio,
+      orientacao: orientacaoBase,
+    } = cobrancaNormalizada
+
+    if (!podeAbrirWhatsapp) {
+      cobrancaWhatsapp.value = {
+        aberta: true,
+        titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
+        mensagem,
+        orientacao: orientacaoBase,
+        whatsappUrl: '',
+        telefone,
+        popupBloqueado: false,
+      }
+      erro.value = orientacaoBase
+      return
+    }
+
+    if (!whatsappUrl) {
+      const orientacao = orientacaoBase || motivoBloqueio || 'Não foi possível preparar o link do WhatsApp para esta cobrança.'
+      cobrancaWhatsapp.value = {
+        aberta: true,
+        titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
+        mensagem,
+        orientacao,
+        whatsappUrl: '',
+        telefone,
+        popupBloqueado: false,
+      }
+      erro.value = orientacao
+      return
+    }
+
+    if (mensagemPixContemValoresNaoResolvidos(mensagem)) {
+      const orientacao = 'Não foi possível preparar a mensagem de cobrança. Revise a configuração de PIX.'
+      cobrancaWhatsapp.value = {
+        aberta: true,
+        titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
+        mensagem,
+        orientacao,
+        whatsappUrl: '',
+        telefone,
+        popupBloqueado: false,
+      }
+      erro.value = orientacao
+      return
+    }
+
+    const aberturaWhatsapp = abrirWhatsappSeguro(whatsappUrl)
 
     cobrancaWhatsapp.value = {
       aberta: true,
       titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
       mensagem,
-      orientacao,
+      orientacao: aberturaWhatsapp.bloqueado
+        ? 'O navegador bloqueou a abertura automática. Use o link abaixo ou copie a mensagem.'
+        : orientacaoBase,
       whatsappUrl,
       telefone,
+      popupBloqueado: aberturaWhatsapp.bloqueado,
     }
 
-    if (whatsappUrl) {
-      if (janelaWhatsapp) {
-        janelaWhatsapp.location.href = whatsappUrl
-      } else {
-        window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
-      }
-    } else if (janelaWhatsapp) {
-      janelaWhatsapp.close()
-      janelaWhatsapp = null
+    if (aberturaWhatsapp.bloqueado) {
+      erro.value = ''
+      sucesso.value = ''
     }
   } catch (exception) {
-    if (janelaWhatsapp) {
-      janelaWhatsapp.close()
-      janelaWhatsapp = null
-    }
     erro.value = obterMensagemErro(exception, 'Não foi possível preparar a cobrança via WhatsApp.')
     cobrancaWhatsapp.value = {
       aberta: true,
@@ -2197,6 +2247,7 @@ async function cobrarNoWhatsApp(mensalidade) {
       orientacao: orientarCobrancaWhatsApp(mensalidade),
       whatsappUrl: '',
       telefone: '',
+      popupBloqueado: false,
     }
     console.error(exception)
   } finally {
@@ -2218,7 +2269,7 @@ function orientarCobrancaWhatsApp(mensalidade) {
 }
 
 function montarMensagemPreviewLocal(mensalidade) {
-  return montarMensagemPreviewConfiguracao({
+  return gerarMensagemPixFallback({
     nomeResponsavel: mensalidade.clienteResponsavelNome || mensalidade.responsavelNome || rotuloResponsavelPagamento,
     nomeAcordo: mensalidade.nomeAcordo || 'Acordo sem nome',
     competencia: mensalidade.competencia || competenciaSelecionada.value,
@@ -2226,15 +2277,8 @@ function montarMensagemPreviewLocal(mensalidade) {
     vencimento: mensalidade.vencimento ? formatarData(mensalidade.vencimento) : 'sem vencimento informado',
     chavePix: configuracao.value.chavePix || 'chave PIX não configurada',
     nomeRecebedor: configuracao.value.nomeRecebedor || '',
-  })
-}
-
-function montarMensagemPreviewConfiguracao(dados = {}) {
-  return aplicarTemplatePix(configuracao.value.templateMensagem || criarConfiguracaoPadrao().templateMensagem, {
-    ...dados,
-    competencia: formatarCompetencia(dados.competencia || ''),
-    valor: dados.valor || 0,
-    vencimento: dados.vencimento || '',
+    empresa: nomeModalidade.value,
+    instrucoesPix: configuracao.value.instrucoesPix || '',
   })
 }
 
@@ -2954,14 +2998,6 @@ function compararTexto(a, b) {
   return normalizarTexto(a).localeCompare(normalizarTexto(b), 'pt-BR')
 }
 
-function abrirJanelaWhatsApp() {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  return window.open('about:blank', '_blank', 'noopener,noreferrer')
-}
-
 function cobrarLimparPreview() {
   cobrancaWhatsapp.value = criarCobrancaWhatsappPadrao()
 }
@@ -2975,7 +3011,7 @@ function abrirWhatsappDoPreview() {
     return
   }
 
-  window.open(cobrancaWhatsapp.value.whatsappUrl, '_blank', 'noopener,noreferrer')
+  abrirWhatsappSeguro(cobrancaWhatsapp.value.whatsappUrl)
 }
 
 function extrairTelefoneResponsavel(mensalidade) {
@@ -3090,11 +3126,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
-
-  if (janelaWhatsapp) {
-    janelaWhatsapp.close()
-    janelaWhatsapp = null
-  }
 
   if (temporizadorBuscaAluno) {
     window.clearTimeout(temporizadorBuscaAluno)
@@ -3599,14 +3630,30 @@ onBeforeUnmount(() => {
 
           <p v-if="cobrancaWhatsapp.orientacao" class="aviso-whatsapp">{{ cobrancaWhatsapp.orientacao }}</p>
           <pre class="previsualizacao">{{ cobrancaWhatsapp.mensagem || 'Sem prévia disponível.' }}</pre>
+          <button class="botao secundario" type="button" :disabled="!cobrancaWhatsapp.mensagem" @click="copiarTextoParaAreaTransferencia(
+            cobrancaWhatsapp.mensagem,
+            'Mensagem copiada com sucesso.',
+            'Não foi possível copiar a mensagem.'
+          )">
+            Copiar mensagem
+          </button>
           <button
-            v-if="cobrancaWhatsapp.whatsappUrl"
+            v-if="cobrancaWhatsapp.whatsappUrl && !cobrancaWhatsapp.popupBloqueado"
             class="botao principal"
             type="button"
             @click="abrirWhatsappDoPreview"
           >
             Abrir WhatsApp novamente
           </button>
+          <a
+            v-else-if="cobrancaWhatsapp.whatsappUrl && cobrancaWhatsapp.popupBloqueado"
+            class="botao principal link-whatsapp"
+            :href="cobrancaWhatsapp.whatsappUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Abrir WhatsApp
+          </a>
         </section>
       </section>
 
@@ -3689,7 +3736,7 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Configuração e PIX</h2>
-              <p>Configure a chave PIX, o recebedor e a mensagem de cobrança. Se não for usar PIX, deixe os três campos em branco.</p>
+              <p>Configure a chave PIX e mantenha a mensagem em montagem automática. Os termos da modalidade continuam abaixo.</p>
             </div>
             <div class="acoes-cabecalho">
               <button class="botao secundario" type="button" @click="restaurarTermosPadrao">
@@ -3701,179 +3748,101 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="campos">
-            <label :class="{ 'campo-com-erro': validacaoPixConfiguracao.ativo && validacaoPixConfiguracao.camposInvalidos.tipoChavePix }">
-              Tipo da chave PIX
-              <select v-model="configuracao.tipoChavePix">
-                <option v-for="opcao in TIPO_CHAVE_PIX" :key="opcao.valor" :value="opcao.valor">
-                  {{ opcao.rotulo }}
-                </option>
-              </select>
-            </label>
+          <PixConfigForm
+            v-model="configuracao"
+            :carregando="carregando || salvandoConfiguracao"
+            :salvando="salvandoConfiguracao"
+            :mostrar-acoes="false"
+            :previsao-servidor="previsaoServidorPix"
+            :carregando-previsao-servidor="carregandoPrevisaoServidorPix"
+            :previsao-servidor-disponivel="true"
+            @gerar-previsao-servidor="gerarPreviaServidorPix"
+          />
 
-            <label
-              class="campo-grande"
-              :class="{ 'campo-com-erro': validacaoPixConfiguracao.ativo && validacaoPixConfiguracao.camposInvalidos.chavePix }"
-            >
-              Chave PIX
-              <input v-model="configuracao.chavePix" type="text" placeholder="Digite a chave PIX" />
-              <button
-                v-if="String(configuracao.chavePix || '').trim()"
-                class="botao secundario botao-acao-campo"
-                type="button"
-                @click="copiarChavePixConfiguracao"
-              >
-                Copiar chave PIX
-              </button>
-            </label>
+          <details
+            class="card secao-avancada"
+            :open="configuracaoTermosAvancadosAberta"
+            @toggle="configuracaoTermosAvancadosAberta = $event.target.open"
+          >
+            <summary class="secao-avancada-summary">
+              <div>
+                <p class="subtitulo-secao">Configuração detalhada</p>
+                <h2>Termos e nomenclaturas avançadas</h2>
+                <p>Campos menos usados para ajustar a linguagem da modalidade.</p>
+              </div>
+              <span class="botao secundario secao-avancada-acao">
+                {{ configuracaoTermosAvancadosAberta ? 'Recolher' : 'Expandir' }}
+              </span>
+            </summary>
 
-            <label :class="{ 'campo-com-erro': validacaoPixConfiguracao.ativo && validacaoPixConfiguracao.camposInvalidos.nomeRecebedor }">
-              Nome do recebedor
-              <input v-model="configuracao.nomeRecebedor" type="text" placeholder="Nome que aparecerá na cobrança" />
-            </label>
+            <div class="campos">
+              <label>
+                Código da modalidade
+                <select v-model="configuracao.modalidadeCodigo">
+                  <option value="">Selecione</option>
+                  <option v-for="opcao in OPCOES_MODALIDADE" :key="opcao.valor" :value="opcao.valor">
+                    {{ opcao.rotulo }}
+                  </option>
+                </select>
+              </label>
 
-            <label>
-              Nome do evento livre
-              <input v-model="configuracao.nomePlay" type="text" :placeholder="nomeEventoLivre" />
-            </label>
+              <label>
+                Nome exibido da modalidade
+                <input v-model="configuracao.nomeModalidade" type="text" placeholder="Ex: Futebol" />
+              </label>
 
-            <label class="campo-grande">
-              Template da mensagem
-              <textarea
-                v-model="configuracao.templateMensagem"
-                rows="6"
-                placeholder="Use {nomeResponsavel}, {competencia}, {nomeAcordo}, {valor}, {vencimento} e {chavePix}"
-              ></textarea>
-            </label>
-          </div>
+              <label>
+                Participante singular
+                <input v-model="configuracao.termoParticipanteSingular" type="text" placeholder="Ex: Atleta" />
+              </label>
 
-          <p v-if="validacaoPixConfiguracao.mensagem" class="feedback-lista erro-inline aviso-pix">
-            {{ validacaoPixConfiguracao.mensagem }}
-          </p>
-          <p v-else class="ajuda-campo aviso-pix">
-            Se preferir não usar PIX, deixe tipo, chave e recebedor vazios.
-          </p>
+              <label>
+                Participantes plural
+                <input v-model="configuracao.termoParticipantePlural" type="text" placeholder="Ex: Atletas" />
+              </label>
+
+              <label>
+                Responsável singular
+                <input v-model="configuracao.termoResponsavelSingular" type="text" placeholder="Ex: Treinador" />
+              </label>
+
+              <label>
+                Responsáveis plural
+                <input v-model="configuracao.termoResponsavelPlural" type="text" placeholder="Ex: Treinadores" />
+              </label>
+
+              <label>
+                Grupo singular
+                <input v-model="configuracao.termoGrupoSingular" type="text" placeholder="Ex: Equipe" />
+              </label>
+
+              <label>
+                Grupos plural
+                <input v-model="configuracao.termoGrupoPlural" type="text" placeholder="Ex: Equipes" />
+              </label>
+
+              <label>
+                Atividade singular
+                <input v-model="configuracao.termoAtividadeSingular" type="text" placeholder="Ex: Treino" />
+              </label>
+
+              <label>
+                Atividades plural
+                <input v-model="configuracao.termoAtividadePlural" type="text" placeholder="Ex: Treinos" />
+              </label>
+
+              <label>
+                Local singular
+                <input v-model="configuracao.termoLocalSingular" type="text" placeholder="Ex: Campo" />
+              </label>
+
+              <label>
+                Locais plural
+                <input v-model="configuracao.termoLocalPlural" type="text" placeholder="Ex: Campos" />
+              </label>
+            </div>
+          </details>
         </section>
-
-        <section class="card ajuda-mensagem-pix">
-          <div class="cabecalho-card">
-            <div>
-              <h2>Ajuda da mensagem</h2>
-              <p>Estes marcadores são trocados automaticamente quando a cobrança é montada.</p>
-            </div>
-          </div>
-
-          <div class="lista-placeholders">
-            <article v-for="placeholder in placeholdersMensagemCobranca" :key="placeholder.chave" class="placeholder-item">
-              <code>{{ placeholder.chave }}</code>
-              <span>{{ placeholder.descricao }}</span>
-            </article>
-          </div>
-        </section>
-
-        <section class="card preview-configuracao">
-          <div class="cabecalho-card">
-            <div>
-              <h2>Prévia da mensagem no WhatsApp</h2>
-              <p>Exemplo com dados fictícios para validar o texto antes de salvar.</p>
-            </div>
-            <div class="acoes-cabecalho">
-              <button class="botao secundario" type="button" @click="copiarMensagemExemploConfiguracao">
-                Copiar mensagem de exemplo
-              </button>
-            </div>
-          </div>
-
-          <p class="ajuda-campo aviso-whatsapp">
-            O WhatsApp será aberto com a mensagem pronta, mas o envio continua manual.
-          </p>
-
-          <pre class="previsualizacao">{{ previewMensagemConfiguracao }}</pre>
-        </section>
-
-        <details
-          class="card secao-avancada"
-          :open="configuracaoTermosAvancadosAberta"
-          @toggle="configuracaoTermosAvancadosAberta = $event.target.open"
-        >
-          <summary class="secao-avancada-summary">
-            <div>
-              <p class="subtitulo-secao">Configuração detalhada</p>
-              <h2>Termos e nomenclaturas avançadas</h2>
-              <p>Campos menos usados para ajustar a linguagem da modalidade.</p>
-            </div>
-            <span class="botao secundario secao-avancada-acao">
-              {{ configuracaoTermosAvancadosAberta ? 'Recolher' : 'Expandir' }}
-            </span>
-          </summary>
-
-          <div class="campos">
-            <label>
-              Código da modalidade
-              <select v-model="configuracao.modalidadeCodigo">
-                <option value="">Selecione</option>
-                <option v-for="opcao in OPCOES_MODALIDADE" :key="opcao.valor" :value="opcao.valor">
-                  {{ opcao.rotulo }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              Nome exibido da modalidade
-              <input v-model="configuracao.nomeModalidade" type="text" placeholder="Ex: Futebol" />
-            </label>
-
-            <label>
-              Participante singular
-              <input v-model="configuracao.termoParticipanteSingular" type="text" placeholder="Ex: Atleta" />
-            </label>
-
-            <label>
-              Participantes plural
-              <input v-model="configuracao.termoParticipantePlural" type="text" placeholder="Ex: Atletas" />
-            </label>
-
-            <label>
-              Responsável singular
-              <input v-model="configuracao.termoResponsavelSingular" type="text" placeholder="Ex: Treinador" />
-            </label>
-
-            <label>
-              Responsáveis plural
-              <input v-model="configuracao.termoResponsavelPlural" type="text" placeholder="Ex: Treinadores" />
-            </label>
-
-            <label>
-              Grupo singular
-              <input v-model="configuracao.termoGrupoSingular" type="text" placeholder="Ex: Equipe" />
-            </label>
-
-            <label>
-              Grupos plural
-              <input v-model="configuracao.termoGrupoPlural" type="text" placeholder="Ex: Equipes" />
-            </label>
-
-            <label>
-              Atividade singular
-              <input v-model="configuracao.termoAtividadeSingular" type="text" placeholder="Ex: Treino" />
-            </label>
-
-            <label>
-              Atividades plural
-              <input v-model="configuracao.termoAtividadePlural" type="text" placeholder="Ex: Treinos" />
-            </label>
-
-            <label>
-              Local singular
-              <input v-model="configuracao.termoLocalSingular" type="text" placeholder="Ex: Campo" />
-            </label>
-
-            <label>
-              Locais plural
-              <input v-model="configuracao.termoLocalPlural" type="text" placeholder="Ex: Campos" />
-            </label>
-          </div>
-        </details>
       </section>
     </section>
 

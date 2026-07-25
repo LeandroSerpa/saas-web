@@ -24,6 +24,20 @@ const TIPOS_EQUIVALENTES = {
   CHAVE_ALEATORIO: 'ALEATORIA',
 }
 
+export const PLACEHOLDERS_PIX_PERMITIDOS = Object.freeze([
+  'nomeResponsavel',
+  'competencia',
+  'nomeAcordo',
+  'valor',
+  'vencimento',
+  'chavePix',
+  'nomeRecebedorPix',
+  'empresa',
+  'instrucoesPix',
+])
+
+const PLACEHOLDERS_PIX_PERMITIDOS_SET = new Set(PLACEHOLDERS_PIX_PERMITIDOS)
+
 function textoSeguro(valor) {
   return String(valor ?? '')
     .replace(/[\r\n\t]+/g, ' ')
@@ -93,6 +107,18 @@ function primeiroValorPreenchido(obj, chaves = []) {
   }
 
   return undefined
+}
+
+function valorBooleano(valor, padrao = false) {
+  if (typeof valor === 'boolean') {
+    return valor
+  }
+
+  if (valor === undefined || valor === null || valor === '') {
+    return padrao
+  }
+
+  return Boolean(valor)
 }
 
 export function normalizarTipoChavePix(valor) {
@@ -199,6 +225,10 @@ export function aplicarTemplatePix(template, dados = {}) {
     nomeResponsavel: textoSeguro(primeiroValorPreenchido(dados, ['nomeResponsavel', 'cliente', 'nomeCliente', 'nome'])),
     competencia: textoSeguro(primeiroValorPreenchido(dados, ['competencia', 'mes', 'periodo'])),
     nomeAcordo: textoSeguro(primeiroValorPreenchido(dados, ['nomeAcordo', 'descricao', 'titulo'])),
+    empresa: textoSeguro(primeiroValorPreenchido(dados, ['empresa', 'nomeEmpresa', 'razaoSocial', 'nomeFantasia'])),
+    instrucoesPix: textoSeguro(
+      primeiroValorPreenchido(dados, ['instrucoesPix', 'instrucoes', 'orientacoesPix', 'mensagemInstrucaoPix']),
+    ),
   }
 
   return textoTemplate.replace(/\{([^}]+)\}/g, (marcador, chave) => {
@@ -211,37 +241,62 @@ export function aplicarTemplatePix(template, dados = {}) {
 }
 
 export function gerarMensagemPixFallback(dados = {}) {
-  const cliente = textoSeguro(primeiroValorPreenchido(dados, ['cliente', 'nomeCliente', 'nomeResponsavel', 'nome']))
-  const descricao = textoSeguro(primeiroValorPreenchido(dados, ['descricao', 'nomeAcordo', 'titulo']))
+  const nomeResponsavel = textoSeguro(primeiroValorPreenchido(dados, ['nomeResponsavel', 'cliente', 'nomeCliente', 'nome']))
+  const nomeAcordo = textoSeguro(primeiroValorPreenchido(dados, ['nomeAcordo', 'descricao', 'titulo']))
+  const competencia = formatarDataPix(primeiroValorPreenchido(dados, ['competencia', 'mes', 'periodo']))
   const valor = formatarValorPix(primeiroValorPreenchido(dados, ['valor', 'valorTotal', 'valorPago']))
   const vencimento = formatarDataPix(primeiroValorPreenchido(dados, ['vencimento', 'dataVencimento', 'data']))
   const chavePix = textoSeguro(primeiroValorPreenchido(dados, ['chavePix', 'pixChave', 'pix']))
-  const nomeRecebedor = textoSeguro(primeiroValorPreenchido(dados, ['nomeRecebedorPix', 'nomeRecebedor', 'recebedorNome']))
+  const nomeRecebedorPix = textoSeguro(
+    primeiroValorPreenchido(dados, ['nomeRecebedorPix', 'nomeRecebedor', 'recebedorNome']),
+  )
+  const empresa = textoSeguro(primeiroValorPreenchido(dados, ['empresa', 'nomeEmpresa', 'razaoSocial', 'nomeFantasia']))
+  const instrucoesPix = textoSeguro(
+    primeiroValorPreenchido(dados, ['instrucoesPix', 'instrucoes', 'orientacoesPix', 'mensagemInstrucaoPix']),
+  )
 
   const partes = []
 
-  if (cliente) {
-    partes.push(`Olá, ${cliente}!`)
+  if (nomeResponsavel) {
+    partes.push(`Olá, ${nomeResponsavel}!`)
   }
 
-  if (descricao) {
-    partes.push(`Segue a cobrança de ${descricao}.`)
+  const elementosMensagem = []
+
+  if (competencia) {
+    elementosMensagem.push(`referente a ${competencia}`)
+  }
+
+  if (nomeAcordo) {
+    elementosMensagem.push(`do acordo ${nomeAcordo}`)
   }
 
   if (valor) {
-    partes.push(`Valor: ${valor}.`)
+    elementosMensagem.push(`no valor de ${valor}`)
   }
 
   if (vencimento) {
-    partes.push(`Vencimento: ${vencimento}.`)
+    elementosMensagem.push(`e vence em ${vencimento}`)
+  }
+
+  if (elementosMensagem.length) {
+    partes.push(`A mensalidade ${elementosMensagem.join(', ')}.`)
   }
 
   if (chavePix) {
     partes.push(`PIX: ${chavePix}.`)
   }
 
-  if (nomeRecebedor) {
-    partes.push(`Recebedor: ${nomeRecebedor}.`)
+  if (nomeRecebedorPix) {
+    partes.push(`Recebedor: ${nomeRecebedorPix}.`)
+  }
+
+  if (empresa) {
+    partes.push(`Empresa: ${empresa}.`)
+  }
+
+  if (instrucoesPix) {
+    partes.push(`Instruções PIX: ${instrucoesPix}.`)
   }
 
   partes.push('Após o pagamento, envie o comprovante. Obrigado!')
@@ -251,6 +306,316 @@ export function gerarMensagemPixFallback(dados = {}) {
     .replace(/\s+/g, ' ')
     .replace(/\s+([.,!?;:])/g, '$1')
     .trim()
+}
+
+export function extrairPlaceholdersPix(template) {
+  const texto = textoSeguro(template)
+
+  if (!texto) {
+    return []
+  }
+
+  const encontrados = new Set()
+  const padrao = /\{([^{}]+)\}/g
+  let correspondencia = padrao.exec(texto)
+
+  while (correspondencia) {
+    const placeholder = String(correspondencia[1] || '').trim()
+    if (placeholder) {
+      encontrados.add(placeholder)
+    }
+    correspondencia = padrao.exec(texto)
+  }
+
+  return [...encontrados]
+}
+
+export function validarPlaceholdersPix(template) {
+  const placeholders = extrairPlaceholdersPix(template)
+  const placeholdersInvalidos = placeholders.filter((placeholder) => !PLACEHOLDERS_PIX_PERMITIDOS_SET.has(placeholder))
+
+  if (!placeholdersInvalidos.length) {
+    return {
+      valido: true,
+      mensagem: '',
+      placeholders,
+      placeholdersInvalidos,
+    }
+  }
+
+  const listagem = placeholdersInvalidos.map((placeholder) => `{${placeholder}}`).join(', ')
+
+  return {
+    valido: false,
+    mensagem: `Encontramos marcadores não reconhecidos no texto: ${listagem}. Use o modelo automático ou revise o texto avançado.`,
+    placeholders,
+    placeholdersInvalidos,
+  }
+}
+
+export function montarTemplatePixPorSelecao(opcoes = {}) {
+  const incluirNomeResponsavel = valorBooleano(opcoes.incluirNomeResponsavel, true)
+  const incluirCompetencia = valorBooleano(opcoes.incluirCompetencia, true)
+  const incluirNomeAcordo = valorBooleano(opcoes.incluirNomeAcordo, true)
+  const incluirValor = valorBooleano(opcoes.incluirValor, true)
+  const incluirVencimento = valorBooleano(opcoes.incluirVencimento, true)
+  const incluirChavePix = valorBooleano(opcoes.incluirChavePix, true)
+  const incluirNomeRecebedorPix = valorBooleano(opcoes.incluirNomeRecebedorPix, false)
+  const incluirEmpresa = valorBooleano(opcoes.incluirEmpresa, false)
+  const incluirInstrucoesPix = valorBooleano(opcoes.incluirInstrucoesPix, true)
+  const incluirPedidoComprovante = valorBooleano(opcoes.incluirPedidoComprovante, true)
+
+  const linhas = []
+
+  linhas.push(incluirNomeResponsavel ? 'Olá, {nomeResponsavel}!' : 'Olá!')
+
+  const clausulasMensalidade = []
+
+  if (incluirCompetencia) {
+    clausulasMensalidade.push('referente a {competencia}')
+  }
+
+  if (incluirNomeAcordo) {
+    clausulasMensalidade.push('do acordo {nomeAcordo}')
+  }
+
+  if (incluirValor) {
+    clausulasMensalidade.push('está no valor de {valor}')
+  }
+
+  if (incluirVencimento) {
+    clausulasMensalidade.push('vence em {vencimento}')
+  }
+
+  if (clausulasMensalidade.length) {
+    linhas.push(`A mensalidade ${clausulasMensalidade.join(', ')}.`)
+  }
+
+  if (incluirChavePix) {
+    linhas.push('PIX: {chavePix}.')
+  }
+
+  if (incluirNomeRecebedorPix) {
+    linhas.push('Recebedor: {nomeRecebedorPix}.')
+  }
+
+  if (incluirEmpresa) {
+    linhas.push('Empresa: {empresa}.')
+  }
+
+  if (incluirInstrucoesPix) {
+    linhas.push('Instruções PIX: {instrucoesPix}.')
+  }
+
+  if (incluirPedidoComprovante) {
+    linhas.push('Após o pagamento, envie o comprovante.')
+  }
+
+  return linhas.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+export function mensagemPixContemValoresNaoResolvidos(texto) {
+  const mensagem = textoSeguro(texto)
+
+  if (!mensagem) {
+    return false
+  }
+
+  if (/\b(undefined|null)\b/i.test(mensagem)) {
+    return true
+  }
+
+  return extrairPlaceholdersPix(mensagem).length > 0
+}
+
+export function normalizarTelefoneWhatsapp(valor) {
+  let numero = String(valor ?? '').replace(/\D+/g, '')
+
+  if (!numero) {
+    return ''
+  }
+
+  numero = numero.replace(/^0+/, '')
+
+  if (numero.startsWith('55') && (numero.length === 12 || numero.length === 13)) {
+    return numero
+  }
+
+  if (numero.length === 10 || numero.length === 11) {
+    return `55${numero}`
+  }
+
+  return ''
+}
+
+export function montarWhatsappUrl(telefone, mensagem) {
+  const numero = normalizarTelefoneWhatsapp(telefone)
+  const texto = textoSeguro(mensagem)
+
+  if (!numero || !texto) {
+    return null
+  }
+
+  return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
+}
+
+function interpretarBooleanoCobrancaWhatsapp(valor, padrao = false) {
+  if (typeof valor === 'boolean') {
+    return valor
+  }
+
+  const texto = String(valor ?? '').trim().toLowerCase()
+
+  if (!texto) {
+    return padrao
+  }
+
+  if (['true', '1', 'sim', 's', 'yes', 'y'].includes(texto)) {
+    return true
+  }
+
+  if (['false', '0', 'nao', 'não', 'n', 'no'].includes(texto)) {
+    return false
+  }
+
+  return padrao
+}
+
+export function normalizarCobrancaWhatsappPix(resposta = {}, opcoes = {}) {
+  const base = resposta && typeof resposta === 'object' ? resposta : {}
+  const mensagemResposta = primeiroTextoPreenchido(base, [
+    'mensagem',
+    'preview',
+    'mensagemPreview',
+    'textoMensagem',
+    'mensagemWhatsapp',
+  ])
+  const mensagemFallback = textoSeguro(opcoes?.mensagemFallback)
+  const mensagem = mensagemResposta && !mensagemPixContemValoresNaoResolvidos(mensagemResposta)
+    ? mensagemResposta
+    : mensagemFallback
+  const whatsappUrl = primeiroTextoPreenchido(base, ['whatsappUrl', 'urlWhatsapp', 'linkWhatsapp'])
+  const telefoneResposta = primeiroTextoPreenchido(base, [
+    'telefoneWhatsApp',
+    'telefoneNormalizado',
+    'telefoneWhatsappNormalizado',
+    'telefone',
+  ])
+  const telefone = normalizarTelefoneWhatsapp(telefoneResposta || opcoes?.telefoneFallback)
+  const motivoBloqueio = primeiroTextoPreenchido(base, [
+    'motivoBloqueio',
+    'motivo_bloqueio',
+    'motivo',
+    'mensagemBloqueio',
+  ])
+  const orientacaoResposta = primeiroTextoPreenchido(base, ['orientacao', 'ajuda', 'mensagemOrientacao'])
+  const podeAbrirWhatsApp = interpretarBooleanoCobrancaWhatsapp(
+    primeiroValorPreenchido(base, ['podeAbrirWhatsApp', 'podeAbrirWhatsapp', 'abrirWhatsapp']),
+    Boolean(whatsappUrl),
+  )
+  let orientacao = motivoBloqueio || orientacaoResposta || textoSeguro(opcoes?.orientacaoFallback)
+
+  if (!podeAbrirWhatsApp) {
+    return {
+      mensagem,
+      whatsappUrl: '',
+      telefone,
+      podeAbrirWhatsApp: false,
+      motivoBloqueio,
+      orientacao,
+    }
+  }
+
+  if (!whatsappUrl) {
+    orientacao = orientacao ||
+      (
+        !telefone
+          ? 'O responsável pelo pagamento não possui telefone válido cadastrado. Atualize o telefone do responsável para abrir o WhatsApp automaticamente.'
+          : 'Não foi possível preparar o link do WhatsApp para esta cobrança.'
+      )
+
+    return {
+      mensagem,
+      whatsappUrl: '',
+      telefone,
+      podeAbrirWhatsApp: false,
+      motivoBloqueio,
+      orientacao,
+    }
+  }
+
+  if (mensagemPixContemValoresNaoResolvidos(mensagem)) {
+    return {
+      mensagem,
+      whatsappUrl: '',
+      telefone,
+      podeAbrirWhatsApp: false,
+      motivoBloqueio,
+      orientacao: orientacao || 'Não foi possível preparar a mensagem de cobrança. Revise a configuração de PIX.',
+    }
+  }
+
+  return {
+    mensagem,
+    whatsappUrl,
+    telefone,
+    podeAbrirWhatsApp: true,
+    motivoBloqueio,
+    orientacao,
+  }
+}
+
+export function abrirWhatsappSeguro(whatsappUrl, janelaTemporaria = null) {
+  const url = String(whatsappUrl || '').trim()
+
+  if (!url || typeof window === 'undefined') {
+    if (janelaTemporaria && typeof janelaTemporaria.close === 'function') {
+      janelaTemporaria.close()
+    }
+
+    return {
+      aberta: false,
+      bloqueado: false,
+      janela: null,
+    }
+  }
+
+  if (janelaTemporaria && typeof janelaTemporaria.location !== 'undefined') {
+    try {
+      janelaTemporaria.location.replace(url)
+      return {
+        aberta: true,
+        bloqueado: false,
+        janela: janelaTemporaria,
+      }
+    } catch (error) {
+      try {
+        janelaTemporaria.close()
+      } catch (fechamentoError) {
+        // ignorado
+      }
+    }
+  }
+
+  const popup = window.open(url, '_blank', 'noopener,noreferrer')
+
+  if (!popup) {
+    return {
+      aberta: false,
+      bloqueado: true,
+      janela: null,
+    }
+  }
+
+  return {
+    aberta: true,
+    bloqueado: false,
+    janela: popup,
+  }
+}
+
+export function gerarTemplatePixPadrao() {
+  return montarTemplatePixPorSelecao()
 }
 
 export function validarConfiguracaoPix(dados = {}) {
