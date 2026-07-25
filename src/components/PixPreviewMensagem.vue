@@ -3,8 +3,9 @@ import { computed, ref } from 'vue'
 import {
   aplicarTemplatePix,
   copiarTextoSeguro,
-  gerarMensagemPixFallback,
+  gerarTemplatePixPadrao,
   normalizarConfiguracaoPix,
+  validarPlaceholdersPix,
 } from '@/utils/pix'
 
 const props = defineProps({
@@ -24,36 +25,49 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  templateAutomatico: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['gerar-servidor'])
 
-const cliente = ref('Mariana Lima')
-const valor = ref('150,00')
-const descricao = ref('Mensalidade')
-const vencimento = ref(criarVencimentoPadrao())
 const mensagemCopiada = ref('')
 let temporizadorMensagem = null
 
 const configuracaoNormalizada = computed(() => normalizarConfiguracaoPix(props.configuracao))
 
-const dadosPrevia = computed(() => ({
-  cliente: cliente.value,
-  nomeResponsavel: cliente.value,
-  valor: valor.value,
-  descricao: descricao.value,
-  nomeAcordo: descricao.value,
-  vencimento: vencimento.value,
-  chavePix: configuracaoNormalizada.value.chavePix,
-  nomeRecebedorPix: configuracaoNormalizada.value.nomeRecebedor,
-  nomeRecebedor: configuracaoNormalizada.value.nomeRecebedor,
+const dadosFicticios = computed(() => ({
+  nomeResponsavel: 'Mariana Lima',
+  competencia: '06/2026',
+  nomeAcordo: 'Mensalidade Beach Tennis',
+  valor: 150,
+  vencimento: '10/07/2026',
+  chavePix: configuracaoNormalizada.value.chavePix || 'chave-pix@exemplo.com',
+  nomeRecebedorPix: configuracaoNormalizada.value.nomeRecebedor || 'Recebedor Exemplo',
+  empresa: 'NuvemMais Gestão',
+  instrucoesPix: configuracaoNormalizada.value.instrucoesPix || 'Após o pagamento, envie o comprovante.',
 }))
 
-const previsaoLocal = computed(() => {
-  const template = configuracaoNormalizada.value.templateMensagem
+const validacaoTemplate = computed(() => validarPlaceholdersPix(configuracaoNormalizada.value.templateMensagem))
+const templateAutomatizado = computed(() => props.templateAutomatico || gerarTemplatePixPadrao())
+const templatePrevia = computed(() => {
+  const templateAtual = String(configuracaoNormalizada.value.templateMensagem || '').trim()
 
-  return template ? aplicarTemplatePix(template, dadosPrevia.value) : gerarMensagemPixFallback(dadosPrevia.value)
+  if (templateAtual && validacaoTemplate.value.valido) {
+    return templateAtual
+  }
+
+  return templateAutomatizado.value
 })
+
+const previsaoLocal = computed(() => aplicarTemplatePix(templatePrevia.value, dadosFicticios.value))
+const avisoPrevia = computed(() =>
+  validacaoTemplate.value.valido
+    ? 'Esta prévia usa dados fictícios. Na cobrança real, os dados vêm automaticamente da mensalidade e do acordo.'
+    : validacaoTemplate.value.mensagem,
+)
 
 async function copiarMensagem() {
   const valorTexto = previsaoLocal.value
@@ -77,22 +91,10 @@ async function copiarMensagem() {
 
 function solicitarPreviaServidor() {
   emit('gerar-servidor', {
-    cliente: cliente.value,
-    valor: valor.value,
-    descricao: descricao.value,
-    vencimento: vencimento.value,
+    ...dadosFicticios.value,
+    templateMensagem: templatePrevia.value,
+    mensagemCobrancaTemplate: templatePrevia.value,
   })
-}
-
-function criarVencimentoPadrao() {
-  const data = new Date()
-  data.setDate(data.getDate() + 7)
-
-  const ano = data.getFullYear()
-  const mes = String(data.getMonth() + 1).padStart(2, '0')
-  const dia = String(data.getDate()).padStart(2, '0')
-
-  return `${ano}-${mes}-${dia}`
 }
 </script>
 
@@ -102,34 +104,14 @@ function criarVencimentoPadrao() {
       <div>
         <p class="subtitulo">Prévia da mensagem</p>
         <h3>Teste como a cobrança vai aparecer</h3>
-        <p>Preencha os dados abaixo para simular a mensagem localmente antes de salvar.</p>
+        <p>O sistema preenche os dados automaticamente. A configuração nunca precisa de valores reais digitados aqui.</p>
       </div>
       <button class="botao secundario" type="button" :disabled="carregandoServidor" @click="copiarMensagem">
         {{ mensagemCopiada || 'Copiar mensagem' }}
       </button>
     </div>
 
-    <div class="campos-teste">
-      <label>
-        Cliente
-        <input v-model="cliente" type="text" placeholder="Nome do cliente" />
-      </label>
-
-      <label>
-        Valor
-        <input v-model="valor" type="text" inputmode="decimal" placeholder="150,00" />
-      </label>
-
-      <label class="campo-grande">
-        Descrição
-        <input v-model="descricao" type="text" placeholder="Mensalidade" />
-      </label>
-
-      <label>
-        Vencimento
-        <input v-model="vencimento" type="date" />
-      </label>
-    </div>
+    <p class="aviso-ficticio">{{ avisoPrevia }}</p>
 
     <section class="bloco-previsao">
       <div class="cabecalho-previsao">
@@ -182,7 +164,8 @@ function criarVencimentoPadrao() {
 
 .cabecalho h3,
 .cabecalho p,
-.previsao-servidor {
+.previsao-servidor,
+.aviso-ficticio {
   margin: 0;
 }
 
@@ -192,25 +175,18 @@ function criarVencimentoPadrao() {
 }
 
 .cabecalho p,
-.previsao-servidor {
+.previsao-servidor,
+.aviso-ficticio {
   color: #64748b;
 }
 
-.campos-teste {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.campos-teste label {
-  display: grid;
-  gap: 6px;
-  color: #334155;
+.aviso-ficticio {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-weight: 700;
-}
-
-.campo-grande {
-  grid-column: 1 / -1;
 }
 
 .bloco-previsao {
@@ -250,10 +226,6 @@ function criarVencimentoPadrao() {
   .cabecalho-previsao {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .campos-teste {
-    grid-template-columns: 1fr;
   }
 
   .cabecalho .botao,

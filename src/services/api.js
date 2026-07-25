@@ -5051,7 +5051,7 @@ export async function reabrirMensalidadeBeachTennis(id) {
 }
 
 export async function cobrarMensalidadeWhatsappBeachTennis(id) {
-  const response = await executarFetch(montarUrlBeachTennisMensalidades(`/${id}/mensagem-whatsapp`), {
+  const response = await executarFetch(montarUrlBeachTennisMensalidades(`/${id}/cobranca-whatsapp`), {
     headers: montarHeaders(),
     cache: 'no-store',
   })
