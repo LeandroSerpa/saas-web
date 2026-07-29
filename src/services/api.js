@@ -2260,6 +2260,52 @@ export async function buscarStatusFinanceiroMinhaEmpresa() {
   return tratarResposta(response)
 }
 
+const CAMINHO_CONFIGURACAO_PIX_EMPRESA = '/minha-empresa/pix'
+const CAMINHO_PREVIEW_PIX_EMPRESA = '/minha-empresa/pix/preview-mensagem'
+const CAMINHO_RESET_PIX_EMPRESA = '/minha-empresa/pix/reset'
+
+function montarUrlConfiguracaoPixEmpresa(caminho = '') {
+  return `${API_URL}${CAMINHO_CONFIGURACAO_PIX_EMPRESA}${caminho}`
+}
+
+export async function buscarConfiguracaoPixEmpresa() {
+  const response = await executarFetch(montarUrlConfiguracaoPixEmpresa(), {
+    headers: montarHeaders(),
+    cache: 'no-store',
+  })
+
+  return tratarResposta(response)
+}
+
+export async function salvarConfiguracaoPixEmpresa(payload = {}) {
+  const response = await executarFetch(montarUrlConfiguracaoPixEmpresa(), {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function resetarConfiguracaoPixEmpresa() {
+  const response = await executarFetch(`${API_URL}${CAMINHO_RESET_PIX_EMPRESA}`, {
+    method: 'POST',
+    headers: montarHeaders(),
+  })
+
+  return tratarResposta(response)
+}
+
+export async function gerarPreviewMensagemPix(payload = {}) {
+  const response = await executarFetch(`${API_URL}${CAMINHO_PREVIEW_PIX_EMPRESA}`, {
+    method: 'POST',
+    headers: montarHeaders(true),
+    body: JSON.stringify(payload),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function buscarResumoFinanceiroSaas() {
   const response = await executarFetch(`${API_URL}/admin/financeiro/resumo`, {
     headers: montarHeaders(),
@@ -4725,7 +4771,7 @@ export async function reabrirMensalidadeBeachTennis(id) {
 }
 
 export async function cobrarMensalidadeWhatsappBeachTennis(id) {
-  const response = await executarFetch(montarUrlBeachTennisMensalidades(`/${id}/mensagem-whatsapp`), {
+  const response = await executarFetch(montarUrlBeachTennisMensalidades(`/${id}/cobranca-whatsapp`), {
     headers: montarHeaders(),
     cache: 'no-store',
   })

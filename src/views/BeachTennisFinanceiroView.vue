@@ -35,6 +35,18 @@ import {
   rotuloPerfilBeachTennis,
 } from '@/utils/beachTennis'
 import {
+  copiarTextoSeguro,
+  gerarMensagemPixFallback,
+  gerarTemplatePixPadrao,
+  montarPayloadPix,
+  mensagemPixContemValoresNaoResolvidos,
+  normalizarCobrancaWhatsappPix,
+  validarConfiguracaoPix,
+  validarPlaceholdersPix,
+  abrirWhatsappSeguro,
+} from '@/utils/pix'
+import PixConfigForm from '@/components/PixConfigForm.vue'
+import {
   carregarContextoGestaoEsportiva,
   contextoGestaoEsportiva,
   recarregarContextoGestaoEsportiva,
@@ -130,6 +142,7 @@ const acordoEditandoId = ref('')
 const inicializandoAcordoFormulario = ref(false)
 const mensalidadeManualAberta = ref(false)
 const mensalidadePagamentoAberta = ref(false)
+const configuracaoTermosAvancadosAberta = ref(false)
 const seletorAlunosAberto = ref(false)
 const seletorTurmasAberto = ref(false)
 const erro = ref('')
@@ -176,7 +189,6 @@ const mensalidadeManual = ref(criarMensalidadeManualPadrao())
 const pagamentoMensalidade = ref(criarPagamentoPadrao())
 const cobrancaWhatsapp = ref(criarCobrancaWhatsappPadrao())
 const apoioMensalidadesCarregado = ref(false)
-let janelaWhatsapp = null
 let botaoAberturaSeletorAlunos = null
 let botaoAberturaSeletorTurmas = null
 let temporizadorBuscaAcordos = null
@@ -213,6 +225,22 @@ const descricaoPagina = computed(() =>
   `Centralize acordos, mensalidades, cobranças no WhatsApp e a configuração de PIX para ${nomeModalidade.value}.`,
 )
 const nomeAcordoExemplo = computed(() => `Acordo ${nomeModalidade.value}`)
+const dadosExemploMensagemCobranca = computed(() => ({
+  nomeResponsavel: 'Mariana Lima',
+  nomeAcordo: 'Acordo Beach Tennis - Turma da Noite',
+  competencia: '2026-06',
+  valor: 189.9,
+  vencimento: '12/06/2026',
+  chavePix: 'chave-pix@exemplo.com',
+}))
+const placeholdersMensagemCobranca = [
+  { chave: '{nomeResponsavel}', descricao: 'Nome do responsável pelo pagamento' },
+  { chave: '{competencia}', descricao: 'Competência da cobrança' },
+  { chave: '{nomeAcordo}', descricao: 'Nome do acordo' },
+  { chave: '{valor}', descricao: 'Valor da mensalidade' },
+  { chave: '{vencimento}', descricao: 'Data de vencimento' },
+  { chave: '{chavePix}', descricao: 'Chave PIX configurada' },
+]
 const professoresDisponiveisAcordo = computed(() =>
   [...professoresAcordo.value]
     .map((item) => ({
@@ -366,16 +394,17 @@ const atrasosResumo = computed(() => {
 
   return calcularResumoLocal().atrasos.slice(0, 5)
 })
-const previewMensagemConfiguracao = computed(() =>
-  montarMensagemPreviewConfiguracao({
-    nomeResponsavel: 'Maria Souza',
-    nomeAcordo: nomeAcordoExemplo.value,
-    competencia: competenciaSelecionada.value,
-    valor: 250,
-    vencimento: '10/06/2026',
-    chavePix: configuracao.value.chavePix || '000.000.000-00',
-  }),
-)
+const validacaoPixConfiguracao = computed(() => {
+  const validacao = validarConfiguracaoPix(configuracao.value)
+  const validacaoTemplate = validarPlaceholdersPix(configuracao.value.templateMensagem)
+
+  return {
+    ativo: validacao.pixAtivo,
+    valido: validacao.valido && validacaoTemplate.valido,
+    mensagem: validacaoTemplate.valido ? validacao.mensagem : validacaoTemplate.mensagem,
+    camposInvalidos: validacao.camposInvalidos,
+  }
+})
 
 function criarPaginaVazia(size = 10) {
   return {
@@ -540,8 +569,7 @@ function criarConfiguracaoPadrao() {
     tipoChavePix: '',
     chavePix: '',
     nomeRecebedor: '',
-    templateMensagem:
-      'Olá, {nomeResponsavel}! A mensalidade referente a {competencia}, do acordo {nomeAcordo}, está no valor de {valor} e vence em {vencimento}. PIX: {chavePix}. Após o pagamento, por favor envie o comprovante. Obrigado!',
+    templateMensagem: gerarTemplatePixPadrao(),
     nomePlay: 'PLAY',
   }
 }
@@ -554,6 +582,32 @@ function criarCobrancaWhatsappPadrao() {
     orientacao: '',
     whatsappUrl: '',
     telefone: '',
+    popupBloqueado: false,
+  }
+}
+
+async function copiarTextoParaAreaTransferencia(texto, mensagemSucesso, mensagemErro) {
+  const valor = String(texto || '').trim()
+
+  if (!valor) {
+    erro.value = mensagemErro
+    return false
+  }
+
+  try {
+    const copiou = await copiarTextoSeguro(valor)
+
+    if (!copiou) {
+      throw new Error('Não foi possível copiar o texto.')
+    }
+
+    sucesso.value = mensagemSucesso
+    erro.value = ''
+    return true
+  } catch (exception) {
+    erro.value = mensagemErro
+    console.error(exception)
+    return false
   }
 }
 
@@ -1240,21 +1294,33 @@ function obterSugestaoModalidade(codigo) {
   return sugestoes[chave] || null
 }
 
-function aplicarSugestoesModalidade() {
+function restaurarTermosPadrao() {
   const sugestao = obterSugestaoModalidade(configuracao.value.modalidadeCodigo)
   if (!sugestao) {
-    erro.value = 'Selecione uma modalidade com sugestoes disponiveis antes de aplicar os termos.'
+    erro.value = 'Selecione uma modalidade com termos disponíveis antes de restaurar os termos.'
     return
   }
 
-  const confirmou = window.confirm('Aplicar os termos sugeridos para a modalidade selecionada?')
+  const confirmou = confirmarAcao(
+    'Restaurar as nomenclaturas e o template da mensagem para os padrões sugeridos? Os dados PIX não serão apagados.',
+  )
   if (!confirmou) {
     return
   }
 
+  const chavePixAtual = configuracao.value.chavePix
+  const tipoChavePixAtual = configuracao.value.tipoChavePix
+  const nomeRecebedorAtual = configuracao.value.nomeRecebedor
+  const nomePlayAtual = configuracao.value.nomePlay
+
   configuracao.value = {
     ...configuracao.value,
     ...sugestao,
+    chavePix: chavePixAtual,
+    tipoChavePix: tipoChavePixAtual,
+    nomeRecebedor: nomeRecebedorAtual,
+    nomePlay: nomePlayAtual,
+    templateMensagem: criarConfiguracaoPadrao().templateMensagem,
   }
 }
 
@@ -2087,8 +2153,6 @@ async function cobrarNoWhatsApp(mensalidade) {
     return
   }
 
-  janelaWhatsapp = abrirJanelaWhatsApp()
-
   try {
     processandoAcaoId.value = String(mensalidade.id)
     erro.value = ''
@@ -2096,38 +2160,85 @@ async function cobrarNoWhatsApp(mensalidade) {
 
     const resposta = await cobrarMensalidadeWhatsappBeachTennis(mensalidade.id)
 
-    const whatsappUrl = textoResposta(resposta, 'whatsappUrl', 'urlWhatsapp', 'linkWhatsapp')
-    const telefone = textoResposta(resposta, 'telefoneNormalizado', 'telefone')
-    const mensagem = textoResposta(resposta, 'mensagem', 'preview', 'mensagemPreview', 'textoMensagem') ||
-      montarMensagemPreviewLocal(mensalidade)
-    const orientacao =
-      textoResposta(resposta, 'orientacao', 'ajuda', 'mensagemOrientacao') ||
-      orientarCobrancaWhatsApp(mensalidade)
+    const telefoneLocal = extrairTelefoneResponsavel(mensalidade)
+    const mensagemLocal = montarMensagemPreviewLocal(mensalidade)
+    const cobrancaNormalizada = normalizarCobrancaWhatsappPix(resposta, {
+      mensagemFallback: mensagemLocal,
+      telefoneFallback: telefoneLocal,
+      orientacaoFallback: orientarCobrancaWhatsApp(mensalidade),
+    })
+    const {
+      mensagem,
+      whatsappUrl,
+      telefone,
+      podeAbrirWhatsApp: podeAbrirWhatsapp,
+      motivoBloqueio,
+      orientacao: orientacaoBase,
+    } = cobrancaNormalizada
+
+    if (!podeAbrirWhatsapp) {
+      cobrancaWhatsapp.value = {
+        aberta: true,
+        titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
+        mensagem,
+        orientacao: orientacaoBase,
+        whatsappUrl: '',
+        telefone,
+        popupBloqueado: false,
+      }
+      erro.value = orientacaoBase
+      return
+    }
+
+    if (!whatsappUrl) {
+      const orientacao = orientacaoBase || motivoBloqueio || 'Não foi possível preparar o link do WhatsApp para esta cobrança.'
+      cobrancaWhatsapp.value = {
+        aberta: true,
+        titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
+        mensagem,
+        orientacao,
+        whatsappUrl: '',
+        telefone,
+        popupBloqueado: false,
+      }
+      erro.value = orientacao
+      return
+    }
+
+    if (mensagemPixContemValoresNaoResolvidos(mensagem)) {
+      const orientacao = 'Não foi possível preparar a mensagem de cobrança. Revise a configuração de PIX.'
+      cobrancaWhatsapp.value = {
+        aberta: true,
+        titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
+        mensagem,
+        orientacao,
+        whatsappUrl: '',
+        telefone,
+        popupBloqueado: false,
+      }
+      erro.value = orientacao
+      return
+    }
+
+    const aberturaWhatsapp = abrirWhatsappSeguro(whatsappUrl)
 
     cobrancaWhatsapp.value = {
       aberta: true,
       titulo: `Cobrança de ${mensalidade.nomeAcordo}`,
       mensagem,
-      orientacao,
+      orientacao: aberturaWhatsapp.bloqueado
+        ? 'O navegador bloqueou a abertura automática. Use o link abaixo ou copie a mensagem.'
+        : orientacaoBase,
       whatsappUrl,
       telefone,
+      popupBloqueado: aberturaWhatsapp.bloqueado,
     }
 
-    if (whatsappUrl) {
-      if (janelaWhatsapp) {
-        janelaWhatsapp.location.href = whatsappUrl
-      } else {
-        window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
-      }
-    } else if (janelaWhatsapp) {
-      janelaWhatsapp.close()
-      janelaWhatsapp = null
+    if (aberturaWhatsapp.bloqueado) {
+      erro.value = ''
+      sucesso.value = ''
     }
   } catch (exception) {
-    if (janelaWhatsapp) {
-      janelaWhatsapp.close()
-      janelaWhatsapp = null
-    }
     erro.value = obterMensagemErro(exception, 'Não foi possível preparar a cobrança via WhatsApp.')
     cobrancaWhatsapp.value = {
       aberta: true,
@@ -2136,6 +2247,7 @@ async function cobrarNoWhatsApp(mensalidade) {
       orientacao: orientarCobrancaWhatsApp(mensalidade),
       whatsappUrl: '',
       telefone: '',
+      popupBloqueado: false,
     }
     console.error(exception)
   } finally {
@@ -2157,36 +2269,28 @@ function orientarCobrancaWhatsApp(mensalidade) {
 }
 
 function montarMensagemPreviewLocal(mensalidade) {
-  return montarMensagemPreviewConfiguracao({
+  return gerarMensagemPixFallback({
     nomeResponsavel: mensalidade.clienteResponsavelNome || mensalidade.responsavelNome || rotuloResponsavelPagamento,
     nomeAcordo: mensalidade.nomeAcordo || 'Acordo sem nome',
     competencia: mensalidade.competencia || competenciaSelecionada.value,
     valor: mensalidade.valor || 0,
     vencimento: mensalidade.vencimento ? formatarData(mensalidade.vencimento) : 'sem vencimento informado',
     chavePix: configuracao.value.chavePix || 'chave PIX não configurada',
+    nomeRecebedor: configuracao.value.nomeRecebedor || '',
+    empresa: nomeModalidade.value,
+    instrucoesPix: configuracao.value.instrucoesPix || '',
   })
-}
-
-function montarMensagemPreviewConfiguracao(dados = {}) {
-  const template = String(configuracao.value.templateMensagem || criarConfiguracaoPadrao().templateMensagem)
-  const substituicoes = {
-    '{nomeResponsavel}': dados.nomeResponsavel || '',
-    '{nomeAcordo}': dados.nomeAcordo || '',
-    '{competencia}': formatarCompetencia(dados.competencia || ''),
-    '{valor}': formatarMoeda(dados.valor || 0),
-    '{vencimento}': dados.vencimento || '',
-    '{chavePix}': dados.chavePix || '',
-  }
-
-  return Object.entries(substituicoes).reduce(
-    (texto, [chave, valor]) => texto.replaceAll(chave, String(valor || '')),
-    template,
-  )
 }
 
 async function salvarConfiguracao() {
   if (modoVisualizacaoEmpresa.value) {
     erro.value = 'Selecione uma empresa no seletor superior para operar esta tela.'
+    return
+  }
+
+  if (!validacaoPixConfiguracao.value.valido) {
+    sucesso.value = ''
+    erro.value = validacaoPixConfiguracao.value.mensagem
     return
   }
 
@@ -2208,10 +2312,7 @@ async function salvarConfiguracao() {
       termoAtividadePlural: String(configuracao.value.termoAtividadePlural || '').trim(),
       termoLocalSingular: String(configuracao.value.termoLocalSingular || '').trim(),
       termoLocalPlural: String(configuracao.value.termoLocalPlural || '').trim(),
-      chavePix: String(configuracao.value.chavePix || '').trim(),
-      tipoChavePix: String(configuracao.value.tipoChavePix || '').trim().toUpperCase(),
-      nomeRecebedorPix: String(configuracao.value.nomeRecebedor || '').trim(),
-      mensagemCobrancaTemplate: String(configuracao.value.templateMensagem || '').trim(),
+      ...montarPayloadPix(configuracao.value),
       nomePlay: String(configuracao.value.nomePlay || 'PLAY').trim() || 'PLAY',
     })
 
@@ -2224,6 +2325,29 @@ async function salvarConfiguracao() {
   } finally {
     salvandoConfiguracao.value = false
   }
+}
+
+async function copiarChavePixConfiguracao() {
+  const chavePix = String(configuracao.value.chavePix || '').trim()
+
+  if (!chavePix) {
+    erro.value = 'Cadastre uma chave PIX antes de copiar.'
+    return
+  }
+
+  await copiarTextoParaAreaTransferencia(
+    chavePix,
+    'Chave PIX copiada com sucesso.',
+    'Não foi possível copiar a chave PIX.',
+  )
+}
+
+async function copiarMensagemExemploConfiguracao() {
+  await copiarTextoParaAreaTransferencia(
+    previewMensagemConfiguracao.value,
+    'Mensagem de exemplo copiada com sucesso.',
+    'Não foi possível copiar a mensagem de exemplo.',
+  )
 }
 
 async function executarAcaoMensalidade(id, executar) {
@@ -2874,14 +2998,6 @@ function compararTexto(a, b) {
   return normalizarTexto(a).localeCompare(normalizarTexto(b), 'pt-BR')
 }
 
-function abrirJanelaWhatsApp() {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  return window.open('about:blank', '_blank', 'noopener,noreferrer')
-}
-
 function cobrarLimparPreview() {
   cobrancaWhatsapp.value = criarCobrancaWhatsappPadrao()
 }
@@ -2895,7 +3011,7 @@ function abrirWhatsappDoPreview() {
     return
   }
 
-  window.open(cobrancaWhatsapp.value.whatsappUrl, '_blank', 'noopener,noreferrer')
+  abrirWhatsappSeguro(cobrancaWhatsapp.value.whatsappUrl)
 }
 
 function extrairTelefoneResponsavel(mensalidade) {
@@ -3010,11 +3126,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarContextoEmpresa)
-
-  if (janelaWhatsapp) {
-    janelaWhatsapp.close()
-    janelaWhatsapp = null
-  }
 
   if (temporizadorBuscaAluno) {
     window.clearTimeout(temporizadorBuscaAluno)
@@ -3519,14 +3630,30 @@ onBeforeUnmount(() => {
 
           <p v-if="cobrancaWhatsapp.orientacao" class="aviso-whatsapp">{{ cobrancaWhatsapp.orientacao }}</p>
           <pre class="previsualizacao">{{ cobrancaWhatsapp.mensagem || 'Sem prévia disponível.' }}</pre>
+          <button class="botao secundario" type="button" :disabled="!cobrancaWhatsapp.mensagem" @click="copiarTextoParaAreaTransferencia(
+            cobrancaWhatsapp.mensagem,
+            'Mensagem copiada com sucesso.',
+            'Não foi possível copiar a mensagem.'
+          )">
+            Copiar mensagem
+          </button>
           <button
-            v-if="cobrancaWhatsapp.whatsappUrl"
+            v-if="cobrancaWhatsapp.whatsappUrl && !cobrancaWhatsapp.popupBloqueado"
             class="botao principal"
             type="button"
             @click="abrirWhatsappDoPreview"
           >
             Abrir WhatsApp novamente
           </button>
+          <a
+            v-else-if="cobrancaWhatsapp.whatsappUrl && cobrancaWhatsapp.popupBloqueado"
+            class="botao principal link-whatsapp"
+            :href="cobrancaWhatsapp.whatsappUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Abrir WhatsApp
+          </a>
         </section>
       </section>
 
@@ -3609,11 +3736,11 @@ onBeforeUnmount(() => {
           <div class="cabecalho-card">
             <div>
               <h2>Configuração e PIX</h2>
-              <p>Defina a identidade esportiva, a chave PIX, o nome do recebedor e o template da mensagem usada na cobrança.</p>
+              <p>Configure a chave PIX e mantenha a mensagem em montagem automática. Os termos da modalidade continuam abaixo.</p>
             </div>
             <div class="acoes-cabecalho">
-              <button class="botao secundario" type="button" @click="aplicarSugestoesModalidade">
-                Aplicar termos sugeridos
+              <button class="botao secundario" type="button" @click="restaurarTermosPadrao">
+                Restaurar termos padrão
               </button>
               <button class="botao principal" type="button" :disabled="salvandoConfiguracao" @click="salvarConfiguracao">
                 {{ salvandoConfiguracao ? 'Salvando...' : 'Salvar' }}
@@ -3621,116 +3748,100 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="campos">
-            <label>
-              Codigo da modalidade
-              <select v-model="configuracao.modalidadeCodigo">
-                <option value="">Selecione</option>
-                <option v-for="opcao in OPCOES_MODALIDADE" :key="opcao.valor" :value="opcao.valor">
-                  {{ opcao.rotulo }}
-                </option>
-              </select>
-            </label>
+          <PixConfigForm
+            v-model="configuracao"
+            :carregando="carregando || salvandoConfiguracao"
+            :salvando="salvandoConfiguracao"
+            :mostrar-acoes="false"
+            :previsao-servidor="previsaoServidorPix"
+            :carregando-previsao-servidor="carregandoPrevisaoServidorPix"
+            :previsao-servidor-disponivel="true"
+            @gerar-previsao-servidor="gerarPreviaServidorPix"
+          />
 
-            <label>
-              Nome exibido da modalidade
-              <input v-model="configuracao.nomeModalidade" type="text" placeholder="Ex: Futebol" />
-            </label>
+          <details
+            class="card secao-avancada"
+            :open="configuracaoTermosAvancadosAberta"
+            @toggle="configuracaoTermosAvancadosAberta = $event.target.open"
+          >
+            <summary class="secao-avancada-summary">
+              <div>
+                <p class="subtitulo-secao">Configuração detalhada</p>
+                <h2>Termos e nomenclaturas avançadas</h2>
+                <p>Campos menos usados para ajustar a linguagem da modalidade.</p>
+              </div>
+              <span class="botao secundario secao-avancada-acao">
+                {{ configuracaoTermosAvancadosAberta ? 'Recolher' : 'Expandir' }}
+              </span>
+            </summary>
 
-            <label>
-              Participante singular
-              <input v-model="configuracao.termoParticipanteSingular" type="text" placeholder="Ex: Atleta" />
-            </label>
+            <div class="campos">
+              <label>
+                Código da modalidade
+                <select v-model="configuracao.modalidadeCodigo">
+                  <option value="">Selecione</option>
+                  <option v-for="opcao in OPCOES_MODALIDADE" :key="opcao.valor" :value="opcao.valor">
+                    {{ opcao.rotulo }}
+                  </option>
+                </select>
+              </label>
 
-            <label>
-              Participantes plural
-              <input v-model="configuracao.termoParticipantePlural" type="text" placeholder="Ex: Atletas" />
-            </label>
+              <label>
+                Nome exibido da modalidade
+                <input v-model="configuracao.nomeModalidade" type="text" placeholder="Ex: Futebol" />
+              </label>
 
-            <label>
-              Responsavel singular
-              <input v-model="configuracao.termoResponsavelSingular" type="text" placeholder="Ex: Treinador" />
-            </label>
+              <label>
+                Participante singular
+                <input v-model="configuracao.termoParticipanteSingular" type="text" placeholder="Ex: Atleta" />
+              </label>
 
-            <label>
-              Responsaveis plural
-              <input v-model="configuracao.termoResponsavelPlural" type="text" placeholder="Ex: Treinadores" />
-            </label>
+              <label>
+                Participantes plural
+                <input v-model="configuracao.termoParticipantePlural" type="text" placeholder="Ex: Atletas" />
+              </label>
 
-            <label>
-              Grupo singular
-              <input v-model="configuracao.termoGrupoSingular" type="text" placeholder="Ex: Equipe" />
-            </label>
+              <label>
+                Responsável singular
+                <input v-model="configuracao.termoResponsavelSingular" type="text" placeholder="Ex: Treinador" />
+              </label>
 
-            <label>
-              Grupos plural
-              <input v-model="configuracao.termoGrupoPlural" type="text" placeholder="Ex: Equipes" />
-            </label>
+              <label>
+                Responsáveis plural
+                <input v-model="configuracao.termoResponsavelPlural" type="text" placeholder="Ex: Treinadores" />
+              </label>
 
-            <label>
-              Atividade singular
-              <input v-model="configuracao.termoAtividadeSingular" type="text" placeholder="Ex: Treino" />
-            </label>
+              <label>
+                Grupo singular
+                <input v-model="configuracao.termoGrupoSingular" type="text" placeholder="Ex: Equipe" />
+              </label>
 
-            <label>
-              Atividades plural
-              <input v-model="configuracao.termoAtividadePlural" type="text" placeholder="Ex: Treinos" />
-            </label>
+              <label>
+                Grupos plural
+                <input v-model="configuracao.termoGrupoPlural" type="text" placeholder="Ex: Equipes" />
+              </label>
 
-            <label>
-              Local singular
-              <input v-model="configuracao.termoLocalSingular" type="text" placeholder="Ex: Campo" />
-            </label>
+              <label>
+                Atividade singular
+                <input v-model="configuracao.termoAtividadeSingular" type="text" placeholder="Ex: Treino" />
+              </label>
 
-            <label>
-              Locais plural
-              <input v-model="configuracao.termoLocalPlural" type="text" placeholder="Ex: Campos" />
-            </label>
+              <label>
+                Atividades plural
+                <input v-model="configuracao.termoAtividadePlural" type="text" placeholder="Ex: Treinos" />
+              </label>
 
-            <label>
-              Tipo da chave PIX
-              <select v-model="configuracao.tipoChavePix">
-                <option v-for="opcao in TIPO_CHAVE_PIX" :key="opcao.valor" :value="opcao.valor">
-                  {{ opcao.rotulo }}
-                </option>
-              </select>
-            </label>
+              <label>
+                Local singular
+                <input v-model="configuracao.termoLocalSingular" type="text" placeholder="Ex: Campo" />
+              </label>
 
-            <label class="campo-grande">
-              Chave PIX
-              <input v-model="configuracao.chavePix" type="text" placeholder="Digite a chave PIX" />
-            </label>
-
-            <label>
-              Nome do recebedor
-              <input v-model="configuracao.nomeRecebedor" type="text" placeholder="Nome que aparecerá na cobrança" />
-            </label>
-
-            <label>
-              Nome do evento livre
-              <input v-model="configuracao.nomePlay" type="text" :placeholder="nomeEventoLivre" />
-            </label>
-
-            <label class="campo-grande">
-              Template da mensagem
-              <textarea
-                v-model="configuracao.templateMensagem"
-                rows="6"
-                placeholder="Use {nomeResponsavel}, {nomeAcordo}, {competencia}, {valor}, {vencimento} e {chavePix}"
-              ></textarea>
-            </label>
-          </div>
-        </section>
-
-        <section class="card preview-configuracao">
-          <div class="cabecalho-card">
-            <div>
-              <h2>Prévia da mensagem</h2>
-              <p>Exemplo com dados fictícios para validar o texto antes de salvar.</p>
+              <label>
+                Locais plural
+                <input v-model="configuracao.termoLocalPlural" type="text" placeholder="Ex: Campos" />
+              </label>
             </div>
-          </div>
-
-          <pre class="previsualizacao">{{ previewMensagemConfiguracao }}</pre>
+          </details>
         </section>
       </section>
     </section>
@@ -3958,6 +4069,22 @@ onBeforeUnmount(() => {
   gap: 14px;
 }
 
+.campo-com-erro input,
+.campo-com-erro select,
+.campo-com-erro textarea {
+  border-color: var(--app-danger);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-danger) 20%, transparent);
+}
+
+.subtitulo-secao {
+  margin: 0 0 6px;
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .campo-grande {
   grid-column: 1 / -1;
 }
@@ -4177,6 +4304,52 @@ textarea {
 
 .erro-inline {
   color: var(--app-danger);
+}
+
+.aviso-pix,
+.aviso-whatsapp {
+  margin: 12px 0 0;
+}
+
+.aviso-whatsapp {
+  color: var(--app-text-muted);
+}
+
+.botao-acao-campo {
+  justify-self: start;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.ajuda-mensagem-pix {
+  display: grid;
+  gap: 14px;
+}
+
+.lista-placeholders {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.placeholder-item {
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 6px;
+  background: var(--app-surface-strong);
+}
+
+.placeholder-item code {
+  font-weight: 900;
+  color: var(--app-primary);
+  white-space: nowrap;
+}
+
+.placeholder-item span {
+  color: var(--app-text-muted);
+  font-weight: 700;
 }
 
 .acoes-formulario,
@@ -4488,13 +4661,56 @@ th {
   margin-top: 12px;
 }
 
+.secao-avancada {
+  padding: 0;
+}
+
+.secao-avancada summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.secao-avancada summary::-webkit-details-marker {
+  display: none;
+}
+
+.secao-avancada summary h2 {
+  margin: 0;
+}
+
+.secao-avancada summary p {
+  margin: 0;
+  color: var(--app-text-muted);
+}
+
+.secao-avancada[open] summary {
+  border-bottom: 1px solid var(--app-border);
+}
+
+.secao-avancada .campos {
+  padding: 18px 22px 22px;
+}
+
+.secao-avancada-acao {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .aviso-whatsapp {
-  color: var(--app-warning);
+  color: var(--app-text-muted);
   font-weight: 700;
 }
 
 @media (max-width: 1080px) {
   .campos,
+  .lista-placeholders,
   .grade-selecao,
   .grade-resumo,
   .grade-acordos {
@@ -4505,6 +4721,11 @@ th {
   .cabecalho-card,
   .cabecalho-lista,
   .acoes-cabecalho {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .secao-avancada summary {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -4525,7 +4746,8 @@ th {
   .cabecalho-card,
   .cabecalho-lista,
   .acoes-cabecalho,
-  .acoes-formulario {
+  .acoes-formulario,
+  .secao-avancada summary {
     align-items: stretch;
   }
 
@@ -4593,6 +4815,12 @@ th {
 
   .acoes-tabela .botao {
     width: 100%;
+  }
+
+  .secao-avancada summary,
+  .secao-avancada .campos {
+    padding-left: 18px;
+    padding-right: 18px;
   }
 }
 
