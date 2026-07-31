@@ -1,17 +1,21 @@
-<script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+﻿<script setup>
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import ClienteForm from '@/components/ClienteForm.vue'
 import {
   EVENTO_EMPRESA_VISUALIZACAO,
   buscarClientes,
   cadastrarCliente,
   atualizarCliente,
+  atualizarAtivoCliente,
   excluirCliente,
   buscarStatusFinanceiroMinhaEmpresa,
   obterEmpresaIdOperacao,
   modoVisualizacaoEmpresaAtivo,
 } from '@/services/api'
 import {
+  OPCOES_NIVEL_BEACH_TENNIS,
+  OPCOES_PERFIL_BEACH_TENNIS,
   formatarDataBrasileira,
   rotuloCompeticaoBeachTennis,
   rotuloFrequenciaSemanalBeachTennis,
@@ -22,6 +26,8 @@ import {
 import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
+const route = useRoute()
+const router = useRouter()
 const clientes = ref([])
 const carregando = ref(true)
 const erro = ref('')
@@ -30,14 +36,20 @@ const clienteEditandoId = ref(null)
 const statusFinanceiro = ref(null)
 const modoVisualizacaoEmpresa = ref(modoVisualizacaoEmpresaAtivo())
 const paginacao = ref(criarPaginacaoInicial())
+const termoBusca = ref('')
+const filtroAtivo = ref('')
+const filtroNivel = ref('')
+const filtroPerfil = ref('')
 const opcoesTamanhoPagina = OPCOES_TAMANHO_PAGINA
 
 const cliente = ref(criarClienteInicial())
+const clienteOriginal = ref(criarClienteInicial())
 const paginaAtualHumana = computed(() => paginacao.value.page + 1)
 const podeIrParaAnterior = computed(() => !paginacao.value.first && paginacao.value.page > 0)
 const podeIrParaProxima = computed(() => !paginacao.value.last && paginaAtualHumana.value < paginacao.value.totalPages)
 const contextoEsportivo = computed(() => contextoGestaoEsportiva.value)
 const moduloEsportivoAtivo = computed(() => contextoEsportivo.value?.ativo === true)
+const rotaCadastroGeralAlunos = computed(() => route.name === 'beach-tennis-cadastro-alunos')
 const termoParticipanteSingular = computed(() => contextoEsportivo.value?.termoParticipanteSingular || 'Aluno')
 const termoParticipantePlural = computed(() => contextoEsportivo.value?.termoParticipantePlural || 'Alunos')
 const rotuloSingularCapitalizado = computed(() =>
@@ -49,14 +61,26 @@ const rotuloSingular = computed(() =>
 const rotuloPlural = computed(() =>
   moduloEsportivoAtivo.value ? termoParticipantePlural.value.toLocaleLowerCase('pt-BR') : 'clientes',
 )
-const tituloPagina = computed(() => (moduloEsportivoAtivo.value ? `Cadastro de ${rotuloPlural.value}` : 'Clientes'))
-const subtituloPagina = computed(() => (moduloEsportivoAtivo.value ? contextoEsportivo.value?.nomeModalidade || 'Gestão esportiva' : 'Relacionamento'))
-const descricaoPagina = computed(() =>
-  moduloEsportivoAtivo.value
-    ? `Cadastre e mantenha os dados dos ${rotuloPlural.value} da modalidade.`
-    : 'Consulte a base de clientes e cadastre novos contatos.',
+const tituloPagina = computed(() => {
+  if (rotaCadastroGeralAlunos.value) {
+    return moduloEsportivoAtivo.value ? termoParticipantePlural.value : 'Clientes'
+  }
+
+  return moduloEsportivoAtivo.value ? `Cadastro de ${rotuloPlural.value}` : 'Clientes'
+})
+const subtituloPagina = computed(() =>
+  moduloEsportivoAtivo.value ? contextoEsportivo.value?.nomeModalidade || 'Gestão esportiva' : 'Relacionamento',
 )
-const tituloLista = computed(() => (moduloEsportivoAtivo.value ? `${termoParticipantePlural.value} cadastrados` : 'Clientes cadastrados'))
+const descricaoPagina = computed(() =>
+  rotaCadastroGeralAlunos.value && moduloEsportivoAtivo.value
+    ? `Cadastre e mantenha os dados dos ${rotuloPlural.value} da modalidade.`
+    : moduloEsportivoAtivo.value
+      ? `Cadastre e mantenha os dados dos ${rotuloPlural.value} da modalidade.`
+      : 'Consulte a base de clientes e cadastre novos contatos.',
+)
+const tituloLista = computed(() =>
+  moduloEsportivoAtivo.value ? `${termoParticipantePlural.value} cadastrados` : 'Clientes cadastrados',
+)
 const descricaoLista = computed(() =>
   moduloEsportivoAtivo.value
     ? `Consulte e gerencie os ${rotuloPlural.value} cadastrados.`
@@ -64,6 +88,7 @@ const descricaoLista = computed(() =>
 )
 const textoCarregando = computed(() => `Carregando ${rotuloPlural.value}...`)
 const textoVazio = computed(() => `Nenhum ${rotuloSingular.value} encontrado.`)
+const textoBusca = computed(() => `Buscar ${rotuloPlural.value}`)
 const contadorLista = computed(() =>
   moduloEsportivoAtivo.value
     ? `${paginacao.value.totalElements} ${paginacao.value.totalElements === 1 ? rotuloSingular.value : rotuloPlural.value}`
@@ -80,6 +105,11 @@ const tituloSecaoEsportiva = computed(() =>
     ? 'Dados de Beach Tennis'
     : `Dados esportivos - ${contextoEsportivo.value?.nomeModalidade || 'Esporte'}`,
 )
+const formularioAlterado = computed(
+  () => JSON.stringify(normalizarClienteFormulario(cliente.value)) !== JSON.stringify(clienteOriginal.value),
+)
+const deveConfirmarSaida = computed(() => !modoVisualizacaoEmpresa.value && formularioAlterado.value)
+let temporizadorBusca = null
 
 function contextoOperacionalAtual() {
   return String(obterEmpresaIdOperacao() || 'GLOBAL')
@@ -97,7 +127,7 @@ function criarClienteInicial() {
     participaCompeticaoBeachTennis: false,
     frequenciaSemanalBeachTennis: '',
     planoBeachTennis: '',
-    observacaoBeachTennis: '',
+    observacoesBeachTennis: '',
   }
 }
 
@@ -113,7 +143,7 @@ function normalizarClienteFormulario(clienteItem = {}) {
     participaCompeticaoBeachTennis: clienteItem.participaCompeticaoBeachTennis === true,
     frequenciaSemanalBeachTennis: clienteItem.frequenciaSemanalBeachTennis || '',
     planoBeachTennis: clienteItem.planoBeachTennis || '',
-    observacaoBeachTennis: clienteItem.observacaoBeachTennis || '',
+    observacoesBeachTennis: clienteItem.observacoesBeachTennis || clienteItem.observacaoBeachTennis || '',
   }
 }
 
@@ -135,7 +165,7 @@ function montarPayloadCliente() {
       participaCompeticaoBeachTennis: cliente.value.participaCompeticaoBeachTennis === true,
       frequenciaSemanalBeachTennis: cliente.value.frequenciaSemanalBeachTennis || '',
       planoBeachTennis: cliente.value.planoBeachTennis || '',
-      observacaoBeachTennis: cliente.value.observacaoBeachTennis || '',
+      observacoesBeachTennis: cliente.value.observacoesBeachTennis || '',
     }
   }
 
@@ -155,7 +185,7 @@ function temDadosBeachTennis(clienteItem = {}) {
       clienteItem.participaCompeticaoBeachTennis === true ||
       clienteItem.frequenciaSemanalBeachTennis ||
       clienteItem.planoBeachTennis ||
-      clienteItem.observacaoBeachTennis,
+      clienteItem.observacoesBeachTennis || clienteItem.observacaoBeachTennis,
   )
 }
 
@@ -178,6 +208,94 @@ function listaResumoBeachTennis(clienteItem = {}) {
   return itens
 }
 
+function normalizarIdPositivo(valor) {
+  const texto = String(Array.isArray(valor) ? valor[0] : valor ?? '').trim()
+  if (!texto) {
+    return null
+  }
+
+  const numero = Number.parseInt(texto, 10)
+  return Number.isInteger(numero) && numero > 0 ? numero : null
+}
+
+function normalizarFiltroAtivo(valor) {
+  if (valor === '') {
+    return ''
+  }
+
+  return valor === true || valor === 'true'
+}
+
+function montarFiltrosClienteConsulta() {
+  const filtros = {
+    page: paginacao.value.page,
+    size: paginacao.value.size,
+  }
+
+  const busca = String(termoBusca.value || '').trim()
+  if (busca) {
+    filtros.busca = busca
+  }
+
+  if (filtroAtivo.value !== '') {
+    filtros.ativo = normalizarFiltroAtivo(filtroAtivo.value)
+  }
+
+  if (moduloEsportivoAtivo.value) {
+    const nivel = String(filtroNivel.value || '').trim()
+    const perfil = String(filtroPerfil.value || '').trim()
+
+    if (nivel) {
+      filtros.nivel = nivel
+    }
+
+    if (perfil) {
+      filtros.perfil = perfil
+    }
+  }
+
+  return filtros
+}
+
+function obterEstadoNavegacao() {
+  if (typeof window === 'undefined') {
+    return {}
+  }
+
+  return window.history && typeof window.history.state === 'object' && window.history.state !== null
+    ? window.history.state
+    : {}
+}
+
+function obterOrigemTurmaCadastro() {
+  const turmaId = normalizarIdPositivo(Array.isArray(route.query.turmaId) ? route.query.turmaId[0] : route.query.turmaId)
+  const estado = obterEstadoNavegacao()
+  const turmaIdEstado = normalizarIdPositivo(estado?.origemTurmaId || estado?.turmaId)
+
+  if (!turmaId || !turmaIdEstado || turmaId !== turmaIdEstado) {
+    return null
+  }
+
+  return {
+    turmaId,
+    estado,
+  }
+}
+
+function confirmarSaidaFormulario() {
+  return window.confirm('Existem alterações não salvas. Deseja sair mesmo assim?')
+}
+
+function registrarOrigemFormulario(clienteItem = null) {
+  clienteOriginal.value = clienteItem ? normalizarClienteFormulario(clienteItem) : criarClienteInicial()
+}
+
+function limparTemporizadorBusca() {
+  if (temporizadorBusca) {
+    clearTimeout(temporizadorBusca)
+    temporizadorBusca = null
+  }
+}
 async function carregarClientes() {
   const contextoInicial = contextoOperacionalAtual()
 
@@ -192,10 +310,7 @@ async function carregarClientes() {
       return
     }
 
-    const resposta = await buscarClientes({
-      page: paginacao.value.page,
-      size: paginacao.value.size,
-    })
+    const resposta = await buscarClientes(montarFiltrosClienteConsulta())
     const dadosPaginados = normalizarRespostaPaginada(resposta, paginacao.value)
 
     if (contextoOperacionalAtual() !== contextoInicial) {
@@ -231,7 +346,7 @@ async function carregarClientes() {
       return
     }
 
-    erro.value = 'Não foi possível carregar os clientes.'
+    erro.value = 'NÃ£o foi possÃ­vel carregar os clientes.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -249,7 +364,7 @@ async function salvarCliente() {
     mensagemSucessoCliente.value = ''
 
     if (!clienteEditandoId.value && empresaBloqueadaFinanceiro()) {
-      erro.value = 'Sua empresa está temporariamente bloqueada por pendência financeira. Acesse Faturas para regularizar.'
+      erro.value = 'Sua empresa estÃ¡ temporariamente bloqueada por pendÃªncia financeira. Acesse Faturas para regularizar.'
       return
     }
 
@@ -266,10 +381,27 @@ async function salvarCliente() {
         ? `${rotuloSingularCapitalizado.value} atualizado com sucesso.`
         : 'Cliente atualizado com sucesso.'
     } else {
-      await cadastrarCliente(dadosCliente)
+      const respostaCadastro = await cadastrarCliente(dadosCliente)
       mensagemSucessoCliente.value = moduloEsportivoAtivo.value
         ? `${rotuloSingularCapitalizado.value} cadastrado com sucesso.`
         : 'Cliente cadastrado com sucesso.'
+
+      const origemTurma = rotaCadastroGeralAlunos.value ? obterOrigemTurmaCadastro() : null
+
+      if (origemTurma && respostaCadastro?.id) {
+        await router.replace({
+          name: 'beach-tennis-turma-alunos',
+          query: {
+            turmaId: String(origemTurma.turmaId),
+            novoAlunoId: String(respostaCadastro.id),
+          },
+          state: {
+            origemTurmaId: origemTurma.turmaId,
+            novoAlunoCriado: respostaCadastro,
+          },
+        })
+        return
+      }
     }
 
     cancelarEdicaoCliente(false)
@@ -279,11 +411,11 @@ async function salvarCliente() {
       error,
       clienteEditandoId.value
         ? moduloEsportivoAtivo.value
-          ? `Não foi possível atualizar o ${rotuloSingular.value}.`
-          : 'Não foi possível atualizar o cliente.'
+          ? `NÃ£o foi possÃ­vel atualizar o ${rotuloSingular.value}.`
+          : 'NÃ£o foi possÃ­vel atualizar o cliente.'
         : moduloEsportivoAtivo.value
-          ? `Não foi possível cadastrar o ${rotuloSingular.value}.`
-          : 'Não foi possível cadastrar o cliente.',
+          ? `NÃ£o foi possÃ­vel cadastrar o ${rotuloSingular.value}.`
+          : 'NÃ£o foi possÃ­vel cadastrar o cliente.',
     )
     console.error(error)
   }
@@ -304,7 +436,7 @@ async function enviarClienteParaLixeira(clienteItem) {
     return
   }
 
-  const motivoInformado = window.prompt('Motivo da exclusão (opcional):', '')
+  const motivoInformado = window.prompt('Motivo da exclusÃ£o (opcional):', '')
 
   if (motivoInformado === null) {
     return
@@ -326,6 +458,26 @@ async function enviarClienteParaLixeira(clienteItem) {
     await carregarClientes()
   } catch (error) {
     erro.value = obterMensagemErroExclusao(error)
+    console.error(error)
+  }
+}
+
+async function alternarAtivoCliente(clienteItem) {
+  if (modoVisualizacaoEmpresa.value) {
+    return
+  }
+
+  try {
+    erro.value = ''
+    mensagemSucessoCliente.value = ''
+    const novoEstado = clienteItem?.ativo === true ? false : true
+    await atualizarAtivoCliente(clienteItem.id, novoEstado)
+    mensagemSucessoCliente.value = novoEstado
+      ? `${rotuloSingularCapitalizado.value} ativado com sucesso.`
+      : `${rotuloSingularCapitalizado.value} inativado com sucesso.`
+    await carregarClientes()
+  } catch (error) {
+    erro.value = obterMensagemErro(error, 'Não foi possível atualizar o status do registro.')
     console.error(error)
   }
 }
@@ -371,11 +523,13 @@ function editarCliente(clienteItem) {
   mensagemSucessoCliente.value = ''
   clienteEditandoId.value = clienteItem.id
   cliente.value = normalizarClienteFormulario(clienteItem)
+  clienteOriginal.value = normalizarClienteFormulario(clienteItem)
 }
 
 function cancelarEdicaoCliente(limparMensagens = true) {
   clienteEditandoId.value = null
   cliente.value = criarClienteInicial()
+  clienteOriginal.value = criarClienteInicial()
 
   if (limparMensagens) {
     mensagemSucessoCliente.value = ''
@@ -394,14 +548,14 @@ function obterMensagemErro(error, fallback) {
 
 function obterMensagemErroExclusao(error) {
   if (error?.status === 403) {
-    return 'Você não tem permissão para excluir este registro.'
+    return 'VocÃª nÃ£o tem permissÃ£o para excluir este registro.'
   }
 
   if (error?.status === 404) {
-    return 'Registro não encontrado ou já removido.'
+    return 'Registro nÃ£o encontrado ou jÃ¡ removido.'
   }
 
-  return obterMensagemErro(error, 'Não foi possível enviar o registro para a lixeira. Tente novamente.')
+  return obterMensagemErro(error, 'NÃ£o foi possÃ­vel enviar o registro para a lixeira. Tente novamente.')
 }
 
 async function irParaPaginaAnterior() {
@@ -437,16 +591,55 @@ async function atualizarModoVisualizacao() {
   carregarStatusFinanceiro()
 }
 
+watch(termoBusca, () => {
+  limparTemporizadorBusca()
+  temporizadorBusca = window.setTimeout(() => {
+    paginacao.value.page = 0
+    void carregarClientes()
+  }, 350)
+})
+
+watch([filtroAtivo, filtroNivel, filtroPerfil], () => {
+  paginacao.value.page = 0
+  void carregarClientes()
+})
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (!deveConfirmarSaida.value) {
+    next()
+    return
+  }
+
+  if (confirmarSaidaFormulario()) {
+    next()
+    return
+  }
+
+  next(false)
+})
+
 onMounted(() => {
   carregarContextoGestaoEsportiva()
   carregarClientes()
   carregarStatusFinanceiro()
   window.addEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
+  window.addEventListener('beforeunload', bloquearSaidaNavegador)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener(EVENTO_EMPRESA_VISUALIZACAO, atualizarModoVisualizacao)
+  window.removeEventListener('beforeunload', bloquearSaidaNavegador)
+  limparTemporizadorBusca()
 })
+
+function bloquearSaidaNavegador(evento) {
+  if (!deveConfirmarSaida.value) {
+    return
+  }
+
+  evento.preventDefault()
+  evento.returnValue = ''
+}
 </script>
 
 <template>
@@ -467,6 +660,44 @@ onBeforeUnmount(() => {
 
     <section v-if="modoVisualizacaoEmpresa" class="card aviso-visualizacao">
       <p>Selecione uma empresa no seletor superior para operar esta tela.</p>
+    </section>
+
+    <section v-if="!modoVisualizacaoEmpresa" class="card filtros-clientes">
+      <div class="filtros-clientes-grid">
+        <label class="campo-filtro campo-grande">
+          {{ textoBusca }}
+          <input v-model="termoBusca" type="search" placeholder="Nome, telefone ou e-mail" />
+        </label>
+
+        <label class="campo-filtro">
+          Status
+          <select v-model="filtroAtivo">
+            <option value="">Todos</option>
+            <option value="true">Ativos</option>
+            <option value="false">Inativos</option>
+          </select>
+        </label>
+
+        <label v-if="moduloEsportivoAtivo" class="campo-filtro">
+          Nível
+          <select v-model="filtroNivel">
+            <option value="">Todos</option>
+            <option v-for="opcao in OPCOES_NIVEL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+
+        <label v-if="moduloEsportivoAtivo" class="campo-filtro">
+          Perfil
+          <select v-model="filtroPerfil">
+            <option value="">Todos</option>
+            <option v-for="opcao in OPCOES_PERFIL_BEACH_TENNIS" :key="opcao.valor" :value="opcao.valor">
+              {{ opcao.rotulo }}
+            </option>
+          </select>
+        </label>
+      </div>
     </section>
 
     <ClienteForm
@@ -503,6 +734,11 @@ onBeforeUnmount(() => {
             <div>
               <h3>{{ clienteItem.nome }}</h3>
               <p class="email">{{ exibirValor(clienteItem.email) }}</p>
+              <p class="status-cliente">
+                <span :class="clienteItem.ativo === false ? 'chip status inativo' : 'chip status ativo'">
+                  {{ clienteItem.ativo === false ? 'Inativo' : 'Ativo' }}
+                </span>
+              </p>
             </div>
 
             <div v-if="temDadosBeachTennis(clienteItem)" class="chips-beach">
@@ -521,7 +757,7 @@ onBeforeUnmount(() => {
           <div class="detalhes">
             <p><strong>Telefone:</strong> {{ exibirValor(clienteItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(clienteItem.email) }}</p>
-            <p><strong>Observação:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
+            <p><strong>ObservaÃ§Ã£o:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
           </div>
 
           <details v-if="temDadosBeachTennis(clienteItem)" class="beach-resumo">
@@ -529,11 +765,11 @@ onBeforeUnmount(() => {
             <div class="beach-resumo-grid">
               <p><strong>Data de nascimento:</strong> {{ exibirValor(formatarDataBrasileira(clienteItem.dataNascimento || clienteItem.nascimento)) }}</p>
               <p><strong>Perfil:</strong> {{ exibirValor(rotuloPerfilBeachTennis(clienteItem.perfilBeachTennis)) }}</p>
-              <p><strong>Nível:</strong> {{ exibirValor(rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)) }}</p>
-              <p><strong>Participa de competição:</strong> {{ clienteItem.participaCompeticaoBeachTennis === true ? 'Sim' : 'Não' }}</p>
-              <p><strong>Frequência:</strong> {{ exibirValor(rotuloFrequenciaSemanalBeachTennis(clienteItem.frequenciaSemanalBeachTennis)) }}</p>
+              <p><strong>NÃ­vel:</strong> {{ exibirValor(rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)) }}</p>
+              <p><strong>Participa de competiÃ§Ã£o:</strong> {{ clienteItem.participaCompeticaoBeachTennis === true ? 'Sim' : 'NÃ£o' }}</p>
+              <p><strong>FrequÃªncia:</strong> {{ exibirValor(rotuloFrequenciaSemanalBeachTennis(clienteItem.frequenciaSemanalBeachTennis)) }}</p>
               <p><strong>Plano:</strong> {{ exibirValor(rotuloPlanoBeachTennis(clienteItem.planoBeachTennis)) }}</p>
-              <p><strong>Observações:</strong> {{ exibirValor(clienteItem.observacaoBeachTennis) }}</p>
+              <p><strong>ObservaÃ§Ãµes:</strong> {{ exibirValor(clienteItem.observacoesBeachTennis || clienteItem.observacaoBeachTennis) }}</p>
             </div>
             <ul v-if="listaResumoBeachTennis(clienteItem).length" class="lista-resumo">
               <li v-for="item in listaResumoBeachTennis(clienteItem)" :key="item">{{ item }}</li>
@@ -542,6 +778,9 @@ onBeforeUnmount(() => {
 
           <div v-if="!modoVisualizacaoEmpresa" class="acoes">
             <button class="botao secundario" @click="editarCliente(clienteItem)">Editar</button>
+            <button class="botao secundario" @click="alternarAtivoCliente(clienteItem)">
+              {{ clienteItem.ativo === false ? 'Ativar' : 'Inativar' }}
+            </button>
             <button class="botao perigo" @click="enviarClienteParaLixeira(clienteItem)">Excluir</button>
           </div>
         </article>
@@ -551,7 +790,7 @@ onBeforeUnmount(() => {
         <p class="resumo-paginacao">{{ resumoPaginacao }}</p>
 
         <label class="tamanho-pagina">
-          Registros por página
+          Registros por pÃ¡gina
           <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
             <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
               {{ opcao }}
@@ -564,7 +803,7 @@ onBeforeUnmount(() => {
             Anterior
           </button>
           <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
-            Próxima
+            PrÃ³xima
           </button>
         </div>
       </section>
@@ -637,6 +876,24 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
+.filtros-clientes {
+  padding: 18px 22px;
+}
+
+.filtros-clientes-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.campo-filtro {
+  display: grid;
+  gap: 6px;
+  color: #374151;
+  font-weight: 700;
+  font-size: 14px;
+}
+
 .lista-clientes {
   display: grid;
   grid-template-columns: repeat(2, minmax(280px, 1fr));
@@ -669,6 +926,10 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
+.status-cliente {
+  margin: 10px 0 0;
+}
+
 .chips-beach {
   display: flex;
   gap: 8px;
@@ -696,6 +957,21 @@ onBeforeUnmount(() => {
 .chip.competicao {
   background: #fef3c7;
   color: #b45309;
+}
+
+.chip.status {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chip.status.ativo {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.chip.status.inativo {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .detalhes p,
@@ -962,6 +1238,7 @@ onBeforeUnmount(() => {
     align-items: flex-start;
   }
 
+  .filtros-clientes-grid,
   .lista-clientes,
   :deep(.campos),
   .beach-resumo-grid {

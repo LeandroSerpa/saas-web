@@ -48,6 +48,7 @@ const temDadosBeachTennis = computed(() =>
       cliente.value?.participaCompeticaoBeachTennis === true ||
       cliente.value?.frequenciaSemanalBeachTennis ||
       cliente.value?.planoBeachTennis ||
+      cliente.value?.observacoesBeachTennis ||
       cliente.value?.observacaoBeachTennis,
   ),
 )
@@ -233,7 +234,7 @@ function solicitarSalvamento() {
         <label class="campo-grande">
           Observações esportivas
           <textarea
-            v-model="cliente.observacaoBeachTennis"
+            v-model="cliente.observacoesBeachTennis"
             rows="3"
             placeholder="Ex: Prefere treinos noturnos, participa de jogos livres aos sábados..."
           ></textarea>

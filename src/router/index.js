@@ -134,6 +134,12 @@ const router = createRouter({
       meta: rotasProtegidas,
     },
     {
+      path: '/beach-tennis/cadastro-alunos',
+      name: 'beach-tennis-cadastro-alunos',
+      component: ClientesView,
+      meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
+    },
+    {
       path: '/beach-tennis/turmas',
       name: 'beach-tennis-turmas',
       component: BeachTennisTurmasView,
