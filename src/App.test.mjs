@@ -41,6 +41,14 @@ describe('App menu estoque operacional', () => {
     assert.match(appSource, /const mostrarGrupoOperacao = computed\([\s\S]*podeGerenciarCatalogoOperacao\.value/)
     assert.doesNotMatch(appSource, /filter\([\s\S]{0,160}estoque/i)
   })
+
+  it('exibe o cadastro geral de alunos separado de alunos por turma no grupo esportivo', () => {
+    assert.match(appSource, /to="\/beach-tennis\/cadastro-alunos"/)
+    assert.match(appSource, /rotuloCadastroParticipanteMenu/)
+    assert.match(appSource, /to="\/beach-tennis\/alunos"/)
+    assert.equal(contarOcorrencias(appSource, /to="\/beach-tennis\/cadastro-alunos"/g), 1)
+    assert.equal(contarOcorrencias(appSource, /to="\/beach-tennis\/alunos"/g), 1)
+  })
 })
 
 describe('App cabecalho empresa operacional', () => {

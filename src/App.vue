@@ -89,6 +89,11 @@ const CABECALHOS_PADRAO = {
     titulo: 'Clientes',
     descricao: 'Gerencie os clientes cadastrados na sua operação.',
   },
+  'beach-tennis-cadastro-alunos': {
+    subtitulo: 'Gestão Esportiva',
+    titulo: 'Alunos',
+    descricao: 'Cadastre e mantenha os dados dos participantes da modalidade.',
+  },
   'beach-tennis-turmas': {
     subtitulo: 'Gestão Esportiva',
     titulo: 'Turmas',
@@ -301,6 +306,7 @@ const AJUDA_CONTEXTUAL_POR_ROTA = {
   dashboard: 'dashboard',
   agenda: 'agenda',
   clientes: 'clientes',
+  'beach-tennis-cadastro-alunos': 'clientes',
   'beach-tennis-turmas': 'gestao-esportiva',
   'beach-tennis-turma-alunos': 'clientes',
   'beach-tennis-alunos': 'clientes',
@@ -627,6 +633,14 @@ function criarCabecalhoPagina() {
 
 function obterCabecalhoPadrao(nomeRota) {
   if (contextoEsportivo.value?.ativo === true) {
+    if (nomeRota === 'beach-tennis-cadastro-alunos') {
+      return {
+        subtitulo: contextoEsportivo.value.nomeModalidade,
+        titulo: rotuloCadastroParticipanteMenu.value,
+        descricao: `Cadastre e mantenha os dados dos ${normalizarTextoCabecalho(contextoEsportivo.value.termoParticipantePlural)} da modalidade.`,
+      }
+    }
+
     if (nomeRota === 'clientes') {
       return {
         subtitulo: contextoEsportivo.value.nomeModalidade,
@@ -1582,6 +1596,9 @@ onBeforeUnmount(() => {
           </button>
           <div v-if="grupoMenuAberto('beachTennis')" class="submenu">
             <RouterLink to="/beach-tennis/turmas" @click="fecharMenuMobile">{{ rotuloGrupoEsportivoPlural }}</RouterLink>
+            <RouterLink to="/beach-tennis/cadastro-alunos" @click="fecharMenuMobile">
+              {{ rotuloCadastroParticipanteMenu }}
+            </RouterLink>
             <RouterLink to="/aulas-frequencia" @click="fecharMenuMobile">Aulas e frequência</RouterLink>
             <RouterLink to="/reposicoes" @click="fecharMenuMobile">Reposições</RouterLink>
             <RouterLink to="/relatorios/frequencia-esportiva" @click="fecharMenuMobile">

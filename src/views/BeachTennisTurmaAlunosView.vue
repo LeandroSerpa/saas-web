@@ -166,7 +166,7 @@ function valorRota(valor) {
 }
 
 function normalizarIdPositivo(valor) {
-  const texto = String(valor ?? '').trim()
+  const texto = String(Array.isArray(valor) ? valor[0] : valor ?? '').trim()
   if (!texto) {
     return null
   }
@@ -751,6 +751,41 @@ async function carregarVinculados(sequenciaAtual) {
   }
 }
 
+async function consumirNovoAlunoCriadoNaTurma() {
+  const novoAlunoId = normalizarIdPositivo(valorRota(route.query.novoAlunoId))
+  const estado = window.history && typeof window.history.state === 'object' && window.history.state !== null
+    ? window.history.state
+    : null
+  const novoAlunoCriado = estado?.novoAlunoCriado
+
+  if (!novoAlunoId || !novoAlunoCriado || !turmaIdSelecionada.value) {
+    return
+  }
+
+  const alunoNormalizado = normalizarClienteDisponivel(novoAlunoCriado)
+  if (!alunoNormalizado || alunoNormalizado.clienteId !== novoAlunoId) {
+    return
+  }
+
+  indexarAlunos([alunoNormalizado])
+
+  const idsAtuaisAtualizados = new Set(idsAtuais.value)
+  idsAtuaisAtualizados.add(alunoNormalizado.clienteId)
+  idsAtuais.value = idsAtuaisAtualizados
+  ordemTemporarios.value = atualizarOrdemTemporariosTurma(ordemTemporarios.value, [alunoNormalizado.clienteId], idsIniciais.value)
+  idsMarcadosDisponiveis.value = new Set()
+  idsMarcadosTurma.value = new Set()
+
+  const queryAtualizada = { turmaId: String(turmaIdSelecionada.value) }
+  if (route.query.novoAlunoId) {
+    await router.replace({
+      name: route.name || 'beach-tennis-turma-alunos',
+      params: route.params,
+      query: queryAtualizada,
+    })
+  }
+}
+
 async function carregarDisponiveis({ reiniciar = false } = {}) {
   if (!turmaIdSelecionada.value) {
     atualizarAlunosDisponiveis([])
@@ -894,6 +929,7 @@ async function recarregarTudo() {
       return
     }
 
+    await consumirNovoAlunoCriadoNaTurma()
     await carregarDisponiveis({ reiniciar: true })
   } catch (error) {
     if (sequenciaAtual !== sequenciaTela) {

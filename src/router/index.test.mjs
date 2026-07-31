@@ -35,4 +35,20 @@ describe('router catalogo operacional', () => {
     assert.match(trechoEntre("alias: ['/cardapio/:slug']", "path: '/cadastro'"), /meta:\s*rotasPublicas/)
     assert.doesNotMatch(trechoEntre("path: '/catalogo/:slug'", "path: '/cadastro'"), /requiresAuth:\s*true|requiresCatalogoOperacional/)
   })
+
+  it('expõe o cadastro geral de alunos com protecao administrativa e de gestao esportiva', () => {
+    const rotaNova = trechoEntre("path: '/beach-tennis/cadastro-alunos'", "path: '/beach-tennis/turmas'")
+
+    assert.match(rotaNova, /name:\s*'beach-tennis-cadastro-alunos'/)
+    assert.match(rotaNova, /component:\s*ClientesView/)
+    assert.match(rotaNova, /meta:\s*\{\s*\.\.\.rotasAdmin,\s*requiresGestaoEsportiva:\s*true\s*\}/)
+  })
+
+  it('preserva o redirect antigo de turma para alunos por turma', () => {
+    const redirectTurma = trechoEntre("path: '/beach-tennis/turmas/:turmaId/alunos'", "path: '/beach-tennis/financeiro'")
+
+    assert.match(redirectTurma, /redirect:\s*\(to\)\s*=>/)
+    assert.match(redirectTurma, /name:\s*'beach-tennis-alunos'/)
+    assert.match(redirectTurma, /turmaId:\s*String\(to\.params\.turmaId \|\| ''\)\.trim\(\)/)
+  })
 })
