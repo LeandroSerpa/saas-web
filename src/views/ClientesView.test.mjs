@@ -12,6 +12,17 @@ describe('ClientesView cadastro geral de alunos', () => {
     assert.match(source, /clienteItem\.observacoesBeachTennis \|\| clienteItem\.observacaoBeachTennis/)
   })
 
+  it('mantem os textos visiveis do fluxo de alunos em portugues correto', () => {
+    assert.match(source, /Observação:/)
+    assert.match(source, /Nível:/)
+    assert.match(source, /Participa de competição:/)
+    assert.match(source, /Frequência:/)
+    assert.match(source, /Observações:/)
+    assert.match(source, /Registros por página/)
+    assert.match(source, /Próxima/)
+    assert.doesNotMatch(source, /Ã[£§¡©ªóúí]|Â|�/)
+  })
+
   it('consulta filtros no servidor e atualiza status com endpoint dedicado', () => {
     assert.match(source, /buscarClientes\(montarFiltrosClienteConsulta\(\)\)/)
     assert.match(source, /async function alternarAtivoCliente\(clienteItem\)/)

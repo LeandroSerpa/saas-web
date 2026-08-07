@@ -25,6 +25,18 @@ describe('BeachTennisTurmaAlunosView retorno do novo aluno', () => {
     assert.doesNotMatch(trecho, /salvarClientesTurmaBeachTennis/)
   })
 
+  it('mantem os textos da tela de vinculacao de alunos sem mojibake', () => {
+    assert.match(source, /Disponíveis/)
+    assert.match(source, /Selecionar visíveis/)
+    assert.match(source, /Limpar seleção/)
+    assert.match(source, /Nível/)
+    assert.match(source, /Carregando .* disponíveis\.\.\./)
+    assert.match(source, /Nenhum .* disponível com estes filtros\./)
+    assert.match(source, /Desfazer alterações/)
+    assert.match(source, /Salvar alterações/)
+    assert.doesNotMatch(source, /Ã[£§¡©ªóúí]|Â|�/)
+  })
+
   it('continua exigindo confirmacao ao sair com alteracoes pendentes', () => {
     assert.match(source, /onBeforeRouteLeave\(\(_to, _from, next\) =>/)
     assert.match(source, /abrirConfirmacaoSaida\(next\)/)
