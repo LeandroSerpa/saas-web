@@ -30,6 +30,7 @@ import {
   ordenarAlunosNaTurma,
 } from '@/utils/beachTennisTurmaAlunos'
 import { formatarResumoCapacidadeTurma, interpretarCapacidadeTurma } from '@/utils/capacidadeTurma'
+import { criarNavegacaoCadastroAluno } from '@/utils/beachTennisCadastroAluno'
 
 const route = useRoute()
 const router = useRouter()
@@ -85,6 +86,7 @@ const MENSAGEM_ERRO_SALVAR = computed(
 
 const turmaIdSelecionada = computed(() => normalizarIdPositivo(valorRota(route.query.turmaId ?? route.params.turmaId)))
 const turmaSelecionada = computed(() => turmaIdSelecionada.value !== null)
+const turmaCarregadaSelecionada = computed(() => turma.value?.id === turmaIdSelecionada.value)
 const termoParticipanteSingularLower = computed(() => termoParticipanteSingular.value.toLocaleLowerCase('pt-BR'))
 const termoParticipantePluralLower = computed(() => termoParticipantePlural.value.toLocaleLowerCase('pt-BR'))
 const termoGrupoSingularLower = computed(() => termoGrupoSingular.value.toLocaleLowerCase('pt-BR'))
@@ -662,6 +664,19 @@ function selecionarTurmaParaGerenciar(item = {}) {
   })
 }
 
+function cadastrarNovoAluno() {
+  if (!turmaCarregadaSelecionada.value) {
+    return
+  }
+
+  const navegacao = criarNavegacaoCadastroAluno(turmaIdSelecionada.value)
+  if (!navegacao) {
+    return
+  }
+
+  router.push(navegacao)
+}
+
 async function limparTurmaSelecionadaRota() {
   limparMensagens()
   if (!turmaSelecionada.value && route.name === 'beach-tennis-alunos') {
@@ -1148,9 +1163,20 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <button class="botao principal" type="button" :disabled="!podeSalvar" @click="salvarAlteracoes">
-            {{ salvando ? 'Salvando...' : 'Salvar alterações' }}
-          </button>
+          <div class="acoes-cabecalho acoes-resumo">
+            <button
+              v-if="turmaCarregadaSelecionada"
+              class="botao secundario"
+              type="button"
+              :disabled="salvando"
+              @click="cadastrarNovoAluno"
+            >
+              Cadastrar novo aluno
+            </button>
+            <button class="botao principal" type="button" :disabled="!podeSalvar" @click="salvarAlteracoes">
+              {{ salvando ? 'Salvando...' : 'Salvar alterações' }}
+            </button>
+          </div>
         </div>
 
         <div class="metricas-capacidade">
@@ -1503,6 +1529,10 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.acoes-resumo {
+  justify-content: flex-end;
+}
+
 .botao {
   appearance: none;
   border: 1px solid transparent;
@@ -1852,6 +1882,14 @@ select {
   .rodape-coluna {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .acoes-resumo {
+    width: 100%;
+  }
+
+  .acoes-resumo .botao {
+    width: 100%;
   }
 
   .metricas-capacidade,
