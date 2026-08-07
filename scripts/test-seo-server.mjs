@@ -72,9 +72,14 @@ try {
     /https:\/\/gestao-hml\.nuvemmais\.com\.br\/catalogo\/neuciartes\?produto=42/,
   )
   assert.match(catalogo, /name="twitter:card" content="summary_large_image"/)
-  assert.match(catalogo, /rel="icon" href="\/favicon\.svg"/)
-  assert.match(catalogo, /rel="shortcut icon" href="\/favicon\.ico"/)
-  assert.match(catalogo, /rel="apple-touch-icon" href="\/apple-touch-icon\.png"/)
+  assert.match(
+    catalogo,
+    /<link\b(?=[^>]*rel="icon")(?=[^>]*type="image\/png")(?=[^>]*href="\/brand\/logo-nuvemmais-app\.png\?v=142-assets-final")[^>]*>/,
+  )
+  assert.match(
+    catalogo,
+    /<link\b(?=[^>]*rel="apple-touch-icon")(?=[^>]*href="\/brand\/logo-nuvemmais-app\.png\?v=142-assets-final")[^>]*>/,
+  )
 
   const consultasAposCatalogo = consultasSeo
   await buscarTexto(urlCatalogo, headersProxy)

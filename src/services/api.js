@@ -4456,6 +4456,16 @@ export async function atualizarCliente(id, cliente) {
   return tratarResposta(response)
 }
 
+export async function atualizarAtivoCliente(id, ativo) {
+  const response = await executarFetch(`${API_URL}/clientes/${id}/ativo`, {
+    method: 'PUT',
+    headers: montarHeaders(true),
+    body: JSON.stringify({ ativo }),
+  })
+
+  return tratarResposta(response)
+}
+
 export async function excluirCliente(id, motivo = '') {
   const response = await executarFetch(`${API_URL}/clientes/${id}${montarQueryString({ motivo })}`, {
     method: 'DELETE',
