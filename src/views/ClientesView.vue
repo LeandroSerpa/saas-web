@@ -346,7 +346,7 @@ async function carregarClientes() {
       return
     }
 
-    erro.value = 'NÃ£o foi possÃ­vel carregar os clientes.'
+    erro.value = 'Não foi possível carregar os clientes.'
     console.error(error)
   } finally {
     carregando.value = false
@@ -364,7 +364,7 @@ async function salvarCliente() {
     mensagemSucessoCliente.value = ''
 
     if (!clienteEditandoId.value && empresaBloqueadaFinanceiro()) {
-      erro.value = 'Sua empresa estÃ¡ temporariamente bloqueada por pendÃªncia financeira. Acesse Faturas para regularizar.'
+      erro.value = 'Sua empresa está temporariamente bloqueada por pendência financeira. Acesse Faturas para regularizar.'
       return
     }
 
@@ -411,11 +411,11 @@ async function salvarCliente() {
       error,
       clienteEditandoId.value
         ? moduloEsportivoAtivo.value
-          ? `NÃ£o foi possÃ­vel atualizar o ${rotuloSingular.value}.`
-          : 'NÃ£o foi possÃ­vel atualizar o cliente.'
+          ? `Não foi possível atualizar o ${rotuloSingular.value}.`
+          : 'Não foi possível atualizar o cliente.'
         : moduloEsportivoAtivo.value
-          ? `NÃ£o foi possÃ­vel cadastrar o ${rotuloSingular.value}.`
-          : 'NÃ£o foi possÃ­vel cadastrar o cliente.',
+          ? `Não foi possível cadastrar o ${rotuloSingular.value}.`
+          : 'Não foi possível cadastrar o cliente.',
     )
     console.error(error)
   }
@@ -436,7 +436,7 @@ async function enviarClienteParaLixeira(clienteItem) {
     return
   }
 
-  const motivoInformado = window.prompt('Motivo da exclusÃ£o (opcional):', '')
+  const motivoInformado = window.prompt('Motivo da exclusão (opcional):', '')
 
   if (motivoInformado === null) {
     return
@@ -548,14 +548,14 @@ function obterMensagemErro(error, fallback) {
 
 function obterMensagemErroExclusao(error) {
   if (error?.status === 403) {
-    return 'VocÃª nÃ£o tem permissÃ£o para excluir este registro.'
+    return 'Você não tem permissão para excluir este registro.'
   }
 
   if (error?.status === 404) {
-    return 'Registro nÃ£o encontrado ou jÃ¡ removido.'
+    return 'Registro não encontrado ou já removido.'
   }
 
-  return obterMensagemErro(error, 'NÃ£o foi possÃ­vel enviar o registro para a lixeira. Tente novamente.')
+  return obterMensagemErro(error, 'Não foi possível enviar o registro para a lixeira. Tente novamente.')
 }
 
 async function irParaPaginaAnterior() {
@@ -757,7 +757,7 @@ function bloquearSaidaNavegador(evento) {
           <div class="detalhes">
             <p><strong>Telefone:</strong> {{ exibirValor(clienteItem.telefone) }}</p>
             <p><strong>E-mail:</strong> {{ exibirValor(clienteItem.email) }}</p>
-            <p><strong>ObservaÃ§Ã£o:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
+            <p><strong>Observação:</strong> {{ exibirValor(clienteItem.observacao) }}</p>
           </div>
 
           <details v-if="temDadosBeachTennis(clienteItem)" class="beach-resumo">
@@ -765,11 +765,11 @@ function bloquearSaidaNavegador(evento) {
             <div class="beach-resumo-grid">
               <p><strong>Data de nascimento:</strong> {{ exibirValor(formatarDataBrasileira(clienteItem.dataNascimento || clienteItem.nascimento)) }}</p>
               <p><strong>Perfil:</strong> {{ exibirValor(rotuloPerfilBeachTennis(clienteItem.perfilBeachTennis)) }}</p>
-              <p><strong>NÃ­vel:</strong> {{ exibirValor(rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)) }}</p>
-              <p><strong>Participa de competiÃ§Ã£o:</strong> {{ clienteItem.participaCompeticaoBeachTennis === true ? 'Sim' : 'NÃ£o' }}</p>
-              <p><strong>FrequÃªncia:</strong> {{ exibirValor(rotuloFrequenciaSemanalBeachTennis(clienteItem.frequenciaSemanalBeachTennis)) }}</p>
+              <p><strong>Nível:</strong> {{ exibirValor(rotuloNivelBeachTennis(clienteItem.nivelBeachTennis)) }}</p>
+              <p><strong>Participa de competição:</strong> {{ clienteItem.participaCompeticaoBeachTennis === true ? 'Sim' : 'Não' }}</p>
+              <p><strong>Frequência:</strong> {{ exibirValor(rotuloFrequenciaSemanalBeachTennis(clienteItem.frequenciaSemanalBeachTennis)) }}</p>
               <p><strong>Plano:</strong> {{ exibirValor(rotuloPlanoBeachTennis(clienteItem.planoBeachTennis)) }}</p>
-              <p><strong>ObservaÃ§Ãµes:</strong> {{ exibirValor(clienteItem.observacoesBeachTennis || clienteItem.observacaoBeachTennis) }}</p>
+              <p><strong>Observações:</strong> {{ exibirValor(clienteItem.observacoesBeachTennis || clienteItem.observacaoBeachTennis) }}</p>
             </div>
             <ul v-if="listaResumoBeachTennis(clienteItem).length" class="lista-resumo">
               <li v-for="item in listaResumoBeachTennis(clienteItem)" :key="item">{{ item }}</li>
@@ -790,7 +790,7 @@ function bloquearSaidaNavegador(evento) {
         <p class="resumo-paginacao">{{ resumoPaginacao }}</p>
 
         <label class="tamanho-pagina">
-          Registros por pÃ¡gina
+          Registros por página
           <select v-model.number="paginacao.size" :disabled="carregando" @change="alterarTamanhoPagina">
             <option v-for="opcao in opcoesTamanhoPagina" :key="opcao" :value="opcao">
               {{ opcao }}
@@ -803,7 +803,7 @@ function bloquearSaidaNavegador(evento) {
             Anterior
           </button>
           <button class="botao secundario" :disabled="!podeIrParaProxima || carregando" @click="irParaProximaPagina">
-            PrÃ³xima
+            Próxima
           </button>
         </div>
       </section>
