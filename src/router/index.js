@@ -54,6 +54,7 @@ const EstoqueView = () => import('../views/EstoqueView.vue')
 import { caminhoEhRotaPublicaFrontend, carregarUsuarioSessao, limparSessaoAutenticacao } from '@/services/api'
 import { buscarMinhaEmpresa, obterEmpresaVisualizacao } from '@/services/api'
 import { carregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
+import { normalizarIdInteiroPositivo } from '@/utils/beachTennisCadastroAluno'
 import {
   avaliarAcessoCatalogoOperacional,
 } from '@/utils/acessoCatalogoOperacional'
@@ -154,13 +155,21 @@ const router = createRouter({
     {
       path: '/beach-tennis/turmas/:turmaId/alunos',
       name: 'beach-tennis-turma-alunos',
-      redirect: (to) => ({
-        path: '/beach-tennis/alunos',
-        query: {
-          ...to.query,
-          turmaId: String(to.params.turmaId || '').trim(),
-        },
-      }),
+      redirect: (to) => {
+        const turmaId = normalizarIdInteiroPositivo(to.params.turmaId)
+
+        if (!turmaId) {
+          return '/beach-tennis/turmas'
+        }
+
+        return {
+          path: '/beach-tennis/alunos',
+          query: {
+            ...to.query,
+            turmaId: String(turmaId),
+          },
+        }
+      },
       meta: { ...rotasAdmin, requiresGestaoEsportiva: true },
     },
     {

@@ -1,4 +1,8 @@
-function normalizarIdInteiroPositivo(valor) {
+export function normalizarIdInteiroPositivo(valor) {
+  if (Array.isArray(valor)) {
+    return null
+  }
+
   const texto = String(valor ?? '').trim()
   if (!/^\d+$/.test(texto)) {
     return null

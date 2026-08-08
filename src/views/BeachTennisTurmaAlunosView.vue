@@ -30,7 +30,10 @@ import {
   ordenarAlunosNaTurma,
 } from '@/utils/beachTennisTurmaAlunos'
 import { formatarResumoCapacidadeTurma, interpretarCapacidadeTurma } from '@/utils/capacidadeTurma'
-import { criarNavegacaoCadastroAluno } from '@/utils/beachTennisCadastroAluno'
+import {
+  criarNavegacaoCadastroAluno,
+  normalizarIdInteiroPositivo,
+} from '@/utils/beachTennisCadastroAluno'
 
 const route = useRoute()
 const router = useRouter()
@@ -84,7 +87,7 @@ const MENSAGEM_ERRO_SALVAR = computed(
     `Não foi possível salvar os ${termoParticipantePluralLower.value} selecionados. Atualize os dados da ${termoGrupoSingularLower.value} e tente novamente.`,
 )
 
-const turmaIdSelecionada = computed(() => normalizarIdPositivo(valorRota(route.query.turmaId)))
+const turmaIdSelecionada = computed(() => normalizarIdInteiroPositivo(route.query.turmaId))
 const turmaSelecionada = computed(() => turmaIdSelecionada.value !== null)
 const turmaCarregadaSelecionada = computed(() => turma.value?.id === turmaIdSelecionada.value)
 const termoParticipanteSingularLower = computed(() => termoParticipanteSingular.value.toLocaleLowerCase('pt-BR'))
@@ -163,27 +166,13 @@ const turmasFiltradas = computed(() => {
   )
 })
 
-function valorRota(valor) {
-  return Array.isArray(valor) ? valor[0] : valor
-}
-
-function normalizarIdPositivo(valor) {
-  const texto = String(Array.isArray(valor) ? valor[0] : valor ?? '').trim()
-  if (!texto) {
-    return null
-  }
-
-  const numero = Number.parseInt(texto, 10)
-  return Number.isInteger(numero) && numero > 0 ? numero : null
-}
-
 function normalizarIds(lista = []) {
   const itens = Array.isArray(lista) ? lista : [lista]
   const ids = []
   const vistos = new Set()
 
   for (const item of itens) {
-    const id = normalizarIdPositivo(item)
+    const id = normalizarIdInteiroPositivo(item)
     if (!id || vistos.has(id)) {
       continue
     }
@@ -265,14 +254,14 @@ function criarAlunoResumo(clienteId) {
 }
 
 function normalizarAlunoVinculado(item = {}) {
-  const clienteId = normalizarIdPositivo(item.clienteId)
+  const clienteId = normalizarIdInteiroPositivo(item.clienteId)
   if (!clienteId) {
     return null
   }
 
   return {
     clienteId,
-    vinculoId: normalizarIdPositivo(item.id),
+    vinculoId: normalizarIdInteiroPositivo(item.id),
     nome: String(item.clienteNome || item.nome || item.alunoNome || termoParticipanteSingular.value).trim() || termoParticipanteSingular.value,
     email: String(item.clienteEmail || item.email || '').trim(),
     telefone: String(item.clienteTelefone || item.telefone || '').trim(),
@@ -284,7 +273,7 @@ function normalizarAlunoVinculado(item = {}) {
 }
 
 function normalizarClienteDisponivel(item = {}) {
-  const clienteId = normalizarIdPositivo(item.id)
+  const clienteId = normalizarIdInteiroPositivo(item.id)
   if (!clienteId) {
     return null
   }
@@ -303,7 +292,7 @@ function normalizarClienteDisponivel(item = {}) {
 }
 
 function normalizarTurmaResumo(item = {}) {
-  const id = normalizarIdPositivo(item.id || item.turmaId)
+  const id = normalizarIdInteiroPositivo(item.id ?? item.turmaId)
   if (!id) {
     return null
   }
@@ -533,7 +522,7 @@ function invalidarRequisicoesPendentes() {
 }
 
 function alternarMarcadoDisponivel(aluno, marcado) {
-  const clienteId = normalizarIdPositivo(aluno?.clienteId)
+  const clienteId = normalizarIdInteiroPositivo(aluno?.clienteId)
   if (!clienteId) {
     return
   }
@@ -548,7 +537,7 @@ function alternarMarcadoDisponivel(aluno, marcado) {
 }
 
 function alternarMarcadoTurma(aluno, marcado) {
-  const clienteId = normalizarIdPositivo(aluno?.clienteId)
+  const clienteId = normalizarIdInteiroPositivo(aluno?.clienteId)
   if (!clienteId) {
     return
   }
@@ -652,7 +641,7 @@ function voltarParaTurmas() {
 }
 
 function selecionarTurmaParaGerenciar(item = {}) {
-  const id = normalizarIdPositivo(item.id || item)
+  const id = normalizarIdInteiroPositivo(item.id ?? item.turmaId ?? item)
   if (!id) {
     return
   }
@@ -770,7 +759,7 @@ async function consumirNovoAlunoCriadoNaTurma() {
   const estado = window.history && typeof window.history.state === 'object' && window.history.state !== null
     ? window.history.state
     : null
-  const novoAlunoId = normalizarIdPositivo(estado?.novoAlunoId || valorRota(route.query.novoAlunoId))
+  const novoAlunoId = normalizarIdInteiroPositivo(estado?.novoAlunoId ?? route.query.novoAlunoId)
   const novoAlunoCriado = estado?.novoAlunoCriado
 
   if (!novoAlunoId || !novoAlunoCriado || !turmaIdSelecionada.value) {

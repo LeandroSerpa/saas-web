@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { criarNavegacaoRetornoTurmaAlunos } from '../utils/beachTennisCadastroAluno.js'
+import {
+  criarNavegacaoRetornoTurmaAlunos,
+  normalizarIdInteiroPositivo,
+} from '../utils/beachTennisCadastroAluno.js'
 
 const routerSource = readFileSync(new URL('./index.js', import.meta.url), 'utf8')
 
@@ -19,6 +22,11 @@ function criarRouterTeste() {
     history: createMemoryHistory(),
     routes: [
       {
+        path: '/beach-tennis/turmas',
+        name: 'beach-tennis-turmas',
+        component: { template: '<div />' },
+      },
+      {
         path: '/beach-tennis/alunos',
         name: 'beach-tennis-alunos',
         component: { template: '<div />' },
@@ -26,13 +34,21 @@ function criarRouterTeste() {
       {
         path: '/beach-tennis/turmas/:turmaId/alunos',
         name: 'beach-tennis-turma-alunos',
-        redirect: (to) => ({
-          path: '/beach-tennis/alunos',
-          query: {
-            ...to.query,
-            turmaId: String(to.params.turmaId || '').trim(),
-          },
-        }),
+        redirect: (to) => {
+          const turmaId = normalizarIdInteiroPositivo(to.params.turmaId)
+
+          if (!turmaId) {
+            return '/beach-tennis/turmas'
+          }
+
+          return {
+            path: '/beach-tennis/alunos',
+            query: {
+              ...to.query,
+              turmaId,
+            },
+          }
+        },
       },
     ],
   })
@@ -85,7 +101,7 @@ describe('router catalogo operacional', () => {
     assert.doesNotMatch(trechoEntre("path: '/catalogo/:slug'", "path: '/cadastro'"), /requiresAuth:\s*true|requiresCatalogoOperacional/)
   })
 
-  it('expõe o cadastro geral de alunos com proteção administrativa e de gestão esportiva', () => {
+  it('expone o cadastro geral de alunos com protecao administrativa e de gestao esportiva', () => {
     const rotaNova = trechoEntre("path: '/beach-tennis/cadastro-alunos'", "path: '/beach-tennis/turmas'")
 
     assert.match(rotaNova, /name:\s*'beach-tennis-cadastro-alunos'/)
@@ -93,19 +109,20 @@ describe('router catalogo operacional', () => {
     assert.match(rotaNova, /meta:\s*\{\s*\.\.\.rotasAdmin,\s*requiresGestaoEsportiva:\s*true\s*\}/)
   })
 
-  it('preserva o redirect antigo de turma para alunos por turma', () => {
+  it('usa fallback seguro para o redirect legado quando o turmaId e invalido', () => {
     const redirectTurma = trechoEntre("path: '/beach-tennis/turmas/:turmaId/alunos'", "path: '/beach-tennis/financeiro'")
 
     assert.match(redirectTurma, /redirect:\s*\(to\)\s*=>/)
+    assert.match(redirectTurma, /normalizarIdInteiroPositivo\(to\.params\.turmaId\)/)
+    assert.match(redirectTurma, /return '\/beach-tennis\/turmas'/)
     assert.match(redirectTurma, /path:\s*'\/beach-tennis\/alunos'/)
-    assert.match(redirectTurma, /turmaId:\s*String\(to\.params\.turmaId \|\| ''\)\.trim\(\)/)
+    assert.match(redirectTurma, /turmaId:/)
   })
 
-  it('executa o retorno do cadastro com navegação real sem exigir params', async () => {
+  it('preserva o redirect valido de turma para alunos por turma', async () => {
     const router = criarRouterTeste()
-    const navegacao = criarNavegacaoRetornoTurmaAlunos(2, 53, { id: 53, nome: 'Aluno novo' })
 
-    await navegarSemWarning(router, navegacao, 'retorno canônico do cadastro')
+    await navegarSemWarning(router, '/beach-tennis/turmas/2/alunos', 'redirect legado valido')
 
     const rotaAtual = router.currentRoute.value
 
@@ -115,10 +132,26 @@ describe('router catalogo operacional', () => {
     assert.equal(rotaAtual.params.turmaId, undefined)
   })
 
-  it('preserva o redirect legado de turma por meio da rota canônica com query', async () => {
-    const router = criarRouterTeste()
+  it('manda IDs invalidos para a listagem de turmas sem query invalida', async () => {
+    for (const turmaId of ['abc', '2abc', '0', '-1']) {
+      const router = criarRouterTeste()
 
-    await navegarSemWarning(router, '/beach-tennis/turmas/2/alunos', 'redirect legado da turma')
+      await navegarSemWarning(router, `/beach-tennis/turmas/${turmaId}/alunos`, `redirect legado invalido ${turmaId}`)
+
+      const rotaAtual = router.currentRoute.value
+
+      assert.equal(rotaAtual.fullPath, '/beach-tennis/turmas')
+      assert.equal(rotaAtual.name, 'beach-tennis-turmas')
+      assert.deepEqual(rotaAtual.query, {})
+      assert.equal(rotaAtual.params.turmaId, undefined)
+    }
+  })
+
+  it('executa o retorno do cadastro com navegacao real sem exigir params', async () => {
+    const router = criarRouterTeste()
+    const navegacao = criarNavegacaoRetornoTurmaAlunos(2, 53, { id: 53, nome: 'Aluno novo' })
+
+    await navegarSemWarning(router, navegacao, 'retorno canonico do cadastro')
 
     const rotaAtual = router.currentRoute.value
 

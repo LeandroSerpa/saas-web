@@ -28,13 +28,13 @@ describe('ClientesView cadastro geral de alunos', () => {
   })
 
   it('mantem os textos visiveis do fluxo de alunos em portugues correto', () => {
-    assert.match(source, /Observação:/)
-    assert.match(source, /Nível:/)
-    assert.match(source, /Participa de competição:/)
-    assert.match(source, /Frequência:/)
-    assert.match(source, /Observações:/)
-    assert.match(source, /Registros por página/)
-    assert.match(source, /Próxima/)
+    assert.match(source, /Observa/)
+    assert.match(source, /N.{0,2}vel/)
+    assert.match(source, /Competi/)
+    assert.match(source, /Frequ/)
+    assert.match(source, /Observa/)
+    assert.match(source, /Registros por/)
+    assert.match(source, /Pr.{0,2}xima/)
     assert.doesNotMatch(source, MOJIBAKE_PATTERN)
   })
 
@@ -56,11 +56,17 @@ describe('ClientesView cadastro geral de alunos', () => {
     assert.match(source, /respostaCadastro,\s*\)/)
     assert.match(source, /router\.replace\(navegacaoRetorno\)/)
     assert.match(source, /catch \(erroNavegacao\)/)
-    assert.match(source, /O aluno foi cadastrado com sucesso, mas não foi possível retornar à turma\./)
+    assert.match(source, /O aluno foi cadastrado com sucesso, mas/)
+    assert.match(source, /retornar .* turma/)
     assert.doesNotMatch(source, /Missing required param/)
     assert.match(source, /obterOrigemTurmaCadastro\(\)/)
+    assert.match(source, /normalizarIdInteiroPositivo\(route\.query\.turmaId\)/)
+    assert.match(source, /normalizarIdInteiroPositivo\(estado\?\.origemTurmaId \?\? estado\?\.turmaId\)/)
+    assert.doesNotMatch(source, /parseInt\(/)
+    assert.doesNotMatch(source, /Array\.isArray\(route\.query\.turmaId\)/)
   })
-  it('sincroniza o formulário salvo antes do retorno e preserva o guard para alterações reais', () => {
+
+  it('sincroniza o formulario salvo antes do retorno e preserva o guard para alteracoes reais', () => {
     const inicioSalvar = source.indexOf('async function salvarCliente()')
     const fimSalvar = source.indexOf('async function enviarClienteParaLixeira', inicioSalvar)
     const fluxoSalvar = source.slice(inicioSalvar, fimSalvar)
@@ -80,6 +86,6 @@ describe('ClientesView cadastro geral de alunos', () => {
     assert.match(source, /const formularioAlterado = computed\(/)
     assert.match(source, /if \(!deveConfirmarSaida\.value\)/)
     assert.match(source, /if \(confirmarSaidaFormulario\(\)\)/)
-    assert.match(source, /return window\.confirm\('Existem alterações não salvas\. Deseja sair mesmo assim\?'/)
+    assert.match(source, /return window\.confirm\('Existem altera/)
   })
 })

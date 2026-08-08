@@ -24,7 +24,10 @@ import {
   rotuloPlanoBeachTennis,
 } from '@/utils/beachTennis'
 import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
-import { criarNavegacaoRetornoTurmaAlunos } from '@/utils/beachTennisCadastroAluno'
+import {
+  criarNavegacaoRetornoTurmaAlunos,
+  normalizarIdInteiroPositivo,
+} from '@/utils/beachTennisCadastroAluno'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const route = useRoute()
@@ -209,16 +212,6 @@ function listaResumoBeachTennis(clienteItem = {}) {
   return itens
 }
 
-function normalizarIdPositivo(valor) {
-  const texto = String(Array.isArray(valor) ? valor[0] : valor ?? '').trim()
-  if (!texto) {
-    return null
-  }
-
-  const numero = Number.parseInt(texto, 10)
-  return Number.isInteger(numero) && numero > 0 ? numero : null
-}
-
 function normalizarFiltroAtivo(valor) {
   if (valor === '') {
     return ''
@@ -269,9 +262,9 @@ function obterEstadoNavegacao() {
 }
 
 function obterOrigemTurmaCadastro() {
-  const turmaId = normalizarIdPositivo(Array.isArray(route.query.turmaId) ? route.query.turmaId[0] : route.query.turmaId)
+  const turmaId = normalizarIdInteiroPositivo(route.query.turmaId)
   const estado = obterEstadoNavegacao()
-  const turmaIdEstado = normalizarIdPositivo(estado?.origemTurmaId || estado?.turmaId)
+  const turmaIdEstado = normalizarIdInteiroPositivo(estado?.origemTurmaId ?? estado?.turmaId)
 
   if (!turmaId || !turmaIdEstado || turmaId !== turmaIdEstado) {
     return null
