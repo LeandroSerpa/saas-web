@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
+import { createMemoryHistory, createRouter } from 'vue-router'
+
+import { criarNavegacaoRetornoTurmaAlunos } from '../utils/beachTennisCadastroAluno.js'
 
 const routerSource = readFileSync(new URL('./index.js', import.meta.url), 'utf8')
 
@@ -9,6 +12,30 @@ function trechoEntre(inicio, fim) {
   const indiceFim = routerSource.indexOf(fim, indiceInicio + inicio.length)
 
   return routerSource.slice(indiceInicio, indiceFim > -1 ? indiceFim : undefined)
+}
+
+function criarRouterTeste() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      {
+        path: '/beach-tennis/alunos',
+        name: 'beach-tennis-alunos',
+        component: { template: '<div />' },
+      },
+      {
+        path: '/beach-tennis/turmas/:turmaId/alunos',
+        name: 'beach-tennis-turma-alunos',
+        redirect: (to) => ({
+          name: 'beach-tennis-alunos',
+          query: {
+            ...to.query,
+            turmaId: String(to.params.turmaId || '').trim(),
+          },
+        }),
+      },
+    ],
+  })
 }
 
 describe('router catalogo operacional', () => {
@@ -50,5 +77,14 @@ describe('router catalogo operacional', () => {
     assert.match(redirectTurma, /redirect:\s*\(to\)\s*=>/)
     assert.match(redirectTurma, /name:\s*'beach-tennis-alunos'/)
     assert.match(redirectTurma, /turmaId:\s*String\(to\.params\.turmaId \|\| ''\)\.trim\(\)/)
+  })
+
+  it('resolve o retorno do cadastro pelo router real sem exigir params', async () => {
+    const router = criarRouterTeste()
+    const navegacao = criarNavegacaoRetornoTurmaAlunos(2, 53, { id: 53, nome: 'Aluno novo' })
+    const resolucao = router.resolve(navegacao)
+
+    assert.equal(resolucao.fullPath, '/beach-tennis/alunos?turmaId=2')
+    assert.equal(resolucao.params.turmaId, undefined)
   })
 })

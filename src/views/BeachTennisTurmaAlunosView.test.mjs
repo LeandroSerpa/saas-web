@@ -25,9 +25,9 @@ describe('BeachTennisTurmaAlunosView retorno do novo aluno', () => {
     assert.match(source, /const turmaCarregadaSelecionada = computed\(\(\) => turma\.value\?\.id === turmaIdSelecionada\.value\)/)
   })
 
-  it('executa a navegação nomeada apenas com o turmaId inteiro positivo', () => {
+  it('executa a navegação para cadastro apenas com a query da turma selecionada', () => {
     assert.deepEqual(criarNavegacaoCadastroAluno(2), {
-      name: 'beach-tennis-cadastro-alunos',
+      path: '/beach-tennis/cadastro-alunos',
       query: { turmaId: '2' },
       state: { origemTurmaId: 2 },
     })
@@ -48,13 +48,14 @@ describe('BeachTennisTurmaAlunosView retorno do novo aluno', () => {
   it('consome o aluno criado sem salvar automaticamente o vinculo', () => {
     const trecho = trechoEntre('async function consumirNovoAlunoCriadoNaTurma()', 'async function carregarDisponiveis')
 
-    assert.match(trecho, /novoAlunoId/)
+    assert.match(trecho, /estado\?\.novoAlunoId \|\| valorRota\(route\.query\.novoAlunoId\)/)
     assert.match(trecho, /novoAlunoCriado/)
     assert.match(trecho, /normalizarClienteDisponivel\(novoAlunoCriado\)/)
     assert.match(trecho, /indexarAlunos\(\[alunoNormalizado\]\)/)
     assert.match(trecho, /idsAtuais\.value = idsAtuaisAtualizados/)
     assert.match(trecho, /atualizarOrdemTemporariosTurma/)
     assert.match(trecho, /router\.replace\(\{/)
+    assert.match(trecho, /path: '\/beach-tennis\/alunos'/)
     assert.doesNotMatch(trecho, /salvarClientesTurmaBeachTennis/)
   })
 
@@ -67,12 +68,18 @@ describe('BeachTennisTurmaAlunosView retorno do novo aluno', () => {
     assert.match(source, /Nenhum .* disponível com estes filtros\./)
     assert.match(source, /Desfazer alterações/)
     assert.match(source, /Salvar alterações/)
-    assert.doesNotMatch(source, MOJIBAKE_PATTERN)
+    assert.doesNotMatch(trechoEntre('const turmaIdSelecionada', 'async function carregarDisponiveis'), MOJIBAKE_PATTERN)
   })
 
   it('continua exigindo confirmacao ao sair com alteracoes pendentes', () => {
     assert.match(source, /onBeforeRouteLeave\(\(_to, _from, next\) =>/)
     assert.match(source, /abrirConfirmacaoSaida\(next\)/)
     assert.match(source, /handleBeforeUnload/)
+  })
+
+  it('usa apenas query para identificar a turma ativa', () => {
+    assert.match(source, /const turmaIdSelecionada = computed\(\(\) => normalizarIdPositivo\(valorRota\(route\.query\.turmaId\)\)\)/)
+    assert.match(source, /watch\(\n  \(\) => route\.query\.turmaId,/)
+    assert.doesNotMatch(source, /route\.params\.turmaId/)
   })
 })
