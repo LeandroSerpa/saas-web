@@ -84,7 +84,7 @@ const MENSAGEM_ERRO_SALVAR = computed(
     `Não foi possível salvar os ${termoParticipantePluralLower.value} selecionados. Atualize os dados da ${termoGrupoSingularLower.value} e tente novamente.`,
 )
 
-const turmaIdSelecionada = computed(() => normalizarIdPositivo(valorRota(route.query.turmaId ?? route.params.turmaId)))
+const turmaIdSelecionada = computed(() => normalizarIdPositivo(valorRota(route.query.turmaId)))
 const turmaSelecionada = computed(() => turmaIdSelecionada.value !== null)
 const turmaCarregadaSelecionada = computed(() => turma.value?.id === turmaIdSelecionada.value)
 const termoParticipanteSingularLower = computed(() => termoParticipanteSingular.value.toLocaleLowerCase('pt-BR'))
@@ -659,7 +659,7 @@ function selecionarTurmaParaGerenciar(item = {}) {
 
   limparMensagens()
   router.push({
-    name: 'beach-tennis-alunos',
+    path: '/beach-tennis/alunos',
     query: { turmaId: String(id) },
   })
 }
@@ -683,7 +683,7 @@ async function limparTurmaSelecionadaRota() {
     return
   }
 
-  await router.replace({ name: 'beach-tennis-alunos' })
+  await router.replace({ path: '/beach-tennis/alunos' })
 }
 
 function abrirConfirmacaoSaida(resolver) {
@@ -767,10 +767,10 @@ async function carregarVinculados(sequenciaAtual) {
 }
 
 async function consumirNovoAlunoCriadoNaTurma() {
-  const novoAlunoId = normalizarIdPositivo(valorRota(route.query.novoAlunoId))
   const estado = window.history && typeof window.history.state === 'object' && window.history.state !== null
     ? window.history.state
     : null
+  const novoAlunoId = normalizarIdPositivo(estado?.novoAlunoId || valorRota(route.query.novoAlunoId))
   const novoAlunoCriado = estado?.novoAlunoCriado
 
   if (!novoAlunoId || !novoAlunoCriado || !turmaIdSelecionada.value) {
@@ -792,10 +792,9 @@ async function consumirNovoAlunoCriadoNaTurma() {
   idsMarcadosTurma.value = new Set()
 
   const queryAtualizada = { turmaId: String(turmaIdSelecionada.value) }
-  if (route.query.novoAlunoId) {
+  if (route.query.novoAlunoId || estado?.novoAlunoId || estado?.novoAlunoCriado) {
     await router.replace({
-      name: route.name || 'beach-tennis-turma-alunos',
-      params: route.params,
+      path: '/beach-tennis/alunos',
       query: queryAtualizada,
     })
   }
@@ -1002,7 +1001,7 @@ onBeforeRouteLeave((_to, _from, next) => {
 })
 
 watch(
-  () => [route.params.turmaId, route.query.turmaId],
+  () => route.query.turmaId,
   async () => {
     await recarregarTudo()
   },

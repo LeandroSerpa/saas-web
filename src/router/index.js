@@ -158,7 +158,7 @@ const router = createRouter({
       path: '/beach-tennis/turmas/:turmaId/alunos',
       name: 'beach-tennis-turma-alunos',
       redirect: (to) => ({
-        name: 'beach-tennis-alunos',
+        path: '/beach-tennis/alunos',
         query: {
           ...to.query,
           turmaId: String(to.params.turmaId || '').trim(),

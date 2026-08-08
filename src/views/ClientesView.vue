@@ -24,6 +24,7 @@ import {
   rotuloPlanoBeachTennis,
 } from '@/utils/beachTennis'
 import { carregarContextoGestaoEsportiva, contextoGestaoEsportiva, recarregarContextoGestaoEsportiva } from '@/utils/gestaoEsportiva'
+import { criarNavegacaoRetornoTurmaAlunos } from '@/utils/beachTennisCadastroAluno'
 import { OPCOES_TAMANHO_PAGINA, criarPaginacaoInicial, normalizarRespostaPaginada } from '@/utils/paginacao'
 
 const route = useRoute()
@@ -389,18 +390,29 @@ async function salvarCliente() {
       const origemTurma = rotaCadastroGeralAlunos.value ? obterOrigemTurmaCadastro() : null
 
       if (origemTurma && respostaCadastro?.id) {
-        await router.replace({
-          name: 'beach-tennis-turma-alunos',
-          query: {
-            turmaId: String(origemTurma.turmaId),
-            novoAlunoId: String(respostaCadastro.id),
-          },
-          state: {
-            origemTurmaId: origemTurma.turmaId,
-            novoAlunoCriado: respostaCadastro,
-          },
-        })
-        return
+        const navegacaoRetorno = criarNavegacaoRetornoTurmaAlunos(
+          origemTurma.turmaId,
+          respostaCadastro.id,
+          respostaCadastro,
+        )
+
+        if (!navegacaoRetorno) {
+          erro.value = 'O aluno foi cadastrado com sucesso, mas não foi possível retornar à turma.'
+          cancelarEdicaoCliente(false)
+          await carregarClientes()
+          return
+        }
+
+        try {
+          await router.replace(navegacaoRetorno)
+          return
+        } catch (erroNavegacao) {
+          erro.value = 'O aluno foi cadastrado com sucesso, mas não foi possível retornar à turma.'
+          console.error(erroNavegacao)
+          cancelarEdicaoCliente(false)
+          await carregarClientes()
+          return
+        }
       }
     }
 
