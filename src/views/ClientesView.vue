@@ -383,6 +383,7 @@ async function salvarCliente() {
         : 'Cliente atualizado com sucesso.'
     } else {
       const respostaCadastro = await cadastrarCliente(dadosCliente)
+      registrarOrigemFormulario(cliente.value)
       mensagemSucessoCliente.value = moduloEsportivoAtivo.value
         ? `${rotuloSingularCapitalizado.value} cadastrado com sucesso.`
         : 'Cliente cadastrado com sucesso.'
